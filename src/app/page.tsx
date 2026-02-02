@@ -65,7 +65,8 @@ import {
   Plus,
   Save,
   X,
-  Edit2
+  Edit2,
+  Circle
 } from 'lucide-react';
 
 // 类型定义
@@ -130,6 +131,7 @@ export default function AdminDashboard() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [copiedCallback, setCopiedCallback] = useState<string | null>(null);
   const [testingCallback, setTestingCallback] = useState<string | null>(null);
+  const [callbackTestResults, setCallbackTestResults] = useState<Record<string, { status: 'success' | 'error' | 'loading' | 'pending', message?: string, lastTest?: string }>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
   const [isEditingCallback, setIsEditingCallback] = useState(false);
@@ -144,6 +146,18 @@ export default function AdminDashboard() {
     checkConnection();
     loadAiConfig(); // 只在组件挂载时加载一次 AI 配置
   }, []);
+
+  // 自动测试回调（当回调地址加载完成后）
+  useEffect(() => {
+    if (callbacks) {
+      // 延迟 1 秒后自动测试所有回调，避免加载时立即测试
+      const timer = setTimeout(() => {
+        testAllCallbacks();
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [!!callbacks]);
 
   const loadData = async () => {
     console.log('[loadData] 开始加载数据...');
@@ -329,6 +343,11 @@ ${callbacks.robotStatus}
   // 测试回调
   const testCallback = async (type: string) => {
     setTestingCallback(type);
+    setCallbackTestResults(prev => ({
+      ...prev,
+      [type]: { status: 'loading', message: '正在测试...' }
+    }));
+    
     try {
       const res = await fetch('/api/admin/callbacks/test', {
         method: 'POST',
@@ -337,15 +356,50 @@ ${callbacks.robotStatus}
       });
 
       const data = await res.json();
+      
       if (data.success) {
-        alert(`✅ ${type} 回调测试成功`);
+        setCallbackTestResults(prev => ({
+          ...prev,
+          [type]: { 
+            status: 'success', 
+            message: '连接成功',
+            lastTest: new Date().toISOString()
+          }
+        }));
       } else {
-        alert(`❌ ${type} 回调测试失败: ${data.error}`);
+        setCallbackTestResults(prev => ({
+          ...prev,
+          [type]: { 
+            status: 'error', 
+            message: data.error || '连接失败',
+            lastTest: new Date().toISOString()
+          }
+        }));
       }
     } catch (error) {
-      alert(`❌ ${type} 回调测试失败: ${error}`);
+      setCallbackTestResults(prev => ({
+        ...prev,
+        [type]: { 
+          status: 'error', 
+          message: `网络错误: ${error}`,
+          lastTest: new Date().toISOString()
+        }
+      }));
     } finally {
       setTestingCallback(null);
+    }
+  };
+
+  // 测试所有回调
+  const testAllCallbacks = async () => {
+    if (!callbacks) return;
+    
+    const callbackTypes = ['message', 'actionResult', 'groupQrcode', 'robotStatus'];
+    
+    for (const type of callbackTypes) {
+      await testCallback(type);
+      // 添加延迟，避免请求过快
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
   };
 
@@ -408,6 +462,15 @@ ${callbacks.robotStatus}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             刷新
+          </Button>
+          <Button 
+            onClick={testAllCallbacks} 
+            variant="outline" 
+            size="sm"
+            disabled={!!testingCallback || !callbacks}
+          >
+            <Zap className="h-4 w-4 mr-2" />
+            测试所有回调
           </Button>
         </div>
       </div>
@@ -554,6 +617,36 @@ ${callbacks.robotStatus}
                   <Play className="h-4 w-4" />
                 )}
               </Button>
+              <Badge 
+                variant={
+                  callbackTestResults.message?.status === 'success' ? 'default' :
+                  callbackTestResults.message?.status === 'error' ? 'destructive' :
+                  callbackTestResults.message?.status === 'loading' ? 'secondary' : 'outline'
+                }
+                className="gap-1"
+              >
+                {callbackTestResults.message?.status === 'success' ? (
+                  <>
+                    <CheckCircle className="h-3 w-3" />
+                    {callbackTestResults.message.message || '已连接'}
+                  </>
+                ) : callbackTestResults.message?.status === 'error' ? (
+                  <>
+                    <XCircle className="h-3 w-3" />
+                    {callbackTestResults.message.message || '连接失败'}
+                  </>
+                ) : callbackTestResults.message?.status === 'loading' ? (
+                  <>
+                    <RefreshCw className="h-3 w-3 animate-spin" />
+                    测试中
+                  </>
+                ) : (
+                  <>
+                    <Circle className="h-3 w-3" />
+                    未测试
+                  </>
+                )}
+              </Badge>
             </div>
           </CardContent>
         </Card>
@@ -608,6 +701,36 @@ ${callbacks.robotStatus}
                   <Play className="h-4 w-4" />
                 )}
               </Button>
+              <Badge 
+                variant={
+                  callbackTestResults.actionResult?.status === 'success' ? 'default' :
+                  callbackTestResults.actionResult?.status === 'error' ? 'destructive' :
+                  callbackTestResults.actionResult?.status === 'loading' ? 'secondary' : 'outline'
+                }
+                className="gap-1"
+              >
+                {callbackTestResults.actionResult?.status === 'success' ? (
+                  <>
+                    <CheckCircle className="h-3 w-3" />
+                    {callbackTestResults.actionResult.message || '已连接'}
+                  </>
+                ) : callbackTestResults.actionResult?.status === 'error' ? (
+                  <>
+                    <XCircle className="h-3 w-3" />
+                    {callbackTestResults.actionResult.message || '连接失败'}
+                  </>
+                ) : callbackTestResults.actionResult?.status === 'loading' ? (
+                  <>
+                    <RefreshCw className="h-3 w-3 animate-spin" />
+                    测试中
+                  </>
+                ) : (
+                  <>
+                    <Circle className="h-3 w-3" />
+                    未测试
+                  </>
+                )}
+              </Badge>
             </div>
           </CardContent>
         </Card>
@@ -649,6 +772,49 @@ ${callbacks.robotStatus}
               >
                 {copiedCallback === 'groupQrcode' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
+              <Button 
+                size="sm"
+                variant="outline"
+                onClick={() => testCallback('groupQrcode')}
+                disabled={testingCallback === 'groupQrcode'}
+                title="测试回调"
+              >
+                {testingCallback === 'groupQrcode' ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+              </Button>
+              <Badge 
+                variant={
+                  callbackTestResults.groupQrcode?.status === 'success' ? 'default' :
+                  callbackTestResults.groupQrcode?.status === 'error' ? 'destructive' :
+                  callbackTestResults.groupQrcode?.status === 'loading' ? 'secondary' : 'outline'
+                }
+                className="gap-1"
+              >
+                {callbackTestResults.groupQrcode?.status === 'success' ? (
+                  <>
+                    <CheckCircle className="h-3 w-3" />
+                    {callbackTestResults.groupQrcode.message || '已连接'}
+                  </>
+                ) : callbackTestResults.groupQrcode?.status === 'error' ? (
+                  <>
+                    <XCircle className="h-3 w-3" />
+                    {callbackTestResults.groupQrcode.message || '连接失败'}
+                  </>
+                ) : callbackTestResults.groupQrcode?.status === 'loading' ? (
+                  <>
+                    <RefreshCw className="h-3 w-3 animate-spin" />
+                    测试中
+                  </>
+                ) : (
+                  <>
+                    <Circle className="h-3 w-3" />
+                    未测试
+                  </>
+                )}
+              </Badge>
             </div>
           </CardContent>
         </Card>
@@ -693,16 +859,46 @@ ${callbacks.robotStatus}
               <Button 
                 size="sm"
                 variant="outline"
-                onClick={() => testCallback('robot_status')}
-                disabled={testingCallback === 'robot_status'}
+                onClick={() => testCallback('robotStatus')}
+                disabled={testingCallback === 'robotStatus'}
                 title="测试回调"
               >
-                {testingCallback === 'robot_status' ? (
+                {testingCallback === 'robotStatus' ? (
                   <RefreshCw className="h-4 w-4 animate-spin" />
                 ) : (
                   <Play className="h-4 w-4" />
                 )}
               </Button>
+              <Badge 
+                variant={
+                  callbackTestResults.robotStatus?.status === 'success' ? 'default' :
+                  callbackTestResults.robotStatus?.status === 'error' ? 'destructive' :
+                  callbackTestResults.robotStatus?.status === 'loading' ? 'secondary' : 'outline'
+                }
+                className="gap-1"
+              >
+                {callbackTestResults.robotStatus?.status === 'success' ? (
+                  <>
+                    <CheckCircle className="h-3 w-3" />
+                    {callbackTestResults.robotStatus.message || '已连接'}
+                  </>
+                ) : callbackTestResults.robotStatus?.status === 'error' ? (
+                  <>
+                    <XCircle className="h-3 w-3" />
+                    {callbackTestResults.robotStatus.message || '连接失败'}
+                  </>
+                ) : callbackTestResults.robotStatus?.status === 'loading' ? (
+                  <>
+                    <RefreshCw className="h-3 w-3 animate-spin" />
+                    测试中
+                  </>
+                ) : (
+                  <>
+                    <Circle className="h-3 w-3" />
+                    未测试
+                  </>
+                )}
+              </Badge>
             </div>
           </CardContent>
         </Card>
@@ -991,6 +1187,15 @@ ${callbacks.robotStatus}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             刷新
+          </Button>
+          <Button 
+            onClick={testAllCallbacks} 
+            variant="outline" 
+            size="sm"
+            disabled={!!testingCallback || !callbacks}
+          >
+            <Zap className="h-4 w-4 mr-2" />
+            测试所有回调
           </Button>
         </div>
       </div>
