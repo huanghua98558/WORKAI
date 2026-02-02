@@ -163,30 +163,18 @@ export default function AdminDashboard() {
   }, [!!callbacks]);
 
   const loadData = async () => {
-    console.log('[loadData] 开始加载数据...');
     setIsLoading(true);
     try {
-      console.log('[loadData] 发起 API 请求...');
       const [callbacksRes, monitorRes, alertRes, sessionsRes] = await Promise.all([
         fetch('/api/admin/callbacks'),
         fetch('/api/admin/monitor/summary'),
         fetch('/api/admin/alerts/stats'),
         fetch('/api/admin/sessions/active?limit=20')
       ]);
-
-      console.log('[loadData] callbacksRes.status:', callbacksRes.status);
-      console.log('[loadData] callbacksRes.ok:', callbacksRes.ok);
       
       if (callbacksRes.ok) {
         const data = await callbacksRes.json();
-        console.log('[回调解析] data:', data);
-        console.log('[回调解析] data.data:', data.data);
-        console.log('[回调解析] data.data.baseUrl:', data.data?.baseUrl);
         setCallbacks(data.data);
-      } else {
-        console.error('[loadData] callbacksRes.ok = false, status:', callbacksRes.status, callbacksRes.statusText);
-        const errorText = await callbacksRes.text();
-        console.error('[loadData] errorText:', errorText);
       }
 
       if (monitorRes.ok) {
@@ -204,7 +192,7 @@ export default function AdminDashboard() {
         setSessions(data.data || []);
       }
     } catch (error) {
-      console.error('加载数据失败:', error);
+      // 加载数据失败
     } finally {
       setIsLoading(false);
       setLastUpdateTime(new Date());
@@ -212,26 +200,17 @@ export default function AdminDashboard() {
   };
 
   const loadAiConfig = async () => {
-    if (isLoadingAiConfig) return; // 防止重复加载
+    if (isLoadingAiConfig) return;
     
     setIsLoadingAiConfig(true);
     try {
-      console.log('[AI配置] 父组件开始加载 AI 模型配置...');
       const res = await fetch('/api/admin/config', { cache: 'no-store' });
-      
-      console.log('[AI配置] 父组件 API 响应状态:', res.status, res.statusText);
       
       if (res.ok) {
         const data = await res.json();
-        console.log('[AI配置] 父组件 AI 配置加载成功');
         setAiConfig(data.data);
-      } else {
-        console.error('[AI配置] 父组件 API 返回错误状态:', res.status, res.statusText);
-        setAiConfig(null);
       }
     } catch (error) {
-      console.error('[AI配置] 父组件加载 AI 配置失败:', error);
-      setAiConfig(null);
     } finally {
       setIsLoadingAiConfig(false);
     }
@@ -248,7 +227,7 @@ export default function AdminDashboard() {
         setConnectionStatus('disconnected');
       }
     } catch (error) {
-      console.error('连接检查失败:', error);
+      
       setConnectionStatus('disconnected');
     }
   };
@@ -306,7 +285,7 @@ export default function AdminDashboard() {
         alert(`❌ 保存失败: ${errorData.error || '未知错误'}`);
       }
     } catch (error) {
-      console.error('保存回调地址失败:', error);
+      
       alert('❌ 保存失败，请检查网络连接');
     }
   };
@@ -1427,7 +1406,7 @@ ${callbacks.robotStatus}
           setCircuitBreakerStatus(data.data.isOpen);
         }
       } catch (error) {
-        console.error('加载告警数据失败:', error);
+        
       }
     };
 
@@ -1618,7 +1597,7 @@ ${callbacks.robotStatus}
           setReportData(data.data);
         }
       } catch (error) {
-        console.error('加载报告数据失败:', error);
+        
       }
     };
 
@@ -2275,7 +2254,7 @@ ${callbacks.robotStatus}
           setUsers(data.data || []);
         }
       } catch (error) {
-        console.error('加载用户列表失败:', error);
+        
       } finally {
         setIsLoading(false);
       }
@@ -2317,7 +2296,7 @@ ${callbacks.robotStatus}
           alert(`❌ 添加失败: ${errorMessage}`);
         }
       } catch (error) {
-        console.error('添加用户失败:', error);
+        
         alert('❌ 添加失败');
       } finally {
         setIsLoading(false);
@@ -2361,7 +2340,7 @@ ${callbacks.robotStatus}
           alert(`❌ 更新失败: ${errorMessage}`);
         }
       } catch (error) {
-        console.error('更新用户失败:', error);
+        
         alert('❌ 更新失败');
       } finally {
         setIsLoading(false);
@@ -2384,7 +2363,7 @@ ${callbacks.robotStatus}
           alert('❌ 删除失败');
         }
       } catch (error) {
-        console.error('删除用户失败:', error);
+        
         alert('❌ 删除失败');
       } finally {
         setIsLoading(false);
@@ -2668,7 +2647,7 @@ ${callbacks.robotStatus}
           }
         }
       } catch (error) {
-        console.error('加载告警配置失败:', error);
+        
       } finally {
         setIsLoading(false);
       }
@@ -2696,7 +2675,7 @@ ${callbacks.robotStatus}
           alert('❌ 保存失败');
         }
       } catch (error) {
-        console.error('保存配置失败:', error);
+        
         alert('❌ 保存失败');
       } finally {
         setIsLoading(false);
@@ -2728,7 +2707,7 @@ ${callbacks.robotStatus}
           alert(`❌ 添加失败: ${data.error || '未知错误'}`);
         }
       } catch (error) {
-        console.error('添加接收者失败:', error);
+        
         alert('❌ 添加失败');
       } finally {
         setIsLoading(false);
@@ -2747,7 +2726,7 @@ ${callbacks.robotStatus}
           loadAlertConfig();
         }
       } catch (error) {
-        console.error('更新接收者失败:', error);
+        
       }
     }, [loadAlertConfig]);
 
@@ -2766,7 +2745,7 @@ ${callbacks.robotStatus}
           alert('❌ 删除失败');
         }
       } catch (error) {
-        console.error('删除接收者失败:', error);
+        
         alert('❌ 删除失败');
       }
     }, [loadAlertConfig]);
@@ -3029,23 +3008,23 @@ ${callbacks.robotStatus}
       
     //   setIsLoadingAiConfig(true);
     //   try {
-    //     console.log('[AI配置] 开始加载 AI 模型配置...');
+    //     
     //     const res = await fetch('/api/admin/config', { cache: 'no-store' });
         
-    //     console.log('[AI配置] API 响应状态:', res.status, res.statusText);
+    //     
         
     //     if (res.ok) {
     //       const data = await res.json();
-    //       console.log('[AI配置] AI 配置加载成功:', data.data);
+    //       
     //       setAiConfig(data.data);
     //     } else {
-    //       console.error('[AI配置] API 返回错误状态:', res.status, res.statusText);
+    //       
     //       const errorText = await res.text();
-    //       console.error('[AI配置] 错误响应内容:', errorText);
+    //       
     //       setAiConfig(null); // 明确设置为 null
     //     }
     //   } catch (error) {
-    //     console.error('[AI配置] 加载 AI 配置失败:', error);
+    //     
     //     setAiConfig(null); // 明确设置为 null
     //   } finally {
     //     setIsLoadingAiConfig(false);
