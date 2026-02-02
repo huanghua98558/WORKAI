@@ -42,7 +42,11 @@ import {
   Settings,
   ChevronUp,
   ChevronDown,
-  MoreVertical
+  MoreVertical,
+  Building2,
+  Calendar,
+  MessageCircle,
+  User
 } from 'lucide-react';
 
 interface Robot {
@@ -57,6 +61,16 @@ interface Robot {
   lastError?: string;
   createdAt: string;
   updatedAt: string;
+  avatar?: string;
+  // WorkTool 详细信息
+  nickname?: string;
+  company?: string;
+  ipAddress?: string;
+  isValid?: boolean;
+  activatedAt?: string;
+  expiresAt?: string;
+  messageCallbackEnabled?: boolean;
+  extraData?: any;
 }
 
 interface RobotFormData {
@@ -109,6 +123,57 @@ export default function RobotManagement() {
   useEffect(() => {
     loadRobots();
   }, []);
+
+  // 计算运行时间
+  const calculateRunTime = (robot: Robot) => {
+    if (robot.activatedAt) {
+      const now = new Date();
+      const activatedTime = new Date(robot.activatedAt);
+      const diffMs = now.getTime() - activatedTime.getTime();
+      
+      const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      
+      if (days > 0) {
+        return `${days}天${hours}小时${minutes}分钟`;
+      } else if (hours > 0) {
+        return `${hours}小时${minutes}分钟`;
+      } else {
+        return `${minutes}分钟`;
+      }
+    }
+    return '未知';
+  };
+
+  // 计算剩余时间
+  const calculateRemainingTime = (robot: Robot) => {
+    if (robot.expiresAt) {
+      const now = new Date();
+      const expiresTime = new Date(robot.expiresAt);
+      const diffMs = expiresTime.getTime() - now.getTime();
+      
+      if (diffMs <= 0) {
+        return '已过期';
+      }
+      
+      const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      
+      if (days > 365) {
+        const years = Math.floor(days / 365);
+        return `${years}年`;
+      } else if (days > 0) {
+        return `${days}天`;
+      } else if (hours > 0) {
+        return `${hours}小时`;
+      } else {
+        return `${minutes}分钟`;
+      }
+    }
+    return '未知';
+  };
 
   // 打开创建对话框
   const handleCreate = () => {
@@ -629,6 +694,79 @@ export default function RobotManagement() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
+                {/* WorkTool 详细信息 */}
+                {(robot.nickname || robot.company || robot.ipAddress || robot.isValid !== undefined || robot.messageCallbackEnabled !== undefined) && (
+                  <div className="grid gap-3 md:grid-cols-2 p-4 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950 rounded-lg">
+                    {robot.nickname && (
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-muted-foreground">昵称</div>
+                          <div className="text-sm font-medium truncate">{robot.nickname}</div>
+                        </div>
+                      </div>
+                    )}
+                    {robot.company && (
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-muted-foreground">企业</div>
+                          <div className="text-sm font-medium truncate">{robot.company}</div>
+                        </div>
+                      </div>
+                    )}
+                    {robot.ipAddress && (
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-muted-foreground">IP 地址</div>
+                          <div className="text-sm font-mono truncate">{robot.ipAddress}</div>
+                        </div>
+                      </div>
+                    )}
+                    {robot.isValid !== undefined && (
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-muted-foreground">状态</div>
+                          <Badge variant={robot.isValid ? 'default' : 'destructive'} className="text-xs">
+                            {robot.isValid ? '有效' : '无效'}
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
+                    {robot.activatedAt && (
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-muted-foreground">已运行</div>
+                          <div className="text-sm font-medium">{calculateRunTime(robot)}</div>
+                        </div>
+                      </div>
+                    )}
+                    {robot.expiresAt && (
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-red-600 dark:text-red-400" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-muted-foreground">剩余时间</div>
+                          <div className="text-sm font-medium">{calculateRemainingTime(robot)}</div>
+                        </div>
+                      </div>
+                    )}
+                    {robot.messageCallbackEnabled !== undefined && (
+                      <div className="flex items-center gap-2">
+                        <MessageCircle className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-muted-foreground">消息回调</div>
+                          <Badge variant={robot.messageCallbackEnabled ? 'default' : 'secondary'} className="text-xs">
+                            {robot.messageCallbackEnabled ? '开启' : '关闭'}
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* API 配置 */}
                 <div className="grid gap-2 md:grid-cols-2">
                   <div>

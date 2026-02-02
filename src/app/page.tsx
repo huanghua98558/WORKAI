@@ -68,7 +68,8 @@ import {
   X,
   Edit2,
   Circle,
-  Mail
+  Mail,
+  Building2
 } from 'lucide-react';
 
 // 类型定义
@@ -93,6 +94,15 @@ interface Robot {
   createdAt: string;
   updatedAt: string;
   avatar?: string;
+  // WorkTool 详细信息
+  nickname?: string;
+  company?: string;
+  ipAddress?: string;
+  isValid?: boolean;
+  activatedAt?: string;
+  expiresAt?: string;
+  messageCallbackEnabled?: boolean;
+  extraData?: any;
 }
 
 interface MonitorData {
@@ -3761,6 +3771,57 @@ ${callbacks.robotStatus}
     );
   };
 
+  // 计算运行时间
+  const calculateRunTime = (robot: Robot) => {
+    if (robot.activatedAt) {
+      const now = new Date();
+      const activatedTime = new Date(robot.activatedAt);
+      const diffMs = now.getTime() - activatedTime.getTime();
+      
+      const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      
+      if (days > 0) {
+        return `${days}天${hours}小时${minutes}分钟`;
+      } else if (hours > 0) {
+        return `${hours}小时${minutes}分钟`;
+      } else {
+        return `${minutes}分钟`;
+      }
+    }
+    return '未知';
+  };
+
+  // 计算剩余时间
+  const calculateRemainingTime = (robot: Robot) => {
+    if (robot.expiresAt) {
+      const now = new Date();
+      const expiresTime = new Date(robot.expiresAt);
+      const diffMs = expiresTime.getTime() - now.getTime();
+      
+      if (diffMs <= 0) {
+        return '已过期';
+      }
+      
+      const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      
+      if (days > 365) {
+        const years = Math.floor(days / 365);
+        return `${years}年`;
+      } else if (days > 0) {
+        return `${days}天`;
+      } else if (hours > 0) {
+        return `${hours}小时`;
+      } else {
+        return `${minutes}分钟`;
+      }
+    }
+    return '未知';
+  };
+
   // 仪表盘主页面
   const DashboardTab = () => (
     <div className="space-y-6">
@@ -3798,12 +3859,50 @@ ${callbacks.robotStatus}
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-sm truncate">{robot.name}</h4>
                       <p className="text-xs text-muted-foreground font-mono truncate">{robot.robotId}</p>
+                      {robot.nickname && (
+                        <p className="text-xs text-indigo-600 dark:text-indigo-400 truncate">
+                          {robot.nickname}
+                        </p>
+                      )}
                     </div>
                     <Badge variant="default" className="gap-1 bg-green-500">
                       <CheckCircle className="h-3 w-3" />
                       在线
                     </Badge>
                   </div>
+                  
+                  {/* 详细信息 */}
+                  {(robot.company || robot.ipAddress || robot.activatedAt || robot.expiresAt) && (
+                    <div className="mt-3 pt-3 border-t space-y-2">
+                      {robot.company && (
+                        <div className="flex items-center gap-2 text-xs">
+                          <Building2 className="h-3 w-3 text-muted-foreground" />
+                          <span className="truncate">{robot.company}</span>
+                        </div>
+                      )}
+                      {robot.ipAddress && (
+                        <div className="flex items-center gap-2 text-xs">
+                          <Globe className="h-3 w-3 text-muted-foreground" />
+                          <span className="font-mono truncate">{robot.ipAddress}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between text-xs">
+                        {robot.activatedAt && (
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-3 w-3 text-muted-foreground" />
+                            <span>已运行 {calculateRunTime(robot)}</span>
+                          </div>
+                        )}
+                        {robot.expiresAt && (
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-3 w-3 text-muted-foreground" />
+                            <span>剩余 {calculateRemainingTime(robot)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
                   {robot.description && (
                     <p className="text-xs text-muted-foreground mt-3 line-clamp-2">{robot.description}</p>
                   )}
