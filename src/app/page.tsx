@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -56,7 +56,10 @@ import {
   UserCheck,
   BarChart,
   Sparkles,
-  Info
+  Info,
+  Sliders,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 
 // 类型定义
@@ -1316,7 +1319,7 @@ ${callbacks.robotStatus}
   };
 
   // AI 模型配置组件（提取到外部避免重新渲染）
-  const AiModelConfig = ({ 
+  const AiModelConfig = React.memo(({ 
     type, 
     title, 
     description, 
@@ -1335,13 +1338,25 @@ ${callbacks.robotStatus}
     const [customModel, setCustomModel] = useState('');
     const [customApiKey, setCustomApiKey] = useState('');
     const [customApiBase, setCustomApiBase] = useState('');
+    
+    // 高级配置参数
+    const [systemPrompt, setSystemPrompt] = useState('');
+    const [temperature, setTemperature] = useState(0.7);
+    const [maxTokens, setMaxTokens] = useState(1000);
+    const [topP, setTopP] = useState(1.0);
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    
     const [isSaving, setIsSaving] = useState(false);
+    
+    // 使用 ref 避免重复初始化
+    const initializedRef = useRef(false);
 
     const config = aiConfig?.ai?.[type as keyof typeof aiConfig.ai];
     const builtinModels = aiConfig?.ai?.builtinModels || [];
     
+    // 只在第一次加载或配置真正变化时初始化
     useEffect(() => {
-      if (config) {
+      if (!initializedRef.current && config) {
         setUseBuiltin(config.useBuiltin);
         setBuiltinModelId(config.builtinModelId || '');
         if (config.customModel) {
@@ -1350,8 +1365,60 @@ ${callbacks.robotStatus}
           setCustomApiKey(config.customModel.apiKey || '');
           setCustomApiBase(config.customModel.apiBase || '');
         }
+        // 加载高级配置
+        setSystemPrompt(config.systemPrompt || getDefaultSystemPrompt(type));
+        setTemperature(config.temperature ?? 0.7);
+        setMaxTokens(config.maxTokens ?? 1000);
+        setTopP(config.topP ?? 1.0);
+        initializedRef.current = true;
       }
-    }, [config]);
+    }, [config, type]);
+
+    // 获取默认的系统提示词
+    const getDefaultSystemPrompt = (type: string): string => {
+      const prompts: Record<string, string> = {
+        'intentRecognition': `你是一个企业微信群消息意图识别专家。请分析用户消息并返回意图类型。
+
+意图类型定义：
+- chat: 闲聊、问候、日常对话
+- service: 服务咨询、问题求助
+- help: 帮助请求、使用说明
+- risk: 风险内容、敏感话题、恶意攻击
+- spam: 垃圾信息、广告、刷屏
+- welcome: 欢迎语、新人打招呼
+- admin: 管理指令、系统配置
+
+请以 JSON 格式返回结果，包含以下字段：
+{
+  "intent": "意图类型",
+  "needReply": true/false,
+  "needHuman": true/false,
+  "confidence": 0.0-1.0,
+  "reason": "判断理由"
+}`,
+        'serviceReply': `你是一个企业微信群服务助手。请根据用户问题和意图，生成专业、友好的回复。
+
+回复要求：
+1. 语言简洁明了，控制在 200 字以内
+2. 语气亲切友好，使用表情符号增加亲和力
+3. 避免敏感词汇和不当内容
+4. 如果需要人工介入，明确提示`,
+        'chat': `你是一个友好的聊天伙伴。请以轻松、自然的方式回应用户的闲聊内容。
+
+要求：
+1. 回复简短，控制在 100 字以内
+2. 语气轻松活泼，可以使用表情符号
+3. 保持对话连贯性`,
+        'report': `你是一个数据分析师。请根据以下数据生成日终总结报告。
+
+报告要求：
+1. 包含关键指标统计（消息数、回复数、人工介入数等）
+2. 识别问题和风险
+3. 提出改进建议
+4. 语言简洁专业`
+      };
+      return prompts[type] || '';
+    };
 
     // 获取当前类型的分类关键词
     const getCategoryKeyword = (type: string) => {
@@ -1382,11 +1449,20 @@ ${callbacks.robotStatus}
             model: customModel,
             apiKey: customApiKey,
             apiBase: customApiBase
-          }
+          },
+          // 高级配置
+          systemPrompt,
+          temperature,
+          maxTokens,
+          topP
         });
       } finally {
         setIsSaving(false);
       }
+    };
+
+    const handleResetPrompt = () => {
+      setSystemPrompt(getDefaultSystemPrompt(type));
     };
 
     return (
@@ -1548,6 +1624,119 @@ ${callbacks.robotStatus}
             </div>
           )}
 
+          {/* 高级配置 */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Sliders className="h-4 w-4" />
+                高级配置
+              </label>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+              >
+                {showAdvanced ? '收起' : '展开'}
+                {showAdvanced ? (
+                  <ChevronUp className="h-4 w-4 ml-1" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 ml-1" />
+                )}
+              </Button>
+            </div>
+
+            {showAdvanced && (
+              <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                {/* 系统提示词 */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">系统提示词（角色设定）</label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleResetPrompt}
+                      className="h-7 text-xs"
+                    >
+                      恢复默认
+                    </Button>
+                  </div>
+                  <textarea
+                    value={systemPrompt}
+                    onChange={(e) => setSystemPrompt(e.target.value)}
+                    placeholder="输入 AI 的角色设定和指令..."
+                    className="w-full min-h-[120px] px-3 py-2 border rounded-md text-sm resize-vertical"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    定义 AI 的角色、行为规则和回复风格
+                  </p>
+                </div>
+
+                {/* 参数调整 */}
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* 温度 */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <label>温度（创造性）</label>
+                      <span className="font-mono text-xs">{temperature}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="2"
+                      step="0.1"
+                      value={temperature}
+                      onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      值越高，回复越有创造性（0-2）
+                    </p>
+                  </div>
+
+                  {/* Top P */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <label>Top P（采样）</label>
+                      <span className="font-mono text-xs">{topP}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={topP}
+                      onChange={(e) => setTopP(parseFloat(e.target.value))}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      控制回复多样性（0-1）
+                    </p>
+                  </div>
+
+                  {/* 最大 Tokens */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <label>最大 Tokens</label>
+                      <span className="font-mono text-xs">{maxTokens}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="100"
+                      max="8000"
+                      step="100"
+                      value={maxTokens}
+                      onChange={(e) => setMaxTokens(parseInt(e.target.value))}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      限制回复长度（100-8000）
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <Button onClick={handleSave} disabled={isSaving} className="w-full">
             {isSaving ? (
               <>
@@ -1561,7 +1750,7 @@ ${callbacks.robotStatus}
         </CardContent>
       </Card>
     );
-  };
+  });
 
   // 系统设置页面
   const SettingsTab = () => {
