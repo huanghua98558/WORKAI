@@ -232,6 +232,63 @@ class MonitorService {
   }
 
   /**
+   * 记录机器人指标
+   */
+  async recordRobotMetric(robotId, metric, value, tags = {}) {
+    const redis = await this.getRedis();
+    const key = `metrics:robot:${robotId}:${metric}:${formatDate()}`;
+    await redis.lpush(key, JSON.stringify({
+      value,
+      tags,
+      timestamp: Date.now()
+    }));
+    await redis.expire(key, 30 * 24 * 3600); // 保留30天
+  }
+
+  /**
+   * 获取机器人指标
+   */
+  async getRobotMetrics(robotId, metric, date = formatDate()) {
+    const redis = await this.getRedis();
+    const key = `metrics:robot:${robotId}:${metric}:${date}`;
+    const records = await redis.lrange(key, 0, -1);
+    
+    return records.map(r => JSON.parse(r));
+  }
+
+  /**
+   * 获取所有机器人状态摘要
+   */
+  async getRobotsSummary() {
+    const redis = await this.getRedis();
+    const today = formatDate();
+    
+    // 获取所有机器人的消息处理统计
+    const pattern = `metrics:robot:*:messages:${today}`;
+    const keys = await redis.keys(pattern);
+    
+    const robotsStats = [];
+    
+    for (const key of keys) {
+      const robotId = key.split(':')[2];
+      const records = await redis.lrange(key, 0, -1);
+      
+      // 统计各种指标
+      const messagesProcessed = records.length;
+      const errors = records.filter(r => r.tags?.error).length;
+      
+      robotsStats.push({
+        robotId,
+        messagesProcessed,
+        errors,
+        successRate: messagesProcessed > 0 ? ((messagesProcessed - errors) / messagesProcessed * 100).toFixed(2) : 100
+      });
+    }
+    
+    return robotsStats;
+  }
+
+  /**
    * 清理过期指标
    */
   async cleanupOldMetrics(daysToKeep = 30) {
@@ -244,7 +301,8 @@ class MonitorService {
       'metrics:system:*',
       'metrics:group:*',
       'metrics:user:*',
-      'metrics:ai:*'
+      'metrics:ai:*',
+      'metrics:robot:*'
     ];
 
     let deletedCount = 0;

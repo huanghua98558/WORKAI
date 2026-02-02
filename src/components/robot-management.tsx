@@ -1,0 +1,748 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Switch } from '@/components/ui/switch';
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Bot,
+  Plus,
+  Edit2,
+  Trash2,
+  RefreshCw,
+  CheckCircle,
+  XCircle,
+  Play,
+  ShieldCheck,
+  Clock,
+  AlertTriangle,
+  Info,
+  Save,
+  X,
+  Server,
+  Activity,
+  BarChart3,
+  Zap,
+  Globe,
+  Copy,
+  TestTube,
+  Settings,
+  ChevronUp,
+  ChevronDown,
+  MoreVertical
+} from 'lucide-react';
+
+interface Robot {
+  id: string;
+  name: string;
+  robotId: string;
+  apiBaseUrl: string;
+  description?: string;
+  isActive: boolean;
+  status: 'online' | 'offline' | 'unknown';
+  lastCheckAt?: string;
+  lastError?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface RobotFormData {
+  name: string;
+  robotId: string;
+  apiBaseUrl: string;
+  description?: string;
+  isActive: boolean;
+}
+
+export default function RobotManagement() {
+  const [robots, setRobots] = useState<Robot[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingRobot, setEditingRobot] = useState<Robot | null>(null);
+  const [formData, setFormData] = useState<RobotFormData>({
+    name: '',
+    robotId: '',
+    apiBaseUrl: 'https://api.worktool.ymdyes.cn/wework/',
+    description: '',
+    isActive: true
+  });
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string; timestamp?: string }>>({});
+  const [testingRobotId, setTestingRobotId] = useState<string | null>(null);
+
+  // 加载机器人列表
+  const loadRobots = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/proxy/admin/robots');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.code === 0) {
+          setRobots(data.data || []);
+        }
+      }
+    } catch (error) {
+      console.error('加载机器人列表失败:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRobots();
+  }, []);
+
+  // 打开创建对话框
+  const handleCreate = () => {
+    setEditingRobot(null);
+    setFormData({
+      name: '',
+      robotId: '',
+      apiBaseUrl: 'https://api.worktool.ymdyes.cn/wework/',
+      description: '',
+      isActive: true
+    });
+    setValidationErrors([]);
+    setIsDialogOpen(true);
+  };
+
+  // 打开编辑对话框
+  const handleEdit = (robot: Robot) => {
+    setEditingRobot(robot);
+    setFormData({
+      name: robot.name,
+      robotId: robot.robotId,
+      apiBaseUrl: robot.apiBaseUrl,
+      description: robot.description || '',
+      isActive: robot.isActive
+    });
+    setValidationErrors([]);
+    setIsDialogOpen(true);
+  };
+
+  // 验证配置
+  const validateConfig = async () => {
+    try {
+      const res = await fetch('/api/proxy/admin/robots/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          robotId: formData.robotId,
+          apiBaseUrl: formData.apiBaseUrl
+        })
+      });
+
+      const data = await res.json();
+      if (data.code === 0) {
+        setValidationErrors(data.data.errors || []);
+        return data.data.valid;
+      }
+      return false;
+    } catch (error) {
+      console.error('验证配置失败:', error);
+      return false;
+    }
+  };
+
+  // 测试连接
+  const testConnection = async (robotId?: string) => {
+    const targetRobotId = robotId || formData.robotId;
+    const targetApiBaseUrl = robotId ? robots.find(r => r.robotId === robotId)?.apiBaseUrl : formData.apiBaseUrl;
+    
+    if (!targetRobotId || !targetApiBaseUrl) return;
+
+    setTestingRobotId(targetRobotId);
+    
+    try {
+      const res = await fetch('/api/proxy/admin/robots/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          robotId: targetRobotId,
+          apiBaseUrl: targetApiBaseUrl
+        })
+      });
+
+      const data = await res.json();
+      setTestResults(prev => ({
+        ...prev,
+        [targetRobotId]: {
+          success: data.code === 0,
+          message: data.message,
+          timestamp: new Date().toISOString()
+        }
+      }));
+    } catch (error) {
+      setTestResults(prev => ({
+        ...prev,
+        [targetRobotId]: {
+          success: false,
+          message: '测试失败：网络错误',
+          timestamp: new Date().toISOString()
+        }
+      }));
+    } finally {
+      setTestingRobotId(null);
+    }
+  };
+
+  // 保存机器人
+  const handleSave = async () => {
+    // 先验证配置
+    const isValid = await validateConfig();
+    if (!isValid) {
+      return;
+    }
+
+    try {
+      const url = editingRobot 
+        ? `/api/proxy/admin/robots/${editingRobot.id}`
+        : '/api/proxy/admin/robots';
+      
+      const method = editingRobot ? 'PUT' : 'POST';
+      
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+
+      const data = await res.json();
+      
+      if (data.code === 0) {
+        setIsDialogOpen(false);
+        loadRobots();
+      } else {
+        alert(data.message || '保存失败');
+      }
+    } catch (error) {
+      console.error('保存机器人失败:', error);
+      alert('保存失败，请检查网络连接');
+    }
+  };
+
+  // 删除机器人
+  const handleDelete = async (robot: Robot) => {
+    if (!confirm(`确定要删除机器人 "${robot.name}" 吗？`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/proxy/admin/robots/${robot.id}`, {
+        method: 'DELETE'
+      });
+
+      const data = await res.json();
+      
+      if (data.code === 0) {
+        loadRobots();
+      } else {
+        alert(data.message || '删除失败');
+      }
+    } catch (error) {
+      console.error('删除机器人失败:', error);
+      alert('删除失败，请检查网络连接');
+    }
+  };
+
+  // 检查状态
+  const handleCheckStatus = async (robot: Robot) => {
+    try {
+      const res = await fetch(`/api/proxy/admin/robots/${robot.robotId}/check-status`, {
+        method: 'POST'
+      });
+
+      const data = await res.json();
+      if (data.code === 0) {
+        loadRobots();
+      }
+    } catch (error) {
+      console.error('检查状态失败:', error);
+    }
+  };
+
+  // 复制 Robot ID
+  const copyRobotId = (robotId: string) => {
+    navigator.clipboard.writeText(robotId);
+  };
+
+  // 获取状态徽章
+  const getStatusBadge = (status: string, isActive: boolean) => {
+    if (!isActive) {
+      return <Badge variant="secondary" className="gap-1"><XCircle className="h-3 w-3" /> 已停用</Badge>;
+    }
+    
+    switch (status) {
+      case 'online':
+        return <Badge variant="default" className="gap-1 bg-green-500 hover:bg-green-600"><CheckCircle className="h-3 w-3" /> 在线</Badge>;
+      case 'offline':
+        return <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" /> 离线</Badge>;
+      default:
+        return <Badge variant="outline" className="gap-1"><AlertTriangle className="h-3 w-3" /> 未知</Badge>;
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* 页面标题和操作栏 */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Bot className="h-6 w-6" />
+            机器人管理
+          </h2>
+          <p className="text-muted-foreground mt-1">
+            管理多个 WorkTool 机器人，配置连接参数和监控状态
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={loadRobots}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            刷新
+          </Button>
+          <Button onClick={handleCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            添加机器人
+          </Button>
+        </div>
+      </div>
+
+      {/* 统计信息 */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">总机器人数</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold flex items-center gap-2">
+              <Bot className="h-5 w-5 text-blue-500" />
+              {robots.length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">在线</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold flex items-center gap-2 text-green-600">
+              <CheckCircle className="h-5 w-5" />
+              {robots.filter(r => r.isActive && r.status === 'online').length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">离线</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold flex items-center gap-2 text-red-600">
+              <XCircle className="h-5 w-5" />
+              {robots.filter(r => r.isActive && r.status === 'offline').length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">已停用</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold flex items-center gap-2 text-gray-600">
+              <AlertTriangle className="h-5 w-5" />
+              {robots.filter(r => !r.isActive).length}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 性能指标 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            性能指标
+          </CardTitle>
+          <CardDescription>
+            各机器人的消息处理统计和性能分析
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {robots.filter(r => r.isActive).map((robot) => (
+              <div key={robot.id} className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Bot className="h-5 w-5 text-blue-500" />
+                    <span className="font-medium">{robot.name}</span>
+                    <Badge variant="outline" className="text-xs">{robot.robotId}</Badge>
+                    {getStatusBadge(robot.status, robot.isActive)}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleCheckStatus(robot)}
+                    >
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      检查
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => testConnection(robot.robotId)}
+                      disabled={testingRobotId === robot.robotId}
+                    >
+                      {testingRobotId === robot.robotId ? (
+                        <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
+                        <TestTube className="h-3 w-3 mr-1" />
+                      )}
+                      测试
+                    </Button>
+                  </div>
+                </div>
+                
+                {testResults[robot.robotId] && (
+                  <Alert
+                    variant={testResults[robot.robotId].success ? 'default' : 'destructive'}
+                    className={testResults[robot.robotId].success ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : ''}
+                  >
+                    {testResults[robot.robotId].success ? (
+                      <CheckCircle className="h-4 w-4" />
+                    ) : (
+                      <XCircle className="h-4 w-4" />
+                    )}
+                    <AlertDescription className="text-xs">
+                      {testResults[robot.robotId].message}
+                      {testResults[robot.robotId].timestamp && (
+                        <span className="block mt-1 opacity-70">
+                          测试时间: {new Date(testResults[robot.robotId].timestamp!).toLocaleString('zh-CN')}
+                        </span>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            ))}
+            
+            {robots.filter(r => r.isActive).length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                暂无启用的机器人
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 机器人列表 */}
+      <div className="grid gap-4">
+        {robots.map((robot) => (
+          <Card key={robot.id} className="hover:shadow-md transition-shadow">
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className={`p-3 rounded-lg ${robot.isActive ? 'bg-blue-100 dark:bg-blue-900' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                    <Bot className={`h-6 w-6 ${robot.isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <CardTitle className="text-lg">{robot.name}</CardTitle>
+                      {getStatusBadge(robot.status, robot.isActive)}
+                    </div>
+                    <CardDescription className="flex items-center gap-2">
+                      <Code className="h-3 w-3" />
+                      <code className="bg-muted px-1.5 py-0.5 rounded text-xs">{robot.robotId}</code>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-5 w-5 p-0"
+                        onClick={() => copyRobotId(robot.robotId)}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </CardDescription>
+                    {robot.description && (
+                      <p className="text-sm text-muted-foreground mt-1">{robot.description}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCheckStatus(robot)}
+                    title="检查状态"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleEdit(robot)}
+                    title="编辑"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDelete(robot)}
+                    title="删除"
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* API 配置 */}
+                <div className="grid gap-2 md:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">API Base URL</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Input
+                        value={robot.apiBaseUrl}
+                        readOnly
+                        className="font-mono text-xs bg-muted"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">最后检查时间</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">
+                        {robot.lastCheckAt 
+                          ? new Date(robot.lastCheckAt).toLocaleString('zh-CN')
+                          : '从未检查'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 测试结果 */}
+                {testResults[robot.robotId] && (
+                  <Alert
+                    variant={testResults[robot.robotId].success ? 'default' : 'destructive'}
+                    className={testResults[robot.robotId].success ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : ''}
+                  >
+                    {testResults[robot.robotId].success ? (
+                      <CheckCircle className="h-4 w-4" />
+                    ) : (
+                      <XCircle className="h-4 w-4" />
+                    )}
+                    <AlertTitle className="text-sm">连接测试结果</AlertTitle>
+                    <AlertDescription className="text-xs">
+                      {testResults[robot.robotId].message}
+                      {testResults[robot.robotId].timestamp && (
+                        <span className="block mt-1 opacity-70">
+                          测试时间: {new Date(testResults[robot.robotId].timestamp!).toLocaleString('zh-CN')}
+                        </span>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* 错误信息 */}
+                {robot.lastError && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle className="text-sm">错误信息</AlertTitle>
+                    <AlertDescription className="text-xs">{robot.lastError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {/* 操作按钮 */}
+                <div className="flex gap-2 pt-2 border-t">
+                  <Button
+                    size="sm"
+                    onClick={() => testConnection(robot.robotId)}
+                    disabled={testingRobotId === robot.robotId}
+                  >
+                    {testingRobotId === robot.robotId ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        测试中...
+                      </>
+                    ) : (
+                      <>
+                        <TestTube className="h-4 w-4 mr-2" />
+                        测试连接
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+
+        {/* 空状态 */}
+        {robots.length === 0 && !isLoading && (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Bot className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">暂无机器人</h3>
+              <p className="text-muted-foreground text-center mb-4">
+                添加第一个机器人开始使用 WorkTool 服务
+              </p>
+              <Button onClick={handleCreate}>
+                <Plus className="h-4 w-4 mr-2" />
+                添加机器人
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* 创建/编辑对话框 */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingRobot ? '编辑机器人' : '添加机器人'}</DialogTitle>
+            <DialogDescription>
+              配置 WorkTool 机器人的连接参数和管理信息
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* 基本信息 */}
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium flex items-center gap-2">
+                <Info className="h-4 w-4" />
+                基本信息
+              </h4>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">机器人名称 *</label>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="例如：客服机器人"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Robot ID *</label>
+                <Input
+                  value={formData.robotId}
+                  onChange={(e) => setFormData({ ...formData, robotId: e.target.value })}
+                  placeholder="例如：worktool1"
+                />
+                <p className="text-xs text-muted-foreground">
+                  从 WorkTool 平台获取的唯一标识符
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">描述</label>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="机器人的用途和功能描述..."
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            {/* API 配置 */}
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium flex items-center gap-2">
+                <Server className="h-4 w-4" />
+                API 配置
+              </h4>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">API Base URL *</label>
+                <Input
+                  value={formData.apiBaseUrl}
+                  onChange={(e) => setFormData({ ...formData, apiBaseUrl: e.target.value })}
+                  placeholder="https://api.worktool.ymdyes.cn/wework/"
+                />
+                <p className="text-xs text-muted-foreground">
+                  WorkTool API 服务地址，通常不需要修改
+                </p>
+              </div>
+            </div>
+
+            {/* 状态设置 */}
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                状态设置
+              </h4>
+              
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div>
+                  <div className="font-medium">启用机器人</div>
+                  <div className="text-xs text-muted-foreground">
+                    启用后将接收和处理 WorkTool 回调
+                  </div>
+                </div>
+                <Switch
+                  checked={formData.isActive}
+                  onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                />
+              </div>
+            </div>
+
+            {/* 验证结果 */}
+            {validationErrors.length > 0 && (
+              <Alert variant="destructive">
+                <XCircle className="h-4 w-4" />
+                <AlertTitle className="text-sm">配置验证失败</AlertTitle>
+                <AlertDescription className="text-xs">
+                  <ul className="list-disc list-inside mt-1">
+                    {validationErrors.map((error, index) => (
+                      <li key={index}>{error}</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsDialogOpen(false)}
+            >
+              取消
+            </Button>
+            <Button
+              variant="outline"
+              onClick={validateConfig}
+            >
+              <TestTube className="h-4 w-4 mr-2" />
+              验证配置
+            </Button>
+            <Button onClick={handleSave}>
+              <Save className="h-4 w-4 mr-2" />
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// 添加 Code 图标导入
+const { Code } = require('lucide-react');

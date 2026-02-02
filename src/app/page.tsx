@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
+import RobotManagement from '@/components/robot-management';
 import { 
   BarChart3, 
   MessageSquare, 
@@ -3826,7 +3827,7 @@ ${callbacks.robotStatus}
       {/* 主内容 */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:inline-grid h-auto p-1 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+          <TabsList className="grid w-full grid-cols-9 lg:w-auto lg:inline-grid h-auto p-1 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
             <TabsTrigger value="dashboard" className="gap-2 py-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">仪表盘</span>
@@ -3834,6 +3835,10 @@ ${callbacks.robotStatus}
             <TabsTrigger value="callbacks" className="gap-2 py-2">
               <Link2 className="h-4 w-4" />
               <span className="hidden sm:inline">回调中心</span>
+            </TabsTrigger>
+            <TabsTrigger value="robots" className="gap-2 py-2">
+              <Bot className="h-4 w-4" />
+              <span className="hidden sm:inline">机器人管理</span>
             </TabsTrigger>
             <TabsTrigger value="qa" className="gap-2 py-2">
               <Database className="h-4 w-4" />
@@ -3867,6 +3872,10 @@ ${callbacks.robotStatus}
 
           <TabsContent value="callbacks" className="space-y-6">
             <CallbackCenter />
+          </TabsContent>
+
+          <TabsContent value="robots" className="space-y-6">
+            <RobotManagement />
           </TabsContent>
 
           <TabsContent value="qa" className="space-y-6">

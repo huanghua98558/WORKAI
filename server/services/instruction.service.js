@@ -256,14 +256,25 @@ class InstructionService {
     try {
       const { params } = instruction;
       
-      // TODO: 实现文件发送逻辑
-      // 需要从文件路径读取文件，然后调用 WorkTool API 发送
-      console.log('发送文件:', params.filePath);
+      // 从上下文确定接收者
+      const receiver = context.groupName || context.userName;
+      const receiverType = worktoolService.getReceiverType(context.roomType);
+      
+      // 提取文件名
+      const fileName = params.filePath.split('/').pop() || '文件';
+      
+      // 执行发送文件
+      const result = await worktoolService.sendFileMessage(
+        receiverType,
+        receiver,
+        params.filePath,
+        fileName
+      );
       
       return {
-        success: true,
-        message: `文件发送功能开发中: ${params.filePath}`,
-        params
+        success: result.success,
+        message: result.success ? `文件发送成功: ${fileName}` : result.message,
+        result
       };
     } catch (error) {
       console.error('执行发送文件指令失败:', error);
@@ -283,15 +294,38 @@ class InstructionService {
   async executeSendImageInstruction(instruction, context) {
     try {
       const { params } = instruction;
+      const fs = require('fs');
       
-      // TODO: 实现图片发送逻辑
-      // 需要从图片路径读取图片，然后调用 WorkTool API 发送
-      console.log('发送图片:', params.imagePath);
+      // 从上下文确定接收者
+      const receiver = context.groupName || context.userName;
+      const receiverType = worktoolService.getReceiverType(context.roomType);
+      
+      // 读取图片文件并转换为 Base64
+      let imageBase64;
+      if (fs.existsSync(params.imagePath)) {
+        const imageBuffer = fs.readFileSync(params.imagePath);
+        imageBase64 = imageBuffer.toString('base64');
+      } else if (context.fileBase64) {
+        // 如果上下文中有 base64 数据，直接使用
+        imageBase64 = context.fileBase64;
+      } else {
+        return {
+          success: false,
+          message: '图片文件不存在'
+        };
+      }
+      
+      // 执行发送图片
+      const result = await worktoolService.sendImageMessage(
+        receiverType,
+        receiver,
+        imageBase64
+      );
       
       return {
-        success: true,
-        message: `图片发送功能开发中: ${params.imagePath}`,
-        params
+        success: result.success,
+        message: result.success ? '图片发送成功' : result.message,
+        result
       };
     } catch (error) {
       console.error('执行发送图片指令失败:', error);
@@ -312,14 +346,37 @@ class InstructionService {
     try {
       const { params } = instruction;
       
-      // TODO: 实现链接发送逻辑
-      // 调用 WorkTool API 发送链接消息
-      console.log('发送链接:', params.linkUrl);
+      // 从上下文确定接收者
+      const receiver = context.groupName || context.userName;
+      const receiverType = worktoolService.getReceiverType(context.roomType);
+      
+      // 解析链接 URL（移除可能的冒号）
+      let linkUrl = params.linkUrl;
+      if (linkUrl.startsWith('：') || linkUrl.startsWith(':')) {
+        linkUrl = linkUrl.substring(1);
+      }
+      
+      // 提取标题（从 URL 中获取，或使用默认标题）
+      let linkTitle = '分享链接';
+      try {
+        const urlObj = new URL(linkUrl);
+        linkTitle = urlObj.hostname || linkTitle;
+      } catch (e) {
+        // URL 解析失败，使用默认标题
+      }
+      
+      // 执行发送链接
+      const result = await worktoolService.sendLinkMessage(
+        receiverType,
+        receiver,
+        linkUrl,
+        linkTitle
+      );
       
       return {
-        success: true,
-        message: `链接发送功能开发中: ${params.linkUrl}`,
-        params
+        success: result.success,
+        message: result.success ? '链接发送成功' : result.message,
+        result
       };
     } catch (error) {
       console.error('执行发送链接指令失败:', error);

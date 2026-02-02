@@ -183,6 +183,14 @@ const worktoolCallbackRoutes = async function (fastify, options) {
     await monitorService.recordUserMetric(callbackData.receivedName, callbackData.groupName, 'messages', 1);
     await monitorService.recordSystemMetric(`intent_${decision.intent?.intent || 'unknown'}`, 1);
 
+    // 记录机器人指标
+    const robotId = config.get('worktool.robotId', 'default');
+    await monitorService.recordRobotMetric(robotId, 'messages', 1, {
+      groupName: callbackData.groupName,
+      userName: callbackData.receivedName,
+      action: decision.action
+    });
+
     // 如果需要回复，调用 WorkTool 发送消息接口
     if (decision.reply && decision.action === 'auto_reply') {
       await sendWorkToolMessage(callbackData.groupName, callbackData.receivedName, decision.reply, callbackData.roomType);
