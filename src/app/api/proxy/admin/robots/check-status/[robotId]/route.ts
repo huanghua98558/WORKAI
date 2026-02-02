@@ -15,6 +15,7 @@ export async function POST(
       headers: {
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({}), // 发送空对象以避免 Fastify 错误
     });
 
     const data = await response.json();

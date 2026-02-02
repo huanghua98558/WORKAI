@@ -900,6 +900,109 @@ const robotApiRoutes = async function (fastify, options) {
       });
     }
   });
+
+  // 检查机器人状态（从 WorkTool API 获取最新信息）
+  fastify.post('/robots/:robotId/check-status', async (request, reply) => {
+    try {
+      const { robotId } = request.params;
+
+      // 查询机器人
+      const robot = await robotService.getRobotByRobotId(robotId);
+      if (!robot) {
+        return reply.status(404).send({
+          code: -1,
+          message: '机器人不存在'
+        });
+      }
+
+      // 检查机器人状态并更新详细信息
+      const result = await robotService.checkRobotStatus(robotId);
+
+      // 返回更新后的机器人信息
+      const updatedRobot = await robotService.getRobotByRobotId(robotId);
+
+      return reply.send({
+        code: 0,
+        message: '机器人状态已更新',
+        data: {
+          checkResult: result,
+          robot: updatedRobot
+        }
+      });
+    } catch (error) {
+      console.error('检查机器人状态失败:', error);
+      return reply.status(500).send({
+        code: -1,
+        message: '检查机器人状态失败',
+        error: error.message
+      });
+    }
+  });
+
+  // 批量检查所有启用的机器人状态
+  fastify.post('/robots/check-status-all', async (request, reply) => {
+    try {
+      // 获取所有启用的机器人
+      const activeRobots = await robotService.getAllRobots({ isActive: true });
+
+      if (activeRobots.length === 0) {
+        return reply.send({
+          code: 0,
+          message: '没有启用的机器人',
+          data: {
+            total: 0,
+            success: 0,
+            failed: 0,
+            results: []
+          }
+        });
+      }
+
+      // 批量检查状态
+      const results = [];
+      let successCount = 0;
+      let failedCount = 0;
+
+      for (const robot of activeRobots) {
+        try {
+          const result = await robotService.checkRobotStatus(robot.robotId);
+          results.push({
+            robotId: robot.robotId,
+            name: robot.name,
+            success: true,
+            message: result.message
+          });
+          successCount++;
+        } catch (error) {
+          results.push({
+            robotId: robot.robotId,
+            name: robot.name,
+            success: false,
+            message: error.message || '检查失败'
+          });
+          failedCount++;
+        }
+      }
+
+      return reply.send({
+        code: 0,
+        message: `批量检查完成，成功 ${successCount} 个，失败 ${failedCount} 个`,
+        data: {
+          total: activeRobots.length,
+          success: successCount,
+          failed: failedCount,
+          results
+        }
+      });
+    } catch (error) {
+      console.error('批量检查机器人状态失败:', error);
+      return reply.status(500).send({
+        code: -1,
+        message: '批量检查机器人状态失败',
+        error: error.message
+      });
+    }
+  });
 };
 
 module.exports = robotApiRoutes;

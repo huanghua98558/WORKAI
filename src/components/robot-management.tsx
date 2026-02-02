@@ -101,6 +101,8 @@ export default function RobotManagement() {
   const [configuringRobotId, setConfiguringRobotId] = useState<string | null>(null);
   const [callbackConfigs, setCallbackConfigs] = useState<Record<string, any[]>>({});
   const [queryingRobotId, setQueryingRobotId] = useState<string | null>(null);
+  const [refreshingRobotId, setRefreshingRobotId] = useState<string | null>(null);
+  const [isRefreshingAll, setIsRefreshingAll] = useState(false);
 
   // 加载机器人列表
   const loadRobots = async () => {
@@ -357,8 +359,9 @@ export default function RobotManagement() {
     }
   };
 
-  // 检查状态
+  // 检查状态（刷新机器人信息）
   const handleCheckStatus = async (robot: Robot) => {
+    setRefreshingRobotId(robot.robotId);
     try {
       const res = await fetch(`/api/proxy/admin/robots/check-status/${robot.robotId}`, {
         method: 'POST'
@@ -367,9 +370,38 @@ export default function RobotManagement() {
       const data = await res.json();
       if (data.code === 0) {
         loadRobots();
+        alert(`机器人 "${robot.name}" 信息已更新！`);
+      } else {
+        alert(`更新失败：${data.message || '未知错误'}`);
       }
     } catch (error) {
       console.error('检查状态失败:', error);
+      alert(`更新失败：网络错误`);
+    } finally {
+      setRefreshingRobotId(null);
+    }
+  };
+
+  // 一键刷新所有机器人
+  const handleRefreshAll = async () => {
+    setIsRefreshingAll(true);
+    try {
+      const res = await fetch('/api/proxy/admin/robots/check-status-all', {
+        method: 'POST'
+      });
+
+      const data = await res.json();
+      if (data.code === 0) {
+        loadRobots();
+        alert(data.message || '批量刷新完成！');
+      } else {
+        alert(`批量刷新失败：${data.message || '未知错误'}`);
+      }
+    } catch (error) {
+      console.error('批量刷新失败:', error);
+      alert('批量刷新失败：网络错误');
+    } finally {
+      setIsRefreshingAll(false);
     }
   };
 
@@ -489,14 +521,24 @@ export default function RobotManagement() {
             管理多个 WorkTool 机器人，配置连接参数和监控状态
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             onClick={loadRobots}
             disabled={isLoading}
+            title="从数据库重新加载"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            刷新
+            刷新列表
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={handleRefreshAll}
+            disabled={isRefreshingAll}
+            title="从 WorkTool API 更新所有机器人信息"
+          >
+            <Zap className={`h-4 w-4 mr-2 ${isRefreshingAll ? 'animate-spin' : ''}`} />
+            {isRefreshingAll ? '刷新中...' : '一键刷新'}
           </Button>
           <Button onClick={handleCreate}>
             <Plus className="h-4 w-4 mr-2" />
@@ -580,9 +622,14 @@ export default function RobotManagement() {
                       size="sm"
                       variant="outline"
                       onClick={() => handleCheckStatus(robot)}
+                      disabled={refreshingRobotId === robot.robotId}
                     >
-                      <RefreshCw className="h-3 w-3 mr-1" />
-                      检查
+                      {refreshingRobotId === robot.robotId ? (
+                        <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                      )}
+                      刷新
                     </Button>
                     <Button
                       size="sm"
@@ -669,9 +716,14 @@ export default function RobotManagement() {
                     size="sm"
                     variant="outline"
                     onClick={() => handleCheckStatus(robot)}
-                    title="检查状态"
+                    disabled={refreshingRobotId === robot.robotId}
+                    title="从 WorkTool API 更新信息"
                   >
-                    <RefreshCw className="h-4 w-4" />
+                    {refreshingRobotId === robot.robotId ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
                   </Button>
                   <Button
                     size="sm"
