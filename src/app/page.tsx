@@ -69,7 +69,8 @@ import {
   Edit2,
   Circle,
   Mail,
-  Building2
+  Building2,
+  TestTube
 } from 'lucide-react';
 
 // 类型定义
