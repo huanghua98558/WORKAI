@@ -289,7 +289,7 @@ export default function RobotManagement() {
   // 检查状态
   const handleCheckStatus = async (robot: Robot) => {
     try {
-      const res = await fetch(`/api/proxy/admin/robots/${robot.robotId}/check-status`, {
+      const res = await fetch(`/api/proxy/admin/robots/check-status/${robot.robotId}`, {
         method: 'POST'
       });
 
