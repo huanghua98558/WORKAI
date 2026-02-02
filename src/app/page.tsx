@@ -4164,6 +4164,12 @@ ${callbacks.robotStatus}
                     用户管理
                   </Button>
                 </li>
+                <li>
+                  <Button variant="ghost" className="h-auto p-0 text-left text-blue-600 hover:text-blue-700" onClick={() => window.open('/debug', '_blank')}>
+                    <TestTube className="h-3 w-3 mr-1 inline" />
+                    调试功能
+                  </Button>
+                </li>
               </ul>
             </div>
 
@@ -4171,17 +4177,21 @@ ${callbacks.robotStatus}
             <div>
               <h5 className="font-semibold mb-4 text-gray-900 dark:text-white">联系我们</h5>
               <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
-                <li className="flex items-center gap-2">
-                  <Globe className="h-4 w-4" />
-                  <span>www.xiaohuangyu.com</span>
+                <li className="flex items-start gap-2">
+                  <Globe className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <div className="space-y-1">
+                    <span className="block">手机号:</span>
+                    <span className="block ml-4">1: 13337289759</span>
+                    <span className="block ml-4">2: 18474358043</span>
+                  </div>
                 </li>
                 <li className="flex items-center gap-2">
                   <MessageCircle className="h-4 w-4" />
-                  <span>微信: xiaohuangyu</span>
+                  <span>微信: xhy12040523</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  <span>contact@xiaohuangyu.com</span>
+                  <Globe className="h-4 w-4" />
+                  <span>QQ: 1823985558</span>
                 </li>
               </ul>
             </div>
