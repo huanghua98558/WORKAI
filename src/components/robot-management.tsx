@@ -90,12 +90,13 @@ export default function RobotManagement() {
   const [formData, setFormData] = useState<RobotFormData>({
     name: '',
     robotId: '',
-    apiBaseUrl: 'https://api.worktool.ymdyes.cn/wework/',
+    apiBaseUrl: process.env.NEXT_PUBLIC_WORKTOOL_API_BASE_URL || 'https://api.worktool.ymdyes.cn/wework/',
     description: '',
     isActive: true
   });
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string; timestamp?: string }>>({});
+  const [formTestResult, setFormTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [testingRobotId, setTestingRobotId] = useState<string | null>(null);
   const [callbackUrls, setCallbackUrls] = useState<Record<string, string>>({});
   const [configuringRobotId, setConfiguringRobotId] = useState<string | null>(null);
@@ -183,11 +184,12 @@ export default function RobotManagement() {
     setFormData({
       name: '',
       robotId: '',
-      apiBaseUrl: 'https://api.worktool.ymdyes.cn/wework/',
+      apiBaseUrl: process.env.NEXT_PUBLIC_WORKTOOL_API_BASE_URL || 'https://api.worktool.ymdyes.cn/wework/',
       description: '',
       isActive: true
     });
     setValidationErrors([]);
+    setFormTestResult(null);
     setIsDialogOpen(true);
   };
 
@@ -202,6 +204,7 @@ export default function RobotManagement() {
       isActive: robot.isActive
     });
     setValidationErrors([]);
+    setFormTestResult(null);
     setIsDialogOpen(true);
   };
 
@@ -239,11 +242,43 @@ export default function RobotManagement() {
   const testConnection = async (robotId?: string) => {
     const targetRobotId = robotId || formData.robotId;
     const targetApiBaseUrl = robotId ? robots.find(r => r.robotId === robotId)?.apiBaseUrl : formData.apiBaseUrl;
-    
-    if (!targetRobotId || !targetApiBaseUrl) return;
+
+    if (!targetApiBaseUrl) return;
+
+    // 如果是表单测试
+    if (!robotId) {
+      setTestingRobotId('form');
+      try {
+        const res = await fetch('/api/proxy/admin/robots/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            robotId: 'test',
+            apiBaseUrl: targetApiBaseUrl
+          })
+        });
+
+        const data = await res.json();
+        setFormTestResult({
+          success: data.code === 0,
+          message: data.message || '连接成功'
+        });
+      } catch (error) {
+        setFormTestResult({
+          success: false,
+          message: '测试失败：网络错误，请检查 API Base URL 是否正确'
+        });
+      } finally {
+        setTestingRobotId(null);
+      }
+      return;
+    }
+
+    // 机器人测试
+    if (!targetRobotId) return;
 
     setTestingRobotId(targetRobotId);
-    
+
     try {
       const res = await fetch('/api/proxy/admin/robots/test', {
         method: 'POST',
@@ -1068,9 +1103,20 @@ export default function RobotManagement() {
                   onChange={(e) => setFormData({ ...formData, apiBaseUrl: e.target.value })}
                   placeholder="https://api.worktool.ymdyes.cn/wework/"
                 />
-                <p className="text-xs text-muted-foreground">
-                  WorkTool API 服务地址，通常不需要修改
-                </p>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">
+                    WorkTool API 服务地址。如果部署后无法连接，请修改为实际的服务地址。
+                  </p>
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      部署环境可能无法访问默认地址。请尝试：
+                      1. 修改为内网可访问的地址（如 http://内网IP:端口/）
+                      2. 确认 WorkTool API 服务是否正常运行
+                      3. 检查防火墙和网络配置
+                    </AlertDescription>
+                  </Alert>
+                </div>
               </div>
             </div>
 
@@ -1109,6 +1155,26 @@ export default function RobotManagement() {
                 </AlertDescription>
               </Alert>
             )}
+
+            {/* 测试连接结果 */}
+            {formTestResult && (
+              <Alert
+                variant={formTestResult.success ? 'default' : 'destructive'}
+                className={formTestResult.success ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : ''}
+              >
+                {formTestResult.success ? (
+                  <CheckCircle className="h-4 w-4" />
+                ) : (
+                  <XCircle className="h-4 w-4" />
+                )}
+                <AlertTitle className="text-sm">
+                  {formTestResult.success ? '连接测试成功' : '连接测试失败'}
+                </AlertTitle>
+                <AlertDescription className="text-xs">
+                  {formTestResult.message}
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
 
           <DialogFooter className="gap-2">
@@ -1124,6 +1190,18 @@ export default function RobotManagement() {
             >
               <TestTube className="h-4 w-4 mr-2" />
               验证配置
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => testConnection()}
+              disabled={testingRobotId === 'form'}
+            >
+              {testingRobotId === 'form' ? (
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Activity className="h-4 w-4 mr-2" />
+              )}
+              测试连接
             </Button>
             <Button onClick={handleSave}>
               <Save className="h-4 w-4 mr-2" />
