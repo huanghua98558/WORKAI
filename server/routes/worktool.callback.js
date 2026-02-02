@@ -15,6 +15,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
   const monitorService = require('../services/monitor.service');
   const reportService = require('../services/report.service');
   const sessionService = require('../services/session.service');
+  const robotService = require('../services/robot.service');
   const config = require('../lib/config');
 
   // WorkTool 标准响应格式（按照 WorkTool 规范）
@@ -79,27 +80,49 @@ const worktoolCallbackRoutes = async function (fastify, options) {
   }, async (request, reply) => {
     const requestId = generateRequestId();
     const callbackData = request.body;
-    
+    const { robotId } = request.query;
+
     try {
+      // 验证 robotId
+      if (!robotId) {
+        console.error('缺少 robotId 参数');
+        return reply.status(400).send(errorResponse(400, '缺少 robotId 参数'));
+      }
+
+      // 查询机器人配置
+      const robot = await robotService.getRobotByRobotId(robotId);
+      if (!robot) {
+        console.error('机器人不存在:', robotId);
+        return reply.status(404).send(errorResponse(404, `机器人不存在: ${robotId}`));
+      }
+
+      if (!robot.isActive) {
+        console.error('机器人未启用:', robotId);
+        return reply.status(403).send(errorResponse(403, `机器人未启用: ${robotId}`));
+      }
+
       // 记录审计日志
       await auditLogger.log('message_callback', 'worktool', {
         requestId,
+        robotId,
         callbackData
       });
 
       // 记录监控指标
       await monitorService.recordSystemMetric('callback_received', 1, {
-        type: 'message'
+        type: 'message',
+        robotId
       });
 
       // 立即返回响应，异步处理消息
       setImmediate(async () => {
         try {
-          await handleMessageAsync(callbackData, requestId);
+          await handleMessageAsync(callbackData, requestId, robot);
         } catch (error) {
           console.error('异步处理消息失败:', error);
           await monitorService.recordSystemMetric('callback_error', 1, {
             type: 'message',
+            robotId,
             error: error.message
           });
         }
@@ -112,6 +135,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
       console.error('处理消息回调失败:', error);
       await monitorService.recordSystemMetric('callback_error', 1, {
         type: 'message',
+        robotId,
         error: error.message
       });
 
@@ -122,11 +146,11 @@ const worktoolCallbackRoutes = async function (fastify, options) {
   /**
    * 异步处理消息
    */
-  async function handleMessageAsync(callbackData, requestId) {
+  async function handleMessageAsync(callbackData, requestId, robot) {
     // 幂等性检查
-    const idempotencyKey = `callback:message:${callbackData.spoken}_${callbackData.receivedName}_${requestId}`;
+    const idempotencyKey = `callback:message:${robot.robotId}_${callbackData.spoken}_${callbackData.receivedName}_${requestId}`;
     const isAllowed = await idempotencyChecker.check(idempotencyKey);
-    
+
     if (!isAllowed) {
       console.log('重复回调，已处理:', callbackData);
       return;
@@ -161,6 +185,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
     // 记录决策结果
     await monitorService.recordSystemMetric('callback_processed', 1, {
       type: 'message',
+      robotId: robot.robotId,
       action: decision.action
     });
 
@@ -184,8 +209,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
     await monitorService.recordSystemMetric(`intent_${decision.intent?.intent || 'unknown'}`, 1);
 
     // 记录机器人指标
-    const robotId = config.get('worktool.robotId', 'default');
-    await monitorService.recordRobotMetric(robotId, 'messages', 1, {
+    await monitorService.recordRobotMetric(robot.robotId, 'messages', 1, {
       groupName: callbackData.groupName,
       userName: callbackData.receivedName,
       action: decision.action
@@ -193,20 +217,18 @@ const worktoolCallbackRoutes = async function (fastify, options) {
 
     // 如果需要回复，调用 WorkTool 发送消息接口
     if (decision.reply && decision.action === 'auto_reply') {
-      await sendWorkToolMessage(callbackData.groupName, callbackData.receivedName, decision.reply, callbackData.roomType);
+      await sendWorkToolMessage(callbackData.groupName, callbackData.receivedName, decision.reply, callbackData.roomType, robot);
     }
   }
 
   /**
    * 发送 WorkTool 消息
    */
-  async function sendWorkToolMessage(groupName, userName, content, roomType) {
+  async function sendWorkToolMessage(groupName, userName, content, roomType, robot) {
     try {
-      // 获取 WorkTool 配置
-      const worktoolConfig = config.get('worktool');
-      
-      if (!worktoolConfig.apiBaseUrl || !worktoolConfig.apiKey) {
-        console.warn('WorkTool 配置不完整，无法发送消息');
+      // 使用机器人的配置
+      if (!robot.apiBaseUrl) {
+        console.warn('机器人 API Base URL 配置不完整，无法发送消息');
         return;
       }
 
@@ -225,17 +247,18 @@ const worktoolCallbackRoutes = async function (fastify, options) {
       // 调用 WorkTool 发送消息接口
       // 注意：这里需要根据实际的 WorkTool API 文档来实现
       console.log('发送消息到 WorkTool:', {
+        robotId: robot.robotId,
         toId,
         toType,
         content
       });
 
       // TODO: 实现实际的 WorkTool 发送消息接口调用
-      // const response = await fetch(`${worktoolConfig.apiBaseUrl}/send/message`, {
+      // const response = await fetch(`${robot.apiBaseUrl}/send/message`, {
       //   method: 'POST',
       //   headers: {
       //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${worktoolConfig.apiKey}`
+      //     'Authorization': `Bearer ${robot.apiKey}`
       //   },
       //   body: JSON.stringify({
       //     to_id: toId,
@@ -245,11 +268,13 @@ const worktoolCallbackRoutes = async function (fastify, options) {
       // });
 
       await monitorService.recordSystemMetric('message_sent', 1, {
+        robotId: robot.robotId,
         toType
       });
     } catch (error) {
       console.error('发送 WorkTool 消息失败:', error);
       await monitorService.recordSystemMetric('message_error', 1, {
+        robotId: robot.robotId,
         error: error.message
       });
     }

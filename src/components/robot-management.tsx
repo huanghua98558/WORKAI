@@ -81,6 +81,8 @@ export default function RobotManagement() {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string; timestamp?: string }>>({});
   const [testingRobotId, setTestingRobotId] = useState<string | null>(null);
+  const [callbackUrls, setCallbackUrls] = useState<Record<string, string>>({});
+  const [configuringRobotId, setConfiguringRobotId] = useState<string | null>(null);
 
   // 加载机器人列表
   const loadRobots = async () => {
@@ -305,6 +307,61 @@ export default function RobotManagement() {
   // 复制 Robot ID
   const copyRobotId = (robotId: string) => {
     navigator.clipboard.writeText(robotId);
+  };
+
+  // 获取回调地址
+  const getCallbackUrl = async (robot: Robot) => {
+    try {
+      const res = await fetch(`/api/proxy/admin/robots/${robot.id}/callback-url`);
+      const data = await res.json();
+
+      if (data.code === 0) {
+        setCallbackUrls(prev => ({
+          ...prev,
+          [robot.id]: data.data.callbackUrl
+        }));
+      }
+    } catch (error) {
+      console.error('获取回调地址失败:', error);
+    }
+  };
+
+  // 复制回调地址
+  const copyCallbackUrl = (url: string) => {
+    navigator.clipboard.writeText(url);
+    alert('回调地址已复制到剪贴板');
+  };
+
+  // 配置回调地址
+  const configCallback = async (robot: Robot) => {
+    if (!confirm(`确定要为机器人 "${robot.name}" 配置回调地址吗？`)) {
+      return;
+    }
+
+    setConfiguringRobotId(robot.id);
+
+    try {
+      const res = await fetch(`/api/proxy/admin/robots/${robot.id}/config-callback`, {
+        method: 'POST'
+      });
+
+      const data = await res.json();
+
+      if (data.code === 0) {
+        alert('配置成功！');
+        setCallbackUrls(prev => ({
+          ...prev,
+          [robot.id]: data.data.callbackUrl
+        }));
+      } else {
+        alert(data.message || '配置失败');
+      }
+    } catch (error) {
+      console.error('配置回调地址失败:', error);
+      alert('配置失败，请检查网络连接');
+    } finally {
+      setConfiguringRobotId(null);
+    }
   };
 
   // 获取状态徽章
@@ -558,13 +615,72 @@ export default function RobotManagement() {
                     <div className="flex items-center gap-2 mt-1">
                       <Clock className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm">
-                        {robot.lastCheckAt 
+                        {robot.lastCheckAt
                           ? new Date(robot.lastCheckAt).toLocaleString('zh-CN')
                           : '从未检查'}
                       </span>
                     </div>
                   </div>
                 </div>
+
+                {/* 回调地址配置 */}
+                {robot.isActive && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                      <Globe className="h-3 w-3" />
+                      消息回调地址
+                    </label>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={callbackUrls[robot.id] || '点击获取'}
+                          readOnly
+                          placeholder="点击下方按钮获取回调地址"
+                          className="font-mono text-xs bg-muted"
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => getCallbackUrl(robot)}
+                        >
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                          获取
+                        </Button>
+                        {callbackUrls[robot.id] && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => copyCallbackUrl(callbackUrls[robot.id]!)}
+                          >
+                            <Copy className="h-3 w-3 mr-1" />
+                            复制
+                          </Button>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => configCallback(robot)}
+                        disabled={configuringRobotId === robot.id}
+                        className="w-full"
+                      >
+                        {configuringRobotId === robot.id ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            配置中...
+                          </>
+                        ) : (
+                          <>
+                            <Settings className="h-4 w-4 mr-2" />
+                            自动配置到 WorkTool
+                          </>
+                        )}
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        回调地址格式：{callbackUrls[robot.id] ? callbackUrls[robot.id].substring(0, 40) + '...' : '未配置'}
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* 测试结果 */}
                 {testResults[robot.robotId] && (

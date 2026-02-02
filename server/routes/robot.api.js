@@ -6,6 +6,7 @@ const robotService = require('../services/robot.service');
 
 const robotApiRoutes = async function (fastify, options) {
   console.log('[robot.api.js] 机器人管理 API 路由已加载');
+  const config = require('../lib/config');
   
   // 获取所有机器人
   fastify.get('/robots', async (request, reply) => {
@@ -299,7 +300,7 @@ const robotApiRoutes = async function (fastify, options) {
   fastify.get('/robots/default', async (request, reply) => {
     try {
       const robot = await robotService.getDefaultActiveRobot();
-      
+
       return reply.send({
         code: 0,
         message: 'success',
@@ -310,6 +311,157 @@ const robotApiRoutes = async function (fastify, options) {
       return reply.status(500).send({
         code: -1,
         message: '获取默认机器人失败',
+        error: error.message
+      });
+    }
+  });
+
+  // 获取机器人的回调地址
+  fastify.get('/robots/:id/callback-url', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const robot = await robotService.getRobotById(id);
+
+      if (!robot) {
+        return reply.status(404).send({
+          code: -1,
+          message: '机器人不存在'
+        });
+      }
+
+      // 从请求头或配置获取回调基础地址
+      let callbackBaseUrl = request.headers['x-callback-base-url'];
+
+      if (!callbackBaseUrl) {
+        // 尝试从环境变量或配置文件获取
+        callbackBaseUrl = process.env.CALLBACK_BASE_URL || process.env.DEPLOYMENT_CALLBACK_BASE_URL;
+      }
+
+      if (!callbackBaseUrl) {
+        return reply.status(400).send({
+          code: -1,
+          message: '未配置回调基础地址'
+        });
+      }
+
+      // 生成回调地址
+      const callbackUrl = `${callbackBaseUrl}/api/worktool/callback/message?robotId=${robot.robotId}`;
+
+      return reply.send({
+        code: 0,
+        message: 'success',
+        data: {
+          callbackUrl,
+          robotId: robot.robotId
+        }
+      });
+    } catch (error) {
+      console.error('获取回调地址失败:', error);
+      return reply.status(500).send({
+        code: -1,
+        message: '获取回调地址失败',
+        error: error.message
+      });
+    }
+  });
+
+  // 配置机器人回调地址到 WorkTool
+  fastify.post('/robots/:id/config-callback', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const robot = await robotService.getRobotById(id);
+
+      if (!robot) {
+        return reply.status(404).send({
+          code: -1,
+          message: '机器人不存在'
+        });
+      }
+
+      // 获取回调基础地址
+      let callbackBaseUrl = process.env.CALLBACK_BASE_URL || process.env.DEPLOYMENT_CALLBACK_BASE_URL;
+
+      if (!callbackBaseUrl) {
+        // 从请求体获取
+        if (request.body.callbackBaseUrl) {
+          callbackBaseUrl = request.body.callbackBaseUrl;
+        } else {
+          return reply.status(400).send({
+            code: -1,
+            message: '未配置回调基础地址'
+          });
+        }
+      }
+
+      // 生成回调地址
+      const callbackUrl = `${callbackBaseUrl}/api/worktool/callback/message?robotId=${robot.robotId}`;
+
+      // 获取 WorkTool API Key
+      const worktoolApiKey = config.get('worktool.globalApiKey') || process.env.WORKTOOL_API_KEY || request.body.worktoolApiKey;
+
+      if (!worktoolApiKey) {
+        return reply.status(400).send({
+          code: -1,
+          message: '未配置 WorkTool API Key'
+        });
+      }
+
+      // 调用 WorkTool 配置接口
+      const axios = require('axios');
+      const updateUrl = `${robot.apiBaseUrl.replace(/\/$/, '')}/robot/robotInfo/update`;
+
+      const response = await axios.post(updateUrl, {
+        openCallback: 1,
+        replyAll: 1,
+        callbackUrl: callbackUrl
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': worktoolApiKey
+        },
+        params: {
+          robotId: robot.robotId,
+          key: worktoolApiKey
+        },
+        timeout: 10000
+      });
+
+      if (response.data && response.data.code === 0) {
+        // 更新机器人状态
+        await robotService.updateRobot(id, {
+          status: 'online',
+          lastCheckAt: new Date()
+        });
+
+        return reply.send({
+          code: 0,
+          message: '配置成功',
+          data: {
+            callbackUrl,
+            robotId: robot.robotId
+          }
+        });
+      } else {
+        return reply.status(500).send({
+          code: -1,
+          message: '配置失败',
+          error: response.data?.message || '未知错误'
+        });
+      }
+    } catch (error) {
+      console.error('配置回调地址失败:', error);
+
+      if (error.response) {
+        return reply.status(error.response.status).send({
+          code: -1,
+          message: '配置失败',
+          error: error.response.data?.message || error.message
+        });
+      }
+
+      return reply.status(500).send({
+        code: -1,
+        message: '配置失败',
         error: error.message
       });
     }

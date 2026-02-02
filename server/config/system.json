@@ -9,7 +9,8 @@
     "apiBaseUrl": "",
     "apiKey": "",
     "apiSecret": "",
-    "robotId": ""
+    "robotId": "",
+    "globalApiKey": ""
   },
   "callback": {
     "message": "/api/worktool/callback/message",
