@@ -55,7 +55,8 @@ import {
   MessageCircle,
   UserCheck,
   BarChart,
-  Sparkles
+  Sparkles,
+  Info
 } from 'lucide-react';
 
 // 类型定义
@@ -1332,7 +1333,10 @@ ${callbacks.robotStatus}
         const res = await fetch('/api/admin/config');
         if (res.ok) {
           const data = await res.json();
+          console.log('AI 配置加载成功:', data.data);
           setAiConfig(data.data);
+        } else {
+          console.error('AI 配置加载失败:', res.status, res.statusText);
         }
       } catch (error) {
         console.error('加载 AI 配置失败:', error);
@@ -1371,6 +1375,7 @@ ${callbacks.robotStatus}
       const [customApiBase, setCustomApiBase] = useState('');
 
       const config = aiConfig?.ai?.[type as keyof typeof aiConfig.ai];
+      const builtinModels = aiConfig?.ai?.builtinModels || [];
       
       useEffect(() => {
         if (config) {
@@ -1384,6 +1389,23 @@ ${callbacks.robotStatus}
           }
         }
       }, [config]);
+
+      // 获取当前类型的分类关键词
+      const getCategoryKeyword = (type: string) => {
+        const mapping: Record<string, string> = {
+          'intentRecognition': 'intent',
+          'serviceReply': 'service',
+          'chat': 'chat',
+          'report': 'report'
+        };
+        return mapping[type] || type;
+      };
+
+      // 过滤符合条件的模型
+      const filteredModels = builtinModels.filter((m: any) => {
+        const keyword = getCategoryKeyword(type);
+        return m.category && m.category.includes(keyword);
+      });
 
       const saveAiConfig = async () => {
         try {
@@ -1451,10 +1473,13 @@ ${callbacks.robotStatus}
             {useBuiltin && (
               <div className="space-y-4">
                 <label className="text-sm font-medium">选择内置模型：</label>
-                <div className="grid gap-3">
-                  {aiConfig?.ai?.builtinModels
-                    ?.filter((m: any) => m.category.includes(type.replace('Recognition', '').replace('Reply', '')))
-                    .map((model: any) => (
+                {filteredModels.length === 0 ? (
+                  <div className="text-sm text-muted-foreground p-4 border rounded-lg">
+                    没有找到适合此场景的模型
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    {filteredModels.map((model: any) => (
                       <div
                         key={model.id}
                         className={`p-4 border rounded-lg cursor-pointer transition-colors ${
@@ -1486,7 +1511,8 @@ ${callbacks.robotStatus}
                         </div>
                       </div>
                     ))}
-                </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1603,13 +1629,21 @@ ${callbacks.robotStatus}
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6 space-y-6">
-            <Tabs value={activeAiTab} onValueChange={setActiveAiTab} className="space-y-4">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="intentRecognition">意图识别</TabsTrigger>
-                <TabsTrigger value="serviceReply">服务回复</TabsTrigger>
-                <TabsTrigger value="chat">闲聊</TabsTrigger>
-                <TabsTrigger value="report">报告生成</TabsTrigger>
-              </TabsList>
+            {!aiConfig ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <RefreshCw className="h-8 w-8 animate-spin mx-auto text-purple-500" />
+                  <p className="text-sm text-muted-foreground mt-2">正在加载 AI 模型配置...</p>
+                </div>
+              </div>
+            ) : (
+              <Tabs value={activeAiTab} onValueChange={setActiveAiTab} className="space-y-4">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="intentRecognition">意图识别</TabsTrigger>
+                  <TabsTrigger value="serviceReply">服务回复</TabsTrigger>
+                  <TabsTrigger value="chat">闲聊</TabsTrigger>
+                  <TabsTrigger value="report">报告生成</TabsTrigger>
+                </TabsList>
               
               <TabsContent value="intentRecognition">
                 <AiModelConfig
@@ -1642,7 +1676,8 @@ ${callbacks.robotStatus}
                   description="用于生成日终报告，数据分析和总结"
                 />
               </TabsContent>
-            </Tabs>
+              </Tabs>
+            )}
           </CardContent>
         </Card>
 
@@ -1969,22 +2004,3 @@ function QrCodeIcon({ className }: { className?: string }) {
   );
 }
 
-// Info 图标组件
-function Info({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 16v-4" />
-      <path d="M12 8h.01" />
-    </svg>
-  );
-}
