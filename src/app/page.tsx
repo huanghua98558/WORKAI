@@ -1990,70 +1990,94 @@ ${callbacks.robotStatus}
           </CardContent>
         </Card>
 
-        {/* 人工坐席配置 */}
+        {/* 人工告警配置 */}
         <Card className="border-2 border-blue-200 dark:border-blue-900">
           <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white">
             <CardTitle className="text-lg flex items-center gap-2">
               <Users className="h-5 w-5" />
-              人工坐席配置
+              人工告警配置
             </CardTitle>
             <CardDescription className="text-blue-100">
-              配置风险转人工的目标坐席和分配策略
+              配置风险内容的告警接收者和消息模板
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6 space-y-6">
             <div className="flex items-center justify-between p-4 border rounded-lg">
               <div className="space-y-0.5">
-                <label className="text-sm font-medium">启用人工转接</label>
-                <p className="text-xs text-muted-foreground">检测到风险内容时自动转人工处理</p>
+                <label className="text-sm font-medium">启用人工告警</label>
+                <p className="text-xs text-muted-foreground">检测到风险内容时自动发送告警消息</p>
               </div>
               <Switch defaultChecked />
             </div>
 
             <div className="flex items-center justify-between p-4 border rounded-lg">
               <div className="space-y-0.5">
-                <label className="text-sm font-medium">转接模式</label>
-                <p className="text-xs text-muted-foreground">选择自动转接或手动转接</p>
+                <label className="text-sm font-medium">告警模式</label>
+                <p className="text-xs text-muted-foreground">选择自动告警或手动告警</p>
               </div>
               <select className="px-3 py-2 border rounded-md text-sm">
-                <option value="risk">风险内容自动转人工</option>
-                <option value="manual">手动转人工</option>
-                <option value="all">所有消息转人工</option>
-              </select>
-            </div>
-
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="space-y-0.5">
-                <label className="text-sm font-medium">分配策略</label>
-                <p className="text-xs text-muted-foreground">选择坐席分配方式</p>
-              </div>
-              <select className="px-3 py-2 border rounded-md text-sm">
-                <option value="round_robin">轮询分配</option>
-                <option value="priority">优先级分配</option>
-                <option value="load_balance">负载均衡</option>
+                <option value="risk">风险内容自动告警</option>
+                <option value="manual">手动发送告警</option>
               </select>
             </div>
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">人工坐席列表</label>
+                <label className="text-sm font-medium">告警接收者</label>
                 <Button variant="outline" size="sm">
                   <Plus className="h-4 w-4 mr-2" />
-                  添加坐席
+                  添加接收者
                 </Button>
               </div>
               
               <div className="text-sm text-muted-foreground p-4 border rounded-lg bg-muted/30">
-                暂无配置人工坐席。请点击上方按钮添加。
+                <p className="mb-2">配置接收告警的微信用户：</p>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>填写微信用户的名称</li>
+                  <li>填写微信用户的ID（必填）</li>
+                  <li>选择发送方式（私聊或群聊）</li>
+                  <li>可配置多个接收者，系统会逐一发送告警</li>
+                </ul>
               </div>
             </div>
 
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">发送次数</label>
+                <p className="text-xs text-muted-foreground">每个接收者发送的告警消息数量</p>
+              </div>
+              <select className="px-3 py-2 border rounded-md text-sm">
+                <option value="1">1 次</option>
+                <option value="2">2 次</option>
+                <option value="3">3 次</option>
+                <option value="5">5 次</option>
+                <option value="10">10 次</option>
+              </select>
+            </div>
+
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">发送间隔</label>
+                <p className="text-xs text-muted-foreground">多次发送时的间隔时间（秒）</p>
+              </div>
+              <select className="px-3 py-2 border rounded-md text-sm">
+                <option value="1">1 秒</option>
+                <option value="5">5 秒</option>
+                <option value="10">10 秒</option>
+                <option value="30">30 秒</option>
+                <option value="60">60 秒</option>
+              </select>
+            </div>
+
             <div className="space-y-2">
-              <label className="text-sm font-medium">用户通知消息</label>
+              <label className="text-sm font-medium">告警消息模板</label>
+              <p className="text-xs text-muted-foreground">
+                支持的变量：{'{userName}'} - 用户名，{'{groupName}'} - 群组名，{'{messageContent}'} - 消息内容，{'{timestamp}'} - 时间
+              </p>
               <textarea
-                placeholder="输入转人工时给用户的通知消息..."
-                defaultValue="您的会话已转人工处理，请稍候..."
-                className="w-full min-h-[80px] px-3 py-2 border rounded-md text-sm resize-vertical"
+                placeholder="输入告警消息模板..."
+                defaultValue="⚠️ 风险告警\n\n【用户信息】\n用户：{userName}\n群组：{groupName}\n\n【风险内容】\n{messageContent}\n\n【时间】\n{timestamp}"
+                className="w-full min-h-[120px] px-3 py-2 border rounded-md text-sm resize-vertical font-mono"
               />
             </div>
 

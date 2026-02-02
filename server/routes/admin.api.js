@@ -498,6 +498,138 @@ const adminApiRoutes = async function (fastify, options) {
 
     return { success: true, data: info };
   });
+
+  /**
+   * 获取人工告警配置
+   */
+  fastify.get('/human-handover/config', async (request, reply) => {
+    try {
+      console.log('[GET /api/admin/human-handover/config] Loading HumanHandoverService...');
+      const HumanHandoverService = require('../services/human-handover.service');
+      console.log('[GET /api/admin/human-handover/config] Creating HumanHandoverService instance...');
+      const service = new HumanHandoverService();
+      console.log('[GET /api/admin/human-handover/config] Getting config...');
+      
+      return { success: true, data: service.getConfig() };
+    } catch (error) {
+      console.error('[GET /api/admin/human-handover/config] ERROR:', error);
+      console.error('[GET /api/admin/human-handover/config] ERROR stack:', error.stack);
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 更新人工告警配置
+   */
+  fastify.post('/human-handover/config', async (request, reply) => {
+    try {
+      const HumanHandoverService = require('../services/human-handover.service');
+      const service = new HumanHandoverService();
+      
+      const result = service.updateConfig(request.body);
+      return { success: true, data: result };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 添加告警接收者
+   */
+  fastify.post('/human-handover/recipients', async (request, reply) => {
+    try {
+      const HumanHandoverService = require('../services/human-handover.service');
+      const service = new HumanHandoverService();
+      
+      const result = service.addRecipient(request.body);
+      
+      if (!result.success) {
+        return reply.status(400).send(result);
+      }
+      
+      return { success: true, data: result };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 更新告警接收者
+   */
+  fastify.put('/human-handover/recipients/:id', async (request, reply) => {
+    try {
+      const HumanHandoverService = require('../services/human-handover.service');
+      const service = new HumanHandoverService();
+      
+      const result = service.updateRecipient(request.params.id, request.body);
+      
+      if (!result.success) {
+        return reply.status(400).send(result);
+      }
+      
+      return { success: true, data: result };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 删除告警接收者
+   */
+  fastify.delete('/human-handover/recipients/:id', async (request, reply) => {
+    try {
+      const HumanHandoverService = require('../services/human-handover.service');
+      const service = new HumanHandoverService();
+      
+      const result = service.deleteRecipient(request.params.id);
+      
+      if (!result.success) {
+        return reply.status(400).send(result);
+      }
+      
+      return { success: true, data: result };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 手动发送告警
+   */
+  fastify.post('/human-handover/alert', async (request, reply) => {
+    try {
+      const HumanHandoverService = require('../services/human-handover.service');
+      const service = new HumanHandoverService();
+      
+      const result = await service.sendManualAlert(request.body);
+      
+      if (!result.success) {
+        return reply.status(400).send(result);
+      }
+      
+      return { success: true, data: result };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
 };
 
 module.exports = adminApiRoutes;

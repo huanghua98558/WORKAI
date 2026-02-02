@@ -75,28 +75,32 @@ class DecisionService {
       intentConfidence: confidence
     });
 
-    // 风险内容：强制转人工
+    // 风险内容：强制转人工并发送告警
     if (intent === 'risk' || needHuman) {
-      // 使用人工转接服务
-      const handoverResult = await humanHandoverService.handoverRiskContent(
-        session,
-        `意图: ${intent}`,
-        context
-      );
-      
-      // 触发告警
-      await this.triggerAlert('risk_content', {
+      // 发送告警消息给配置的接收者
+      const alertResult = await humanHandoverService.sendRiskAlert({
         userId: session.userId,
+        userName: session.userName || userId,
         groupId: session.groupId,
-        intent,
-        content: context.message?.content
+        groupName: session.groupName || groupId,
+        messageContent: context.message?.content || message.content,
+        timestamp: new Date().toLocaleString('zh-CN')
       });
+
+      // 更新会话状态为人工处理
+      await sessionService.updateSession(session.sessionId, {
+        status: 'human',
+        humanReason: `风险内容: ${intent}`,
+        humanTime: new Date().toISOString()
+      });
+
+      console.log(`风险告警已发送:`, alertResult);
 
       return {
         action: 'takeover_human',
-        reason: '检测到风险内容，转人工处理',
+        reason: '检测到风险内容，已发送告警通知',
         intent: intentResult,
-        ...handoverResult
+        alertResult
       };
     }
 

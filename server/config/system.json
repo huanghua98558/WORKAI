@@ -206,21 +206,19 @@
   },
   "humanHandover": {
     "enabled": true,
-    "autoMode": "risk", // risk: 风险内容自动转人工, manual: 手动转人工
-    "agents": [
+    "autoMode": "risk",
+    "alertRecipients": [
       {
-        "id": "agent1",
-        "name": "人工坐席1",
-        "userId": "user123",
-        "type": "group", // group 或 private
-        "avatar": "",
-        "status": "online",
-        "priority": 1,
-        "specialties": ["service", "risk"]
+        "id": "recipient1",
+        "name": "管理员",
+        "userId": "",
+        "type": "private",
+        "enabled": true
       }
     ],
-    "handoverStrategy": "round_robin", // round_robin: 轮询, priority: 优先级, load_balance: 负载均衡
-    "notificationMessage": "您的会话已转人工处理，请稍候...",
+    "alertMessageTemplate": "⚠️ 风险告警\n\n【用户信息】\n用户：{userName}\n群组：{groupName}\n\n【风险内容】\n{messageContent}\n\n【时间】\n{timestamp}",
+    "alertCount": 1,
+    "alertInterval": 5000,
     "timeoutMinutes": 30
   },
   "tencentDoc": {

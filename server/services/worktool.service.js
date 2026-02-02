@@ -3,6 +3,8 @@
  * 负责与 WorkTool 官方 API 交互
  */
 
+console.log('[worktool.service.js] Loading WorkToolService...');
+
 const axios = require('axios');
 const config = require('../lib/config');
 const redisClient = require('../lib/redis');

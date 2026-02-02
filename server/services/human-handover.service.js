@@ -1,224 +1,334 @@
 /**
- * 人工转接服务
- * 负责风险转人工、人工坐席分配、通知等功能
+ * 人工告警服务
+ * 负责检测风险内容并发送告警消息给指定的微信用户
  */
 
-const sessionService = require('./session.service');
-const worktoolService = require('./worktool.service');
 const config = require('../lib/config');
-const redisClient = require('../lib/redis');
+const worktoolService = require('./worktool.service');
+const logger = require('../lib/utils').logger;
 
 class HumanHandoverService {
   constructor() {
-    this.redis = redisClient.getClient();
+    // worktoolService 已经是实例，不需要再 new
   }
 
   /**
-   * 风险内容转人工
+   * 发送风险告警
+   * @param {Object} params - 告警参数
+   * @param {string} params.userId - 用户ID
+   * @param {string} params.userName - 用户名称
+   * @param {string} params.groupId - 群组ID
+   * @param {string} params.groupName - 群组名称
+   * @param {string} params.messageContent - 消息内容
+   * @param {string} params.timestamp - 时间戳
+   * @returns {Promise<Object>} - 发送结果
    */
-  async handoverRiskContent(session, reason, context = {}) {
+  async sendRiskAlert(params) {
+    const { userId, userName, groupId, groupName, messageContent, timestamp } = params;
+
+    // 获取配置
     const handoverConfig = config.get('humanHandover');
-    
-    if (!handoverConfig?.enabled) {
-      console.log('人工转接功能未启用');
-      return { action: 'none', reason: '人工转接功能未启用' };
+
+    // 检查是否启用
+    if (!handoverConfig || !handoverConfig.enabled) {
+      logger.info('[人工告警] 人工告警未启用');
+      return { success: false, reason: '人工告警未启用' };
     }
 
-    // 标记会话为风险状态
-    await sessionService.markAsRisky(session.sessionId, reason);
-
-    // 选择人工坐席
-    const agent = await this.selectAgent(handoverConfig, context);
-
-    if (!agent) {
-      console.warn('没有可用的人工坐席');
-      await this.notifyNoAgentAvailable(session, context);
-      return {
-        action: 'none',
-        reason: '没有可用的人工坐席',
-        sessionStatus: 'human'
-      };
+    // 检查模式
+    if (handoverConfig.autoMode !== 'risk') {
+      logger.info('[人工告警] 不在风险自动告警模式下');
+      return { success: false, reason: '不在风险自动告警模式下' };
     }
 
-    // 分配坐席
-    await this.assignAgent(session, agent);
-
-    // 通知用户
-    await this.notifyUser(session, handoverConfig.notificationMessage);
-
-    // 通知坐席
-    await this.notifyAgent(session, agent, reason, context);
-
-    console.log(`✅ 会话 ${session.sessionId} 已转人工: ${agent.name}`);
-
-    return {
-      action: 'takeover_human',
-      reason: `风险内容转人工: ${reason}`,
-      agentId: agent.id,
-      agentName: agent.name,
-      sessionStatus: 'human'
-    };
-  }
-
-  /**
-   * 选择人工坐席
-   */
-  async selectAgent(handoverConfig, context) {
-    const agents = handoverConfig.agents || [];
-    const availableAgents = agents.filter(a => 
-      a.status === 'online' && 
-      (!context.intent || a.specialties?.includes(context.intent))
-    );
-
-    if (availableAgents.length === 0) {
-      return null;
+    // 获取接收者列表
+    const recipients = handoverConfig.alertRecipients || [];
+    if (recipients.length === 0) {
+      logger.warn('[人工告警] 没有配置告警接收者');
+      return { success: false, reason: '没有配置告警接收者' };
     }
 
-    const strategy = handoverConfig.handoverStrategy || 'round_robin';
-
-    switch (strategy) {
-      case 'round_robin':
-        return await this.roundRobinSelect(availableAgents);
-      
-      case 'priority':
-        return this.prioritySelect(availableAgents);
-      
-      case 'load_balance':
-        return await this.loadBalanceSelect(availableAgents);
-      
-      default:
-        return availableAgents[0];
-    }
-  }
-
-  /**
-   * 轮询选择
-   */
-  async roundRobinSelect(agents) {
-    const key = 'handover:round_robin:index';
-    let currentIndex = parseInt(await this.redis.get(key) || '0');
-    currentIndex = currentIndex % agents.length;
-    await this.redis.set(key, currentIndex + 1);
-    return agents[currentIndex];
-  }
-
-  /**
-   * 优先级选择
-   */
-  prioritySelect(agents) {
-    return agents.sort((a, b) => (a.priority || 0) - (b.priority || 0))[0];
-  }
-
-  /**
-   * 负载均衡选择
-   */
-  async loadBalanceSelect(agents) {
-    const agentLoads = {};
-    
-    for (const agent of agents) {
-      const activeSessionsKey = `handover:agent:${agent.id}:active_sessions`;
-      const count = await this.redis.scard(activeSessionsKey);
-      agentLoads[agent.id] = count;
+    // 过滤启用的接收者
+    const enabledRecipients = recipients.filter(r => r.enabled);
+    if (enabledRecipients.length === 0) {
+      logger.warn('[人工告警] 没有启用的告警接收者');
+      return { success: false, reason: '没有启用的告警接收者' };
     }
 
-    return agents.sort((a, b) => agentLoads[a.id] - agentLoads[b.id])[0];
-  }
-
-  /**
-   * 分配坐席给会话
-   */
-  async assignAgent(session, agent) {
-    await sessionService.updateSession(session.sessionId, {
-      assignedAgentId: agent.id,
-      assignedAgentName: agent.name,
-      assignedAgentTime: new Date().toISOString()
+    // 生成告警消息
+    const alertMessage = this.generateAlertMessage(handoverConfig.alertMessageTemplate, {
+      userId,
+      userName: userName || userId,
+      groupId,
+      groupName: groupName || groupId,
+      messageContent,
+      timestamp: timestamp || new Date().toLocaleString('zh-CN')
     });
 
-    // 记录坐席活跃会话
-    const activeSessionsKey = `handover:agent:${agent.id}:active_sessions`;
-    await this.redis.sadd(activeSessionsKey, session.sessionId);
-    await this.redis.expire(activeSessionsKey, 3600); // 1小时过期
-  }
+    // 获取发送次数和间隔
+    const alertCount = Math.min(Math.max(handoverConfig.alertCount || 1, 1), 10); // 限制在1-10次
+    const alertInterval = Math.max(handoverConfig.alertInterval || 5000, 1000); // 最小1秒
 
-  /**
-   * 通知用户
-   */
-  async notifyUser(session, message) {
-    try {
-      await worktoolService.sendTextMessage('group', session.groupId, message);
-    } catch (error) {
-      console.error('通知用户失败:', error.message);
+    // 发送告警消息
+    const results = [];
+    for (const recipient of enabledRecipients) {
+      try {
+        // 发送指定次数的消息
+        for (let i = 0; i < alertCount; i++) {
+          const messageWithIndex = i === 0 ? alertMessage : `${alertMessage}\n\n（第 ${i + 1} 次提醒）`;
+          
+          await worktoolService.sendTextMessage(
+            recipient.type, // 'private' 或 'group'
+            recipient.userId,
+            messageWithIndex
+          );
+
+          logger.info(`[人工告警] 已发送给 ${recipient.name} (${recipient.userId}) - 第 ${i + 1}/${alertCount} 次`);
+
+          // 如果不是最后一次，等待间隔时间
+          if (i < alertCount - 1) {
+            await new Promise(resolve => setTimeout(resolve, alertInterval));
+          }
+
+          results.push({
+            recipientId: recipient.id,
+            recipientName: recipient.name,
+            success: true,
+            count: i + 1
+          });
+        }
+      } catch (error) {
+        logger.error(`[人工告警] 发送给 ${recipient.name} 失败:`, error);
+        results.push({
+          recipientId: recipient.id,
+          recipientName: recipient.name,
+          success: false,
+          error: error.message
+        });
+      }
     }
-  }
 
-  /**
-   * 通知坐席
-   */
-  async notifyAgent(session, agent, reason, context) {
-    const message = `[人工转接通知]
-用户: ${session.userInfo?.userName || session.userId}
-群组: ${session.userInfo?.groupName || session.groupId}
-原因: ${reason}
-时间: ${new Date().toLocaleString('zh-CN')}
-消息内容: ${context.message?.content || '无'}`;
+    // 统计结果
+    const successCount = results.filter(r => r.success).length;
+    const totalRecipients = enabledRecipients.length;
 
-    try {
-      await worktoolService.sendTextMessage(agent.type, agent.userId, message);
-    } catch (error) {
-      console.error('通知坐席失败:', error.message);
-    }
-  }
+    logger.info(`[人工告警] 发送完成：${successCount}/${totalRecipients} 个接收者成功`);
 
-  /**
-   * 没有可用坐席时的通知
-   */
-  async notifyNoAgentAvailable(session, context) {
-    const message = '暂时没有可用的人工坐席，请稍后再试或使用其他联系方式。';
-    await this.notifyUser(session, message);
-  }
-
-  /**
-   * 释放坐席（会话结束）
-   */
-  async releaseAgent(session) {
-    if (!session.assignedAgentId) return;
-
-    const activeSessionsKey = `handover:agent:${session.assignedAgentId}:active_sessions`;
-    await this.redis.srem(activeSessionsKey, session.sessionId);
-  }
-
-  /**
-   * 获取坐席状态
-   */
-  async getAgentStats(agentId) {
-    const activeSessionsKey = `handover:agent:${agentId}:active_sessions`;
-    const activeSessions = await this.redis.smembers(activeSessionsKey);
-    
     return {
-      agentId,
-      activeSessionCount: activeSessions.length,
-      activeSessions
+      success: successCount > 0,
+      results,
+      summary: {
+        totalRecipients,
+        successCount,
+        failCount: totalRecipients - successCount,
+        messageCount: alertCount
+      }
     };
   }
 
   /**
-   * 获取所有坐席统计
+   * 手动发送告警
+   * @param {Object} params - 手动告警参数
+   * @param {string} params.recipientId - 接收者ID
+   * @param {string} params.message - 消息内容
+   * @returns {Promise<Object>} - 发送结果
    */
-  async getAllAgentsStats() {
+  async sendManualAlert(params) {
+    const { recipientId, message } = params;
+
+    // 获取配置
     const handoverConfig = config.get('humanHandover');
-    const agents = handoverConfig?.agents || [];
-    
-    const stats = [];
-    for (const agent of agents) {
-      const agentStats = await this.getAgentStats(agent.id);
-      stats.push({
-        ...agent,
-        ...agentStats
-      });
+
+    // 检查是否启用
+    if (!handoverConfig || !handoverConfig.enabled) {
+      return { success: false, reason: '人工告警未启用' };
     }
 
-    return stats;
+    // 查找接收者
+    const recipient = handoverConfig.alertRecipients.find(r => r.id === recipientId);
+    if (!recipient) {
+      return { success: false, reason: '找不到指定的接收者' };
+    }
+
+    if (!recipient.enabled) {
+      return { success: false, reason: '接收者未启用' };
+    }
+
+    try {
+      await worktoolService.sendTextMessage(
+        recipient.type,
+        recipient.userId,
+        message
+      );
+
+      logger.info(`[人工告警] 手动发送给 ${recipient.name} 成功`);
+
+      return {
+        success: true,
+        recipientId: recipient.id,
+        recipientName: recipient.name
+      };
+    } catch (error) {
+      logger.error(`[人工告警] 手动发送失败:`, error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * 获取接收者列表
+   * @returns {Array} - 接收者列表
+   */
+  getRecipients() {
+    const handoverConfig = config.get('humanHandover');
+    return handoverConfig?.alertRecipients || [];
+  }
+
+  /**
+   * 添加接收者
+   * @param {Object} recipient - 接收者信息
+   * @returns {Object} - 添加结果
+   */
+  addRecipient(recipient) {
+    const handoverConfig = config.get('humanHandover');
+
+    if (!handoverConfig) {
+      return { success: false, reason: '配置不存在' };
+    }
+
+    if (!handoverConfig.alertRecipients) {
+      handoverConfig.alertRecipients = [];
+    }
+
+    // 检查是否已存在
+    const exists = handoverConfig.alertRecipients.some(r => r.userId === recipient.userId);
+    if (exists) {
+      return { success: false, reason: '该用户ID已存在' };
+    }
+
+    // 添加新接收者
+    const newRecipient = {
+      id: `recipient${Date.now()}`,
+      name: recipient.name,
+      userId: recipient.userId,
+      type: recipient.type || 'private',
+      enabled: true
+    };
+
+    handoverConfig.alertRecipients.push(newRecipient);
+    config.save();
+
+    logger.info(`[人工告警] 添加接收者: ${newRecipient.name}`);
+
+    return { success: true, recipient: newRecipient };
+  }
+
+  /**
+   * 更新接收者
+   * @param {string} id - 接收者ID
+   * @param {Object} updates - 更新内容
+   * @returns {Object} - 更新结果
+   */
+  updateRecipient(id, updates) {
+    const handoverConfig = config.get('humanHandover');
+
+    if (!handoverConfig || !handoverConfig.alertRecipients) {
+      return { success: false, reason: '配置不存在' };
+    }
+
+    const index = handoverConfig.alertRecipients.findIndex(r => r.id === id);
+    if (index === -1) {
+      return { success: false, reason: '找不到指定的接收者' };
+    }
+
+    // 更新接收者
+    handoverConfig.alertRecipients[index] = {
+      ...handoverConfig.alertRecipients[index],
+      ...updates
+    };
+
+    config.save();
+
+    logger.info(`[人工告警] 更新接收者: ${id}`);
+
+    return { success: true, recipient: handoverConfig.alertRecipients[index] };
+  }
+
+  /**
+   * 删除接收者
+   * @param {string} id - 接收者ID
+   * @returns {Object} - 删除结果
+   */
+  deleteRecipient(id) {
+    const handoverConfig = config.get('humanHandover');
+
+    if (!handoverConfig || !handoverConfig.alertRecipients) {
+      return { success: false, reason: '配置不存在' };
+    }
+
+    const index = handoverConfig.alertRecipients.findIndex(r => r.id === id);
+    if (index === -1) {
+      return { success: false, reason: '找不到指定的接收者' };
+    }
+
+    const deleted = handoverConfig.alertRecipients.splice(index, 1)[0];
+    config.save();
+
+    logger.info(`[人工告警] 删除接收者: ${deleted.name}`);
+
+    return { success: true, recipient: deleted };
+  }
+
+  /**
+   * 生成告警消息
+   * @param {string} template - 消息模板
+   * @param {Object} params - 参数对象
+   * @returns {string} - 生成的消息
+   */
+  generateAlertMessage(template, params) {
+    let message = template || '⚠️ 检测到风险内容\n\n{messageContent}';
+
+    // 替换变量
+    Object.keys(params).forEach(key => {
+      const placeholder = `{${key}}`;
+      if (message.includes(placeholder)) {
+        message = message.replace(new RegExp(placeholder, 'g'), params[key]);
+      }
+    });
+
+    return message;
+  }
+
+  /**
+   * 更新配置
+   * @param {Object} updates - 更新内容
+   * @returns {Object} - 更新结果
+   */
+  updateConfig(updates) {
+    const handoverConfig = config.get('humanHandover');
+
+    if (!handoverConfig) {
+      return { success: false, reason: '配置不存在' };
+    }
+
+    // 更新配置
+    Object.assign(handoverConfig, updates);
+    config.save();
+
+    logger.info('[人工告警] 更新配置');
+
+    return { success: true, config: handoverConfig };
+  }
+
+  /**
+   * 获取配置
+   * @returns {Object} - 配置信息
+   */
+  getConfig() {
+    return config.get('humanHandover') || {};
   }
 }
 
-module.exports = new HumanHandoverService();
+module.exports = HumanHandoverService;
