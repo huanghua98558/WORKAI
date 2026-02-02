@@ -1956,8 +1956,15 @@ ${callbacks.robotStatus}
           setNewUser({ username: '', password: '', role: 'operator', email: '' });
           loadUsersRef.current();
         } else {
-          const data = await res.json();
-          alert(`❌ 添加失败: ${data.error || '未知错误'}`);
+          const text = await res.text();
+          let errorMessage = '未知错误';
+          try {
+            const data = JSON.parse(text);
+            errorMessage = data.error || data.message || errorMessage;
+          } catch {
+            if (text) errorMessage = text;
+          }
+          alert(`❌ 添加失败: ${errorMessage}`);
         }
       } catch (error) {
         console.error('添加用户失败:', error);
@@ -1993,8 +2000,15 @@ ${callbacks.robotStatus}
           setEditingUser(null);
           loadUsersRef.current();
         } else {
-          const data = await res.json();
-          alert(`❌ 更新失败: ${data.error || '未知错误'}`);
+          const text = await res.text();
+          let errorMessage = '未知错误';
+          try {
+            const data = JSON.parse(text);
+            errorMessage = data.error || data.message || errorMessage;
+          } catch {
+            if (text) errorMessage = text;
+          }
+          alert(`❌ 更新失败: ${errorMessage}`);
         }
       } catch (error) {
         console.error('更新用户失败:', error);
