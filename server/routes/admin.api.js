@@ -158,41 +158,26 @@ const adminApiRoutes = async function (fastify, options) {
    * 获取回调地址
    */
   fastify.get('/callbacks', async (request, reply) => {
-    // 优先使用 x-backend-url 头（来自前端代理），这是后端的真实地址
-    const backendUrl = request.headers['x-backend-url'];
-    
-    // 其次从环境变量或配置文件获取
+    // 优先使用环境变量或配置文件中的 CALLBACK_BASE_URL（推荐用于生产环境）
     let baseUrl = config.getCallbackBaseUrl();
     
-    // 如果存在 backendUrl 头，使用它作为回调基础地址
-    if (backendUrl) {
-      baseUrl = backendUrl;
-    } else {
-      // 如果没有 backendUrl，尝试从 x-forwarded-host 获取（生产环境自动检测）
+    // 检查是否来自自动检测的地址（如果 baseUrl 包含 localhost，说明可能需要自动检测）
+    const isLocalhost = baseUrl && (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1'));
+    
+    // 如果当前是 localhost 环境，尝试从请求头中自动检测真实的外网地址
+    if (isLocalhost) {
       const forwardedHost = request.headers['x-forwarded-host'];
       const forwardedProto = request.headers['x-forwarded-proto'];
-      const host = request.headers['host'];
       
-      // 如果存在反向代理头，说明在生产环境
+      // 如果存在反向代理头，说明在生产环境，使用自动检测的地址
       if (forwardedHost && forwardedProto) {
         const detectedBaseUrl = `${forwardedProto}://${forwardedHost}`;
         
-        // 如果检测到的地址与配置不同，自动更新配置
+        // 如果检测到的地址与配置不同，更新配置（用于调试，不持久化到文件）
         if (detectedBaseUrl !== baseUrl) {
           console.log(`检测到部署地址变更: ${baseUrl} -> ${detectedBaseUrl}`);
-          config.set('deployment.callbackBaseUrl', detectedBaseUrl);
           baseUrl = detectedBaseUrl;
         }
-      }
-      
-      // 如果没有配置 baseUrl 且没有代理头，尝试从 host 获取
-      if (!baseUrl) {
-        const detectedHost = host || 'localhost:5001';
-        const detectedProto = (host && host.includes('localhost')) ? 'http' : 'https';
-        baseUrl = `${detectedProto}://${detectedHost}`;
-        
-        // 更新配置文件
-        config.set('deployment.callbackBaseUrl', baseUrl);
       }
     }
     

@@ -16,6 +16,8 @@ const rateLimit = require('@fastify/rate-limit');
 const worktoolCallbackRoutes = require('./routes/worktool.callback');
 const adminApiRoutes = require('./routes/admin.api');
 
+const redisClient = require('./lib/redis');
+
 // 初始化 Fastify 实例
 const fastify = Fastify({
   logger: {
@@ -25,14 +27,13 @@ const fastify = Fastify({
 
 // Redis 可选配置 - 如果 Redis 不可用，使用内存模式
 let redisAvailable = false;
-try {
-  redisClient.connect();
+redisClient.connect().then(() => {
   redisAvailable = true;
-} catch (error) {
+  console.log('📊 Redis 状态: 已连接');
+}).catch((error) => {
   console.warn('⚠️  Redis 不可用，系统将以内存模式运行');
-}
-
-console.log(`📊 Redis 状态: ${redisAvailable ? '已连接' : '内存模式'}`);
+  console.log('📊 Redis 状态: 内存模式');
+});
 
 // 注册插件
 fastify.register(cors, {
