@@ -17,19 +17,31 @@ class DecisionService {
 
   /**
    * 决策主流程
+   * @param {Object} message - 消息对象（支持 WorkTool 格式）
+   * @param {Object} context - 上下文信息
    */
   async makeDecision(message, context = {}) {
-    const { userId, groupId, userName, groupName } = context;
+    // 支持 WorkTool 格式和原有格式
+    const { userId, groupId, userName, groupName, roomType, atMe, message: contextMessage } = context;
+
+    // WorkTool 格式参数
+    const spoken = message.spoken || message.content || '';
+    const fromName = message.fromName || userName || userId;
+    const toGroupName = message.groupName || groupName || groupId;
 
     // 1. 获取或创建会话
     const session = await sessionService.getOrCreateSession(
-      userId,
-      groupId,
-      { userName, groupName }
+      userId || fromName,
+      toGroupName,
+      { userName: fromName, groupName: toGroupName }
     );
 
     // 2. 添加消息到上下文
-    await sessionService.addContext(session.sessionId, message);
+    await sessionService.addContext(session.sessionId, {
+      content: spoken,
+      from_type: atMe ? 'user' : 'other',
+      timestamp: message.timestamp || new Date().toISOString()
+    });
 
     // 3. 检查是否在人工接管模式
     if (session.status === 'human') {
@@ -40,14 +52,15 @@ class DecisionService {
       };
     }
 
-    // 4. 意图识别
+    // 4. 意图识别（使用 spoken 或 content）
+    const contentToAnalyze = spoken || message.content || '';
     const intentResult = await aiService.recognizeIntent(
-      message.content,
+      contentToAnalyze,
       {
-        userId,
-        groupId,
-        userName,
-        groupName,
+        userId: userId || fromName,
+        groupId: toGroupName,
+        userName: fromName,
+        groupName: toGroupName,
         history: session.context.slice(-5)
       }
     );
@@ -58,7 +71,7 @@ class DecisionService {
     return await this.decideByIntent(
       intentResult,
       session,
-      context
+      { ...context, message, content: contentToAnalyze, roomType, atMe }
     );
   }
 
@@ -133,12 +146,12 @@ class DecisionService {
 
     // 需要回复：根据意图类型生成回复
     let reply;
-    const toType = context.toType || 'group';
+    const toType = context.roomType === '2' || context.roomType === '4' ? 'single' : 'group'; // 2=外部联系人 4=内部联系人 为单聊
 
     if (intent === 'service') {
       // 服务问题：自动回复
       reply = await aiService.generateServiceReply(
-        context.message?.content,
+        context.content,
         intent
       );
       
@@ -191,7 +204,7 @@ class DecisionService {
       }
 
       // AI 自然陪聊
-      reply = await aiService.generateChatReply(context.message?.content);
+      reply = await aiService.generateChatReply(context.content);
       
       await sessionService.updateSession(session.sessionId, {
         aiReplyCount: session.aiReplyCount + 1,

@@ -17,16 +17,16 @@ const worktoolCallbackRoutes = async function (fastify, options) {
   const sessionService = require('../services/session.service');
   const config = require('../lib/config');
 
-  // WorkTool 标准响应格式
+  // WorkTool 标准响应格式（按照 WorkTool 规范）
   const successResponse = (data = {}, message = 'success') => ({
     code: 0,
-    msg: message,
+    message: message,
     data
   });
 
   const errorResponse = (code = -1, message = 'error', data = null) => ({
     code,
-    msg: message,
+    message: message,
     data
   });
 
@@ -57,7 +57,22 @@ const worktoolCallbackRoutes = async function (fastify, options) {
   };
 
   /**
-   * 消息回调
+   * 消息回调（WorkTool QA问答接口 - 高级能力）
+   * 
+   * 请求参数：
+   * - spoken: 问题文本
+   * - rawSpoken: 原始问题文本
+   * - receivedName: 提问者名称
+   * - groupName: QA所在群名
+   * - groupRemark: QA所在群备注名
+   * - roomType: 房间类型（1=外部群 2=外部联系人 3=内部群 4=内部联系人）
+   * - atMe: 是否@机器人
+   * - textType: 消息类型（0=未知 1=文本 2=图片 3=语音等）
+   * - fileBase64: 图片base64（可选）
+   * 
+   * 响应格式：
+   * - code: 0 表示成功，-1或其他值表示失败
+   * - message: 对本次接口调用的信息描述
    */
   fastify.post('/message', {
     preHandler: [verifySignatureMiddleware, circuitBreakerMiddleware]
@@ -66,14 +81,6 @@ const worktoolCallbackRoutes = async function (fastify, options) {
     const callbackData = request.body;
     
     try {
-      // 幂等性检查
-      const idempotencyKey = `callback:message:${callbackData.message_id || requestId}`;
-      const isAllowed = await idempotencyChecker.check(idempotencyKey);
-      
-      if (!isAllowed) {
-        return reply.send(successResponse({}, '重复回调，已处理'));
-      }
-
       // 记录审计日志
       await auditLogger.log('message_callback', 'worktool', {
         requestId,
@@ -85,58 +92,21 @@ const worktoolCallbackRoutes = async function (fastify, options) {
         type: 'message'
       });
 
-      // 提取消息信息
-      const message = {
-        messageId: callbackData.message_id,
-        fromType: callbackData.from_type,
-        fromId: callbackData.from_id,
-        fromName: callbackData.from_name,
-        toType: callbackData.to_type,
-        toId: callbackData.to_id,
-        content: callbackData.content,
-        messageType: callbackData.message_type,
-        timestamp: callbackData.timestamp || new Date().toISOString()
-      };
-
-      // 决策处理
-      const decision = await decisionService.makeDecision(message, {
-        userId: message.fromId,
-        groupId: message.toId,
-        userName: message.fromName,
-        groupName: callbackData.to_name || '',
-        toType: message.toType,
-        message
+      // 立即返回响应，异步处理消息
+      setImmediate(async () => {
+        try {
+          await handleMessageAsync(callbackData, requestId);
+        } catch (error) {
+          console.error('异步处理消息失败:', error);
+          await monitorService.recordSystemMetric('callback_error', 1, {
+            type: 'message',
+            error: error.message
+          });
+        }
       });
 
-      // 记录决策结果
-      await monitorService.recordSystemMetric('callback_processed', 1, {
-        type: 'message',
-        action: decision.action
-      });
-
-      // 记录数据
-      await reportService.recordRecord({
-        groupName: callbackData.to_name || '',
-        userName: message.fromName,
-        userId: message.fromId,
-        groupId: message.toId,
-        questionContent: message.content,
-        intent: decision.intent?.intent || '',
-        aiReply: decision.reply || '',
-        humanIntervention: decision.action === 'takeover_human' ? 1 : 0,
-        action: decision.action,
-        reason: decision.reason
-      });
-
-      // 记录群和用户指标
-      await monitorService.recordGroupMetric(message.toId, 'messages', 1);
-      await monitorService.recordUserMetric(message.fromId, message.toId, 'messages', 1);
-      await monitorService.recordSystemMetric(`intent_${decision.intent?.intent || 'unknown'}`, 1);
-
-      reply.send(successResponse({
-        requestId,
-        decision
-      }, '消息处理成功'));
+      // 立即返回成功响应（确保3秒内响应）
+      reply.send(successResponse({}, 'success'));
 
     } catch (error) {
       console.error('处理消息回调失败:', error);
@@ -148,6 +118,134 @@ const worktoolCallbackRoutes = async function (fastify, options) {
       reply.status(500).send(errorResponse(500, error.message));
     }
   });
+
+  /**
+   * 异步处理消息
+   */
+  async function handleMessageAsync(callbackData, requestId) {
+    // 幂等性检查
+    const idempotencyKey = `callback:message:${callbackData.spoken}_${callbackData.receivedName}_${requestId}`;
+    const isAllowed = await idempotencyChecker.check(idempotencyKey);
+    
+    if (!isAllowed) {
+      console.log('重复回调，已处理:', callbackData);
+      return;
+    }
+
+    // 映射 WorkTool 参数到内部格式
+    const message = {
+      messageId: requestId,
+      spoken: callbackData.spoken,
+      rawSpoken: callbackData.rawSpoken,
+      fromName: callbackData.receivedName,
+      groupName: callbackData.groupName,
+      groupRemark: callbackData.groupRemark,
+      roomType: callbackData.roomType,
+      atMe: callbackData.atMe,
+      textType: callbackData.textType,
+      fileBase64: callbackData.fileBase64,
+      timestamp: new Date().toISOString()
+    };
+
+    // 决策处理
+    const decision = await decisionService.makeDecision(message, {
+      userId: callbackData.receivedName,
+      groupId: callbackData.groupName,
+      userName: callbackData.receivedName,
+      groupName: callbackData.groupName,
+      roomType: callbackData.roomType,
+      atMe: callbackData.atMe,
+      message
+    });
+
+    // 记录决策结果
+    await monitorService.recordSystemMetric('callback_processed', 1, {
+      type: 'message',
+      action: decision.action
+    });
+
+    // 记录数据
+    await reportService.recordRecord({
+      groupName: callbackData.groupName || '',
+      userName: callbackData.receivedName,
+      userId: callbackData.receivedName,
+      groupId: callbackData.groupName,
+      questionContent: callbackData.spoken,
+      intent: decision.intent?.intent || '',
+      aiReply: decision.reply || '',
+      humanIntervention: decision.action === 'takeover_human' ? 1 : 0,
+      action: decision.action,
+      reason: decision.reason
+    });
+
+    // 记录群和用户指标
+    await monitorService.recordGroupMetric(callbackData.groupName, 'messages', 1);
+    await monitorService.recordUserMetric(callbackData.receivedName, callbackData.groupName, 'messages', 1);
+    await monitorService.recordSystemMetric(`intent_${decision.intent?.intent || 'unknown'}`, 1);
+
+    // 如果需要回复，调用 WorkTool 发送消息接口
+    if (decision.reply && decision.action === 'auto_reply') {
+      await sendWorkToolMessage(callbackData.groupName, callbackData.receivedName, decision.reply, callbackData.roomType);
+    }
+  }
+
+  /**
+   * 发送 WorkTool 消息
+   */
+  async function sendWorkToolMessage(groupName, userName, content, roomType) {
+    try {
+      // 获取 WorkTool 配置
+      const worktoolConfig = config.get('worktool');
+      
+      if (!worktoolConfig.apiBaseUrl || !worktoolConfig.apiKey) {
+        console.warn('WorkTool 配置不完整，无法发送消息');
+        return;
+      }
+
+      // 根据房间类型确定接收者
+      let toId, toType;
+      if (roomType == 1 || roomType == 3) {
+        // 群聊
+        toId = groupName;
+        toType = 'group';
+      } else {
+        // 单聊
+        toId = userName;
+        toType = 'single';
+      }
+
+      // 调用 WorkTool 发送消息接口
+      // 注意：这里需要根据实际的 WorkTool API 文档来实现
+      console.log('发送消息到 WorkTool:', {
+        toId,
+        toType,
+        content
+      });
+
+      // TODO: 实现实际的 WorkTool 发送消息接口调用
+      // const response = await fetch(`${worktoolConfig.apiBaseUrl}/send/message`, {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //     'Authorization': `Bearer ${worktoolConfig.apiKey}`
+      //   },
+      //   body: JSON.stringify({
+      //     to_id: toId,
+      //     to_type: toType,
+      //     content: content
+      //   })
+      // });
+
+      await monitorService.recordSystemMetric('message_sent', 1, {
+        toType
+      });
+    } catch (error) {
+      console.error('发送 WorkTool 消息失败:', error);
+      await monitorService.recordSystemMetric('message_error', 1, {
+        error: error.message
+      });
+    }
+  }
 
   /**
    * 指令执行结果回调
