@@ -11,12 +11,12 @@ const worktoolCallbackRoutes = async function (fastify, options) {
     AuditLogger
   } = require('../lib/utils');
   const redisClient = require('../lib/redis');
-  const decisionService = require('../services/decision.service');
   const monitorService = require('../services/monitor.service');
   const reportService = require('../services/report.service');
   const sessionService = require('../services/session.service');
   const robotService = require('../services/robot.service');
   const worktoolService = require('../services/worktool.service');
+  const messageProcessingService = require('../services/message-processing.service'); // 新的消息处理服务
   const { db } = require('../database');
   const { callbackHistory } = require('../database/schema');
   const config = require('../lib/config');
@@ -334,16 +334,8 @@ const worktoolCallbackRoutes = async function (fastify, options) {
       timestamp: new Date().toISOString()
     };
 
-    // 决策处理
-    const decision = await decisionService.makeDecision(message, {
-      userId: callbackData.receivedName,
-      groupId: callbackData.groupName,
-      userName: callbackData.receivedName,
-      groupName: callbackData.groupName,
-      roomType: callbackData.roomType,
-      atMe: callbackData.atMe,
-      message
-    });
+    // 使用新的消息处理服务
+    const decision = await messageProcessingService.processMessage(message, robot);
 
     // 记录决策结果
     await monitorService.recordSystemMetric('callback_processed', 1, {
@@ -352,7 +344,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
       action: decision.action
     });
 
-    // 记录数据
+    // 记录数据到报告服务
     await reportService.recordRecord({
       groupName: callbackData.groupName || '',
       userName: callbackData.receivedName,
@@ -362,30 +354,9 @@ const worktoolCallbackRoutes = async function (fastify, options) {
       intent: decision.intent?.intent || '',
       confidence: decision.intent?.confidence || 0,
       action: decision.action,
-      response: decision.response,
+      response: decision.reply,
       createdAt: new Date()
     });
-
-    // 更新会话上下文
-    await sessionService.updateSession({
-      sessionId: `${callbackData.groupName}_${callbackData.receivedName}`,
-      groupName: callbackData.groupName,
-      userName: callbackData.receivedName,
-      lastIntent: decision.intent?.intent || '',
-      lastQuestion: callbackData.spoken,
-      lastResponse: decision.response,
-      updatedAt: new Date()
-    });
-
-    // 执行决策结果（发送消息等）
-    if (decision.action === 'reply' && decision.response) {
-      await worktoolService.sendMessage({
-        robotId: robot.robotId,
-        toWxId: callbackData.receivedName,
-        content: decision.response,
-        atWxId: callbackData.atMe ? callbackData.receivedName : undefined
-      });
-    }
   }
 
   /**

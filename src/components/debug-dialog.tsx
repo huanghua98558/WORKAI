@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,12 +35,35 @@ import {
   CheckCircle,
   XCircle,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  Activity,
+  Clock,
+  Search
 } from 'lucide-react';
 
 interface DebugDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+interface ExecutionRecord {
+  processingId: string;
+  robotId: string;
+  status: string;
+  startTime: string;
+  completedAt?: string;
+  processingTime?: number;
+  messageData?: any;
+  steps: {
+    [key: string]: {
+      status: string;
+      startTime?: number;
+      endTime?: number;
+      result?: any;
+    };
+  };
+  decision?: any;
+  error?: string;
 }
 
 export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
@@ -81,6 +104,91 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
   const [fileResult, setFileResult] = useState<any>(null);
   const [isPushingFile, setIsPushingFile] = useState(false);
 
+  // 执行结果追踪相关状态
+  const [executionRecords, setExecutionRecords] = useState<ExecutionRecord[]>([]);
+  const [executionStats, setExecutionStats] = useState<any>(null);
+  const [isLoadingRecords, setIsLoadingRecords] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRecord, setSelectedRecord] = useState<ExecutionRecord | null>(null);
+
+  // 加载执行记录
+  const loadExecutionRecords = async () => {
+    setIsLoadingRecords(true);
+    try {
+      const response = await fetch('/api/proxy/admin/execution?endpoint=records&limit=50');
+      const data = await response.json();
+      if (data.success) {
+        setExecutionRecords(data.data || []);
+      }
+    } catch (error) {
+      console.error('加载执行记录失败:', error);
+    } finally {
+      setIsLoadingRecords(false);
+    }
+  };
+
+  // 加载执行统计
+  const loadExecutionStats = async () => {
+    try {
+      const response = await fetch('/api/proxy/admin/execution?endpoint=stats');
+      const data = await response.json();
+      if (data.success) {
+        setExecutionStats(data.data);
+      }
+    } catch (error) {
+      console.error('加载执行统计失败:', error);
+    }
+  };
+
+  // 搜索执行记录
+  const searchExecutionRecords = async (query: string) => {
+    if (!query.trim()) {
+      loadExecutionRecords();
+      return;
+    }
+    setIsLoadingRecords(true);
+    try {
+      const response = await fetch(`/api/proxy/admin/execution?endpoint=search&q=${encodeURIComponent(query)}&limit=20`);
+      const data = await response.json();
+      if (data.success) {
+        setExecutionRecords(data.data || []);
+      }
+    } catch (error) {
+      console.error('搜索执行记录失败:', error);
+    } finally {
+      setIsLoadingRecords(false);
+    }
+  };
+
+  // 加载执行记录详情
+  const loadExecutionDetail = async (processingId: string) => {
+    try {
+      const response = await fetch(`/api/proxy/admin/execution?endpoint=detail/${processingId}`);
+      const data = await response.json();
+      if (data.success) {
+        setSelectedRecord(data.data);
+      }
+    } catch (error) {
+      console.error('加载执行详情失败:', error);
+    }
+  };
+
+  // 当切换到执行结果标签页时加载数据
+  useEffect(() => {
+    if (activeTab === 'execution') {
+      loadExecutionRecords();
+      loadExecutionStats();
+    }
+  }, [activeTab]);
+
+  // 搜索防抖
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchExecutionRecords(searchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const handleSendMessage = async () => {
     if (!messageForm.recipient || !messageForm.content) {
       alert('请填写接收方和消息内容');
@@ -96,6 +204,10 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
       });
       const data = await res.json();
       setMessageResult(data);
+      // 发送成功后刷新执行记录
+      if (activeTab === 'execution') {
+        loadExecutionRecords();
+      }
     } catch (error) {
       setMessageResult({
         success: false,
@@ -185,7 +297,7 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="message" className="gap-2">
               <MessageSquare className="h-4 w-4" />
               发送消息
@@ -197,6 +309,10 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
             <TabsTrigger value="file" className="gap-2">
               <FileText className="h-4 w-4" />
               推送文件
+            </TabsTrigger>
+            <TabsTrigger value="execution" className="gap-2">
+              <Activity className="h-4 w-4" />
+              执行结果
             </TabsTrigger>
           </TabsList>
 
@@ -549,6 +665,173 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="execution">
+            <div className="space-y-4">
+              {/* 统计卡片 */}
+              {executionStats && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">总处理数</div>
+                      <div className="text-2xl font-bold">{executionStats.total || 0}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">成功率</div>
+                      <div className="text-2xl font-bold text-green-600">{executionStats.successRate || '0'}%</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">自动回复</div>
+                      <div className="text-2xl font-bold text-blue-600">{executionStats.autoReply || 0}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">错误数</div>
+                      <div className="text-2xl font-bold text-red-600">{executionStats.error || 0}</div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* 搜索框 */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="搜索执行记录..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1"
+                />
+                <Button onClick={() => loadExecutionRecords()} variant="outline">
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* 执行记录列表 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">最近执行记录</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingRecords ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-2" />
+                      加载中...
+                    </div>
+                  ) : executionRecords.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      暂无执行记录
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {executionRecords.map((record) => (
+                        <div
+                          key={record.processingId}
+                          className="p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+                          onClick={() => loadExecutionDetail(record.processingId)}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              {record.status === 'success' ? (
+                                <CheckCircle className="h-5 w-5 text-green-600" />
+                              ) : record.status === 'error' ? (
+                                <XCircle className="h-5 w-5 text-red-600" />
+                              ) : (
+                                <Clock className="h-5 w-5 text-blue-600" />
+                              )}
+                              <span className="text-sm font-medium">
+                                {record.status === 'success' ? '成功' : record.status === 'error' ? '失败' : '处理中'}
+                              </span>
+                            </div>
+                            <span className="text-xs text-gray-500">
+                              {record.processingTime ? `${record.processingTime}ms` : '-'}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {new Date(record.startTime).toLocaleString('zh-CN')}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            {record.messageData?.spoken || record.messageData?.content || '-'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* 执行详情 */}
+              {selectedRecord && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">执行详情</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <div className="text-gray-600 dark:text-gray-400">处理ID</div>
+                        <div className="font-mono text-xs">{selectedRecord.processingId}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-600 dark:text-gray-400">状态</div>
+                        <div className="font-medium">
+                          {selectedRecord.status === 'success' ? '成功' : selectedRecord.status === 'error' ? '失败' : '处理中'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-600 dark:text-gray-400">开始时间</div>
+                        <div>{new Date(selectedRecord.startTime).toLocaleString('zh-CN')}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-600 dark:text-gray-400">完成时间</div>
+                        <div>{selectedRecord.completedAt ? new Date(selectedRecord.completedAt).toLocaleString('zh-CN') : '-'}</div>
+                      </div>
+                    </div>
+
+                    {selectedRecord.error && (
+                      <Alert variant="destructive">
+                        <XCircle className="h-4 w-4" />
+                        <AlertTitle>错误信息</AlertTitle>
+                        <AlertDescription>{selectedRecord.error}</AlertDescription>
+                      </Alert>
+                    )}
+
+                    <div>
+                      <div className="text-sm font-medium mb-2">处理步骤</div>
+                      <div className="space-y-2">
+                        {Object.entries(selectedRecord.steps || {}).map(([stepName, step]: [string, any]) => (
+                          <div key={stepName} className="p-3 border rounded-lg">
+                            <div className="flex items-center gap-2 mb-1">
+                              {step.status === 'completed' && <CheckCircle className="h-4 w-4 text-green-600" />}
+                              {step.status === 'processing' && <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />}
+                              {step.status === 'error' && <XCircle className="h-4 w-4 text-red-600" />}
+                              <span className="font-medium text-sm">{stepName}</span>
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {step.startTime && step.endTime ? `耗时: ${step.endTime - step.startTime}ms` : ''}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {selectedRecord.decision && (
+                      <div>
+                        <div className="text-sm font-medium mb-2">决策结果</div>
+                        <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-3 rounded overflow-auto">
+                          {JSON.stringify(selectedRecord.decision, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>

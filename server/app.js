@@ -18,6 +18,7 @@ const adminApiRoutes = require('./routes/admin.api');
 const qaApiRoutes = require('./routes/qa.api');
 const robotApiRoutes = require('./routes/robot.api');
 const debugApiRoutes = require('./routes/debug.api');
+const executionTrackerApiRoutes = require('./routes/execution-tracker.api');
 
 const redisClient = require('./lib/redis');
 
@@ -64,6 +65,7 @@ fastify.register(adminApiRoutes, { prefix: '/api/admin' });
 fastify.register(qaApiRoutes, { prefix: '/api/admin' });
 fastify.register(robotApiRoutes, { prefix: '/api/admin' });
 fastify.register(debugApiRoutes, { prefix: '/api/admin' });
+fastify.register(executionTrackerApiRoutes, { prefix: '/api/admin/execution' });
 
 // 健康检查
 fastify.get('/health', async (request, reply) => {
