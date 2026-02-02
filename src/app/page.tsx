@@ -23,14 +23,15 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import RobotManagement from '@/components/robot-management';
 import { 
   BarChart3, 
-  MessageSquare, 
-  Settings, 
-  Activity, 
-  AlertTriangle, 
+  MessageSquare,
+  Settings,
+  Activity,
+  AlertTriangle,
   AlertCircle,
   FileText,
   Bot,
@@ -41,6 +42,7 @@ import {
   RefreshCw,
   TrendingUp,
   Users,
+  User,
   Shield,
   Database,
   Globe,
@@ -194,6 +196,10 @@ export default function AdminDashboard() {
   const [isLoadingAiConfig, setIsLoadingAiConfig] = useState(false);
   const [showDebugDialog, setShowDebugDialog] = useState(false);
   const [serverUptime, setServerUptime] = useState<string>('加载中...');
+  const [showSessionDetail, setShowSessionDetail] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [sessionMessages, setSessionMessages] = useState<any[]>([]);
+  const [isLoadingSessionMessages, setIsLoadingSessionMessages] = useState(false);
 
   // 初始化加载（只执行一次）
   useEffect(() => {
@@ -299,6 +305,32 @@ export default function AdminDashboard() {
     } else {
       return `${seconds}s`;
     }
+  };
+
+  // 加载会话消息
+  const loadSessionMessages = async (sessionId: string) => {
+    setIsLoadingSessionMessages(true);
+    try {
+      const res = await fetch(`/api/admin/sessions/${sessionId}/messages`);
+      if (res.ok) {
+        const data = await res.json();
+        setSessionMessages(data.data || []);
+      } else {
+        setSessionMessages([]);
+      }
+    } catch (error) {
+      console.error('加载会话消息失败:', error);
+      setSessionMessages([]);
+    } finally {
+      setIsLoadingSessionMessages(false);
+    }
+  };
+
+  // 查看会话详情
+  const handleViewSessionDetail = (session: Session) => {
+    setSelectedSession(session);
+    setShowSessionDetail(true);
+    loadSessionMessages(session.sessionId);
   };
 
   // 定期更新服务器运行时间
@@ -1218,7 +1250,11 @@ ${callbacks.robotStatus}
                 const groupName = session.groupName || session.userInfo?.groupName;
                 
                 return (
-                  <div key={session.sessionId} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl hover:shadow-md transition-shadow">
+                  <div 
+                    key={session.sessionId} 
+                    className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => handleViewSessionDetail(session)}
+                  >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg">
                         {userName?.charAt(0) || 'U'}
@@ -1916,13 +1952,15 @@ ${callbacks.robotStatus}
     title, 
     description, 
     aiConfig,
-    onSaveConfig 
+    onSaveConfig,
+    extraConfig
   }: { 
     type: string; 
     title: string; 
     description: string; 
     aiConfig: any;
     onSaveConfig: (type: string, config: any) => Promise<void>;
+    extraConfig?: string[];
   }) => {
     const [useBuiltin, setUseBuiltin] = useState(true);
     const [builtinModelId, setBuiltinModelId] = useState('');
@@ -2044,7 +2082,7 @@ ${callbacks.robotStatus}
     const handleSave = async () => {
       setIsSaving(true);
       try {
-        await onSaveConfig(type, {
+        const configData = {
           useBuiltin,
           builtinModelId,
           useCustom: !useBuiltin,
@@ -2059,7 +2097,16 @@ ${callbacks.robotStatus}
           temperature,
           maxTokens,
           topP
-        });
+        };
+
+        await onSaveConfig(type, configData);
+
+        // 如果有 extraConfig（用于客服与闲聊合并场景），同步保存其他配置
+        if (extraConfig && Array.isArray(extraConfig)) {
+          for (const syncType of extraConfig) {
+            await onSaveConfig(syncType, configData);
+          }
+        }
       } finally {
         setIsSaving(false);
       }
@@ -3615,7 +3662,7 @@ ${callbacks.robotStatus}
               AI 模型配置
             </CardTitle>
             <CardDescription className="text-purple-100">
-              配置意图识别、服务回复、闲聊、报告生成的 AI 模型
+              配置意图判断、客服与闲聊、报告生成的 AI 模型
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6 space-y-6">
@@ -3647,52 +3694,56 @@ ${callbacks.robotStatus}
               </div>
             ) : (
               <Tabs value={activeAiTab} onValueChange={setActiveAiTab} className="space-y-4">
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="intentRecognition">意图识别</TabsTrigger>
-                  <TabsTrigger value="serviceReply">服务回复</TabsTrigger>
-                  <TabsTrigger value="chat">闲聊</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="intentRecognition">意图判断</TabsTrigger>
+                  <TabsTrigger value="serviceChat">客服与闲聊</TabsTrigger>
                   <TabsTrigger value="report">报告生成</TabsTrigger>
                 </TabsList>
-              
-              <TabsContent value="intentRecognition">
-                <AiModelConfig
-                  type="intentRecognition"
-                  title="意图识别模型"
-                  description="用于分析用户消息意图，支持聊天、服务、帮助、风险等识别"
-                  aiConfig={propsAiConfig}
-                  onSaveConfig={saveAiConfig}
-                />
-              </TabsContent>
-              
-              <TabsContent value="serviceReply">
-                <AiModelConfig
-                  type="serviceReply"
-                  title="服务回复模型"
-                  description="用于自动回复服务类问题，生成专业、友好的回复"
-                  aiConfig={propsAiConfig}
-                  onSaveConfig={saveAiConfig}
-                />
-              </TabsContent>
-              
-              <TabsContent value="chat">
-                <AiModelConfig
-                  type="chat"
-                  title="闲聊模型"
-                  description="用于闲聊陪伴，生成轻松、自然的对话"
-                  aiConfig={propsAiConfig}
-                  onSaveConfig={saveAiConfig}
-                />
-              </TabsContent>
-              
-              <TabsContent value="report">
-                <AiModelConfig
-                  type="report"
-                  title="报告生成模型"
-                  description="用于生成日终报告，数据分析和总结"
-                  aiConfig={propsAiConfig}
-                  onSaveConfig={saveAiConfig}
-                />
-              </TabsContent>
+
+                <TabsContent value="intentRecognition">
+                  <AiModelConfig
+                    type="intentRecognition"
+                    title="意图判断模型"
+                    description="用于分析用户消息意图，支持聊天、服务、帮助、风险等识别"
+                    aiConfig={propsAiConfig}
+                    onSaveConfig={saveAiConfig}
+                  />
+                </TabsContent>
+
+                <TabsContent value="serviceChat">
+                  <div className="space-y-6">
+                    <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-start gap-2">
+                        <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                        <div className="text-sm text-blue-900 dark:text-blue-100">
+                          <p className="font-medium mb-1">客服与闲聊共用模型</p>
+                          <p className="text-blue-700 dark:text-blue-300">
+                            此配置同时应用于"服务回复"和"闲聊"两个场景，使用同一个AI模型处理。
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <AiModelConfig
+                      type="serviceReply"
+                      title="客服与闲聊模型"
+                      description="用于自动回复服务类问题和闲聊陪伴，生成专业、友好、自然的对话"
+                      aiConfig={propsAiConfig}
+                      onSaveConfig={saveAiConfig}
+                      extraConfig={['chat']}
+                    />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="report">
+                  <AiModelConfig
+                    type="report"
+                    title="报告生成模型"
+                    description="用于生成日终报告，数据分析和总结"
+                    aiConfig={propsAiConfig}
+                    onSaveConfig={saveAiConfig}
+                  />
+                </TabsContent>
               </Tabs>
             )}
           </CardContent>
@@ -4316,6 +4367,137 @@ ${callbacks.robotStatus}
       </footer>
 
       <DebugDialog open={showDebugDialog} onOpenChange={setShowDebugDialog} />
+
+      {/* 会话详情弹窗 */}
+      <Dialog open={showSessionDetail} onOpenChange={setShowSessionDetail}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-blue-500" />
+              会话详情
+            </DialogTitle>
+            <DialogDescription>
+              查看会话的详细信息和消息记录
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedSession && (
+            <div className="space-y-4">
+              {/* 会话基本信息 */}
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">用户</p>
+                  <p className="font-medium">{selectedSession.userName || selectedSession.userInfo?.userName || '未知用户'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">群组</p>
+                  <p className="font-medium">{selectedSession.groupName || selectedSession.userInfo?.groupName || '未知群组'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">会话ID</p>
+                  <p className="font-mono text-sm">{selectedSession.sessionId}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">最后活跃</p>
+                  <p className="text-sm">
+                    {new Date(selectedSession.lastActiveTime).toLocaleString('zh-CN')}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">消息数</p>
+                  <p className="font-medium">{selectedSession.messageCount}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">当前状态</p>
+                  <Badge variant={selectedSession.status === 'auto' ? 'default' : 'secondary'}>
+                    {selectedSession.status === 'auto' ? (
+                      <>
+                        <Bot className="h-3 w-3 mr-1" />
+                        AI 接管
+                      </>
+                    ) : (
+                      <>
+                        <UserCheck className="h-3 w-3 mr-1" />
+                        人工
+                      </>
+                    )}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">AI 回复</p>
+                  <p className="font-medium">{selectedSession.aiReplyCount || 0}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">人工回复</p>
+                  <p className="font-medium">{selectedSession.humanReplyCount || 0}</p>
+                </div>
+              </div>
+
+              {/* 消息记录 */}
+              <div>
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  消息记录
+                </h4>
+                {isLoadingSessionMessages ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : sessionMessages.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>暂无消息记录</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {sessionMessages.map((msg: any, index: number) => (
+                      <div
+                        key={index}
+                        className={`p-3 rounded-lg ${
+                          msg.isFromUser
+                            ? 'bg-blue-50 dark:bg-blue-950 ml-8'
+                            : 'bg-gray-50 dark:bg-gray-900 mr-8'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-medium">
+                            {msg.isFromUser ? (
+                              <>
+                                <User className="h-3 w-3 inline mr-1" />
+                                用户
+                              </>
+                            ) : (
+                              <>
+                                <Bot className="h-3 w-3 inline mr-1" />
+                                {msg.isHuman ? '人工客服' : 'AI'}
+                              </>
+                            )}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {msg.timestamp ? new Date(msg.timestamp).toLocaleString('zh-CN') : ''}
+                          </span>
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        {msg.intent && (
+                          <Badge variant="outline" className="mt-2 text-xs">
+                            意图: {msg.intent}
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSessionDetail(false)}>
+              关闭
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -251,6 +251,27 @@ class SessionService {
     const keys = await client.keys(pattern);
     return keys.length;
   }
+
+  /**
+   * 获取会话消息记录
+   */
+  async getSessionMessages(sessionId) {
+    const session = await this.getSession(sessionId);
+    if (!session || !session.context) {
+      return [];
+    }
+
+    // 将context转换为消息格式
+    return session.context.map((ctx: any, index: number) => ({
+      id: `${sessionId}_msg_${index}`,
+      content: ctx.content,
+      isFromUser: ctx.role === 'user',
+      isFromBot: ctx.role === 'assistant',
+      isHuman: false, // context中没有区分AI和人工回复的信息
+      timestamp: ctx.timestamp,
+      intent: session.lastIntent || null
+    }));
+  }
 }
 
 module.exports = new SessionService();

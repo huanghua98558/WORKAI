@@ -394,6 +394,23 @@ const adminApiRoutes = async function (fastify, options) {
   });
 
   /**
+   * 获取会话消息记录
+   */
+  fastify.get('/sessions/:sessionId/messages', async (request, reply) => {
+    const { sessionId } = request.params;
+
+    try {
+      const messages = await sessionService.getSessionMessages(sessionId);
+      return { success: true, data: messages };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  /**
    * 获取日终报告
    */
   fastify.get('/reports/:date', async (request, reply) => {

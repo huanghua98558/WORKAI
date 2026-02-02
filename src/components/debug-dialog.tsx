@@ -1138,21 +1138,72 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
                     )}
 
                     <div>
-                      <div className="text-sm font-medium mb-2">处理步骤</div>
-                      <div className="space-y-2">
-                        {Object.entries(selectedRecord.steps || {}).map(([stepName, step]: [string, any]) => (
-                          <div key={stepName} className="p-3 border rounded-lg">
-                            <div className="flex items-center gap-2 mb-1">
-                              {step.status === 'completed' && <CheckCircle className="h-4 w-4 text-green-600" />}
-                              {step.status === 'processing' && <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />}
-                              {step.status === 'error' && <XCircle className="h-4 w-4 text-red-600" />}
-                              <span className="font-medium text-sm">{stepName}</span>
+                      <div className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <Activity className="h-4 w-4" />
+                        处理流程
+                      </div>
+                      <div className="space-y-3">
+                        {Object.entries(selectedRecord.steps || {}).map(([stepName, step]: [string, any], index: number) => {
+                          // 步骤名称映射
+                          const stepNames: Record<string, string> = {
+                            'intent_recognition': '意图识别',
+                            'decision': '决策处理',
+                            'reply_generation': '回复生成',
+                            'send_reply': '发送回复'
+                          };
+
+                          const displayName = stepNames[stepName] || stepName;
+                          const stepNumber = index + 1;
+
+                          return (
+                            <div key={stepName} className="relative">
+                              {/* 连接线 */}
+                              {index > 0 && (
+                                <div className="absolute left-4 -top-3 w-0.5 h-3 bg-gray-300 dark:bg-gray-700" />
+                              )}
+                              <div className="flex items-start gap-3 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                                {/* 步骤序号 */}
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-bold shadow-md">
+                                  {stepNumber}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                    {step.status === 'completed' && (
+                                      <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                    )}
+                                    {step.status === 'processing' && (
+                                      <RefreshCw className="h-5 w-5 text-blue-600 dark:text-blue-400 animate-spin flex-shrink-0" />
+                                    )}
+                                    {step.status === 'error' && (
+                                      <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+                                    )}
+                                    <span className="font-semibold text-base">{displayName}</span>
+                                    <span className="text-xs text-muted-foreground font-mono">({stepName})</span>
+                                  </div>
+                                  {step.result && typeof step.result === 'object' && (
+                                    <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-900 rounded border">
+                                      <pre className="text-xs overflow-auto max-h-32">
+                                        {JSON.stringify(step.result, null, 2)}
+                                      </pre>
+                                    </div>
+                                  )}
+                                  {step.startTime && step.endTime && (
+                                    <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+                                      <Clock className="h-3 w-3" />
+                                      <span>耗时: {(step.endTime - step.startTime).toLocaleString()}ms</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-500">
-                              {step.startTime && step.endTime ? `耗时: ${step.endTime - step.startTime}ms` : ''}
-                            </div>
+                          );
+                        })}
+                        {Object.keys(selectedRecord.steps || {}).length === 0 && (
+                          <div className="text-center py-6 text-muted-foreground text-sm">
+                            <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            暂无流程记录
                           </div>
-                        ))}
+                        )}
                       </div>
                     </div>
 
