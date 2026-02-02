@@ -51,7 +51,12 @@ export default function DebugPage() {
     groupName: '',
     operationType: 'create', // create, modify, dismiss
     newGroupName: '',
-    members: ''
+    selectList: '',
+    removeList: '',
+    groupAnnouncement: '',
+    groupRemark: '',
+    showMessageHistory: false,
+    groupTemplate: ''
   });
   const [groupResult, setGroupResult] = useState<any>(null);
   const [isDoingGroupOperation, setIsDoingGroupOperation] = useState(false);
@@ -107,10 +112,29 @@ export default function DebugPage() {
     setGroupResult(null);
 
     try {
+      // 处理 selectList 和 removeList（逗号分隔的字符串转为数组）
+      const selectListArray = groupForm.selectList 
+        ? groupForm.selectList.split(',').map(s => s.trim()).filter(s => s)
+        : [];
+      
+      const removeListArray = groupForm.removeList
+        ? groupForm.removeList.split(',').map(s => s.trim()).filter(s => s)
+        : [];
+
       const res = await fetch('/api/proxy/admin/debug/group-operation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(groupForm)
+        body: JSON.stringify({
+          operationType: groupForm.operationType,
+          groupName: groupForm.groupName,
+          newGroupName: groupForm.newGroupName,
+          selectList: selectListArray,
+          removeList: removeListArray,
+          groupAnnouncement: groupForm.groupAnnouncement,
+          groupRemark: groupForm.groupRemark,
+          showMessageHistory: groupForm.showMessageHistory,
+          groupTemplate: groupForm.groupTemplate
+        })
       });
 
       const data = await res.json();
@@ -332,16 +356,118 @@ export default function DebugPage() {
                     />
                   </div>
 
+                  {groupForm.operationType === 'create' && (
+                    <>
+                      <div>
+                        <Label htmlFor="selectList">拉入群成员（多个成员用逗号分隔，选填）</Label>
+                        <Input
+                          id="selectList"
+                          placeholder="例如：成员1,成员2,成员3"
+                          value={groupForm.selectList}
+                          onChange={(e) => setGroupForm({ ...groupForm, selectList: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="groupAnnouncement">群公告（选填）</Label>
+                        <Textarea
+                          id="groupAnnouncement"
+                          placeholder="输入群公告内容"
+                          value={groupForm.groupAnnouncement}
+                          onChange={(e) => setGroupForm({ ...groupForm, groupAnnouncement: e.target.value })}
+                          rows={2}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="groupRemark">群备注（选填）</Label>
+                        <Input
+                          id="groupRemark"
+                          placeholder="输入群备注"
+                          value={groupForm.groupRemark}
+                          onChange={(e) => setGroupForm({ ...groupForm, groupRemark: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="groupTemplate">群模板（选填）</Label>
+                        <Input
+                          id="groupTemplate"
+                          placeholder="输入群模板名称"
+                          value={groupForm.groupTemplate}
+                          onChange={(e) => setGroupForm({ ...groupForm, groupTemplate: e.target.value })}
+                        />
+                      </div>
+                    </>
+                  )}
+
                   {groupForm.operationType === 'modify' && (
-                    <div>
-                      <Label htmlFor="newGroupName">新群名称</Label>
-                      <Input
-                        id="newGroupName"
-                        placeholder="输入新的群名称"
-                        value={groupForm.newGroupName}
-                        onChange={(e) => setGroupForm({ ...groupForm, newGroupName: e.target.value })}
-                      />
-                    </div>
+                    <>
+                      <div>
+                        <Label htmlFor="newGroupName">新群名称（选填）</Label>
+                        <Input
+                          id="newGroupName"
+                          placeholder="输入新的群名称"
+                          value={groupForm.newGroupName}
+                          onChange={(e) => setGroupForm({ ...groupForm, newGroupName: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="selectList">添加群成员（多个成员用逗号分隔，选填）</Label>
+                        <Input
+                          id="selectList"
+                          placeholder="例如：成员1,成员2,成员3"
+                          value={groupForm.selectList}
+                          onChange={(e) => setGroupForm({ ...groupForm, selectList: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="removeList">移除群成员（多个成员用逗号分隔，选填）</Label>
+                        <Input
+                          id="removeList"
+                          placeholder="例如：成员1,成员2,成员3"
+                          value={groupForm.removeList}
+                          onChange={(e) => setGroupForm({ ...groupForm, removeList: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="groupAnnouncement">修改群公告（选填）</Label>
+                        <Textarea
+                          id="groupAnnouncement"
+                          placeholder="输入新的群公告"
+                          value={groupForm.groupAnnouncement}
+                          onChange={(e) => setGroupForm({ ...groupForm, groupAnnouncement: e.target.value })}
+                          rows={2}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="groupRemark">修改群备注（选填）</Label>
+                        <Input
+                          id="groupRemark"
+                          placeholder="输入新的群备注"
+                          value={groupForm.groupRemark}
+                          onChange={(e) => setGroupForm({ ...groupForm, groupRemark: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="groupTemplate">群模板（选填）</Label>
+                        <Input
+                          id="groupTemplate"
+                          placeholder="输入群模板名称"
+                          value={groupForm.groupTemplate}
+                          onChange={(e) => setGroupForm({ ...groupForm, groupTemplate: e.target.value })}
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="showMessageHistory"
+                          checked={groupForm.showMessageHistory}
+                          onChange={(e) => setGroupForm({ ...groupForm, showMessageHistory: e.target.checked })}
+                          className="w-4 h-4"
+                        />
+                        <Label htmlFor="showMessageHistory" className="cursor-pointer">
+                          拉人时附带历史记录
+                        </Label>
+                      </div>
+                    </>
                   )}
 
                   <Button
