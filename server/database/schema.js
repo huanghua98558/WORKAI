@@ -142,6 +142,39 @@ exports.callbackHistory = pgTable(
   })
 );
 
+// 会话消息记录表
+exports.sessionMessages = pgTable(
+  "session_messages",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    sessionId: varchar("session_id", { length: 255 }).notNull(), // 会话ID
+    messageId: varchar("message_id", { length: 255 }), // 消息ID
+    userId: varchar("user_id", { length: 255 }), // 用户ID
+    groupId: varchar("group_id", { length: 255 }), // 群组ID
+    userName: varchar("user_name", { length: 255 }), // 用户名
+    groupName: varchar("group_name", { length: 255 }), // 群组名
+    content: text("content").notNull(), // 消息内容
+    isFromUser: boolean("is_from_user").notNull().default(false), // 是否来自用户
+    isFromBot: boolean("is_from_bot").notNull().default(false), // 是否来自机器人
+    isHuman: boolean("is_human").notNull().default(false), // 是否人工回复
+    intent: varchar("intent", { length: 50 }), // 意图识别结果
+    timestamp: timestamp("timestamp", { withTimezone: true }).notNull(), // 消息时间戳
+    extraData: jsonb("extra_data"), // 额外数据（JSON格式）
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    sessionIdIdx: index("session_messages_session_id_idx").on(table.sessionId),
+    userIdIdx: index("session_messages_user_id_idx").on(table.userId),
+    groupIdIdx: index("session_messages_group_id_idx").on(table.groupId),
+    timestampIdx: index("session_messages_timestamp_idx").on(table.timestamp),
+    intentIdx: index("session_messages_intent_idx").on(table.intent),
+  })
+);
+
 // Zod schemas for validation
 exports.insertUserSchema = z.object({
   username: z.string().min(1).max(64),
@@ -224,5 +257,21 @@ exports.insertCallbackHistorySchema = z.object({
   timeCost: z.number().int().optional(),
   commandType: z.number().int().optional(),
   rawMsg: z.string().optional(),
+  extraData: z.any().optional(),
+});
+
+exports.insertSessionMessageSchema = z.object({
+  sessionId: z.string().min(1).max(255),
+  messageId: z.string().max(255).optional(),
+  userId: z.string().max(255).optional(),
+  groupId: z.string().max(255).optional(),
+  userName: z.string().max(255).optional(),
+  groupName: z.string().max(255).optional(),
+  content: z.string().min(1),
+  isFromUser: z.boolean().optional(),
+  isFromBot: z.boolean().optional(),
+  isHuman: z.boolean().optional(),
+  intent: z.string().max(50).optional(),
+  timestamp: z.date().optional(),
   extraData: z.any().optional(),
 });

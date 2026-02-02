@@ -200,6 +200,9 @@ export default function AdminDashboard() {
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [sessionMessages, setSessionMessages] = useState<any[]>([]);
   const [isLoadingSessionMessages, setIsLoadingSessionMessages] = useState(false);
+  const [sessionSearchQuery, setSessionSearchQuery] = useState('');
+  const [sessionStatusFilter, setSessionStatusFilter] = useState<'all' | 'auto' | 'human'>('all');
+  const [isSearchingSessions, setIsSearchingSessions] = useState(false);
 
   // 初始化加载（只执行一次）
   useEffect(() => {
@@ -332,6 +335,76 @@ export default function AdminDashboard() {
     setShowSessionDetail(true);
     loadSessionMessages(session.sessionId);
   };
+
+  // 搜索和筛选会话
+  const handleSearchSessions = async () => {
+    if (!sessionSearchQuery.trim() && sessionStatusFilter === 'all') {
+      // 重置为原始会话列表
+      setIsSearchingSessions(true);
+      try {
+        const res = await fetch('/api/admin/sessions/active?limit=50');
+        if (res.ok) {
+          const data = await res.json();
+          setSessions(data.data || []);
+        }
+      } catch (error) {
+        console.error('搜索会话失败:', error);
+      } finally {
+        setIsSearchingSessions(false);
+      }
+      return;
+    }
+
+    setIsSearchingSessions(true);
+    try {
+      // 如果有搜索关键词，搜索消息
+      if (sessionSearchQuery.trim()) {
+        const res = await fetch(`/api/admin/sessions/search?q=${encodeURIComponent(sessionSearchQuery)}&limit=50`);
+        if (res.ok) {
+          const data = await res.json();
+          // 从消息中提取唯一会话
+          const uniqueSessions = new Map();
+          data.data?.forEach((msg: any) => {
+            if (!uniqueSessions.has(msg.sessionId)) {
+              uniqueSessions.set(msg.sessionId, {
+                sessionId: msg.sessionId,
+                userName: msg.userName,
+                groupName: msg.groupName,
+                messageCount: 1,
+                lastActiveTime: msg.timestamp,
+                status: 'auto', // 默认为 auto，需要从会话信息中获取
+              });
+            }
+          });
+          setSessions(Array.from(uniqueSessions.values()));
+        }
+      } else {
+        // 只有筛选条件
+        const res = await fetch('/api/admin/sessions/active?limit=50');
+        if (res.ok) {
+          const data = await res.json();
+          const filtered = (data.data || []).filter((s: Session) => {
+            if (sessionStatusFilter === 'all') return true;
+            return s.status === sessionStatusFilter;
+          });
+          setSessions(filtered);
+        }
+      }
+    } catch (error) {
+      console.error('搜索会话失败:', error);
+    } finally {
+      setIsSearchingSessions(false);
+    }
+  };
+
+  // 监听搜索条件变化
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      handleSearchSessions();
+    }, 500);
+
+    return () => clearTimeout(debounceTimer);
+  }, [sessionSearchQuery, sessionStatusFilter]);
 
   // 定期更新服务器运行时间
   useEffect(() => {
@@ -1235,23 +1308,53 @@ ${callbacks.robotStatus}
         {/* 最近活跃会话 */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Users className="h-4 w-4 text-blue-500" />
-                最近活跃会话
-              </CardTitle>
-              <Badge variant="secondary">{sessions.length} 个活跃会话</Badge>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Users className="h-4 w-4 text-blue-500" />
+                  最近活跃会话
+                </CardTitle>
+                <Badge variant="secondary">{sessions.length} 个活跃会话</Badge>
+              </div>
+
+              {/* 搜索和筛选 */}
+              <div className="flex gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:flex-none">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="搜索会话..."
+                    value={sessionSearchQuery}
+                    onChange={(e) => setSessionSearchQuery(e.target.value)}
+                    className="pl-8 w-full sm:w-[200px]"
+                  />
+                </div>
+                <Select value={sessionStatusFilter} onValueChange={(v: any) => setSessionStatusFilter(v)}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部</SelectItem>
+                    <SelectItem value="auto">AI 接管</SelectItem>
+                    <SelectItem value="human">人工</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {sessions.slice(0, 4).map((session) => {
+              {isSearchingSessions ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
+                  <span className="text-sm text-muted-foreground">搜索中...</span>
+                </div>
+              ) : sessions.slice(0, 4).map((session) => {
                 const userName = session.userName || session.userInfo?.userName;
                 const groupName = session.groupName || session.userInfo?.groupName;
-                
+
                 return (
-                  <div 
-                    key={session.sessionId} 
+                  <div
+                    key={session.sessionId}
                     className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl hover:shadow-md transition-shadow cursor-pointer"
                     onClick={() => handleViewSessionDetail(session)}
                   >
@@ -1265,7 +1368,7 @@ ${callbacks.robotStatus}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge 
+                      <Badge
                         variant={session.status === 'auto' ? 'default' : 'secondary'}
                         className="gap-1"
                       >
@@ -1288,7 +1391,7 @@ ${callbacks.robotStatus}
                   </div>
                 );
               })}
-              {sessions.length === 0 && (
+              {!isSearchingSessions && sessions.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
                   <p>暂无活跃会话</p>
@@ -4431,6 +4534,75 @@ ${callbacks.robotStatus}
                   <p className="text-xs text-muted-foreground mb-1">人工回复</p>
                   <p className="font-medium">{selectedSession.humanReplyCount || 0}</p>
                 </div>
+              </div>
+
+              {/* 操作按钮 */}
+              <div className="flex flex-wrap gap-2">
+                {selectedSession.status === 'auto' ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch(`/api/admin/sessions/${selectedSession.sessionId}/takeover`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ operator: 'admin' })
+                        });
+                        if (res.ok) {
+                          alert('✅ 已切换为人工接管');
+                          setShowSessionDetail(false);
+                          // 重新加载会话列表
+                          const sessionsRes = await fetch('/api/admin/sessions/active?limit=20');
+                          if (sessionsRes.ok) {
+                            const data = await sessionsRes.json();
+                            setSessions(data.data || []);
+                          }
+                        } else {
+                          alert('❌ 切换失败');
+                        }
+                      } catch (error) {
+                        console.error('切换失败:', error);
+                        alert('❌ 切换失败');
+                      }
+                    }}
+                  >
+                    <UserCheck className="h-4 w-4" />
+                    切换为人工接管
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch(`/api/admin/sessions/${selectedSession.sessionId}/auto`, {
+                          method: 'POST'
+                        });
+                        if (res.ok) {
+                          alert('✅ 已切换回自动模式');
+                          setShowSessionDetail(false);
+                          // 重新加载会话列表
+                          const sessionsRes = await fetch('/api/admin/sessions/active?limit=20');
+                          if (sessionsRes.ok) {
+                            const data = await sessionsRes.json();
+                            setSessions(data.data || []);
+                          }
+                        } else {
+                          alert('❌ 切换失败');
+                        }
+                      } catch (error) {
+                        console.error('切换失败:', error);
+                        alert('❌ 切换失败');
+                      }
+                    }}
+                  >
+                    <Bot className="h-4 w-4" />
+                    切换回自动模式
+                  </Button>
+                )}
               </div>
 
               {/* 消息记录 */}

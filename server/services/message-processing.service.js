@@ -7,6 +7,7 @@ const aiService = require('./ai.service');
 const sessionService = require('./session.service');
 const worktoolService = require('./worktool.service');
 const executionTrackerService = require('./execution-tracker.service');
+const sessionMessageService = require('./session-message.service');
 const config = require('../lib/config');
 
 class MessageProcessingService {
@@ -45,6 +46,16 @@ class MessageProcessingService {
         from_type: messageContext.atMe ? 'user' : 'other',
         timestamp: messageData.timestamp || new Date().toISOString()
       });
+
+      // 3.5 保存用户消息到数据库
+      await sessionMessageService.saveUserMessage(
+        session.sessionId,
+        {
+          ...messageContext,
+          timestamp: messageData.timestamp || new Date()
+        },
+        messageData.messageId
+      );
 
       // 4. AI 意图识别
       executionTrackerService.updateStep(processingId, 'intent_recognition', {
@@ -304,6 +315,14 @@ class MessageProcessingService {
       endTime: Date.now(),
       result: sendResult
     });
+
+    // 保存机器人回复到数据库
+    await sessionMessageService.saveBotMessage(
+      session.sessionId,
+      reply,
+      messageContext,
+      intent
+    );
 
     return {
       action: 'auto_reply',

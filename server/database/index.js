@@ -8,6 +8,7 @@ exports.systemSettings = require("./schema").systemSettings;
 exports.qaDatabase = require("./schema").qaDatabase;
 exports.robots = require("./schema").robots;
 exports.callbackHistory = require("./schema").callbackHistory;
+exports.sessionMessages = require("./schema").sessionMessages;
 exports.insertUserSchema = require("./schema").insertUserSchema;
 exports.updateUserSchema = require("./schema").updateUserSchema;
 exports.insertSystemSettingSchema = require("./schema").insertSystemSettingSchema;

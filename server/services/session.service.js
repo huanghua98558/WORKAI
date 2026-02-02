@@ -4,6 +4,7 @@
  */
 
 const redisClient = require('../lib/redis');
+const sessionMessageService = require('./session-message.service');
 const { formatDate, generateRequestId } = require('../lib/utils');
 
 class SessionService {
@@ -256,21 +257,27 @@ class SessionService {
    * 获取会话消息记录
    */
   async getSessionMessages(sessionId) {
-    const session = await this.getSession(sessionId);
-    if (!session || !session.context) {
-      return [];
+    // 从数据库查询消息记录
+    const messages = await sessionMessageService.getSessionMessages(sessionId);
+
+    // 如果数据库没有消息，回退到从 Redis context 中获取（兼容旧数据）
+    if (messages.length === 0) {
+      const session = await this.getSession(sessionId);
+      if (session && session.context && session.context.length > 0) {
+        console.log(`[会话服务] 数据库无消息，从 Redis context 获取 ${session.context.length} 条消息`);
+        return session.context.map((ctx, index) => ({
+          id: `${sessionId}_msg_${index}`,
+          content: ctx.content,
+          isFromUser: ctx.role === 'user',
+          isFromBot: ctx.role === 'assistant',
+          isHuman: false,
+          timestamp: ctx.timestamp,
+          intent: session.lastIntent || null
+        }));
+      }
     }
 
-    // 将context转换为消息格式
-    return session.context.map((ctx: any, index: number) => ({
-      id: `${sessionId}_msg_${index}`,
-      content: ctx.content,
-      isFromUser: ctx.role === 'user',
-      isFromBot: ctx.role === 'assistant',
-      isHuman: false, // context中没有区分AI和人工回复的信息
-      timestamp: ctx.timestamp,
-      intent: session.lastIntent || null
-    }));
+    return messages;
   }
 }
 

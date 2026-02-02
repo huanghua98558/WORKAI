@@ -411,6 +411,24 @@ const adminApiRoutes = async function (fastify, options) {
   });
 
   /**
+   * 搜索会话（通过消息内容搜索）
+   */
+  fastify.get('/sessions/search', async (request, reply) => {
+    const { q, limit = 50 } = request.query;
+
+    try {
+      const sessionMessageService = require('../services/session-message.service');
+      const messages = await sessionMessageService.searchMessages(q, parseInt(limit));
+      return { success: true, data: messages };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  /**
    * 获取日终报告
    */
   fastify.get('/reports/:date', async (request, reply) => {
