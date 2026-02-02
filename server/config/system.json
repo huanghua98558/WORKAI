@@ -3,7 +3,7 @@
   "systemName": "WorkTool AI 中枢系统",
   "deployment": {
     "baseUrl": "",
-    "callbackBaseUrl": ""
+    "callbackBaseUrl": "http://localhost:5001"
   },
   "worktool": {
     "apiBaseUrl": "",
@@ -265,6 +265,13 @@
         "id": "recipient1770035182584",
         "name": "新测试用户",
         "userId": "test_user_456",
+        "type": "private",
+        "enabled": true
+      },
+      {
+        "id": "recipient1770035891847",
+        "name": "测试接收者",
+        "userId": "test_001",
         "type": "private",
         "enabled": true
       }

@@ -10,6 +10,7 @@ class RedisClient {
     this.subscriber = null;
     this.memoryStore = new Map(); // 内存存储
     this.useMemoryMode = false;
+    this.memoryClient = null; // 缓存内存客户端
   }
 
   async connect() {
@@ -27,9 +28,9 @@ class RedisClient {
         host: process.env.REDIS_HOST || 'localhost',
         port: parseInt(process.env.REDIS_PORT || 6379),
         db: parseInt(process.env.REDIS_DB || 0),
-        lazyConnect: true,
-        connectTimeout: 5000,
-        maxRetriesPerRequest: 2
+        connectTimeout: 2000, // 缩短超时时间
+        maxRetriesPerRequest: 1,
+        lazyConnect: true
       };
 
       if (process.env.REDIS_PASSWORD) {
@@ -63,18 +64,30 @@ class RedisClient {
   }
 
   getMemoryClient() {
+    // 缓存内存客户端
+    if (this.memoryClient) {
+      return this.memoryClient;
+    }
+
     // 创建一个模拟的 Redis 客户端接口
     const memoryClient = {
       get: async (key) => this.memoryStore.get(key) || null,
-      set: async (key, value) => this.memoryStore.set(key, value),
+      set: async (key, value) => {
+        this.memoryStore.set(key, value);
+        return 'OK';
+      },
       setex: async (key, seconds, value) => {
         this.memoryStore.set(key, value);
         // 内存模式下忽略过期时间
+        return 'OK';
       },
-      del: async (key) => this.memoryStore.delete(key),
+      del: async (key) => {
+        this.memoryStore.delete(key);
+        return 1;
+      },
       exists: async (key) => this.memoryStore.has(key) ? 1 : 0,
       keys: async (pattern) => {
-        const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+        const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
         return Array.from(this.memoryStore.keys()).filter(key => regex.test(key));
       },
       lpush: async (key, value) => {
@@ -123,15 +136,23 @@ class RedisClient {
       }
     };
 
+    this.memoryClient = memoryClient;
     return memoryClient;
   }
 
-  getClient() {
+  async getClient() {
     if (this.useMemoryMode) {
       return this.getMemoryClient();
     }
     if (!this.client) {
-      return this.connect();
+      try {
+        const client = await this.connect();
+        return client;
+      } catch (error) {
+        console.warn('⚠️  Redis 连接失败，使用内存模式');
+        this.useMemoryMode = true;
+        return this.getMemoryClient();
+      }
     }
     return this.client;
   }

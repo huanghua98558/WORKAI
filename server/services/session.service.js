@@ -146,7 +146,9 @@ class SessionService {
    */
   async getTodayStats() {
     const pattern = `${this.sessionPrefix}*`;
-    const keys = await this.redis.keys(pattern);
+    // 确保客户端是最新的
+    const client = await redisClient.getClient();
+    const keys = await client.keys(pattern);
     
     let stats = {
       totalSessions: 0,
@@ -198,7 +200,9 @@ class SessionService {
    */
   async getActiveSessions(limit = 100) {
     const pattern = `${this.sessionPrefix}*`;
-    const keys = await this.redis.keys(pattern);
+    // 确保客户端是最新的
+    const client = await redisClient.getClient();
+    const keys = await client.keys(pattern);
     
     const sessions = [];
     const oneHourAgo = new Date(Date.now() - 3600 * 1000);
@@ -231,7 +235,9 @@ class SessionService {
   async cleanupExpiredSessions() {
     // Redis 会自动清理过期键，这里只是统计
     const pattern = `${this.sessionPrefix}*`;
-    const keys = await this.redis.keys(pattern);
+    // 确保客户端是最新的
+    const client = await redisClient.getClient();
+    const keys = await client.keys(pattern);
     return keys.length;
   }
 }

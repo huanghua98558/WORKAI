@@ -8,65 +8,77 @@ const { formatDate } = require('../lib/utils');
 
 class MonitorService {
   constructor() {
-    this.redis = redisClient.getClient();
+    // 不再在构造函数中获取客户端
+  }
+
+  /**
+   * 获取 Redis 客户端
+   */
+  async getRedis() {
+    return await redisClient.getClient();
   }
 
   /**
    * 记录系统指标
    */
   async recordSystemMetric(metric, value, tags = {}) {
+    const redis = await this.getRedis();
     const key = `metrics:system:${metric}:${formatDate()}`;
-    await this.redis.lpush(key, JSON.stringify({
+    await redis.lpush(key, JSON.stringify({
       value,
       tags,
       timestamp: Date.now()
     }));
-    await this.redis.expire(key, 30 * 24 * 3600); // 保留30天
+    await redis.expire(key, 30 * 24 * 3600); // 保留30天
   }
 
   /**
    * 记录群指标
    */
   async recordGroupMetric(groupId, metric, value) {
+    const redis = await this.getRedis();
     const key = `metrics:group:${groupId}:${metric}:${formatDate()}`;
-    await this.redis.lpush(key, JSON.stringify({
+    await redis.lpush(key, JSON.stringify({
       value,
       timestamp: Date.now()
     }));
-    await this.redis.expire(key, 30 * 24 * 3600);
+    await redis.expire(key, 30 * 24 * 3600);
   }
 
   /**
    * 记录用户指标
    */
   async recordUserMetric(userId, groupId, metric, value) {
+    const redis = await this.getRedis();
     const key = `metrics:user:${userId}:${groupId}:${metric}:${formatDate()}`;
-    await this.redis.lpush(key, JSON.stringify({
+    await redis.lpush(key, JSON.stringify({
       value,
       timestamp: Date.now()
     }));
-    await this.redis.expire(key, 30 * 24 * 3600);
+    await redis.expire(key, 30 * 24 * 3600);
   }
 
   /**
    * 记录 AI 指标
    */
   async recordAIMetric(aiProvider, metric, value, success = true) {
+    const redis = await this.getRedis();
     const key = `metrics:ai:${aiProvider}:${metric}:${formatDate()}`;
-    await this.redis.lpush(key, JSON.stringify({
+    await redis.lpush(key, JSON.stringify({
       value,
       success,
       timestamp: Date.now()
     }));
-    await this.redis.expire(key, 30 * 24 * 3600);
+    await redis.expire(key, 30 * 24 * 3600);
   }
 
   /**
    * 获取系统指标
    */
   async getSystemMetrics(metric, date = formatDate()) {
+    const redis = await this.getRedis();
     const key = `metrics:system:${metric}:${date}`;
-    const records = await this.redis.lrange(key, 0, -1);
+    const records = await redis.lrange(key, 0, -1);
     
     return records.map(r => JSON.parse(r));
   }
@@ -75,8 +87,9 @@ class MonitorService {
    * 获取群指标
    */
   async getGroupMetrics(groupId, metric, date = formatDate()) {
+    const redis = await this.getRedis();
     const key = `metrics:group:${groupId}:${metric}:${date}`;
-    const records = await this.redis.lrange(key, 0, -1);
+    const records = await redis.lrange(key, 0, -1);
     
     return records.map(r => JSON.parse(r));
   }
@@ -85,8 +98,9 @@ class MonitorService {
    * 获取用户指标
    */
   async getUserMetrics(userId, groupId, metric, date = formatDate()) {
+    const redis = await this.getRedis();
     const key = `metrics:user:${userId}:${groupId}:${metric}:${date}`;
-    const records = await this.redis.lrange(key, 0, -1);
+    const records = await redis.lrange(key, 0, -1);
     
     return records.map(r => JSON.parse(r));
   }
@@ -95,8 +109,9 @@ class MonitorService {
    * 获取 AI 指标
    */
   async getAIMetrics(aiProvider, metric, date = formatDate()) {
+    const redis = await this.getRedis();
     const key = `metrics:ai:${aiProvider}:${metric}:${date}`;
-    const records = await this.redis.lrange(key, 0, -1);
+    const records = await redis.lrange(key, 0, -1);
     
     const parsed = records.map(r => JSON.parse(r));
     const total = parsed.length;
@@ -153,13 +168,14 @@ class MonitorService {
    * 获取群活跃度排行
    */
   async getTopActiveGroups(date = formatDate(), limit = 10) {
+    const redis = await this.getRedis();
     const pattern = `metrics:group:*:messages:${date}`;
-    const keys = await this.redis.keys(pattern);
+    const keys = await redis.keys(pattern);
     
     const groupStats = [];
     
     for (const key of keys) {
-      const records = await this.redis.lrange(key, 0, -1);
+      const records = await redis.lrange(key, 0, -1);
       const groupId = key.split(':')[2];
       const totalMessages = records.length;
       
@@ -181,8 +197,9 @@ class MonitorService {
    * 获取用户活跃度排行
    */
   async getTopActiveUsers(date = formatDate(), limit = 10) {
+    const redis = await this.getRedis();
     const pattern = `metrics:user:*:*:messages:${date}`;
-    const keys = await this.redis.keys(pattern);
+    const keys = await redis.keys(pattern);
     
     const userStats = new Map();
     
@@ -190,7 +207,7 @@ class MonitorService {
       const parts = key.split(':');
       const userId = parts[2];
       const groupId = parts[3];
-      const records = await this.redis.lrange(key, 0, -1);
+      const records = await redis.lrange(key, 0, -1);
       
       if (!userStats.has(userId)) {
         userStats.set(userId, {
@@ -218,6 +235,7 @@ class MonitorService {
    * 清理过期指标
    */
   async cleanupOldMetrics(daysToKeep = 30) {
+    const redis = await this.getRedis();
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
     const cutoff = formatDate(cutoffDate);
@@ -232,14 +250,14 @@ class MonitorService {
     let deletedCount = 0;
 
     for (const pattern of patterns) {
-      const keys = await this.redis.keys(pattern);
+      const keys = await redis.keys(pattern);
       
       for (const key of keys) {
         const keyParts = key.split(':');
         const keyDate = keyParts[keyParts.length - 1];
         
         if (keyDate < cutoff) {
-          await this.redis.del(key);
+          await redis.del(key);
           deletedCount++;
         }
       }
