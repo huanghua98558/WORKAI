@@ -1485,107 +1485,257 @@ ${callbacks.robotStatus}
   );
 
   // 会话管理组件
-  const SessionsTab = () => (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h3 className="text-2xl font-bold flex items-center gap-2">
-            <Users className="h-6 w-6 text-green-500" />
-            会话管理
-          </h3>
-          <p className="text-muted-foreground mt-1">
-            查看和管理活跃的用户会话
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="gap-1">
-            <Users className="h-3 w-3" />
-            {sessions.length} 个活跃会话
-          </Badge>
-          <Button 
-            onClick={loadData} 
-            variant="outline" 
-            size="sm"
-            disabled={isLoading}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            刷新
-          </Button>
-          <Button 
-            onClick={testAllCallbacks} 
-            variant="outline" 
-            size="sm"
-            disabled={!!testingCallback || !callbacks}
-          >
-            <Zap className="h-4 w-4 mr-2" />
-            测试所有回调
-          </Button>
-        </div>
-      </div>
+  const SessionsTab = () => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterStatus, setFilterStatus] = useState<'all' | 'auto' | 'human'>('all');
+    const [filterIntent, setFilterIntent] = useState<string>('all');
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">活跃会话列表</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {sessions.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>暂无活跃会话</p>
+    // 过滤会话
+    const filteredSessions = sessions.filter(session => {
+      // 搜索过滤
+      const matchesSearch = !searchTerm || 
+        session.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        session.groupName?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      // 状态过滤
+      const matchesStatus = filterStatus === 'all' || session.status === filterStatus;
+
+      // 意图过滤
+      const matchesIntent = filterIntent === 'all' || session.lastIntent === filterIntent;
+
+      return matchesSearch && matchesStatus && matchesIntent;
+    });
+
+    // 计算统计数据
+    const stats = {
+      total: sessions.length,
+      auto: sessions.filter(s => s.status === 'auto').length,
+      human: sessions.filter(s => s.status === 'human').length,
+      totalMessages: sessions.reduce((sum, s) => sum + s.messageCount, 0),
+      aiReplies: sessions.reduce((sum, s) => sum + s.aiReplyCount, 0),
+      humanReplies: sessions.reduce((sum, s) => sum + s.humanReplyCount, 0),
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 className="text-2xl font-bold flex items-center gap-2">
+              <Users className="h-6 w-6 text-green-500" />
+              会话管理
+            </h3>
+            <p className="text-muted-foreground mt-1">
+              查看和管理活跃的用户会话
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="gap-1">
+              <Users className="h-3 w-3" />
+              {sessions.length} 个活跃会话
+            </Badge>
+            <Button 
+              onClick={loadData} 
+              variant="outline" 
+              size="sm"
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              刷新
+            </Button>
+          </div>
+        </div>
+
+        {/* 统计卡片 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">总会话数</CardTitle>
+              <Users className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.total}</div>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                活跃会话
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">自动模式</CardTitle>
+              <Bot className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.auto}</div>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                AI 自动回复
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">人工模式</CardTitle>
+              <UserCheck className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.human}</div>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                人工接管
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">总消息数</CardTitle>
+              <MessageSquare className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.totalMessages}</div>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                消息总量
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* 搜索和筛选 */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex gap-4 items-center flex-wrap">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="搜索用户或群组..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              
+              <Select value={filterStatus} onValueChange={(value: any) => setFilterStatus(value)}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="状态" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部状态</SelectItem>
+                  <SelectItem value="auto">自动模式</SelectItem>
+                  <SelectItem value="human">人工模式</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={filterIntent} onValueChange={setFilterIntent}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="意图" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部意图</SelectItem>
+                  <SelectItem value="service">服务咨询</SelectItem>
+                  <SelectItem value="help">帮助请求</SelectItem>
+                  <SelectItem value="chat">闲聊</SelectItem>
+                  <SelectItem value="welcome">欢迎</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {sessions.map((session) => (
-                <div 
-                  key={session.sessionId} 
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={() => {
-                    setSelectedSession(session);
-                    setShowSessionDetail(true);
-                  }}
-                >
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                      <UserCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium truncate">{session.userName}</span>
-                        <Badge 
-                          variant={session.status === 'auto' ? 'default' : 'secondary'}
-                          className="gap-1"
-                        >
-                          {session.status === 'auto' ? (
-                            <Bot className="h-3 w-3" />
-                          ) : (
-                            <Users className="h-3 w-3" />
+          </CardContent>
+        </Card>
+
+        {/* 会话列表 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              会话列表 ({filteredSessions.length}/{sessions.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {filteredSessions.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>暂无匹配的会话</p>
+                {searchTerm || filterStatus !== 'all' || filterIntent !== 'all' ? (
+                  <Button 
+                    variant="link" 
+                    onClick={() => {
+                      setSearchTerm('');
+                      setFilterStatus('all');
+                      setFilterIntent('all');
+                    }}
+                    className="mt-2"
+                  >
+                    清除筛选
+                  </Button>
+                ) : null}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredSessions.map((session) => (
+                  <div 
+                    key={session.sessionId} 
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                    onClick={() => {
+                      setSelectedSession(session);
+                      setShowSessionDetail(true);
+                    }}
+                  >
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                        <UserCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium truncate">{session.userName}</span>
+                          <Badge 
+                            variant={session.status === 'auto' ? 'default' : 'secondary'}
+                            className="gap-1"
+                          >
+                            {session.status === 'auto' ? (
+                              <Bot className="h-3 w-3" />
+                            ) : (
+                              <Users className="h-3 w-3" />
+                            )}
+                            {session.status === 'auto' ? '自动' : '人工'}
+                          </Badge>
+                          {session.lastIntent && (
+                            <Badge variant="outline" className="gap-1">
+                              <Sparkles className="h-3 w-3" />
+                              {session.lastIntent}
+                            </Badge>
                           )}
-                          {session.status === 'auto' ? '自动' : '人工'}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1 truncate">
-                        {session.groupName}
-                      </p>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                        <span>消息: {session.messageCount}</span>
-                        <span>AI回复: {session.aiReplyCount}</span>
-                        <span>人工回复: {session.humanReplyCount}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1 truncate">
+                          {session.groupName}
+                        </p>
+                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
+                          <span className="flex items-center gap-1">
+                            <MessageSquare className="h-3 w-3" />
+                            消息: {session.messageCount}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Bot className="h-3 w-3" />
+                            AI回复: {session.aiReplyCount}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <User className="h-3 w-3" />
+                            人工回复: {session.humanReplyCount}
+                          </span>
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {formatTime(session.lastActiveTime)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      {formatTime(session.lastActiveTime)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
 
   // 监控告警页面
   const MonitorTab = () => {

@@ -211,60 +211,130 @@ class SessionService {
    * 获取活跃会话
    */
   async getActiveSessions(limit = 100) {
-    const pattern = `${this.sessionPrefix}*`;
-    // 确保客户端是最新的
-    const client = await redisClient.getClient();
-    const keys = await client.keys(pattern);
-    
     const sessions = [];
-    const oneHourAgo = new Date(Date.now() - 3600 * 1000);
+    const oneHourAgo = new Date(Date.now() - 24 * 3600 * 1000); // 扩大到24小时
 
-    for (const key of keys.slice(0, limit)) {
-      const session = JSON.parse(await this.redis.get(key));
-      const lastActive = new Date(session.lastActiveTime);
-      
-      if (lastActive > oneHourAgo) {
-        // 从数据库查询最新的机器人信息
-        try {
-          const { getDb } = require('coze-coding-dev-sdk');
-          const { sql } = require('drizzle-orm');
-          const { sessionMessages } = require('../database/schema');
-          const db = await getDb();
+    // 1. 从 Redis 获取活跃会话
+    try {
+      const client = await redisClient.getClient();
+      const pattern = `${this.sessionPrefix}*`;
+      const keys = await client.keys(pattern);
 
-          // 查询该会话最近的机器人消息，获取 robotId 和 robotName
-          const robotMessage = await db.execute(sql`
-            SELECT robot_id as "robotId", robot_name as "robotName"
-            FROM session_messages
-            WHERE session_id = ${session.sessionId}
-              AND robot_id IS NOT NULL
-              AND robot_name IS NOT NULL
-            ORDER BY created_at DESC
-            LIMIT 1
-          `);
+      for (const key of keys) {
+        const session = JSON.parse(await client.get(key));
+        const lastActive = new Date(session.lastActiveTime);
 
-          if (robotMessage.rows && robotMessage.rows.length > 0) {
-            session.robotId = robotMessage.rows[0].robotId;
-            session.robotName = robotMessage.rows[0].robotName;
-          }
-
-          // 填充用户信息
-          if (!session.userName && session.userInfo?.userName) {
-            session.userName = session.userInfo.userName;
-          }
-          if (!session.groupName && session.userInfo?.groupName) {
-            session.groupName = session.userInfo.groupName;
-          }
-        } catch (error) {
-          console.error(`[会话服务] 获取会话 ${session.sessionId} 机器人信息失败:`, error);
+        if (lastActive > oneHourAgo) {
+          // 从数据库查询最新的机器人信息
+          await this.enrichSessionWithRobotInfo(session);
+          sessions.push(session);
         }
-
-        sessions.push(session);
       }
+    } catch (error) {
+      console.error('[会话服务] 从 Redis 获取会话失败:', error);
     }
 
+    // 2. 从数据库查询会话（主要查询逻辑）
+    try {
+      const { getDb } = require('coze-coding-dev-sdk');
+      const { sql } = require('drizzle-orm');
+      const { sessionMessages } = require('../database/schema');
+      const db = await getDb();
+
+      // 简化查询：直接从数据库统计会话
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
+      const result = await db.execute(sql`
+        SELECT 
+          sm.session_id,
+          COALESCE(sm.user_name, sm.user_id) as "userName",
+          COALESCE(sm.group_name, sm.group_id) as "groupName",
+          sm.robot_id,
+          sm.robot_name,
+          MAX(sm.created_at) as "lastActiveTime",
+          COUNT(*) as "messageCount",
+          SUM(CASE WHEN sm.is_from_user = true THEN 1 ELSE 0 END) as "userMessages",
+          SUM(CASE WHEN sm.is_from_bot = true THEN 1 ELSE 0 END) as "aiReplyCount",
+          SUM(CASE WHEN sm.is_human = true THEN 1 ELSE 0 END) as "humanReplyCount",
+          MAX(sm.intent) as "lastIntent"
+        FROM session_messages sm
+        WHERE sm.created_at > ${sevenDaysAgo.toISOString()}
+        GROUP BY sm.session_id, sm.user_name, sm.user_id, sm.group_name, sm.group_id, sm.robot_id, sm.robot_name
+        ORDER BY MAX(sm.created_at) DESC
+        LIMIT ${limit}
+      `);
+
+      if (result.rows && result.rows.length > 0) {
+        console.log(`[会话服务] 从数据库查询到 ${result.rows.length} 个会话`);
+        
+        for (const row of result.rows) {
+          sessions.push({
+            sessionId: row.sessionId,
+            userName: row.userName || '未知用户',
+            groupName: row.groupName || '未知群组',
+            robotId: row.robotId,
+            robotName: row.robotName || '未知机器人',
+            lastActiveTime: row.lastActiveTime,
+            messageCount: parseInt(row.messageCount),
+            userMessages: parseInt(row.userMessages),
+            aiReplyCount: parseInt(row.aiReplyCount),
+            humanReplyCount: parseInt(row.humanReplyCount),
+            replyCount: parseInt(row.aiReplyCount) + parseInt(row.humanReplyCount),
+            lastIntent: row.lastIntent,
+            status: 'auto', // 数据库中的会话默认为自动模式
+            startTime: row.lastActiveTime // 使用最后消息时间作为开始时间
+          });
+        }
+      } else {
+        console.log('[会话服务] 数据库中没有查询到会话数据');
+      }
+    } catch (error) {
+      console.error('[会话服务] 从数据库获取会话失败:', error);
+      console.error('[会话服务] 错误堆栈:', error.stack);
+    }
+
+    console.log(`[会话服务] 总共返回 ${sessions.length} 个会话`);
+    
     return sessions.sort((a, b) => 
       new Date(b.lastActiveTime) - new Date(a.lastActiveTime)
     );
+  }
+
+  /**
+   * 用数据库中的机器人信息丰富会话数据
+   */
+  async enrichSessionWithRobotInfo(session) {
+    try {
+      const { getDb } = require('coze-coding-dev-sdk');
+      const { sql } = require('drizzle-orm');
+      const { sessionMessages } = require('../database/schema');
+      const db = await getDb();
+
+      // 查询该会话最近的机器人消息，获取 robotId 和 robotName
+      const robotMessage = await db.execute(sql`
+        SELECT robot_id as "robotId", robot_name as "robotName"
+        FROM session_messages
+        WHERE session_id = ${session.sessionId}
+          AND robot_id IS NOT NULL
+          AND robot_name IS NOT NULL
+        ORDER BY created_at DESC
+        LIMIT 1
+      `);
+
+      if (robotMessage.rows && robotMessage.rows.length > 0) {
+        session.robotId = robotMessage.rows[0].robotId;
+        session.robotName = robotMessage.rows[0].robotName;
+      }
+
+      // 填充用户信息
+      if (!session.userName && session.userInfo?.userName) {
+        session.userName = session.userInfo.userName;
+      }
+      if (!session.groupName && session.userInfo?.groupName) {
+        session.groupName = session.userInfo.groupName;
+      }
+    } catch (error) {
+      console.error(`[会话服务] 获取会话 ${session.sessionId} 机器人信息失败:`, error);
+    }
   }
 
   /**
