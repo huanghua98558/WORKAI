@@ -117,22 +117,35 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
   // 当Dialog打开时加载机器人列表
   useEffect(() => {
     if (open) {
+      console.log('[debug-dialog] 对话框打开，重置状态');
       loadRobots();
       setActiveTab('message');
       setShowRobotSelection(true);
       setSelectedRobot(null);
+      // 重置消息表单
+      setMessageForm({
+        messageType: 'private',
+        robotId: '',
+        recipient: '',
+        content: ''
+      });
     }
   }, [open]);
 
   // 选择机器人
   const handleSelectRobot = (robot: any) => {
+    console.log('[debug-dialog] 选择机器人:', robot);
     setSelectedRobot(robot);
     setShowRobotSelection(false);
     // 更新消息表单中的 robotId
-    setMessageForm(prev => ({
-      ...prev,
-      robotId: robot.robotId
-    }));
+    setMessageForm(prev => {
+      const newState = {
+        ...prev,
+        robotId: robot.robotId
+      };
+      console.log('[debug-dialog] 更新消息表单:', newState);
+      return newState;
+    });
   };
 
   // 返回机器人选择界面
@@ -296,6 +309,9 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
   }, [searchQuery]);
 
   const handleSendMessage = async () => {
+    console.log('[debug-dialog] 准备发送消息，当前表单状态:', messageForm);
+    console.log('[debug-dialog] 当前选择的机器人:', selectedRobot);
+
     if (!messageForm.recipient || !messageForm.content) {
       alert('请填写接收方和消息内容');
       return;
@@ -307,17 +323,21 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
     setIsSendingMessage(true);
     setMessageResult(null);
     try {
+      const payload = {
+        robotId: messageForm.robotId,
+        messageType: messageForm.messageType,
+        recipient: messageForm.recipient,
+        content: messageForm.content
+      };
+      console.log('[debug-dialog] 发送请求到后端:', payload);
+
       const res = await fetch('/api/proxy/admin/debug/send-message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          robotId: messageForm.robotId,
-          messageType: messageForm.messageType,
-          recipient: messageForm.recipient,
-          content: messageForm.content
-        })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
+      console.log('[debug-dialog] 后端响应:', data);
       setMessageResult(data);
       // 发送成功后刷新执行记录
       if (activeTab === 'execution') {

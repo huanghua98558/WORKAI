@@ -12,7 +12,16 @@ const debugApiRoutes = async function (fastify, options) {
     try {
       const { robotId, messageType, recipient, content } = request.body;
 
+      console.log('[debug.api.js] 发送消息请求:', {
+        robotId,
+        messageType,
+        recipient,
+        content,
+        allBody: request.body
+      });
+
       if (!robotId) {
+        console.error('[debug.api.js] 缺少 robotId 参数');
         return reply.status(400).send({
           code: -1,
           message: '缺少必要参数：robotId'
