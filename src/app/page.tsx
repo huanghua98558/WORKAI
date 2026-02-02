@@ -3658,8 +3658,13 @@ ${callbacks.robotStatus}
         });
         if (res.ok) {
           alert('✅ AI 模型配置已保存');
+          // 重新加载 AI 配置，确保状态同步
+          // 这里不需要重置 activeAiTab，让用户保持在当前标签页
+        } else {
+          alert('❌ 保存失败');
         }
       } catch (error) {
+        console.error('保存 AI 配置失败:', error);
         alert('❌ 保存失败');
       }
     }, []);
@@ -3989,6 +3994,198 @@ ${callbacks.robotStatus}
     return '未知';
   };
 
+  // 实时IO查看页面
+  const RealtimeIOTab = () => {
+    const [messages, setMessages] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [autoRefresh, setAutoRefresh] = useState(true);
+    const [filterType, setFilterType] = useState<'all' | 'user' | 'bot'>('all');
+    const [selectedRobot, setSelectedRobot] = useState<string>('');
+
+    const loadMessages = useCallback(async () => {
+      try {
+        setIsLoading(true);
+        const params = new URLSearchParams();
+        params.append('limit', '50');
+        if (filterType !== 'all') {
+          params.append('type', filterType);
+        }
+        if (selectedRobot) {
+          params.append('robotId', selectedRobot);
+        }
+
+        const res = await fetch(`/api/ai-io?${params.toString()}`);
+        if (res.ok) {
+          const data = await res.json();
+          setMessages(data.data || []);
+        }
+      } catch (error) {
+        console.error('加载消息失败:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }, [filterType, selectedRobot]);
+
+    useEffect(() => {
+      loadMessages();
+    }, [loadMessages]);
+
+    useEffect(() => {
+      if (!autoRefresh) return;
+
+      const interval = setInterval(() => {
+        loadMessages();
+      }, 5000); // 每5秒刷新一次
+
+      return () => clearInterval(interval);
+    }, [autoRefresh, loadMessages]);
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">实时 AI 输入输出</h2>
+            <p className="text-muted-foreground">实时查看 AI 的输入和输出内容</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Switch
+              checked={autoRefresh}
+              onCheckedChange={setAutoRefresh}
+            />
+            <span className="text-sm">自动刷新</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadMessages}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              刷新
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">用户消息</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {messages.filter(m => m.type === 'user').length}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">机器人回复</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {messages.filter(m => m.type === 'bot').length}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">总消息数</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{messages.length}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">会话数</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {new Set(messages.map(m => m.sessionId)).size}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>消息列表</CardTitle>
+                <CardDescription>最近 50 条消息记录</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <select
+                  className="px-3 py-2 border rounded-md text-sm"
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value as any)}
+                >
+                  <option value="all">全部</option>
+                  <option value="user">用户消息</option>
+                  <option value="bot">机器人回复</option>
+                </select>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {messages.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Terminal className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>暂无消息记录</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {messages.map((msg: any, index: number) => (
+                  <div
+                    key={msg.id || index}
+                    className={`p-4 rounded-lg border ${
+                      msg.type === 'user'
+                        ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800'
+                        : 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        {msg.type === 'user' ? (
+                          <User className="h-4 w-4 text-blue-600" />
+                        ) : (
+                          <Bot className="h-4 w-4 text-green-600" />
+                        )}
+                        <span className="font-medium text-sm">
+                          {msg.type === 'user' ? msg.userName : msg.robotName || '机器人'}
+                        </span>
+                        {msg.intent && (
+                          <Badge variant="outline" className="text-xs">
+                            {msg.intent}
+                          </Badge>
+                        )}
+                        {msg.confidence && (
+                          <Badge variant="outline" className="text-xs">
+                            置信度: {(msg.confidence * 100).toFixed(0)}%
+                          </Badge>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(msg.timestamp).toLocaleString('zh-CN')}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                      {msg.content}
+                    </div>
+                    {msg.groupName && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        群组: {msg.groupName}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
   // 仪表盘主页面
   const DashboardTab = () => (
     <div className="space-y-6">
@@ -4202,7 +4399,7 @@ ${callbacks.robotStatus}
       {/* 主内容 */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-9 lg:w-auto lg:inline-grid h-auto p-1 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+          <TabsList className="grid w-full grid-cols-10 lg:w-auto lg:inline-grid h-auto p-1 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
             <TabsTrigger value="dashboard" className="gap-2 py-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">仪表盘</span>
@@ -4226,6 +4423,10 @@ ${callbacks.robotStatus}
             <TabsTrigger value="monitor" className="gap-2 py-2">
               <Activity className="h-4 w-4" />
               <span className="hidden sm:inline">监控告警</span>
+            </TabsTrigger>
+            <TabsTrigger value="realtime" className="gap-2 py-2">
+              <Terminal className="h-4 w-4" />
+              <span className="hidden sm:inline">实时IO</span>
             </TabsTrigger>
             <TabsTrigger value="reports" className="gap-2 py-2">
               <FileText className="h-4 w-4" />
@@ -4263,6 +4464,10 @@ ${callbacks.robotStatus}
 
           <TabsContent value="monitor" className="space-y-6">
             <MonitorTab />
+          </TabsContent>
+
+          <TabsContent value="realtime" className="space-y-6">
+            <RealtimeIOTab />
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-6">

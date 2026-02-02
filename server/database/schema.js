@@ -155,11 +155,14 @@ exports.sessionMessages = pgTable(
     groupId: varchar("group_id", { length: 255 }), // 群组ID
     userName: varchar("user_name", { length: 255 }), // 用户名
     groupName: varchar("group_name", { length: 255 }), // 群组名
+    robotId: varchar("robot_id", { length: 64 }), // 机器人ID
+    robotName: varchar("robot_name", { length: 255 }), // 机器人名称
     content: text("content").notNull(), // 消息内容
     isFromUser: boolean("is_from_user").notNull().default(false), // 是否来自用户
     isFromBot: boolean("is_from_bot").notNull().default(false), // 是否来自机器人
     isHuman: boolean("is_human").notNull().default(false), // 是否人工回复
     intent: varchar("intent", { length: 50 }), // 意图识别结果
+    confidence: integer("confidence"), // 意图识别置信度（0-100）
     timestamp: timestamp("timestamp", { withTimezone: true }).notNull(), // 消息时间戳
     extraData: jsonb("extra_data"), // 额外数据（JSON格式）
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -170,6 +173,7 @@ exports.sessionMessages = pgTable(
     sessionIdIdx: index("session_messages_session_id_idx").on(table.sessionId),
     userIdIdx: index("session_messages_user_id_idx").on(table.userId),
     groupIdIdx: index("session_messages_group_id_idx").on(table.groupId),
+    robotIdIdx: index("session_messages_robot_id_idx").on(table.robotId),
     timestampIdx: index("session_messages_timestamp_idx").on(table.timestamp),
     intentIdx: index("session_messages_intent_idx").on(table.intent),
   })
