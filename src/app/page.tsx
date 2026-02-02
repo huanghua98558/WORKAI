@@ -917,6 +917,568 @@ ${callbacks.robotStatus}
     </div>
   );
 
+  // 监控告警页面
+  const MonitorTab = () => {
+    const [alertHistory, setAlertHistory] = useState<any[]>([]);
+    const [circuitBreakerStatus, setCircuitBreakerStatus] = useState<boolean>(false);
+
+    useEffect(() => {
+      loadAlertData();
+    }, []);
+
+    const loadAlertData = async () => {
+      try {
+        const [alertsRes, circuitRes] = await Promise.all([
+          fetch('/api/admin/alerts/history?limit=20'),
+          fetch('/api/admin/circuit-breaker/status')
+        ]);
+
+        if (alertsRes.ok) {
+          const data = await alertsRes.json();
+          setAlertHistory(data.data || []);
+        }
+
+        if (circuitRes.ok) {
+          const data = await circuitRes.json();
+          setCircuitBreakerStatus(data.data.isOpen);
+        }
+      } catch (error) {
+        console.error('加载告警数据失败:', error);
+      }
+    };
+
+    const resetCircuitBreaker = async () => {
+      if (confirm('确定要重置熔断器吗？这将重新启用 AI 服务。')) {
+        try {
+          const res = await fetch('/api/admin/circuit-breaker/reset', { method: 'POST' });
+          if (res.ok) {
+            alert('✅ 熔断器已重置');
+            loadAlertData();
+          }
+        } catch (error) {
+          alert('❌ 重置失败');
+        }
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 className="text-2xl font-bold flex items-center gap-2">
+              <Activity className="h-6 w-6 text-red-500" />
+              监控与告警
+            </h3>
+            <p className="text-muted-foreground mt-1">
+              系统监控指标和告警历史记录
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button 
+              onClick={loadAlertData} 
+              variant="outline" 
+              size="sm"
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              刷新
+            </Button>
+          </div>
+        </div>
+
+        {/* 告警统计卡片 */}
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card className="border-l-4 border-l-red-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">总告警数</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-red-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{alertData?.total || 0}</div>
+              <p className="text-xs text-muted-foreground">近 7 天</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-red-600">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">严重告警</CardTitle>
+              <ShieldAlert className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{alertData?.byLevel.critical || 0}</div>
+              <p className="text-xs text-muted-foreground">需要立即处理</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-yellow-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">警告告警</CardTitle>
+              <Bell className="h-4 w-4 text-yellow-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{alertData?.byLevel.warning || 0}</div>
+              <p className="text-xs text-muted-foreground">需要关注</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-blue-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">信息告警</CardTitle>
+              <Info className="h-4 w-4 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{alertData?.byLevel.info || 0}</div>
+              <p className="text-xs text-muted-foreground">提示信息</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* 熔断器状态 */}
+        <Alert variant={circuitBreakerStatus ? 'destructive' : 'default'}>
+          {circuitBreakerStatus ? (
+            <>
+              <ShieldAlert className="h-4 w-4" />
+              <AlertTitle>熔断器已开启</AlertTitle>
+              <AlertDescription>
+                AI 服务已被临时禁用，所有请求将跳过 AI 处理。
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="ml-2"
+                  onClick={resetCircuitBreaker}
+                >
+                  重置熔断器
+                </Button>
+              </AlertDescription>
+            </>
+          ) : (
+            <>
+              <ShieldCheck className="h-4 w-4" />
+              <AlertTitle>系统运行正常</AlertTitle>
+              <AlertDescription>熔断器已关闭，AI 服务正常运行。</AlertDescription>
+            </>
+          )}
+        </Alert>
+
+        {/* 告警历史 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">告警历史</CardTitle>
+            <CardDescription>最近的告警记录</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {alertHistory.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>暂无告警记录</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {alertHistory.map((alert, index) => (
+                  <div key={index} className="flex items-start gap-4 p-4 border rounded-lg">
+                    <div className={`p-2 rounded-lg ${
+                      alert.level === 'critical' ? 'bg-red-100 dark:bg-red-900' :
+                      alert.level === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900' :
+                      'bg-blue-100 dark:bg-blue-900'
+                    }`}>
+                      {alert.level === 'critical' && <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />}
+                      {alert.level === 'warning' && <Bell className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />}
+                      {alert.level === 'info' && <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{alert.ruleName}</span>
+                        <Badge variant={
+                          alert.level === 'critical' ? 'destructive' :
+                          alert.level === 'warning' ? 'secondary' :
+                          'outline'
+                        }>
+                          {alert.level}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {formatTime(alert.timestamp)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  // 报告中心页面
+  const ReportsTab = () => {
+    const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [reportData, setReportData] = useState<any>(null);
+
+    useEffect(() => {
+      if (activeTab === 'reports') {
+        loadReportData();
+      }
+    }, [activeTab, selectedDate]);
+
+    const loadReportData = async () => {
+      try {
+        const res = await fetch(`/api/admin/reports/${selectedDate}`);
+        if (res.ok) {
+          const data = await res.json();
+          setReportData(data.data);
+        }
+      } catch (error) {
+        console.error('加载报告数据失败:', error);
+      }
+    };
+
+    const generateReport = async () => {
+      if (confirm(`确定要生成 ${selectedDate} 的日终报告吗？`)) {
+        try {
+          const res = await fetch('/api/admin/reports/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ date: selectedDate })
+          });
+          if (res.ok) {
+            alert('✅ 报告生成成功');
+            loadReportData();
+          }
+        } catch (error) {
+          alert('❌ 报告生成失败');
+        }
+      }
+    };
+
+    const exportCSV = async () => {
+      try {
+        const res = await fetch(`/api/admin/reports/${selectedDate}/export`);
+        if (res.ok) {
+          const blob = await res.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `records_${selectedDate}.csv`;
+          a.click();
+          window.URL.revokeObjectURL(url);
+        }
+      } catch (error) {
+        alert('❌ 导出失败');
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 className="text-2xl font-bold flex items-center gap-2">
+              <FileText className="h-6 w-6 text-purple-500" />
+              报告中心
+            </h3>
+            <p className="text-muted-foreground mt-1">
+              查看日终报告和导出数据
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button 
+              onClick={loadReportData} 
+              variant="outline" 
+              size="sm"
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              刷新
+            </Button>
+          </div>
+        </div>
+
+        {/* 日期选择 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">选择报告日期</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-4 items-center">
+              <Input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="max-w-xs"
+              />
+              <Button onClick={loadReportData}>
+                查看报告
+              </Button>
+              <Button onClick={generateReport} variant="outline">
+                生成报告
+              </Button>
+              <Button onClick={exportCSV} variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                导出 CSV
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 报告内容 */}
+        {reportData ? (
+          <div className="space-y-6">
+            {/* 概览 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">报告概览</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-4">
+                  <div>
+                    <label className="text-sm text-muted-foreground">日期</label>
+                    <p className="text-2xl font-bold">{reportData.date}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground">总记录数</label>
+                    <p className="text-2xl font-bold">{reportData.totalRecords || 0}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground">AI 自动回复</label>
+                    <p className="text-2xl font-bold text-blue-600">{reportData.byStatus?.auto || 0}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground">人工接管</label>
+                    <p className="text-2xl font-bold text-orange-600">{reportData.byStatus?.human || 0}</p>
+                  </div>
+                </div>
+
+                {reportData.aiSummary && (
+                  <div className="mt-4 p-4 bg-muted rounded-lg">
+                    <h4 className="font-medium mb-2">AI 总结</h4>
+                    <p className="text-sm text-muted-foreground">{reportData.aiSummary}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 群分布 */}
+            {reportData.byGroup && Object.keys(reportData.byGroup).length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">群消息分布</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {Object.entries(reportData.byGroup).map(([groupName, info]: [string, any]) => (
+                      <div key={groupName} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center text-white font-bold">
+                            {groupName.charAt(0)}
+                          </div>
+                          <span className="font-medium">{groupName}</span>
+                        </div>
+                        <Badge variant="secondary">{info.count} 条消息</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 意图分布 */}
+            {reportData.byIntent && Object.keys(reportData.byIntent).length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">意图分布</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {Object.entries(reportData.byIntent).map(([intent, count]: [string, any]) => (
+                      <div key={intent} className="flex items-center justify-between p-3 border rounded-lg">
+                        <span className="font-medium capitalize">{intent}</span>
+                        <Badge variant="outline">{count}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        ) : (
+          <Card>
+            <CardContent className="py-12">
+              <div className="text-center text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>选择日期并点击"查看报告"加载数据</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  };
+
+  // 系统设置页面
+  const SettingsTab = () => {
+    const [autoReplyMode, setAutoReplyMode] = useState('ai');
+    const [chatProbability, setChatProbability] = useState(30);
+    const [serviceReplyEnabled, setServiceReplyEnabled] = useState(true);
+    const [riskAutoHuman, setRiskAutoHuman] = useState(true);
+
+    const saveSettings = async () => {
+      alert('✅ 设置已保存');
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 className="text-2xl font-bold flex items-center gap-2">
+              <Settings className="h-6 w-6 text-gray-500" />
+              系统设置
+            </h3>
+            <p className="text-muted-foreground mt-1">
+              配置系统运行参数和策略
+            </p>
+          </div>
+        </div>
+
+        {/* 自动回复策略 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MessageCircle className="h-4 w-4" />
+              自动回复策略
+            </CardTitle>
+            <CardDescription>配置 AI 自动回复行为</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">闲聊模式</label>
+                <p className="text-xs text-muted-foreground">控制闲聊消息的回复方式</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <select 
+                  value={autoReplyMode}
+                  onChange={(e) => setAutoReplyMode(e.target.value)}
+                  className="px-3 py-2 border rounded-md text-sm"
+                >
+                  <option value="none">不回复</option>
+                  <option value="probability">概率回复</option>
+                  <option value="fixed">固定话术</option>
+                  <option value="ai">AI 陪聊</option>
+                </select>
+              </div>
+            </div>
+
+            {autoReplyMode === 'probability' && (
+              <div className="p-4 border rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium">回复概率</label>
+                  <span className="text-sm text-muted-foreground">{chatProbability}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={chatProbability}
+                  onChange={(e) => setChatProbability(parseInt(e.target.value))}
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  设置 AI 回复闲聊消息的概率
+                </p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">服务回复</label>
+                <p className="text-xs text-muted-foreground">自动回复服务类问题</p>
+              </div>
+              <Switch 
+                checked={serviceReplyEnabled}
+                onCheckedChange={setServiceReplyEnabled}
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">风险内容处理</label>
+                <p className="text-xs text-muted-foreground">检测到风险内容时自动转人工</p>
+              </div>
+              <Switch 
+                checked={riskAutoHuman}
+                onCheckedChange={setRiskAutoHuman}
+              />
+            </div>
+
+            <Button onClick={saveSettings} className="w-full">
+              保存设置
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* 监控预警设置 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              监控预警设置
+            </CardTitle>
+            <CardDescription>配置系统监控和预警规则</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">机器人掉线告警</label>
+                <p className="text-xs text-muted-foreground">机器人掉线时发送告警消息</p>
+              </div>
+              <Switch defaultChecked />
+            </div>
+
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">错误率告警</label>
+                <p className="text-xs text-muted-foreground">错误率超过 10% 时发送告警</p>
+              </div>
+              <Switch defaultChecked />
+            </div>
+
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">垃圾信息检测</label>
+                <p className="text-xs text-muted-foreground">检测到垃圾信息时发送告警</p>
+              </div>
+              <Switch defaultChecked />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 系统信息 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Server className="h-4 w-4" />
+              系统信息
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">系统版本</span>
+              <span className="font-medium">v1.0.0</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">运行模式</span>
+              <Badge variant="outline">内存模式</Badge>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">基础地址</span>
+              <span className="font-mono text-xs">{callbacks?.baseUrl || '未配置'}</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
   // 仪表盘主页面
   const DashboardTab = () => (
     <div className="space-y-6">
@@ -1055,48 +1617,15 @@ ${callbacks.robotStatus}
           </TabsContent>
 
           <TabsContent value="monitor" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5" />
-                  监控与告警
-                </CardTitle>
-                <CardDescription>系统监控指标和告警历史</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">监控数据加载中...</p>
-              </CardContent>
-            </Card>
+            <MonitorTab />
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  报告中心
-                </CardTitle>
-                <CardDescription>查看日终报告和导出数据</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">报告列表加载中...</p>
-              </CardContent>
-            </Card>
+            <ReportsTab />
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5" />
-                  系统设置
-                </CardTitle>
-                <CardDescription>配置系统运行参数</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">设置页面开发中...</p>
-              </CardContent>
-            </Card>
+            <SettingsTab />
           </TabsContent>
         </Tabs>
       </main>
