@@ -138,21 +138,18 @@ export default function AdminDashboard() {
   const [aiConfig, setAiConfig] = useState<any>(null);
   const [isLoadingAiConfig, setIsLoadingAiConfig] = useState(false);
 
-  // 加载数据
+  // 初始化加载（只执行一次）
   useEffect(() => {
     loadData();
     checkConnection();
     loadAiConfig(); // 只在组件挂载时加载一次 AI 配置
-    const interval = setInterval(() => {
-      loadData();
-      checkConnection();
-    }, 15000); // 每15秒刷新一次
-    return () => clearInterval(interval);
   }, []);
 
   const loadData = async () => {
+    console.log('[loadData] 开始加载数据...');
     setIsLoading(true);
     try {
+      console.log('[loadData] 发起 API 请求...');
       const [callbacksRes, monitorRes, alertRes, sessionsRes] = await Promise.all([
         fetch('/api/admin/callbacks'),
         fetch('/api/admin/monitor/summary'),
@@ -160,13 +157,19 @@ export default function AdminDashboard() {
         fetch('/api/admin/sessions/active?limit=20')
       ]);
 
+      console.log('[loadData] callbacksRes.status:', callbacksRes.status);
+      console.log('[loadData] callbacksRes.ok:', callbacksRes.ok);
+      
       if (callbacksRes.ok) {
         const data = await callbacksRes.json();
         console.log('[回调解析] data:', data);
         console.log('[回调解析] data.data:', data.data);
+        console.log('[回调解析] data.data.baseUrl:', data.data?.baseUrl);
         setCallbacks(data.data);
       } else {
-        console.error('[回调解析] callbacksRes.ok = false, status:', callbacksRes.status, callbacksRes.statusText);
+        console.error('[loadData] callbacksRes.ok = false, status:', callbacksRes.status, callbacksRes.statusText);
+        const errorText = await callbacksRes.text();
+        console.error('[loadData] errorText:', errorText);
       }
 
       if (monitorRes.ok) {
