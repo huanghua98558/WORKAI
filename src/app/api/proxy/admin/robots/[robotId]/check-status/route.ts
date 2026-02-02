@@ -4,10 +4,11 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { robotId: string } }
+  { params }: { params: Promise<{ robotId: string }> }
 ) {
   try {
-    const url = new URL(`/api/admin/robots/${params.robotId}/check-status`, BACKEND_URL);
+    const { robotId } = await params;
+    const url = new URL(`/api/admin/robots/${robotId}/check-status`, BACKEND_URL);
 
     const response = await fetch(url.toString(), {
       method: 'POST',

@@ -4,11 +4,12 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
-    const url = new URL(`/api/admin/robots/${params.id}`, BACKEND_URL);
+    const url = new URL(`/api/admin/robots/${id}`, BACKEND_URL);
 
     const response = await fetch(url.toString(), {
       method: 'PUT',
@@ -32,10 +33,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const url = new URL(`/api/admin/robots/${params.id}`, BACKEND_URL);
+    const { id } = await params;
+    const url = new URL(`/api/admin/robots/${id}`, BACKEND_URL);
 
     const response = await fetch(url.toString(), {
       method: 'DELETE',
