@@ -67,6 +67,14 @@ interface ExecutionRecord {
 }
 
 export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
+  // 辅助函数：格式化处理时间
+  const formatProcessingTime = (ms: number | undefined): string => {
+    if (!ms || ms < 0) return '-';
+    if (ms < 1000) return `${ms}ms`;
+    if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`;
+    return `${(ms / 60000).toFixed(2)}m`;
+  };
+
   const [activeTab, setActiveTab] = useState('message');
   
   // 发送消息相关状态
@@ -749,7 +757,7 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
                               </span>
                             </div>
                             <span className="text-xs text-gray-500">
-                              {record.processingTime ? `${record.processingTime}ms` : '-'}
+                              {formatProcessingTime(record.processingTime)}
                             </span>
                           </div>
                           <div className="text-xs text-gray-500">
@@ -790,6 +798,10 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
                       <div>
                         <div className="text-gray-600 dark:text-gray-400">完成时间</div>
                         <div>{selectedRecord.completedAt ? new Date(selectedRecord.completedAt).toLocaleString('zh-CN') : '-'}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-600 dark:text-gray-400">处理时间</div>
+                        <div className="font-medium">{formatProcessingTime(selectedRecord.processingTime)}</div>
                       </div>
                     </div>
 

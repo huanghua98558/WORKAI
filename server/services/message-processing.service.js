@@ -17,6 +17,7 @@ class MessageProcessingService {
    */
   async processMessage(messageData, robot) {
     const startTime = Date.now();
+    console.log(`[消息处理] 开始处理消息，startTime: ${startTime}, ISO: ${new Date(startTime).toISOString()}`);
     const processingId = executionTrackerService.startProcessing({
       robotId: robot.robotId,
       messageData,
@@ -87,6 +88,7 @@ class MessageProcessingService {
 
       // 7. 完成处理
       const processingTime = Date.now() - startTime;
+      console.log(`[消息处理] 计算处理时间: endTime=${Date.now()}, startTime=${startTime}, processingTime=${processingTime}ms`);
       executionTrackerService.completeProcessing(processingId, {
         status: 'success',
         decision,

@@ -20,14 +20,19 @@ class ExecutionTrackerService {
    */
   async startProcessing(context) {
     await this.init(); // 确保 Redis 已初始化
-    
+
     const processingId = `process:${Date.now()}:${Math.random().toString(36).substring(2, 9)}`;
-    
+
+    // 确保 startTime 是 ISO 字符串格式
+    const startTimeIso = context.startTime
+      ? (typeof context.startTime === 'number' ? new Date(context.startTime).toISOString() : context.startTime)
+      : new Date().toISOString();
+
     const processingData = {
       processingId,
       robotId: context.robotId,
       messageData: context.messageData,
-      startTime: context.startTime,
+      startTime: startTimeIso,
       status: 'processing',
       steps: {},
       completedAt: null,
@@ -79,16 +84,18 @@ class ExecutionTrackerService {
     if (!data) return;
 
     const processing = JSON.parse(data);
-      processing.status = result.status || 'completed';
-      processing.completedAt = new Date().toISOString();
-      processing.error = result.error || null;
-      processing.decision = result.decision || null;
-      processing.processingTime = result.processingTime || 0;
+    processing.status = result.status || 'completed';
+    processing.completedAt = new Date().toISOString();
+    processing.error = result.error || null;
+    processing.decision = result.decision || null;
+    processing.processingTime = result.processingTime || 0;
+
+    console.log(`[执行追踪] 完成处理: ${processingId}, processingTime: ${processing.processingTime}ms, status: ${processing.status}`);
 
     // 更新统计
     if (result.status === 'success') {
       await this.redis.incr('execution:stats:success');
-      
+
       if (result.decision?.action === 'auto_reply') {
         await this.redis.incr('execution:stats:auto_reply');
       } else if (result.decision?.action === 'none') {
