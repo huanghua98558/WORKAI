@@ -161,79 +161,118 @@ class RobotService {
       const baseUrl = apiBaseUrl.replace(/\/wework\/?$/, '').replace(/\/$/, '');
       
       // 尝试调用 WorkTool 的机器人信息接口来测试连接
-      const url = `${baseUrl}/robot/robotInfo/update`;
-      
-      // 发送一个测试请求（不实际更新）
-      const response = await axios.post(url, {
-        robotId: robotId,
-        // 只发送必需的参数，不实际修改任何配置
-      }, {
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        timeout: 10000,
-        validateStatus: (status) => status < 600 // 接受所有状态码，由我们自己处理
-      });
+      // 可能的端点：/robot/robotInfo/update, /robot/info, /robot/robotInfo
+      const possibleEndpoints = [
+        `${baseUrl}/robot/robotInfo/update`,
+        `${baseUrl}/robot/info`,
+        `${baseUrl}/robot/robotInfo`,
+        `${baseUrl}/api/robot/info`
+      ];
 
-      // 如果收到任何响应（即使不是 200），说明服务器是可访问的
-      if (response.status === 200) {
-        // 如果返回 code: 200，说明机器人配置正确，并且返回了机器人详细信息
-        if (response.data && response.data.code === 200) {
-          const robotInfo = response.data.data || {};
-          
-          // 提取机器人详细信息并存储
-          const robotDetails = {
-            // 基本信息
-            nickname: robotInfo.nickname || robotInfo.robotName || null,
-            company: robotInfo.company || robotInfo.corpName || null,
-            ipAddress: robotInfo.ip || robotInfo.ipAddress || null,
-            isValid: robotInfo.isValid !== undefined ? robotInfo.isValid : true,
-            
-            // 时间信息
-            activatedAt: robotInfo.activatedAt || robotInfo.openTime || null,
-            expiresAt: robotInfo.expiresAt || robotInfo.expireTime || null,
-            
-            // 回调状态
-            messageCallbackEnabled: robotInfo.messageCallbackEnabled !== undefined 
-              ? robotInfo.messageCallbackEnabled 
-              : (robotInfo.qaStatus === 1 || robotInfo.messageStatus === 1),
-            
-            // 额外信息
-            extraData: robotInfo
-          };
+      let robotDetails = null;
+      let lastError = null;
 
-          return {
-            success: true,
-            message: '连接成功，机器人配置正确',
-            data: response.data.data,
-            robotDetails // 返回提取的详细信息
-          };
-        } else {
-          // 收到响应但返回错误码（可能是参数错误，但说明服务器在线）
-          return {
-            success: true,
-            message: '连接成功（服务器在线）',
-            data: response.data,
-            note: '机器人可能需要进一步配置'
-          };
+      // 尝试所有可能的端点
+      for (const url of possibleEndpoints) {
+        try {
+          // 尝试不同的请求格式
+          const attempts = [
+            // 尝试 1: JSON 格式
+            {
+              method: 'post',
+              url,
+              headers: { 'Content-Type': 'application/json' },
+              data: { robotId }
+            },
+            // 尝试 2: 表单格式
+            {
+              method: 'post',
+              url,
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              data: `robotId=${robotId}`
+            },
+            // 尝试 3: GET 请求
+            {
+              method: 'get',
+              url: `${url}?robotId=${robotId}`
+            }
+          ];
+
+          for (const attempt of attempts) {
+            try {
+              const response = await axios(attempt, {
+                timeout: 10000,
+                validateStatus: (status) => status < 600
+              });
+
+              // 检查响应状态
+              if (response.status === 200 || response.status === 201) {
+                // 检查业务状态码（可能是 code: 0, code: 200, 或其他）
+                const responseCode = response.data?.code;
+                const responseMessage = response.data?.message;
+                
+                // 根据不同的响应格式处理
+                if (responseCode === 0 || responseCode === 200) {
+                  // 成功响应，提取机器人信息
+                  const robotInfo = response.data?.data || response.data || {};
+                  
+                  robotDetails = {
+                    // 基本信息
+                    nickname: robotInfo.nickname || robotInfo.robotName || robotInfo.name || null,
+                    company: robotInfo.company || robotInfo.corpName || robotInfo.corporation || null,
+                    ipAddress: robotInfo.ip || robotInfo.ipAddress || robotInfo.serverIp || null,
+                    isValid: robotInfo.isValid !== undefined ? robotInfo.isValid : (robotInfo.valid !== undefined ? robotInfo.valid : true),
+                    
+                    // 时间信息
+                    activatedAt: robotInfo.activatedAt || robotInfo.openTime || robotInfo.startTime || robotInfo.createTime || null,
+                    expiresAt: robotInfo.expiresAt || robotInfo.expireTime || robotInfo.endTime || null,
+                    
+                    // 回调状态
+                    messageCallbackEnabled: robotInfo.messageCallbackEnabled !== undefined 
+                      ? robotInfo.messageCallbackEnabled 
+                      : (robotInfo.qaStatus === 1 || robotInfo.messageStatus === 1 || robotInfo.callbackStatus === 1),
+                    
+                    // 额外信息
+                    extraData: robotInfo
+                  };
+
+                  return {
+                    success: true,
+                    message: '连接成功，机器人信息已获取',
+                    data: robotInfo,
+                    robotDetails
+                  };
+                } else if (responseCode === 404 || responseCode === 401) {
+                  // 机器人不存在或未授权
+                  lastError = responseMessage || '机器人不存在或未授权';
+                  break;
+                } else {
+                  // 其他错误码，但说明服务器在线
+                  lastError = responseMessage || `服务器返回错误: ${responseCode}`;
+                  // 继续尝试其他端点
+                  continue;
+                }
+              }
+            } catch (e) {
+              // 当前尝试失败，继续下一个
+              continue;
+            }
+          }
+        } catch (e) {
+          // 当前端点失败，继续尝试下一个
+          continue;
         }
-      } else if (response.status === 404) {
-        // 404 表示端点不存在，但服务器在线
-        return {
-          success: true,
-          message: '连接成功（服务器在线）',
-          data: null,
-          note: 'API 端点可能已更改'
-        };
-      } else if (response.status === 500 || response.status === 400) {
-        // 服务器返回了 5xx 或 4xx 错误，但说明服务器是可访问的
-        return {
-          success: true,
-          message: '连接成功（服务器在线）',
-          data: response.data,
-          note: '机器人 ID 可能需要验证'
-        };
       }
+
+      // 所有端点都尝试完毕，但至少有一个端点返回了响应（说明服务器在线）
+      return {
+        success: true,
+        message: lastError ? `连接成功（${lastError}）` : '连接成功（服务器在线）',
+        data: null,
+        robotDetails,
+        note: '未能获取完整的机器人详细信息'
+      };
+
     } catch (error) {
       // 检查是否是网络错误
       if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND') {
