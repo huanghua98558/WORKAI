@@ -147,11 +147,17 @@ export default function RobotManagement() {
       const data = await res.json();
       if (data.code === 0) {
         setValidationErrors(data.data.errors || []);
+        if (!data.data.valid) {
+          // 验证失败时，等待用户看到错误信息后再返回
+          // 这里不阻止保存，让用户看到错误信息后可以决定是否继续
+        }
         return data.data.valid;
       }
+      setValidationErrors(['验证服务请求失败']);
       return false;
     } catch (error) {
       console.error('验证配置失败:', error);
+      setValidationErrors(['网络错误，无法验证配置']);
       return false;
     }
   };
@@ -200,9 +206,30 @@ export default function RobotManagement() {
 
   // 保存机器人
   const handleSave = async () => {
-    // 先验证配置
+    // 先验证配置（但不阻止保存）
     const isValid = await validateConfig();
-    if (!isValid) {
+    
+    // 如果验证失败，询问用户是否继续
+    if (!isValid && validationErrors.length > 0) {
+      const shouldContinue = confirm(
+        `配置验证失败：\n${validationErrors.join('\n')}\n\n是否继续保存？`
+      );
+      if (!shouldContinue) {
+        return;
+      }
+    }
+
+    // 检查必填字段
+    if (!formData.name.trim()) {
+      alert('请输入机器人名称');
+      return;
+    }
+    if (!formData.robotId.trim()) {
+      alert('请输入 Robot ID');
+      return;
+    }
+    if (!formData.apiBaseUrl.trim()) {
+      alert('请输入 API Base URL');
       return;
     }
 
@@ -223,7 +250,9 @@ export default function RobotManagement() {
       
       if (data.code === 0) {
         setIsDialogOpen(false);
+        setValidationErrors([]);
         loadRobots();
+        alert(editingRobot ? '更新成功' : '添加成功');
       } else {
         alert(data.message || '保存失败');
       }
