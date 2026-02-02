@@ -243,6 +243,35 @@ const robotApiRoutes = async function (fastify, options) {
     }
   });
 
+  // 测试机器人连接
+  fastify.post('/robots/test', async (request, reply) => {
+    try {
+      const { robotId, apiBaseUrl } = request.body;
+      
+      if (!robotId || !apiBaseUrl) {
+        return reply.status(400).send({
+          code: -1,
+          message: '缺少必要参数: robotId 或 apiBaseUrl'
+        });
+      }
+
+      const result = await robotService.testRobotConnection(robotId, apiBaseUrl);
+      
+      return reply.send({
+        code: result.success ? 0 : -1,
+        message: result.message,
+        data: result.data || null
+      });
+    } catch (error) {
+      console.error('测试机器人连接失败:', error);
+      return reply.status(500).send({
+        code: -1,
+        message: '测试机器人连接失败',
+        error: error.message
+      });
+    }
+  });
+
   // 配置消息回调
   fastify.post('/robots/:id/config-callback', async (request, reply) => {
     try {
