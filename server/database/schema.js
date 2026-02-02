@@ -89,6 +89,14 @@ exports.robots = pgTable(
     status: varchar("status", { length: 20 }).notNull().default("unknown"), // 状态: online, offline, unknown, error
     lastCheckAt: timestamp("last_check_at", { withTimezone: true }), // 最后检查时间
     lastError: text("last_error"), // 最后错误信息
+    nickname: varchar("nickname", { length: 255 }), // 机器人昵称（从WorkTool API获取）
+    company: varchar("company", { length: 255 }), // 企业名称（从WorkTool API获取）
+    ipAddress: varchar("ip_address", { length: 45 }), // IP地址（支持IPv6）
+    isValid: boolean("is_valid").notNull().default(true), // 是否有效（从WorkTool API获取）
+    activatedAt: timestamp("activated_at", { withTimezone: true }), // 启用时间（从WorkTool API获取）
+    expiresAt: timestamp("expires_at", { withTimezone: true }), // 到期时间（从WorkTool API获取）
+    messageCallbackEnabled: boolean("message_callback_enabled").notNull().default(false), // 消息回调是否开启（从WorkTool API获取）
+    extraData: jsonb("extra_data"), // 额外数据（JSON格式，存储其他WorkTool返回的信息）
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -98,6 +106,9 @@ exports.robots = pgTable(
     robotIdIdx: index("robots_robot_id_idx").on(table.robotId),
     isActiveIdx: index("robots_is_active_idx").on(table.isActive),
     statusIdx: index("robots_status_idx").on(table.status),
+    isValidIdx: index("robots_is_valid_idx").on(table.isValid),
+    expiresAtIdx: index("robots_expires_at_idx").on(table.expiresAt),
+    companyIdx: index("robots_company_idx").on(table.company),
   })
 );
 

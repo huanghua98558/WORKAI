@@ -153,7 +153,7 @@ class RobotService {
   }
 
   /**
-   * 测试机器人连接
+   * 测试机器人连接并获取完整信息
    */
   async testRobotConnection(robotId, apiBaseUrl) {
     try {
@@ -177,12 +177,36 @@ class RobotService {
 
       // 如果收到任何响应（即使不是 200），说明服务器是可访问的
       if (response.status === 200) {
-        // 如果返回 code: 200，说明机器人配置正确
+        // 如果返回 code: 200，说明机器人配置正确，并且返回了机器人详细信息
         if (response.data && response.data.code === 200) {
+          const robotInfo = response.data.data || {};
+          
+          // 提取机器人详细信息并存储
+          const robotDetails = {
+            // 基本信息
+            nickname: robotInfo.nickname || robotInfo.robotName || null,
+            company: robotInfo.company || robotInfo.corpName || null,
+            ipAddress: robotInfo.ip || robotInfo.ipAddress || null,
+            isValid: robotInfo.isValid !== undefined ? robotInfo.isValid : true,
+            
+            // 时间信息
+            activatedAt: robotInfo.activatedAt || robotInfo.openTime || null,
+            expiresAt: robotInfo.expiresAt || robotInfo.expireTime || null,
+            
+            // 回调状态
+            messageCallbackEnabled: robotInfo.messageCallbackEnabled !== undefined 
+              ? robotInfo.messageCallbackEnabled 
+              : (robotInfo.qaStatus === 1 || robotInfo.messageStatus === 1),
+            
+            // 额外信息
+            extraData: robotInfo
+          };
+
           return {
             success: true,
             message: '连接成功，机器人配置正确',
-            data: response.data.data
+            data: response.data.data,
+            robotDetails // 返回提取的详细信息
           };
         } else {
           // 收到响应但返回错误码（可能是参数错误，但说明服务器在线）
@@ -237,7 +261,7 @@ class RobotService {
   }
 
   /**
-   * 检查机器人状态
+   * 检查机器人状态并更新详细信息
    */
   async checkRobotStatus(robotId) {
     const robot = await this.getRobotByRobotId(robotId);
@@ -248,18 +272,26 @@ class RobotService {
 
     const result = await this.testRobotConnection(robot.robotId, robot.apiBaseUrl);
     
-    // 更新机器人状态
-    await this.updateRobot(robot.id, {
+    // 更新机器人状态和详细信息
+    const updateData = {
       status: result.success ? 'online' : 'offline',
       lastCheckAt: new Date(),
       lastError: result.success ? null : result.message
-    });
+    };
+
+    // 如果连接成功且返回了详细信息，则保存这些信息
+    if (result.success && result.robotDetails) {
+      Object.assign(updateData, result.robotDetails);
+    }
+
+    await this.updateRobot(robot.id, updateData);
 
     return {
       robotId: robot.robotId,
       status: result.success ? 'online' : 'offline',
       message: result.message,
-      checkedAt: new Date()
+      checkedAt: new Date(),
+      robotDetails: result.robotDetails
     };
   }
 

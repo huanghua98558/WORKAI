@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   ArrowLeft,
   Activity,
@@ -18,7 +19,16 @@ import {
   XCircle,
   Clock,
   Globe,
-  ShieldCheck
+  ShieldCheck,
+  Server,
+  Info,
+  Zap,
+  Calendar,
+  Code,
+  Link2,
+  Edit,
+  User,
+  Key
 } from 'lucide-react';
 import { CallbackMonitorPanel } from '@/components/robot/callback-monitor-panel';
 import { CallbackConfigPanel } from '@/components/robot/callback-config-panel';
@@ -36,6 +46,16 @@ interface RobotDetail {
   lastError?: string;
   createdAt: string;
   updatedAt: string;
+  avatar?: string;
+  subscriptionType?: string;
+  larkAppId?: string;
+  eventName?: string;
+}
+
+interface TestResult {
+  success: boolean;
+  message: string;
+  robotDetails?: any;
 }
 
 export default function RobotDetailPage() {
@@ -47,6 +67,8 @@ export default function RobotDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('monitor');
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
 
   // 获取后端 URL
   const getBackendUrl = () => {
@@ -86,6 +108,46 @@ export default function RobotDetailPage() {
       console.error('获取机器人详情失败:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const testConnection = async () => {
+    if (!robot) return;
+
+    setTestingConnection(true);
+    setTestResult(null);
+
+    try {
+      // 使用新的测试并保存API
+      const response = await fetch(
+        `${getBackendUrl()}/api/robots/${robotId}/test-and-save`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      const data = await response.json();
+      
+      setTestResult({
+        success: data.code === 0,
+        message: data.message || '测试完成',
+        robotDetails: data.data?.robot
+      });
+
+      // 如果测试成功，重新加载机器人详情以获取最新状态
+      if (data.code === 0) {
+        await fetchRobotDetail();
+      }
+    } catch (err) {
+      setTestResult({
+        success: false,
+        message: err instanceof Error ? err.message : '测试失败'
+      });
+    } finally {
+      setTestingConnection(false);
     }
   };
 
@@ -152,7 +214,7 @@ export default function RobotDetailPage() {
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold flex items-center gap-2">
                 <Bot className="h-8 w-8" />
-                {robot.name}
+                机器人详情
               </h1>
               <Badge variant={robot.isActive ? 'default' : 'secondary'}>
                 {robot.isActive ? '已启用' : '已禁用'}
@@ -163,76 +225,258 @@ export default function RobotDetailPage() {
             </p>
           </div>
         </div>
-        <Button onClick={fetchRobotDetail} variant="outline">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          刷新
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={testConnection} 
+            disabled={testingConnection}
+            variant="default"
+          >
+            {testingConnection ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                测试中...
+              </>
+            ) : (
+              <>
+                <Zap className="h-4 w-4 mr-2" />
+                测试连接
+              </>
+            )}
+          </Button>
+          <Button onClick={fetchRobotDetail} variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            刷新
+          </Button>
+        </div>
       </div>
 
-      {/* 机器人基本信息 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>基本信息</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <div className="text-sm text-muted-foreground">机器人名称</div>
-              <div className="font-medium">{robot.name}</div>
+      {/* 测试结果提示 */}
+      {testResult && (
+        <Alert variant={testResult.success ? 'default' : 'destructive'} className={testResult.success ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : ''}>
+          {testResult.success ? (
+            <CheckCircle className="h-4 w-4" />
+          ) : (
+            <XCircle className="h-4 w-4" />
+          )}
+          <AlertDescription>{testResult.message}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* 机器人信息卡片 */}
+      <Card className="border-2 border-indigo-200 dark:border-indigo-900 overflow-hidden">
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
+          <div className="flex items-start gap-6">
+            <div className="flex-shrink-0">
+              <Avatar className="h-24 w-24 border-4 border-white/30 shadow-lg">
+                {robot.avatar ? (
+                  <AvatarImage src={robot.avatar} alt={robot.name} />
+                ) : null}
+                <AvatarFallback className="bg-white/20 text-white text-3xl font-bold">
+                  {robot.name.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
             </div>
-            <div>
-              <div className="text-sm text-muted-foreground">Robot ID</div>
-              <div className="font-mono text-sm">{robot.robotId}</div>
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">API 地址</div>
-              <div className="font-mono text-sm break-all">{robot.apiBaseUrl}</div>
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">状态</div>
-              <div className="flex items-center gap-2">
-                {robot.status === 'online' ? (
-                  <>
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    <span className="text-green-600">在线</span>
-                  </>
-                ) : robot.status === 'offline' ? (
-                  <>
-                    <XCircle className="h-4 w-4 text-red-500" />
-                    <span className="text-red-600">离线</span>
-                  </>
-                ) : (
-                  <>
-                    <Clock className="h-4 w-4 text-gray-500" />
-                    <span className="text-gray-600">未知</span>
-                  </>
+            
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <h2 className="text-3xl font-bold">{robot.name}</h2>
+                <Badge 
+                  variant={robot.status === 'online' ? 'default' : 'secondary'}
+                  className="bg-white/20 text-white border-white/30 hover:bg-white/30"
+                >
+                  {robot.status === 'online' ? (
+                    <>
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      在线
+                    </>
+                  ) : robot.status === 'offline' ? (
+                    <>
+                      <XCircle className="h-3 w-3 mr-1" />
+                      离线
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="h-3 w-3 mr-1" />
+                      未知
+                    </>
+                  )}
+                </Badge>
+                <Badge variant="outline" className="bg-white/20 text-white border-white/30">
+                  {robot.isActive ? '已启用' : '已禁用'}
+                </Badge>
+              </div>
+              
+              {robot.description && (
+                <p className="text-white/90 mb-3 text-lg">{robot.description}</p>
+              )}
+              
+              <div className="flex flex-wrap gap-4 text-sm text-white/80">
+                <div className="flex items-center gap-2">
+                  <Code className="h-4 w-4" />
+                  <span className="font-mono">{robot.robotId}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Server className="h-4 w-4" />
+                  <span className="font-mono text-xs">{robot.apiBaseUrl}</span>
+                </div>
+                {robot.subscriptionType && (
+                  <div className="flex items-center gap-2">
+                    <Info className="h-4 w-4" />
+                    <span>{robot.subscriptionType}</span>
+                  </div>
                 )}
               </div>
             </div>
-            <div>
-              <div className="text-sm text-muted-foreground">创建时间</div>
-              <div className="font-medium">{formatDate(robot.createdAt)}</div>
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">最后检查</div>
-              <div className="font-medium">{robot.lastCheckAt ? formatDate(robot.lastCheckAt) : '从未检查'}</div>
-            </div>
-            {robot.description && (
-              <div className="md:col-span-2">
-                <div className="text-sm text-muted-foreground">描述</div>
-                <div className="font-medium">{robot.description}</div>
-              </div>
-            )}
           </div>
-
-          {robot.lastError && (
-            <Alert variant="destructive" className="mt-4">
-              <XCircle className="h-4 w-4" />
-              <AlertDescription>最后错误: {robot.lastError}</AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
+        </div>
       </Card>
+
+      {/* 详细信息卡片网格 */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* 基本信息 */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Info className="h-4 w-4 text-blue-500" />
+              基本信息
+            </CardTitle>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <Edit className="h-4 w-4" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid gap-3">
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">机器人名称</div>
+                  <div className="font-medium">{robot.name}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Robot ID</div>
+                  <div className="font-mono text-sm bg-muted px-2 py-1 rounded inline-block">{robot.robotId}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">状态</div>
+                  <div className="flex items-center gap-2">
+                    {robot.status === 'online' ? (
+                      <>
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span className="text-green-600">在线</span>
+                      </>
+                    ) : robot.status === 'offline' ? (
+                      <>
+                        <XCircle className="h-4 w-4 text-red-500" />
+                        <span className="text-red-600">离线</span>
+                      </>
+                    ) : (
+                      <>
+                        <Clock className="h-4 w-4 text-gray-500" />
+                        <span className="text-gray-600">未知</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 时间信息 */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-purple-500" />
+              时间信息
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid gap-3">
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">创建时间</div>
+                  <div className="font-medium text-sm">{formatDate(robot.createdAt)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">更新时间</div>
+                  <div className="font-medium text-sm">{formatDate(robot.updatedAt)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">最后检查时间</div>
+                  <div className="font-medium text-sm">{robot.lastCheckAt ? formatDate(robot.lastCheckAt) : '从未检查'}</div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* API 配置 */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Server className="h-4 w-4 text-green-500" />
+              API 配置
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid gap-3">
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">API Base URL</div>
+                  <div className="font-mono text-xs bg-muted px-2 py-1 rounded break-all">{robot.apiBaseUrl}</div>
+                </div>
+                {robot.subscriptionType && (
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">订阅类型</div>
+                    <div className="font-medium">{robot.subscriptionType}</div>
+                  </div>
+                )}
+                {robot.larkAppId && (
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">Lark App ID</div>
+                    <div className="font-mono text-sm bg-muted px-2 py-1 rounded">{robot.larkAppId}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 其他配置 */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Key className="h-4 w-4 text-orange-500" />
+              其他配置
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid gap-3">
+                {robot.eventName && (
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">Event Name</div>
+                    <div className="font-medium">{robot.eventName}</div>
+                  </div>
+                )}
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">是否启用</div>
+                  <Badge variant={robot.isActive ? 'default' : 'secondary'}>
+                    {robot.isActive ? '是' : '否'}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 错误信息 */}
+      {robot.lastError && (
+        <Alert variant="destructive">
+          <XCircle className="h-4 w-4" />
+          <AlertDescription>最后错误: {robot.lastError}</AlertDescription>
+        </Alert>
+      )}
 
       {/* 回调管理 */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>

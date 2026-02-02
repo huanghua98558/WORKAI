@@ -80,6 +80,21 @@ interface CallbackUrl {
   baseUrl: string;
 }
 
+interface Robot {
+  id: string;
+  name: string;
+  robotId: string;
+  apiBaseUrl: string;
+  description?: string;
+  isActive: boolean;
+  status: 'online' | 'offline' | 'unknown';
+  lastCheckAt?: string;
+  lastError?: string;
+  createdAt: string;
+  updatedAt: string;
+  avatar?: string;
+}
+
 interface MonitorData {
   date: string;
   system: {
@@ -136,6 +151,8 @@ export default function AdminDashboard() {
   const [monitorData, setMonitorData] = useState<MonitorData | null>(null);
   const [alertData, setAlertData] = useState<AlertData | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [robots, setRobots] = useState<Robot[]>([]);
+  const [onlineRobots, setOnlineRobots] = useState<Robot[]>([]);
   const [copiedCallback, setCopiedCallback] = useState<string | null>(null);
   const [testingCallback, setTestingCallback] = useState<string | null>(null);
   const [callbackTestResults, setCallbackTestResults] = useState<Record<string, { status: 'success' | 'error' | 'loading' | 'pending', message?: string, lastTest?: string }>>({});
@@ -150,9 +167,29 @@ export default function AdminDashboard() {
   // 初始化加载（只执行一次）
   useEffect(() => {
     loadData();
+    loadRobots();
     checkConnection();
     loadAiConfig(); // 只在组件挂载时加载一次 AI 配置
   }, []);
+
+  // 加载机器人列表
+  const loadRobots = async () => {
+    try {
+      const res = await fetch('/api/proxy/admin/robots');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.code === 0) {
+          const robotsList = data.data || [];
+          setRobots(robotsList);
+          // 筛选出在线的机器人
+          const online = robotsList.filter((r: Robot) => r.isActive && r.status === 'online');
+          setOnlineRobots(online);
+        }
+      }
+    } catch (error) {
+      console.error('加载机器人列表失败:', error);
+    }
+  };
 
   // 初始化回调测试状态（当回调地址加载完成后）
   useEffect(() => {
@@ -3728,6 +3765,69 @@ ${callbacks.robotStatus}
   const DashboardTab = () => (
     <div className="space-y-6">
       <OverviewTab />
+      
+      {/* 在线机器人信息 */}
+      {onlineRobots.length > 0 && (
+        <Card className="border-2 border-indigo-200 dark:border-indigo-900">
+          <CardHeader className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Bot className="h-5 w-5" />
+                在线机器人
+              </CardTitle>
+              <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+                {onlineRobots.length} 个在线
+              </Badge>
+            </div>
+            <CardDescription className="text-indigo-100">
+              当前系统中正在运行的机器人
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {onlineRobots.map((robot) => (
+                <div 
+                  key={robot.id} 
+                  className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950"
+                  onClick={() => window.location.href = `/robot/${robot.id}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
+                      <Bot className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-sm truncate">{robot.name}</h4>
+                      <p className="text-xs text-muted-foreground font-mono truncate">{robot.robotId}</p>
+                    </div>
+                    <Badge variant="default" className="gap-1 bg-green-500">
+                      <CheckCircle className="h-3 w-3" />
+                      在线
+                    </Badge>
+                  </div>
+                  {robot.description && (
+                    <p className="text-xs text-muted-foreground mt-3 line-clamp-2">{robot.description}</p>
+                  )}
+                  <div className="mt-3 pt-3 border-t text-xs text-muted-foreground flex items-center gap-2">
+                    <Clock className="h-3 w-3" />
+                    <span>
+                      最后检查: {robot.lastCheckAt ? formatTime(robot.lastCheckAt) : '从未检查'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex justify-center">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setActiveTab('robots')}
+              >
+                查看所有机器人 <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       
       {/* 最近活跃会话 */}
       {sessions.length > 0 && (

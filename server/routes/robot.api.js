@@ -260,13 +260,52 @@ const robotApiRoutes = async function (fastify, options) {
       return reply.send({
         code: result.success ? 0 : -1,
         message: result.message,
-        data: result.data || null
+        data: result.data || null,
+        robotDetails: result.robotDetails || null
       });
     } catch (error) {
       console.error('测试机器人连接失败:', error);
       return reply.status(500).send({
         code: -1,
         message: '测试机器人连接失败',
+        error: error.message
+      });
+    }
+  });
+
+  // 测试机器人连接并保存详细信息
+  fastify.post('/robots/:id/test-and-save', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      
+      // 查询机器人
+      const robot = await robotService.getRobotById(id);
+      if (!robot) {
+        return reply.status(404).send({
+          code: -1,
+          message: '机器人不存在'
+        });
+      }
+
+      // 检查机器人状态并保存详细信息
+      const result = await robotService.checkRobotStatus(robot.robotId);
+      
+      // 返回更新后的机器人信息
+      const updatedRobot = await robotService.getRobotById(id);
+      
+      return reply.send({
+        code: 0,
+        message: '测试成功，机器人信息已更新',
+        data: {
+          testResult: result,
+          robot: updatedRobot
+        }
+      });
+    } catch (error) {
+      console.error('测试机器人连接并保存失败:', error);
+      return reply.status(500).send({
+        code: -1,
+        message: '测试机器人连接并保存失败',
         error: error.message
       });
     }
