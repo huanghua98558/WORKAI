@@ -54,7 +54,8 @@ import {
   LayoutDashboard,
   MessageCircle,
   UserCheck,
-  BarChart
+  BarChart,
+  Sparkles
 } from 'lucide-react';
 
 // 类型定义
@@ -1319,9 +1320,261 @@ ${callbacks.robotStatus}
     const [chatProbability, setChatProbability] = useState(30);
     const [serviceReplyEnabled, setServiceReplyEnabled] = useState(true);
     const [riskAutoHuman, setRiskAutoHuman] = useState(true);
+    const [aiConfig, setAiConfig] = useState<any>(null);
+    const [activeAiTab, setActiveAiTab] = useState('builtin');
+
+    useEffect(() => {
+      loadAiConfig();
+    }, []);
+
+    const loadAiConfig = async () => {
+      try {
+        const res = await fetch('/api/admin/config');
+        if (res.ok) {
+          const data = await res.json();
+          setAiConfig(data.data);
+        }
+      } catch (error) {
+        console.error('加载 AI 配置失败:', error);
+      }
+    };
 
     const saveSettings = async () => {
-      alert('✅ 设置已保存');
+      try {
+        const res = await fetch('/api/admin/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            autoReply: {
+              chatMode: autoReplyMode,
+              chatProbability: chatProbability / 100,
+              serviceMode: serviceReplyEnabled ? 'auto' : 'none',
+              riskMode: riskAutoHuman ? 'human' : 'auto'
+            }
+          })
+        });
+        if (res.ok) {
+          alert('✅ 设置已保存');
+        }
+      } catch (error) {
+        alert('❌ 保存失败');
+      }
+    };
+
+    // AI 模型配置组件
+    const AiModelConfig = ({ type, title, description }: { type: string; title: string; description: string }) => {
+      const [useBuiltin, setUseBuiltin] = useState(true);
+      const [builtinModelId, setBuiltinModelId] = useState('');
+      const [customProvider, setCustomProvider] = useState('openai');
+      const [customModel, setCustomModel] = useState('');
+      const [customApiKey, setCustomApiKey] = useState('');
+      const [customApiBase, setCustomApiBase] = useState('');
+
+      const config = aiConfig?.ai?.[type as keyof typeof aiConfig.ai];
+      
+      useEffect(() => {
+        if (config) {
+          setUseBuiltin(config.useBuiltin);
+          setBuiltinModelId(config.builtinModelId || '');
+          if (config.customModel) {
+            setCustomProvider(config.customModel.provider || 'openai');
+            setCustomModel(config.customModel.model || '');
+            setCustomApiKey(config.customModel.apiKey || '');
+            setCustomApiBase(config.customModel.apiBase || '');
+          }
+        }
+      }, [config]);
+
+      const saveAiConfig = async () => {
+        try {
+          const res = await fetch('/api/admin/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ai: {
+                [type]: {
+                  useBuiltin,
+                  builtinModelId,
+                  useCustom: !useBuiltin,
+                  customModel: {
+                    provider: customProvider,
+                    model: customModel,
+                    apiKey: customApiKey,
+                    apiBase: customApiBase
+                  }
+                }
+              }
+            })
+          });
+          if (res.ok) {
+            alert('✅ AI 模型配置已保存');
+          }
+        } catch (error) {
+          alert('❌ 保存失败');
+        }
+      };
+
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Cpu className="h-4 w-4" />
+              {title}
+            </CardTitle>
+            <CardDescription>{description}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* 模型类型选择 */}
+            <div className="flex items-center gap-4 p-4 border rounded-lg bg-muted/50">
+              <label className="text-sm font-medium">选择模型类型：</label>
+              <div className="flex gap-2">
+                <Button
+                  variant={useBuiltin ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setUseBuiltin(true)}
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  内置模型
+                </Button>
+                <Button
+                  variant={!useBuiltin ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setUseBuiltin(false)}
+                >
+                  <Settings className="h-4 w-4 mr-2" />
+                  自定义 API
+                </Button>
+              </div>
+            </div>
+
+            {/* 内置模型选择 */}
+            {useBuiltin && (
+              <div className="space-y-4">
+                <label className="text-sm font-medium">选择内置模型：</label>
+                <div className="grid gap-3">
+                  {aiConfig?.ai?.builtinModels
+                    ?.filter((m: any) => m.category.includes(type.replace('Recognition', '').replace('Reply', '')))
+                    .map((model: any) => (
+                      <div
+                        key={model.id}
+                        className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                          builtinModelId === model.id
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
+                            : 'hover:bg-muted'
+                        }`}
+                        onClick={() => setBuiltinModelId(model.id)}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{model.name}</span>
+                              <Badge variant="secondary" className="text-xs">
+                                {model.provider}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">{model.description}</p>
+                            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                              <span>最大 token: {model.maxTokens}</span>
+                              <span>流式: {model.supportStream ? '✓' : '✗'}</span>
+                            </div>
+                          </div>
+                          <div className={`w-5 h-5 rounded-full border-2 ${
+                            builtinModelId === model.id
+                              ? 'bg-blue-500 border-blue-500'
+                              : 'border-gray-300'
+                          }`} />
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* 自定义 API 配置 */}
+            {!useBuiltin && (
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="text-sm font-medium">API 提供商</label>
+                    <select
+                      value={customProvider}
+                      onChange={(e) => setCustomProvider(e.target.value)}
+                      className="w-full mt-1 px-3 py-2 border rounded-md text-sm"
+                    >
+                      <option value="openai">OpenAI (GPT)</option>
+                      <option value="anthropic">Anthropic (Claude)</option>
+                      <option value="google">Google (Gemini)</option>
+                      <option value="azure">Azure OpenAI</option>
+                      <option value="zhipu">智谱 AI (GLM)</option>
+                      <option value="baichuan">百川 AI</option>
+                      <option value="minimax">MiniMax</option>
+                      <option value="xunfei">讯飞星火</option>
+                      <option value="custom">自定义 API</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">模型名称</label>
+                    <Input
+                      value={customModel}
+                      onChange={(e) => setCustomModel(e.target.value)}
+                      placeholder="例如: gpt-4o, claude-3-opus-20240229"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">API Key</label>
+                  <Input
+                    type="password"
+                    value={customApiKey}
+                    onChange={(e) => setCustomApiKey(e.target.value)}
+                    placeholder="输入 API Key"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">API Base URL (可选)</label>
+                  <Input
+                    value={customApiBase}
+                    onChange={(e) => setCustomApiBase(e.target.value)}
+                    placeholder="例如: https://api.openai.com/v1"
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    留空使用默认地址
+                  </p>
+                </div>
+
+                {/* 常见 API 配置提示 */}
+                {customProvider === 'openai' && (
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>OpenAI 配置提示</AlertTitle>
+                    <AlertDescription className="text-sm">
+                      常用模型：gpt-4o, gpt-4-turbo, gpt-3.5-turbo<br/>
+                      API Base: https://api.openai.com/v1
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {customProvider === 'google' && (
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>Google Gemini 配置提示</AlertTitle>
+                    <AlertDescription className="text-sm">
+                      常用模型：gemini-1.5-pro, gemini-1.0-pro<br/>
+                      API Base: https://generativelanguage.googleapis.com/v1beta
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            )}
+
+            <Button onClick={saveAiConfig} className="w-full">
+              保存配置
+            </Button>
+          </CardContent>
+        </Card>
+      );
     };
 
     return (
@@ -1337,6 +1590,61 @@ ${callbacks.robotStatus}
             </p>
           </div>
         </div>
+
+        {/* AI 模型配置 */}
+        <Card className="border-2 border-purple-200 dark:border-purple-900">
+          <CardHeader className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Cpu className="h-5 w-5" />
+              AI 模型配置
+            </CardTitle>
+            <CardDescription className="text-purple-100">
+              配置意图识别、服务回复、闲聊、报告生成的 AI 模型
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-6">
+            <Tabs value={activeAiTab} onValueChange={setActiveAiTab} className="space-y-4">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="intentRecognition">意图识别</TabsTrigger>
+                <TabsTrigger value="serviceReply">服务回复</TabsTrigger>
+                <TabsTrigger value="chat">闲聊</TabsTrigger>
+                <TabsTrigger value="report">报告生成</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="intentRecognition">
+                <AiModelConfig
+                  type="intentRecognition"
+                  title="意图识别模型"
+                  description="用于分析用户消息意图，支持聊天、服务、帮助、风险等识别"
+                />
+              </TabsContent>
+              
+              <TabsContent value="serviceReply">
+                <AiModelConfig
+                  type="serviceReply"
+                  title="服务回复模型"
+                  description="用于自动回复服务类问题，生成专业、友好的回复"
+                />
+              </TabsContent>
+              
+              <TabsContent value="chat">
+                <AiModelConfig
+                  type="chat"
+                  title="闲聊模型"
+                  description="用于闲聊陪伴，生成轻松、自然的对话"
+                />
+              </TabsContent>
+              
+              <TabsContent value="report">
+                <AiModelConfig
+                  type="report"
+                  title="报告生成模型"
+                  description="用于生成日终报告，数据分析和总结"
+                />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
 
         {/* 自动回复策略 */}
         <Card>

@@ -19,29 +19,142 @@
     "signatureSecret": ""
   },
   "ai": {
+    "builtinModels": [
+      {
+        "id": "doubao-pro-128k",
+        "name": "豆包 Pro 128K",
+        "provider": "doubao",
+        "modelId": "doubao-pro-128k",
+        "description": "适合复杂对话和长文本处理",
+        "category": ["intent", "service", "chat", "report"],
+        "maxTokens": 128000,
+        "supportStream": true
+      },
+      {
+        "id": "doubao-pro-32k",
+        "name": "豆包 Pro 32K",
+        "provider": "doubao",
+        "modelId": "doubao-pro-32k",
+        "description": "平衡性能和成本，适合客服场景",
+        "category": ["intent", "service", "chat"],
+        "maxTokens": 32000,
+        "supportStream": true
+      },
+      {
+        "id": "doubao-lite-4k",
+        "name": "豆包 Lite 4K",
+        "provider": "doubao",
+        "modelId": "doubao-lite-4k",
+        "description": "轻量级模型，适合简单任务",
+        "category": ["intent"],
+        "maxTokens": 4000,
+        "supportStream": true
+      },
+      {
+        "id": "deepseek-chat",
+        "name": "DeepSeek Chat",
+        "provider": "deepseek",
+        "modelId": "deepseek-chat",
+        "description": "强大的对话能力，适合复杂推理",
+        "category": ["service", "chat", "report"],
+        "maxTokens": 128000,
+        "supportStream": true
+      },
+      {
+        "id": "deepseek-reasoner",
+        "name": "DeepSeek Reasoner",
+        "provider": "deepseek",
+        "modelId": "deepseek-reasoner",
+        "description": "强化推理能力，适合复杂问题",
+        "category": ["intent", "service"],
+        "maxTokens": 64000,
+        "supportStream": true
+      },
+      {
+        "id": "kimi-moonshot-v1-8k",
+        "name": "Kimi Moonshot 8K",
+        "provider": "kimi",
+        "modelId": "moonshot-v1-8k",
+        "description": "快速响应，适合实时对话",
+        "category": ["intent", "chat"],
+        "maxTokens": 8000,
+        "supportStream": true
+      },
+      {
+        "id": "kimi-moonshot-v1-32k",
+        "name": "Kimi Moonshot 32K",
+        "provider": "kimi",
+        "modelId": "moonshot-v1-32k",
+        "description": "长文本处理，适合复杂场景",
+        "category": ["service", "report"],
+        "maxTokens": 32000,
+        "supportStream": true
+      },
+      {
+        "id": "qwen-plus",
+        "name": "通义千问 Plus",
+        "provider": "qwen",
+        "modelId": "qwen-plus",
+        "description": "阿里巴巴大模型，综合能力强",
+        "category": ["intent", "service", "chat"],
+        "maxTokens": 32000,
+        "supportStream": true
+      },
+      {
+        "id": "qwen-turbo",
+        "name": "通义千问 Turbo",
+        "provider": "qwen",
+        "modelId": "qwen-turbo",
+        "description": "快速响应，成本更低",
+        "category": ["intent", "chat"],
+        "maxTokens": 8000,
+        "supportStream": true
+      }
+    ],
+    "customModels": [],
     "intentRecognition": {
-      "provider": "openai",
-      "model": "gpt-4o-mini",
-      "apiKey": "",
-      "apiBase": ""
+      "useBuiltin": true,
+      "builtinModelId": "doubao-pro-32k",
+      "useCustom": false,
+      "customModel": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "apiKey": "",
+        "apiBase": ""
+      }
     },
     "serviceReply": {
-      "provider": "openai",
-      "model": "gpt-4o",
-      "apiKey": "",
-      "apiBase": ""
+      "useBuiltin": true,
+      "builtinModelId": "doubao-pro-128k",
+      "useCustom": false,
+      "customModel": {
+        "provider": "openai",
+        "model": "gpt-4o",
+        "apiKey": "",
+        "apiBase": ""
+      }
     },
     "chat": {
-      "provider": "openai",
-      "model": "gpt-4o-mini",
-      "apiKey": "",
-      "apiBase": ""
+      "useBuiltin": true,
+      "builtinModelId": "doubao-pro-32k",
+      "useCustom": false,
+      "customModel": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "apiKey": "",
+        "apiBase": ""
+      }
     },
     "report": {
-      "provider": "openai",
-      "model": "gpt-4o-mini",
-      "apiKey": "",
-      "apiBase": ""
+      "useBuiltin": true,
+      "builtinModelId": "deepseek-chat",
+      "useCustom": false,
+      "customModel": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "apiKey": "",
+        "apiBase": ""
+      }
     }
   },
   "autoReply": {

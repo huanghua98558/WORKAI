@@ -16,22 +16,42 @@ const adminApiRoutes = async function (fastify, options) {
    * 获取系统配置
    */
   fastify.get('/config', async (request, reply) => {
+    const aiConfig = config.get('ai');
+    
     const safeConfig = {
       version: config.get('version'),
       systemName: config.get('systemName'),
       callback: config.get('callback'),
       ai: {
-        intentRecognition: {
-          provider: config.get('ai.intentRecognition.provider'),
-          model: config.get('ai.intentRecognition.model')
+        // 内置模型列表
+        builtinModels: aiConfig?.builtinModels || [],
+        // 意图识别配置
+        intentRecognition: aiConfig?.intentRecognition || {
+          useBuiltin: true,
+          builtinModelId: 'doubao-pro-4k',
+          useCustom: false,
+          customModel: null
         },
-        serviceReply: {
-          provider: config.get('ai.serviceReply.provider'),
-          model: config.get('ai.serviceReply.model')
+        // 服务回复配置
+        serviceReply: aiConfig?.serviceReply || {
+          useBuiltin: true,
+          builtinModelId: 'doubao-pro-32k',
+          useCustom: false,
+          customModel: null
         },
-        chat: {
-          provider: config.get('ai.chat.provider'),
-          model: config.get('ai.chat.model')
+        // 闲聊配置
+        chat: aiConfig?.chat || {
+          useBuiltin: true,
+          builtinModelId: 'doubao-pro-4k',
+          useCustom: false,
+          customModel: null
+        },
+        // 报告配置
+        report: aiConfig?.report || {
+          useBuiltin: true,
+          builtinModelId: 'doubao-pro-32k',
+          useCustom: false,
+          customModel: null
         }
       },
       autoReply: config.get('autoReply'),
@@ -51,10 +71,40 @@ const adminApiRoutes = async function (fastify, options) {
    * 更新系统配置
    */
   fastify.post('/config', async (request, reply) => {
-    const { key, value } = request.body;
-
     try {
-      config.set(key, value);
+      const updateData = request.body;
+      
+      // 支持多种更新方式
+      if (updateData.ai) {
+        // 更新 AI 配置
+        Object.keys(updateData.ai).forEach(key => {
+          if (config.get(`ai.${key}`) !== undefined) {
+            config.set(`ai.${key}`, updateData.ai[key]);
+          }
+        });
+        
+        // 重新初始化 AI 服务
+        aiService.reinitialize();
+      }
+      
+      if (updateData.autoReply) {
+        // 更新自动回复配置
+        Object.keys(updateData.autoReply).forEach(key => {
+          if (config.get(`autoReply.${key}`) !== undefined) {
+            config.set(`autoReply.${key}`, updateData.autoReply[key]);
+          }
+        });
+      }
+      
+      if (updateData.monitor) {
+        // 更新监控配置
+        Object.keys(updateData.monitor).forEach(key => {
+          if (config.get(`monitor.${key}`) !== undefined) {
+            config.set(`monitor.${key}`, updateData.monitor[key]);
+          }
+        });
+      }
+      
       return { success: true, message: '配置已更新' };
     } catch (error) {
       return reply.status(500).send({

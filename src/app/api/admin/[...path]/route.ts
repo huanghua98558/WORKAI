@@ -9,7 +9,7 @@ export async function GET(
   try {
     const resolvedParams = await params;
     const path = resolvedParams.path.join('/');
-    const url = new URL(path, BACKEND_URL);
+    const url = new URL(`/api/admin/${path}`, BACKEND_URL);
     
     // 转发查询参数
     request.nextUrl.searchParams.forEach((value, key) => {
@@ -41,7 +41,7 @@ export async function POST(
   try {
     const resolvedParams = await params;
     const path = resolvedParams.path.join('/');
-    const url = new URL(path, BACKEND_URL);
+    const url = new URL(`/api/admin/${path}`, BACKEND_URL);
     
     const body = await request.json();
 

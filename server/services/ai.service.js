@@ -1,6 +1,7 @@
 /**
  * AI 服务封装
  * 支持多 AI 模型（OpenAI 协议兼容）
+ * 支持内置模型和自定义 API 配置
  */
 
 const OpenAI = require('openai');
@@ -9,30 +10,115 @@ const config = require('../lib/config');
 class AIService {
   constructor() {
     this.clients = {};
+    this.builtinModelMap = {};
     this.initializeClients();
   }
 
+  /**
+   * 初始化所有 AI 客户端
+   */
   initializeClients() {
     const aiConfig = config.get('ai');
     const providers = ['intentRecognition', 'serviceReply', 'chat', 'report'];
 
+    // 构建内置模型映射
+    if (aiConfig?.builtinModels) {
+      aiConfig.builtinModels.forEach(model => {
+        this.builtinModelMap[model.id] = model;
+      });
+    }
+
     providers.forEach(provider => {
       const configItem = aiConfig[provider];
-      if (!configItem || !configItem.apiKey) {
+      if (!configItem) {
         console.warn(`⚠️  ${provider} AI 配置未设置`);
         return;
       }
 
-      try {
-        this.clients[provider] = new OpenAI({
-          apiKey: configItem.apiKey,
-          baseURL: configItem.apiBase || 'https://api.openai.com/v1'
-        });
-        console.log(`✅ ${provider} AI 客户端已初始化: ${configItem.model}`);
-      } catch (error) {
-        console.error(`❌ ${provider} AI 客户端初始化失败:`, error.message);
+      // 优先使用内置模型
+      if (configItem.useBuiltin && configItem.builtinModelId) {
+        const builtinModel = this.builtinModelMap[configItem.builtinModelId];
+        if (builtinModel) {
+          this.initializeClient(provider, {
+            model: builtinModel.model,
+            apiKey: builtinModel.apiKey,
+            apiBase: builtinModel.apiBase,
+            provider: builtinModel.provider
+          });
+          console.log(`✅ ${provider} 使用内置模型: ${builtinModel.name}`);
+          return;
+        } else {
+          console.warn(`⚠️  ${provider} 内置模型 ${configItem.builtinModelId} 未找到`);
+        }
+      }
+
+      // 使用自定义 API
+      if (configItem.useCustom && configItem.customModel) {
+        const customConfig = this.parseCustomProvider(configItem.customModel);
+        this.initializeClient(provider, customConfig);
+        console.log(`✅ ${provider} 使用自定义模型: ${customConfig.model} (${customConfig.provider})`);
       }
     });
+  }
+
+  /**
+   * 初始化单个 AI 客户端
+   */
+  initializeClient(provider, configItem) {
+    try {
+      this.clients[provider] = new OpenAI({
+        apiKey: configItem.apiKey,
+        baseURL: configItem.apiBase || this.getDefaultApiBase(configItem.provider)
+      });
+      this.clients[provider].model = configItem.model;
+      this.clients[provider].provider = configItem.provider;
+    } catch (error) {
+      console.error(`❌ ${provider} AI 客户端初始化失败:`, error.message);
+    }
+  }
+
+  /**
+   * 解析自定义提供商配置
+   */
+  parseCustomProvider(customModel) {
+    const provider = customModel.provider || 'openai';
+    const apiBase = customModel.apiBase || this.getDefaultApiBase(provider);
+    
+    return {
+      provider,
+      model: customModel.model,
+      apiKey: customModel.apiKey,
+      apiBase
+    };
+  }
+
+  /**
+   * 获取默认 API Base
+   */
+  getDefaultApiBase(provider) {
+    const baseUrls = {
+      openai: 'https://api.openai.com/v1',
+      anthropic: 'https://api.anthropic.com/v1',
+      google: 'https://generativelanguage.googleapis.com/v1beta',
+      azure: 'https://your-resource.openai.azure.com',
+      zhipu: 'https://open.bigmodel.cn/api/paas/v4',
+      baichuan: 'https://api.baichuan-ai.com/v1',
+      minimax: 'https://api.minimax.chat/v1',
+      xunfei: 'https://spark-api.xf-yun.com/v1',
+      custom: 'https://api.custom-provider.com/v1'
+    };
+    return baseUrls[provider] || 'https://api.openai.com/v1';
+  }
+
+  /**
+   * 获取指定类型的客户端
+   */
+  getClient(provider) {
+    const client = this.clients[provider];
+    if (!client) {
+      throw new Error(`${provider} AI 未配置`);
+    }
+    return client;
   }
 
   /**
@@ -40,10 +126,7 @@ class AIService {
    */
   async recognizeIntent(message, context = {}) {
     try {
-      const client = this.clients.intentRecognition;
-      if (!client) {
-        throw new Error('意图识别 AI 未配置');
-      }
+      const client = this.getClient('intentRecognition');
 
       const systemPrompt = `你是一个企业微信群消息意图识别专家。请分析用户消息并返回意图类型。
 
@@ -66,7 +149,7 @@ class AIService {
 }`;
 
       const response = await client.chat.completions.create({
-        model: config.get('ai.intentRecognition.model'),
+        model: client.model,
         messages: [
           { role: 'system', content: systemPrompt },
           { 
@@ -98,10 +181,7 @@ class AIService {
    */
   async generateServiceReply(userMessage, intent, knowledgeBase = '') {
     try {
-      const client = this.clients.serviceReply;
-      if (!client) {
-        throw new Error('服务回复 AI 未配置');
-      }
+      const client = this.getClient('serviceReply');
 
       const systemPrompt = `你是一个企业微信群服务助手。请根据用户问题和意图，生成专业、友好的回复。
 
@@ -114,7 +194,7 @@ class AIService {
 ${knowledgeBase ? `知识库参考：\n${knowledgeBase}` : ''}`;
 
       const response = await client.chat.completions.create({
-        model: config.get('ai.serviceReply.model'),
+        model: client.model,
         messages: [
           { role: 'system', content: systemPrompt },
           { 
@@ -139,10 +219,7 @@ ${knowledgeBase ? `知识库参考：\n${knowledgeBase}` : ''}`;
    */
   async generateChatReply(userMessage) {
     try {
-      const client = this.clients.chat;
-      if (!client) {
-        throw new Error('闲聊 AI 未配置');
-      }
+      const client = this.getClient('chat');
 
       const systemPrompt = `你是一个友好的聊天伙伴。请以轻松、自然的方式回应用户的闲聊内容。
 
@@ -152,7 +229,7 @@ ${knowledgeBase ? `知识库参考：\n${knowledgeBase}` : ''}`;
 3. 保持对话连贯性`;
 
       const response = await client.chat.completions.create({
-        model: config.get('ai.chat.model'),
+        model: client.model,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage }
@@ -175,10 +252,7 @@ ${knowledgeBase ? `知识库参考：\n${knowledgeBase}` : ''}`;
    */
   async generateDailyReport(data) {
     try {
-      const client = this.clients.report;
-      if (!client) {
-        throw new Error('日终总结 AI 未配置');
-      }
+      const client = this.getClient('report');
 
       const systemPrompt = `你是一个数据分析师。请根据以下数据生成日终总结报告。
 
@@ -189,7 +263,7 @@ ${knowledgeBase ? `知识库参考：\n${knowledgeBase}` : ''}`;
 4. 语言简洁专业`;
 
       const response = await client.chat.completions.create({
-        model: config.get('ai.report.model'),
+        model: client.model,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: JSON.stringify(data) }
@@ -210,7 +284,35 @@ ${knowledgeBase ? `知识库参考：\n${knowledgeBase}` : ''}`;
    */
   reinitialize() {
     this.clients = {};
+    this.builtinModelMap = {};
     this.initializeClients();
+  }
+
+  /**
+   * 获取当前配置状态
+   */
+  getConfigStatus() {
+    const status = {};
+    const providers = ['intentRecognition', 'serviceReply', 'chat', 'report'];
+    
+    providers.forEach(provider => {
+      const client = this.clients[provider];
+      if (client) {
+        status[provider] = {
+          configured: true,
+          model: client.model,
+          provider: client.provider
+        };
+      } else {
+        status[provider] = {
+          configured: false,
+          model: null,
+          provider: null
+        };
+      }
+    });
+    
+    return status;
   }
 }
 
