@@ -4235,7 +4235,7 @@ ${callbacks.robotStatus}
                   </Button>
                 </li>
                 <li>
-                  <Button variant="ghost" className="h-auto p-0 text-left text-blue-600 hover:text-blue-700" onClick={() => setShowDebugDialog(true)}>
+                  <Button variant="ghost" className="h-auto p-0 text-left text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
                     <TestTube className="h-3 w-3 mr-1 inline" />
                     调试功能
                   </Button>
@@ -4246,26 +4246,26 @@ ${callbacks.robotStatus}
             {/* 联系方式 */}
             <div>
               <h5 className="font-semibold mb-3 text-gray-900 dark:text-white">联系我们</h5>
-              <div className="flex flex-wrap gap-3">
-                <Card className="flex-1 min-w-[140px] border border-blue-100 dark:border-blue-900/50 hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
+              <div className="flex flex-row gap-3">
+                <Card className="flex-1 min-w-[120px] max-w-[140px] border border-blue-100 dark:border-blue-900/50 hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
                   <CardContent className="p-3">
                     <div className="flex items-center gap-2">
                       <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                        <MessageCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <MessageCircle className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div className="flex-1">
-                        <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">手机号</div>
+                        <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">手机</div>
                         <div className="text-xs text-gray-600 dark:text-gray-400">13337289759</div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="flex-1 min-w-[140px] border border-green-100 dark:border-green-900/50 hover:border-green-300 dark:hover:border-green-700 transition-colors">
+                <Card className="flex-1 min-w-[120px] max-w-[140px] border border-green-100 dark:border-green-900/50 hover:border-green-300 dark:hover:border-green-700 transition-colors">
                   <CardContent className="p-3">
                     <div className="flex items-center gap-2">
                       <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                        <MessageCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        <MessageCircle className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
                       </div>
                       <div className="flex-1">
                         <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">微信</div>
@@ -4275,11 +4275,11 @@ ${callbacks.robotStatus}
                   </CardContent>
                 </Card>
 
-                <Card className="flex-1 min-w-[140px] border border-purple-100 dark:border-purple-900/50 hover:border-purple-300 dark:hover:border-purple-700 transition-colors">
+                <Card className="flex-1 min-w-[120px] max-w-[140px] border border-purple-100 dark:border-purple-900/50 hover:border-purple-300 dark:hover:border-purple-700 transition-colors">
                   <CardContent className="p-3">
                     <div className="flex items-center gap-2">
                       <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                        <Globe className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                        <Globe className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
                       </div>
                       <div className="flex-1">
                         <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">QQ</div>
