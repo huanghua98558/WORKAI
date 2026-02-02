@@ -16,11 +16,25 @@ export async function GET(
       url.searchParams.set(key, value);
     });
 
+    // 构建请求头，传递原始请求头信息
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // 传递关键请求头，让后端能获取真实的部署地址
+    if (request.headers.get('x-forwarded-host')) {
+      headers['x-forwarded-host'] = request.headers.get('x-forwarded-host')!;
+    }
+    if (request.headers.get('x-forwarded-proto')) {
+      headers['x-forwarded-proto'] = request.headers.get('x-forwarded-proto')!;
+    }
+    if (request.headers.get('host')) {
+      headers['x-forwarded-host'] = request.headers.get('host')!;
+    }
+
     const response = await fetch(url.toString(), {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
     });
 
     const data = await response.json();
@@ -45,11 +59,25 @@ export async function POST(
     
     const body = await request.json();
 
+    // 构建请求头，传递原始请求头信息
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // 传递关键请求头，让后端能获取真实的部署地址
+    if (request.headers.get('x-forwarded-host')) {
+      headers['x-forwarded-host'] = request.headers.get('x-forwarded-host')!;
+    }
+    if (request.headers.get('x-forwarded-proto')) {
+      headers['x-forwarded-proto'] = request.headers.get('x-forwarded-proto')!;
+    }
+    if (request.headers.get('host')) {
+      headers['x-forwarded-host'] = request.headers.get('host')!;
+    }
+
     const response = await fetch(url.toString(), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(body),
     });
 

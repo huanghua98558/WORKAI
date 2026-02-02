@@ -61,7 +61,10 @@ import {
   Sliders,
   ChevronUp,
   ChevronDown,
-  Plus
+  Plus,
+  Save,
+  X,
+  Edit2
 } from 'lucide-react';
 
 // 类型定义
@@ -128,6 +131,8 @@ export default function AdminDashboard() {
   const [testingCallback, setTestingCallback] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
+  const [isEditingCallback, setIsEditingCallback] = useState(false);
+  const [editingBaseUrl, setEditingBaseUrl] = useState('');
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'loading'>('loading');
 
   // 加载数据
@@ -218,6 +223,38 @@ export default function AdminDashboard() {
     await navigator.clipboard.writeText(JSON.stringify(allUrls, null, 2));
     setCopiedCallback('all_json');
     setTimeout(() => setCopiedCallback(null), 2000);
+  };
+
+  // 保存回调地址
+  const saveCallbackBaseUrl = async () => {
+    if (!editingBaseUrl.trim()) {
+      alert('❌ 回调地址不能为空');
+      return;
+    }
+    
+    try {
+      const res = await fetch('/api/admin/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deployment: {
+            callbackBaseUrl: editingBaseUrl.trim()
+          }
+        })
+      });
+      
+      if (res.ok) {
+        alert('✅ 回调地址已保存');
+        setIsEditingCallback(false);
+        loadData(); // 重新加载回调地址
+      } else {
+        const errorData = await res.json();
+        alert(`❌ 保存失败: ${errorData.error || '未知错误'}`);
+      }
+    } catch (error) {
+      console.error('保存回调地址失败:', error);
+      alert('❌ 保存失败，请检查网络连接');
+    }
   };
 
   // 复制所有回调地址（文本格式）
@@ -354,22 +391,63 @@ ${callbacks.robotStatus}
             <div>
               <label className="text-sm font-medium text-muted-foreground">基础回调地址</label>
               <div className="flex gap-2 mt-1">
-                <Input 
-                  value={callbacks?.baseUrl || ''} 
-                  readOnly 
-                  className="font-mono text-xs bg-muted"
-                  placeholder="加载中..."
-                />
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={() => callbacks && copyCallback('baseUrl', callbacks.baseUrl)}
-                >
-                  {copiedCallback === 'baseUrl' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
+                {isEditingCallback ? (
+                  <>
+                    <Input 
+                      value={editingBaseUrl} 
+                      onChange={(e) => setEditingBaseUrl(e.target.value)}
+                      className="font-mono text-xs"
+                      placeholder="https://your-domain.com"
+                    />
+                    <Button 
+                      size="sm" 
+                      variant="default"
+                      onClick={saveCallbackBaseUrl}
+                    >
+                      <Save className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        setIsEditingCallback(false);
+                        setEditingBaseUrl(callbacks?.baseUrl || '');
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Input 
+                      value={callbacks?.baseUrl || ''} 
+                      readOnly 
+                      className="font-mono text-xs bg-muted"
+                      placeholder="加载中..."
+                    />
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => callbacks && copyCallback('baseUrl', callbacks.baseUrl)}
+                    >
+                      {copiedCallback === 'baseUrl' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        setIsEditingCallback(true);
+                        setEditingBaseUrl(callbacks?.baseUrl || '');
+                      }}
+                      title="编辑回调地址"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                ⚠️ 部署地址变更时会自动更新，无需手动修改
+                {isEditingCallback ? '输入完整的回调地址（包括协议和域名）' : '⚠️ 部署地址变更时会自动更新，如需手动修改请点击编辑按钮'}
               </p>
             </div>
             <div>
@@ -2157,17 +2235,15 @@ ${callbacks.robotStatus}
     const [aiConfig, setAiConfig] = useState<any>(null);
     const [activeAiTab, setActiveAiTab] = useState('intentRecognition');
     const [isLoadingAiConfig, setIsLoadingAiConfig] = useState(false);
-    
-    // 使用 ref 避免重复加载
-    const aiConfigLoadedRef = useRef(false);
+    const [hasLoadedAiConfig, setHasLoadedAiConfig] = useState(false); // 记录是否已加载
 
     useEffect(() => {
-      // 只在第一次加载，避免重复请求
-      if (!aiConfigLoadedRef.current) {
+      // 只在第一次加载时请求，避免重复请求
+      if (!hasLoadedAiConfig) {
         loadAiConfig();
-        aiConfigLoadedRef.current = true;
+        setHasLoadedAiConfig(true);
       }
-    }, []);
+    }, [hasLoadedAiConfig]);
 
     const loadAiConfig = async () => {
       if (isLoadingAiConfig) return; // 防止重复加载
@@ -2282,8 +2358,7 @@ ${callbacks.robotStatus}
                     size="sm" 
                     className="mt-3"
                     onClick={() => {
-                      aiConfigLoadedRef.current = false;
-                      loadAiConfig();
+                      setHasLoadedAiConfig(false); // 允许重新加载
                     }}
                   >
                     重新加载

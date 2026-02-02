@@ -106,6 +106,15 @@ const adminApiRoutes = async function (fastify, options) {
         });
       }
       
+      if (updateData.deployment) {
+        // 更新部署配置
+        Object.keys(updateData.deployment).forEach(key => {
+          if (config.get(`deployment.${key}`) !== undefined) {
+            config.set(`deployment.${key}`, updateData.deployment[key]);
+          }
+        });
+      }
+      
       return { success: true, message: '配置已更新' };
     } catch (error) {
       return reply.status(500).send({
