@@ -4,10 +4,11 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
-    const path = params.path.join('/');
+    const resolvedParams = await params;
+    const path = resolvedParams.path.join('/');
     const url = new URL(path, BACKEND_URL);
     
     // 转发查询参数
@@ -35,10 +36,11 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
-    const path = params.path.join('/');
+    const resolvedParams = await params;
+    const path = resolvedParams.path.join('/');
     const url = new URL(path, BACKEND_URL);
     
     const body = await request.json();

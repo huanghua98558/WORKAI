@@ -46,7 +46,6 @@ import {
   ShieldCheck,
   ShieldAlert,
   Radio,
-  RadioOff,
   Code,
   Terminal,
   Link2,
@@ -675,8 +674,8 @@ ${callbacks.robotStatus}
             <div className="text-2xl font-bold">{monitorData?.summary.totalCallbacks || 0}</div>
             <p className="text-xs text-muted-foreground mt-1">
               今日累计
-              {monitorData?.system.callback_received > 0 && (
-                <span className="text-green-600 ml-1">+{monitorData.system.callback_received}</span>
+              {monitorData?.system?.callback_received && monitorData?.system?.callback_received > 0 && (
+                <span className="text-green-600 ml-1">+{monitorData?.system?.callback_received}</span>
               )}
             </p>
           </CardContent>
@@ -742,18 +741,18 @@ ${callbacks.robotStatus}
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">回调错误</span>
-              <Badge variant={monitorData?.system.callback_error > 0 ? 'destructive' : 'secondary'}>
-                {monitorData?.system.callback_error || 0}
+              <Badge variant={(monitorData?.system?.callback_error ?? 0) > 0 ? 'destructive' : 'secondary'}>
+                {monitorData?.system?.callback_error || 0}
               </Badge>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">AI 请求</span>
-              <Badge variant="secondary">{monitorData?.system.ai_requests || 0}</Badge>
+              <Badge variant="secondary">{monitorData?.system?.ai_requests || 0}</Badge>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">AI 错误</span>
-              <Badge variant={monitorData?.system.ai_errors > 0 ? 'destructive' : 'secondary'}>
-                {monitorData?.system.ai_errors || 0}
+              <Badge variant={(monitorData?.system?.ai_errors ?? 0) > 0 ? 'destructive' : 'secondary'}>
+                {monitorData?.system?.ai_errors || 0}
               </Badge>
             </div>
           </CardContent>
