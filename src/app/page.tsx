@@ -134,11 +134,14 @@ export default function AdminDashboard() {
   const [isEditingCallback, setIsEditingCallback] = useState(false);
   const [editingBaseUrl, setEditingBaseUrl] = useState('');
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'loading'>('loading');
+  const [aiConfig, setAiConfig] = useState<any>(null);
+  const [isLoadingAiConfig, setIsLoadingAiConfig] = useState(false);
 
   // 加载数据
   useEffect(() => {
     loadData();
     checkConnection();
+    loadAiConfig(); // 只在组件挂载时加载一次 AI 配置
     const interval = setInterval(() => {
       loadData();
       checkConnection();
@@ -180,6 +183,32 @@ export default function AdminDashboard() {
     } finally {
       setIsLoading(false);
       setLastUpdateTime(new Date());
+    }
+  };
+
+  const loadAiConfig = async () => {
+    if (isLoadingAiConfig) return; // 防止重复加载
+    
+    setIsLoadingAiConfig(true);
+    try {
+      console.log('[AI配置] 父组件开始加载 AI 模型配置...');
+      const res = await fetch('/api/admin/config', { cache: 'no-store' });
+      
+      console.log('[AI配置] 父组件 API 响应状态:', res.status, res.statusText);
+      
+      if (res.ok) {
+        const data = await res.json();
+        console.log('[AI配置] 父组件 AI 配置加载成功');
+        setAiConfig(data.data);
+      } else {
+        console.error('[AI配置] 父组件 API 返回错误状态:', res.status, res.statusText);
+        setAiConfig(null);
+      }
+    } catch (error) {
+      console.error('[AI配置] 父组件加载 AI 配置失败:', error);
+      setAiConfig(null);
+    } finally {
+      setIsLoadingAiConfig(false);
     }
   };
 
@@ -2227,51 +2256,56 @@ ${callbacks.robotStatus}
   };
 
   // 系统设置页面
-  const SettingsTab = () => {
+  const SettingsTab = ({ aiConfig: propsAiConfig, isLoadingAiConfig: propsIsLoadingAiConfig }: { 
+    aiConfig: any; 
+    isLoadingAiConfig: boolean;
+  }) => {
     const [autoReplyMode, setAutoReplyMode] = useState('ai');
     const [chatProbability, setChatProbability] = useState(30);
     const [serviceReplyEnabled, setServiceReplyEnabled] = useState(true);
     const [riskAutoHuman, setRiskAutoHuman] = useState(true);
-    const [aiConfig, setAiConfig] = useState<any>(null);
     const [activeAiTab, setActiveAiTab] = useState('intentRecognition');
-    const [isLoadingAiConfig, setIsLoadingAiConfig] = useState(false);
-    const [hasLoadedAiConfig, setHasLoadedAiConfig] = useState(false); // 记录是否已加载
 
-    useEffect(() => {
-      // 只在第一次加载时请求，避免重复请求
-      if (!hasLoadedAiConfig) {
-        loadAiConfig();
-        setHasLoadedAiConfig(true);
-      }
-    }, [hasLoadedAiConfig]);
+    // 移除内部加载逻辑，使用父组件传入的状态
+    // const [aiConfig, setAiConfig] = useState<any>(null);
+    // const [isLoadingAiConfig, setIsLoadingAiConfig] = useState(false);
+    // const [hasLoadedAiConfig, setHasLoadedAiConfig] = useState(false);
 
-    const loadAiConfig = async () => {
-      if (isLoadingAiConfig) return; // 防止重复加载
+    // useEffect(() => {
+    //   // 只在第一次加载时请求，避免重复请求
+    //   if (!hasLoadedAiConfig) {
+    //     loadAiConfig();
+    //     setHasLoadedAiConfig(true);
+    //   }
+    // }, [hasLoadedAiConfig]);
+
+    // const loadAiConfig = async () => {
+    //   if (isLoadingAiConfig) return; // 防止重复加载
       
-      setIsLoadingAiConfig(true);
-      try {
-        console.log('[AI配置] 开始加载 AI 模型配置...');
-        const res = await fetch('/api/admin/config', { cache: 'no-store' });
+    //   setIsLoadingAiConfig(true);
+    //   try {
+    //     console.log('[AI配置] 开始加载 AI 模型配置...');
+    //     const res = await fetch('/api/admin/config', { cache: 'no-store' });
         
-        console.log('[AI配置] API 响应状态:', res.status, res.statusText);
+    //     console.log('[AI配置] API 响应状态:', res.status, res.statusText);
         
-        if (res.ok) {
-          const data = await res.json();
-          console.log('[AI配置] AI 配置加载成功:', data.data);
-          setAiConfig(data.data);
-        } else {
-          console.error('[AI配置] API 返回错误状态:', res.status, res.statusText);
-          const errorText = await res.text();
-          console.error('[AI配置] 错误响应内容:', errorText);
-          setAiConfig(null); // 明确设置为 null
-        }
-      } catch (error) {
-        console.error('[AI配置] 加载 AI 配置失败:', error);
-        setAiConfig(null); // 明确设置为 null
-      } finally {
-        setIsLoadingAiConfig(false);
-      }
-    };
+    //     if (res.ok) {
+    //       const data = await res.json();
+    //       console.log('[AI配置] AI 配置加载成功:', data.data);
+    //       setAiConfig(data.data);
+    //     } else {
+    //       console.error('[AI配置] API 返回错误状态:', res.status, res.statusText);
+    //       const errorText = await res.text();
+    //       console.error('[AI配置] 错误响应内容:', errorText);
+    //       setAiConfig(null); // 明确设置为 null
+    //     }
+    //   } catch (error) {
+    //     console.error('[AI配置] 加载 AI 配置失败:', error);
+    //     setAiConfig(null); // 明确设置为 null
+    //   } finally {
+    //     setIsLoadingAiConfig(false);
+    //   }
+    // };
 
     const saveSettings = async () => {
       try {
@@ -2341,14 +2375,14 @@ ${callbacks.robotStatus}
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6 space-y-6">
-            {isLoadingAiConfig ? (
+            {propsIsLoadingAiConfig ? (
               <div className="flex items-center justify-center py-8">
                 <div className="text-center">
                   <RefreshCw className="h-8 w-8 animate-spin mx-auto text-purple-500" />
                   <p className="text-sm text-muted-foreground mt-2">正在加载 AI 模型配置...</p>
                 </div>
               </div>
-            ) : !aiConfig ? (
+            ) : !propsAiConfig ? (
               <div className="flex items-center justify-center py-8">
                 <div className="text-center">
                   <AlertCircle className="h-8 w-8 mx-auto text-red-500" />
@@ -2358,7 +2392,8 @@ ${callbacks.robotStatus}
                     size="sm" 
                     className="mt-3"
                     onClick={() => {
-                      setHasLoadedAiConfig(false); // 允许重新加载
+                      // 调用父组件的 loadAiConfig 函数重新加载
+                      loadAiConfig();
                     }}
                   >
                     重新加载
@@ -2379,7 +2414,7 @@ ${callbacks.robotStatus}
                   type="intentRecognition"
                   title="意图识别模型"
                   description="用于分析用户消息意图，支持聊天、服务、帮助、风险等识别"
-                  aiConfig={aiConfig}
+                  aiConfig={propsAiConfig}
                   onSaveConfig={saveAiConfig}
                 />
               </TabsContent>
@@ -2389,7 +2424,7 @@ ${callbacks.robotStatus}
                   type="serviceReply"
                   title="服务回复模型"
                   description="用于自动回复服务类问题，生成专业、友好的回复"
-                  aiConfig={aiConfig}
+                  aiConfig={propsAiConfig}
                   onSaveConfig={saveAiConfig}
                 />
               </TabsContent>
@@ -2399,7 +2434,7 @@ ${callbacks.robotStatus}
                   type="chat"
                   title="闲聊模型"
                   description="用于闲聊陪伴，生成轻松、自然的对话"
-                  aiConfig={aiConfig}
+                  aiConfig={propsAiConfig}
                   onSaveConfig={saveAiConfig}
                 />
               </TabsContent>
@@ -2409,7 +2444,7 @@ ${callbacks.robotStatus}
                   type="report"
                   title="报告生成模型"
                   description="用于生成日终报告，数据分析和总结"
-                  aiConfig={aiConfig}
+                  aiConfig={propsAiConfig}
                   onSaveConfig={saveAiConfig}
                 />
               </TabsContent>
@@ -2707,7 +2742,7 @@ ${callbacks.robotStatus}
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
-            <SettingsTab />
+            <SettingsTab aiConfig={aiConfig} isLoadingAiConfig={isLoadingAiConfig} />
           </TabsContent>
         </Tabs>
       </main>

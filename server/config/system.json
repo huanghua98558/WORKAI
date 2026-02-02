@@ -3,7 +3,7 @@
   "systemName": "WorkTool AI 中枢系统",
   "deployment": {
     "baseUrl": "",
-    "callbackBaseUrl": "http://localhost:5001"
+    "callbackBaseUrl": "http://vefaas-ve39yphh-s9tex1ncyc-d6089983tmcjkeon14kg-sandbox.sandbox-dev.coze-coding.bytedance.net"
   },
   "worktool": {
     "apiBaseUrl": "",

@@ -18,9 +18,8 @@ export async function GET(request: NextRequest) {
     if (request.headers.get('x-forwarded-proto')) {
       headers['x-forwarded-proto'] = request.headers.get('x-forwarded-proto')!;
     }
-    if (request.headers.get('host')) {
-      headers['x-forwarded-host'] = request.headers.get('host')!;
-    }
+    // 注意：不要覆盖 x-forwarded-host，host 只在不存在 x-forwarded-host 时使用
+    // 后端会优先使用 x-forwarded-host
     
     const response = await fetch(url.toString(), {
       method: 'GET',
