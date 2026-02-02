@@ -112,13 +112,18 @@ interface AlertData {
 
 interface Session {
   sessionId: string;
-  userId: string;
-  groupId: string;
-  userName: string;
-  groupName: string;
+  userId?: string;
+  groupId?: string;
+  userName?: string;
+  groupName?: string;
+  userInfo?: {
+    userName?: string;
+    groupName?: string;
+  };
   status: 'auto' | 'human';
   lastActiveTime: string;
   messageCount: number;
+  replyCount?: number;
   aiReplyCount: number;
   humanReplyCount: number;
   lastIntent?: string;
@@ -1090,40 +1095,45 @@ ${callbacks.robotStatus}
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {sessions.slice(0, 4).map((session) => (
-                <div key={session.sessionId} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl hover:shadow-md transition-shadow">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg">
-                      {session.userName.charAt(0)}
+              {sessions.slice(0, 4).map((session) => {
+                const userName = session.userName || session.userInfo?.userName;
+                const groupName = session.groupName || session.userInfo?.groupName;
+                
+                return (
+                  <div key={session.sessionId} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg">
+                        {userName?.charAt(0) || 'U'}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">{userName || '未知用户'}</p>
+                        <p className="text-xs text-muted-foreground">{groupName || '未知群组'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold">{session.userName}</p>
-                      <p className="text-xs text-muted-foreground">{session.groupName}</p>
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        variant={session.status === 'auto' ? 'default' : 'secondary'}
+                        className="gap-1"
+                      >
+                        {session.status === 'auto' ? (
+                          <>
+                            <Bot className="h-3 w-3" />
+                            AI 接管
+                          </>
+                        ) : (
+                          <>
+                            <UserCheck className="h-3 w-3" />
+                            人工
+                          </>
+                        )}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {session.messageCount} 消息
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge 
-                      variant={session.status === 'auto' ? 'default' : 'secondary'}
-                      className="gap-1"
-                    >
-                      {session.status === 'auto' ? (
-                        <>
-                          <Bot className="h-3 w-3" />
-                          AI 接管
-                        </>
-                      ) : (
-                        <>
-                          <UserCheck className="h-3 w-3" />
-                          人工
-                        </>
-                      )}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {session.messageCount} 消息
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {sessions.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -3342,30 +3352,35 @@ ${callbacks.robotStatus}
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {sessions.slice(0, 5).map((session) => (
-                <div key={session.sessionId} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                      {session.userName.charAt(0)}
+              {sessions.slice(0, 5).map((session) => {
+                const userName = session.userName || session.userInfo?.userName;
+                const groupName = session.groupName || session.userInfo?.groupName;
+                
+                return (
+                  <div key={session.sessionId} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                        {userName?.charAt(0) || 'U'}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{userName || '未知用户'}</p>
+                        <p className="text-xs text-muted-foreground">{groupName || '未知群组'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{session.userName}</p>
-                      <p className="text-xs text-muted-foreground">{session.groupName}</p>
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        variant={session.status === 'auto' ? 'default' : 'secondary'}
+                        className="gap-1"
+                      >
+                        {session.status === 'auto' ? '自动' : '人工'}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {formatTime(session.lastActiveTime)}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge 
-                      variant={session.status === 'auto' ? 'default' : 'secondary'}
-                      className="gap-1"
-                    >
-                      {session.status === 'auto' ? '自动' : '人工'}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {formatTime(session.lastActiveTime)}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
