@@ -302,5 +302,27 @@
   "auditLog": {
     "enabled": true,
     "retentionDays": 30
-  }
+  },
+  "users": [
+    {
+      "id": "user_default",
+      "username": "admin",
+      "password": "admin123",
+      "role": "admin",
+      "name": "系统管理员",
+      "wechatId": "",
+      "enabled": true,
+      "createdAt": "2026-02-02T13:46:35.918Z"
+    },
+    {
+      "id": "user_1770040009595",
+      "username": "testuser",
+      "password": "test123",
+      "role": "monitor",
+      "name": "测试监测员",
+      "wechatId": "wx_test123",
+      "enabled": true,
+      "createdAt": "2026-02-02T13:46:49.595Z"
+    }
+  ]
 }

@@ -658,6 +658,160 @@ const adminApiRoutes = async function (fastify, options) {
       });
     }
   });
+
+  /**
+   * 获取系统用户列表
+   */
+  fastify.get('/users', async (request, reply) => {
+    try {
+      const users = config.get('users', []);
+      return { success: true, data: users };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 添加系统用户
+   */
+  fastify.post('/users', async (request, reply) => {
+    try {
+      const { username, password, role, name, wechatId } = request.body;
+      
+      if (!username || !password || !role) {
+        return reply.status(400).send({
+          success: false,
+          error: '用户名、密码和角色不能为空'
+        });
+      }
+      
+      if (!['admin', 'monitor'].includes(role)) {
+        return reply.status(400).send({
+          success: false,
+          error: '角色必须是 admin 或 monitor'
+        });
+      }
+      
+      const users = config.get('users', []);
+      
+      // 检查用户名是否已存在
+      if (users.find((u) => u.username === username)) {
+        return reply.status(400).send({
+          success: false,
+          error: '用户名已存在'
+        });
+      }
+      
+      const newUser = {
+        id: `user_${Date.now()}`,
+        username,
+        password, // 实际项目中应该加密存储
+        role,
+        name: name || username,
+        wechatId: wechatId || '',
+        enabled: true,
+        createdAt: new Date().toISOString()
+      };
+      
+      users.push(newUser);
+      config.set('users', users);
+      
+      return { success: true, data: newUser };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 更新系统用户
+   */
+  fastify.put('/users/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const { password, role, name, wechatId, enabled } = request.body;
+      
+      const users = config.get('users', []);
+      const userIndex = users.findIndex((u) => u.id === id);
+      
+      if (userIndex === -1) {
+        return reply.status(404).send({
+          success: false,
+          error: '用户不存在'
+        });
+      }
+      
+      // 更新用户信息
+      if (password !== undefined) {
+        users[userIndex].password = password;
+      }
+      if (role !== undefined) {
+        if (!['admin', 'monitor'].includes(role)) {
+          return reply.status(400).send({
+            success: false,
+            error: '角色必须是 admin 或 monitor'
+          });
+        }
+        users[userIndex].role = role;
+      }
+      if (name !== undefined) {
+        users[userIndex].name = name;
+      }
+      if (wechatId !== undefined) {
+        users[userIndex].wechatId = wechatId;
+      }
+      if (enabled !== undefined) {
+        users[userIndex].enabled = enabled;
+      }
+      
+      users[userIndex].updatedAt = new Date().toISOString();
+      
+      config.set('users', users);
+      
+      return { success: true, data: users[userIndex] };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 删除系统用户
+   */
+  fastify.delete('/users/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      
+      const users = config.get('users', []);
+      const userIndex = users.findIndex((u) => u.id === id);
+      
+      if (userIndex === -1) {
+        return reply.status(404).send({
+          success: false,
+          error: '用户不存在'
+        });
+      }
+      
+      const deletedUser = users[userIndex];
+      users.splice(userIndex, 1);
+      
+      config.set('users', users);
+      
+      return { success: true, data: deletedUser };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
 };
 
 module.exports = adminApiRoutes;

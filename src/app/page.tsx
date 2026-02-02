@@ -55,6 +55,7 @@ import {
   LayoutDashboard,
   MessageCircle,
   UserCheck,
+  Eye,
   BarChart,
   Sparkles,
   Info,
@@ -1887,16 +1888,391 @@ ${callbacks.robotStatus}
     );
   });
 
+  // 用户管理页面
+  const UserManagement = () => {
+    const [users, setUsers] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [showAddDialog, setShowAddDialog] = useState(false);
+    const [showEditDialog, setShowEditDialog] = useState(false);
+    const [editingUser, setEditingUser] = useState<any>(null);
+    const [newUser, setNewUser] = useState({
+      username: '',
+      password: '',
+      role: 'monitor',
+      name: '',
+      wechatId: ''
+    });
+
+    const loadUsers = useCallback(async () => {
+      try {
+        setIsLoading(true);
+        const res = await fetch('/api/admin/users');
+        if (res.ok) {
+          const data = await res.json();
+          setUsers(data.data || []);
+        }
+      } catch (error) {
+        console.error('加载用户列表失败:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }, []);
+
+    useEffect(() => {
+      loadUsers();
+    }, [loadUsers]);
+
+    const handleAddUser = async () => {
+      if (!newUser.username || !newUser.password || !newUser.role) {
+        alert('请填写完整的用户信息');
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const res = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newUser)
+        });
+
+        if (res.ok) {
+          alert('✅ 用户添加成功');
+          setShowAddDialog(false);
+          setNewUser({ username: '', password: '', role: 'monitor', name: '', wechatId: '' });
+          loadUsers();
+        } else {
+          const data = await res.json();
+          alert(`❌ 添加失败: ${data.error || '未知错误'}`);
+        }
+      } catch (error) {
+        console.error('添加用户失败:', error);
+        alert('❌ 添加失败');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const handleUpdateUser = async () => {
+      if (!editingUser) return;
+
+      try {
+        setIsLoading(true);
+        const updateData: any = {};
+        if (editingUser.password) updateData.password = editingUser.password;
+        if (editingUser.role) updateData.role = editingUser.role;
+        if (editingUser.name !== undefined) updateData.name = editingUser.name;
+        if (editingUser.wechatId !== undefined) updateData.wechatId = editingUser.wechatId;
+        if (editingUser.enabled !== undefined) updateData.enabled = editingUser.enabled;
+
+        const res = await fetch(`/api/admin/users/${editingUser.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updateData)
+        });
+
+        if (res.ok) {
+          alert('✅ 用户更新成功');
+          setShowEditDialog(false);
+          setEditingUser(null);
+          loadUsers();
+        } else {
+          const data = await res.json();
+          alert(`❌ 更新失败: ${data.error || '未知错误'}`);
+        }
+      } catch (error) {
+        console.error('更新用户失败:', error);
+        alert('❌ 更新失败');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const handleDeleteUser = async (id: string) => {
+      if (!confirm('确定要删除这个用户吗？')) return;
+
+      try {
+        setIsLoading(true);
+        const res = await fetch(`/api/admin/users/${id}`, {
+          method: 'DELETE'
+        });
+
+        if (res.ok) {
+          alert('✅ 用户已删除');
+          loadUsers();
+        } else {
+          alert('❌ 删除失败');
+        }
+      } catch (error) {
+        console.error('删除用户失败:', error);
+        alert('❌ 删除失败');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 className="text-2xl font-bold flex items-center gap-2">
+              <UserCheck className="h-6 w-6 text-green-500" />
+              用户管理
+            </h3>
+            <p className="text-muted-foreground mt-1">
+              管理系统用户（管理员和监测员）
+            </p>
+          </div>
+          <Button 
+            onClick={() => setShowAddDialog(true)}
+            disabled={isLoading}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            添加用户
+          </Button>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">用户列表</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {users.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <UserCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>暂无用户</p>
+                <p className="text-sm mt-2">点击"添加用户"按钮创建新用户</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {users.map((user) => (
+                  <div 
+                    key={user.id}
+                    className="flex items-center justify-between p-4 border rounded-lg bg-muted/30"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`p-2 rounded-lg ${user.role === 'admin' ? 'bg-purple-100 dark:bg-purple-900' : 'bg-blue-100 dark:bg-blue-900'}`}>
+                        {user.role === 'admin' ? <Shield className="h-4 w-4 text-purple-600 dark:text-purple-400" /> : <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{user.name || user.username}</span>
+                          <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                            {user.role === 'admin' ? '管理员' : '监测员'}
+                          </Badge>
+                          {!user.enabled && <Badge variant="destructive">已禁用</Badge>}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          用户名: {user.username}
+                          {user.wechatId && ` • 微信: ${user.wechatId}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingUser(user);
+                          setShowEditDialog(true);
+                        }}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteUser(user.id)}
+                        className="text-red-500 hover:text-red-700"
+                        disabled={user.username === 'admin'}
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 添加用户对话框 */}
+        {showAddDialog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-semibold mb-4">添加用户</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">用户名</label>
+                  <Input
+                    value={newUser.username}
+                    onChange={(e) => setNewUser({...newUser, username: e.target.value})}
+                    placeholder="输入用户名"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">密码</label>
+                  <Input
+                    type="password"
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                    placeholder="输入密码"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">角色</label>
+                  <select
+                    value={newUser.role}
+                    onChange={(e) => setNewUser({...newUser, role: e.target.value})}
+                    className="w-full mt-1 px-3 py-2 border rounded-md text-sm"
+                  >
+                    <option value="monitor">监测员</option>
+                    <option value="admin">管理员</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">姓名</label>
+                  <Input
+                    value={newUser.name}
+                    onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+                    placeholder="输入姓名"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">微信ID</label>
+                  <Input
+                    value={newUser.wechatId}
+                    onChange={(e) => setNewUser({...newUser, wechatId: e.target.value})}
+                    placeholder="输入微信ID"
+                    className="mt-1"
+                  />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => {
+                      setShowAddDialog(false);
+                      setNewUser({ username: '', password: '', role: 'monitor', name: '', wechatId: '' });
+                    }}
+                  >
+                    取消
+                  </Button>
+                  <Button 
+                    className="flex-1"
+                    onClick={handleAddUser}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? '添加中...' : '添加'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 编辑用户对话框 */}
+        {showEditDialog && editingUser && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-semibold mb-4">编辑用户</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">用户名</label>
+                  <Input
+                    value={editingUser.username}
+                    disabled
+                    className="mt-1 bg-muted"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">密码（留空则不修改）</label>
+                  <Input
+                    type="password"
+                    value={editingUser.password || ''}
+                    onChange={(e) => setEditingUser({...editingUser, password: e.target.value})}
+                    placeholder="输入新密码"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">角色</label>
+                  <select
+                    value={editingUser.role}
+                    onChange={(e) => setEditingUser({...editingUser, role: e.target.value})}
+                    className="w-full mt-1 px-3 py-2 border rounded-md text-sm"
+                    disabled={editingUser.username === 'admin'}
+                  >
+                    <option value="monitor">监测员</option>
+                    <option value="admin">管理员</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">姓名</label>
+                  <Input
+                    value={editingUser.name || ''}
+                    onChange={(e) => setEditingUser({...editingUser, name: e.target.value})}
+                    placeholder="输入姓名"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">微信ID</label>
+                  <Input
+                    value={editingUser.wechatId || ''}
+                    onChange={(e) => setEditingUser({...editingUser, wechatId: e.target.value})}
+                    placeholder="输入微信ID"
+                    className="mt-1"
+                  />
+                </div>
+                {editingUser.username !== 'admin' && (
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">启用状态</label>
+                    <Switch
+                      checked={editingUser.enabled}
+                      onCheckedChange={(checked) => setEditingUser({...editingUser, enabled: checked})}
+                    />
+                  </div>
+                )}
+                <div className="flex gap-2 pt-2">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => {
+                      setShowEditDialog(false);
+                      setEditingUser(null);
+                    }}
+                  >
+                    取消
+                  </Button>
+                  <Button 
+                    className="flex-1"
+                    onClick={handleUpdateUser}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? '保存中...' : '保存'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // 人工告警配置组件
-  const HumanAlertConfig = () => {
+  const HumanAlertConfig = React.memo(() => {
     const [alertEnabled, setAlertEnabled] = useState(true);
     const [alertMode, setAlertMode] = useState('risk');
     const [recipients, setRecipients] = useState<any[]>([]);
     const [alertCount, setAlertCount] = useState(1);
     const [alertInterval, setAlertInterval] = useState(5);
-    const [messageTemplate, setMessageTemplate] = useState(
-      "⚠️ 风险告警\n\n【用户信息】\n用户：{userName}\n群组：{groupName}\n\n【风险内容】\n{messageContent}\n\n【时间】\n{timestamp}"
-    );
+    const defaultTemplate = useMemo(() => "⚠️ 风险告警\n\n【用户信息】\n用户：{userName}\n群组：{groupName}\n\n【风险内容】\n{messageContent}\n\n【时间】\n{timestamp}", []);
+    const [messageTemplate, setMessageTemplate] = useState(defaultTemplate);
     const [showAddDialog, setShowAddDialog] = useState(false);
     const [newRecipient, setNewRecipient] = useState({
       name: '',
@@ -1910,7 +2286,7 @@ ${callbacks.robotStatus}
       loadAlertConfig();
     }, []);
 
-    const loadAlertConfig = async () => {
+    const loadAlertConfig = useCallback(async () => {
       try {
         setIsLoading(true);
         const res = await fetch('/api/admin/human-handover/config');
@@ -1922,7 +2298,7 @@ ${callbacks.robotStatus}
             setRecipients(data.data.alertRecipients || []);
             setAlertCount(data.data.alertCount || 1);
             setAlertInterval((data.data.alertInterval || 5000) / 1000);
-            setMessageTemplate(data.data.alertMessageTemplate || messageTemplate);
+            setMessageTemplate(data.data.alertMessageTemplate || defaultTemplate);
           }
         }
       } catch (error) {
@@ -1930,9 +2306,9 @@ ${callbacks.robotStatus}
       } finally {
         setIsLoading(false);
       }
-    };
+    }, [defaultTemplate]);
 
-    const handleSaveConfig = async () => {
+    const handleSaveConfig = useCallback(async () => {
       try {
         setIsLoading(true);
         const res = await fetch('/api/admin/human-handover/config', {
@@ -1959,9 +2335,9 @@ ${callbacks.robotStatus}
       } finally {
         setIsLoading(false);
       }
-    };
+    }, [alertEnabled, alertMode, recipients, alertCount, alertInterval, messageTemplate]);
 
-    const handleAddRecipient = async () => {
+    const handleAddRecipient = useCallback(async () => {
       if (!newRecipient.name || !newRecipient.userId) {
         alert('请填写完整的接收者信息');
         return;
@@ -1991,9 +2367,9 @@ ${callbacks.robotStatus}
       } finally {
         setIsLoading(false);
       }
-    };
+    }, [newRecipient, loadAlertConfig]);
 
-    const handleToggleRecipient = async (id: string, enabled: boolean) => {
+    const handleToggleRecipient = useCallback(async (id: string, enabled: boolean) => {
       try {
         const res = await fetch(`/api/admin/human-handover/recipients/${id}`, {
           method: 'PUT',
@@ -2007,9 +2383,9 @@ ${callbacks.robotStatus}
       } catch (error) {
         console.error('更新接收者失败:', error);
       }
-    };
+    }, [loadAlertConfig]);
 
-    const handleDeleteRecipient = async (id: string) => {
+    const handleDeleteRecipient = useCallback(async (id: string) => {
       if (!confirm('确定要删除这个接收者吗？')) return;
 
       try {
@@ -2027,7 +2403,7 @@ ${callbacks.robotStatus}
         console.error('删除接收者失败:', error);
         alert('❌ 删除失败');
       }
-    };
+    }, [loadAlertConfig]);
 
     return (
       <Card className="border-2 border-blue-200 dark:border-blue-900">
@@ -2256,7 +2632,7 @@ ${callbacks.robotStatus}
         </CardContent>
       </Card>
     );
-  };
+  });
 
   // 系统设置页面
   const SettingsTab = ({ aiConfig: propsAiConfig, isLoadingAiConfig: propsIsLoadingAiConfig }: { 
@@ -2698,7 +3074,7 @@ ${callbacks.robotStatus}
       {/* 主内容 */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid h-auto p-1 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid h-auto p-1 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
             <TabsTrigger value="dashboard" className="gap-2 py-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">仪表盘</span>
@@ -2718,6 +3094,10 @@ ${callbacks.robotStatus}
             <TabsTrigger value="reports" className="gap-2 py-2">
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">报告中心</span>
+            </TabsTrigger>
+            <TabsTrigger value="users" className="gap-2 py-2">
+              <UserCheck className="h-4 w-4" />
+              <span className="hidden sm:inline">用户管理</span>
             </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2 py-2">
               <Settings className="h-4 w-4" />
@@ -2743,6 +3123,10 @@ ${callbacks.robotStatus}
 
           <TabsContent value="reports" className="space-y-6">
             <ReportsTab />
+          </TabsContent>
+
+          <TabsContent value="users" className="space-y-6">
+            <UserManagement />
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
