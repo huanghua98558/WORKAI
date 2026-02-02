@@ -75,6 +75,7 @@ const adminApiRoutes = async function (fastify, options) {
    * 更新系统配置
    */
   fastify.post('/config', async (request, reply) => {
+    console.log('📥 POST /api/admin/config 被调用，请求体:', JSON.stringify(request.body));
     try {
       const updateData = request.body;
       
@@ -114,6 +115,32 @@ const adminApiRoutes = async function (fastify, options) {
         Object.keys(updateData.deployment).forEach(key => {
           if (config.get(`deployment.${key}`) !== undefined) {
             config.set(`deployment.${key}`, updateData.deployment[key]);
+            
+            // 如果是 callbackBaseUrl，同步更新数据库
+            if (key === 'callbackBaseUrl') {
+              console.log('📝 检测到 callbackBaseUrl 更新，开始同步到数据库...');
+              try {
+                const db = require('../database/index.js');
+                console.log('📝 数据库模块加载成功');
+                const existingSetting = db.systemSettings.getByKey('deployment.callbackBaseUrl');
+                console.log('📝 查找现有设置:', existingSetting);
+                
+                if (existingSetting) {
+                  const updated = db.systemSettings.update(existingSetting.id, { value: updateData.deployment[key] });
+                  console.log('📝 数据库更新成功:', updated);
+                } else {
+                  const created = db.systemSettings.create({
+                    key: 'deployment.callbackBaseUrl',
+                    value: updateData.deployment[key],
+                    category: 'deployment',
+                    description: '回调基础地址'
+                  });
+                  console.log('📝 数据库创建成功:', created);
+                }
+              } catch (error) {
+                console.error('❌ 更新数据库回调地址失败:', error);
+              }
+            }
           }
         });
       }
