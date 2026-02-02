@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, CheckCircle, XCircle, Settings, RefreshCw } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Settings, RefreshCw, Copy, Link, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface CallbackConfig {
   callbackType: string;
@@ -35,6 +36,7 @@ export function CallbackConfigPanel({ robotId, robotName }: CallbackConfigPanelP
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [replyAll, setReplyAll] = useState('1');
+  const [backendUrl, setBackendUrl] = useState('');
 
   // 获取后端 URL
   const getBackendUrl = () => {
@@ -69,6 +71,7 @@ export function CallbackConfigPanel({ robotId, robotName }: CallbackConfigPanelP
       }
 
       setConfig(data.data);
+      setBackendUrl(getBackendUrl());
       
       // 设置 replyAll 默认值
       if (data.data.callbackConfigList) {
@@ -186,6 +189,19 @@ export function CallbackConfigPanel({ robotId, robotName }: CallbackConfigPanelP
     }
   };
 
+  // 复制回调URL
+  const copyCallbackUrl = async (callbackUrl: string) => {
+    try {
+      await navigator.clipboard.writeText(callbackUrl);
+      toast.success('已复制到剪贴板', {
+        description: callbackUrl
+      });
+    } catch (error) {
+      console.error('复制失败:', error);
+      toast.error('复制失败');
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -208,152 +224,229 @@ export function CallbackConfigPanel({ robotId, robotName }: CallbackConfigPanelP
           <CardTitle>回调配置</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center justify-center h-64 gap-4">
-            <div className="text-destructive">{error}</div>
-            <Button onClick={fetchConfig} variant="outline">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              重试
-            </Button>
-          </div>
+          <Alert variant="destructive">
+            <XCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <Button 
+            variant="outline" 
+            onClick={fetchConfig}
+            className="mt-4"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            重试
+          </Button>
         </CardContent>
       </Card>
     );
   }
 
-  if (!config) {
-    return null;
-  }
+  // 回调类型映射
+  const callbackTypes = {
+    '0': { name: '群二维码', description: '机器人拉群成功后的群二维码', endpoint: '/api/worktool/callback/qrcode' },
+    '1': { name: '指令结果', description: '机器人发送指令的执行结果', endpoint: '/api/worktool/callback/command' },
+    '5': { name: '上线回调', description: '机器人上线时的通知', endpoint: '/api/worktool/callback/robot-online' },
+    '6': { name: '下线回调', description: '机器人下线时的通知', endpoint: '/api/worktool/callback/robot-offline' },
+    '11': { name: '消息回调', description: '群内有人提问时触发的消息回调', endpoint: '/api/worktool/callback/message' }
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* 后端URL信息 */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>回调配置</CardTitle>
-              <CardDescription>配置 WorkTool 回调地址</CardDescription>
-            </div>
-            <Button onClick={fetchConfig} variant="outline" size="icon">
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <Link className="h-5 w-5" />
+            回调基础地址
+          </CardTitle>
+          <CardDescription>
+            WorkTool 机器人将回调请求发送到此地址
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {error && (
-            <Alert className="mb-4" variant="destructive">
-              <XCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {success && (
-            <Alert className="mb-4" variant="default">
-              <CheckCircle className="h-4 w-4" />
-              <AlertDescription>{success}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* 机器人信息 */}
-          <div className="mb-6 p-4 bg-muted rounded-lg">
-            <div className="text-sm">
-              <div className="font-medium mb-1">机器人: {config.robotName}</div>
-              <div className="text-muted-foreground">Robot ID: {config.robotId}</div>
-            </div>
+          <div className="flex items-center gap-2">
+            <Input
+              value={backendUrl}
+              readOnly
+              placeholder="加载中..."
+              className="font-mono text-sm"
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                navigator.clipboard.writeText(backendUrl);
+                toast.success('已复制到剪贴板');
+              }}
+              disabled={!backendUrl}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
           </div>
+          {backendUrl && (
+            <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              <span>回调地址已配置，机器人可以正常接收回调</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-          <div className="space-y-6">
-            {config.callbackConfigList.map((item) => (
-              <Card key={item.callbackType}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
+      {/* 状态提示 */}
+      {success && (
+        <Alert className="bg-green-50 border-green-200">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-800">{success}</AlertDescription>
+        </Alert>
+      )}
+
+      {error && (
+        <Alert variant="destructive">
+          <XCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* 回调配置列表 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>回调配置</span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={fetchConfig}
+              disabled={loading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              刷新
+            </Button>
+          </CardTitle>
+          <CardDescription>
+            配置 WorkTool 机器人的回调接口，接收各类事件通知
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {config?.callbackConfigList?.map((callbackConfig) => {
+            const typeInfo = callbackTypes[callbackConfig.callbackType as keyof typeof callbackTypes];
+            const fullCallbackUrl = `${backendUrl}${typeInfo?.endpoint}?robotId=${robotId}`;
+            
+            return (
+              <div key={callbackConfig.callbackType} className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <Settings className="h-5 w-5 text-muted-foreground" />
-                      <CardTitle className="text-lg">{item.callbackTypeName}</CardTitle>
-                      <Badge variant={item.configured ? 'default' : 'secondary'}>
-                        {item.configured ? '已配置' : '未配置'}
+                      <Label className="text-base font-medium">{typeInfo?.name}</Label>
+                      <Badge variant={callbackConfig.configured ? "default" : "secondary"}>
+                        {callbackConfig.configured ? "已配置" : "未配置"}
                       </Badge>
                     </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {typeInfo?.description}
+                    </p>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  {item.configured && item.callbackUrl && (
-                    <div className="mb-4">
-                      <Label>回调地址</Label>
-                      <div className="mt-1 p-3 bg-muted rounded-md text-sm font-mono break-all">
-                        {item.callbackUrl}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 消息回调特殊选项 */}
-                  {item.callbackType === '11' && item.configured && (
-                    <div className="mb-4 space-y-2">
-                      <Label>回复模式</Label>
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          checked={replyAll === '1'}
-                          onCheckedChange={(checked) => setReplyAll(checked ? '1' : '0')}
-                        />
-                        <span className="text-sm text-muted-foreground">
-                          {replyAll === '1' ? '回复所有人' : '只回复机器人'}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex gap-2">
-                    {!item.configured ? (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyCallbackUrl(fullCallbackUrl)}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      复制
+                    </Button>
+                    {callbackConfig.configured ? (
                       <Button
-                        onClick={() => handleConfigureCallback(item.callbackType)}
-                        disabled={configuring === item.callbackType}
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteCallback(callbackConfig.callbackType)}
+                        disabled={configuring === callbackConfig.callbackType}
                       >
-                        {configuring === item.callbackType ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            配置中...
-                          </>
+                        {configuring === callbackConfig.callbackType ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         ) : (
-                          '配置回调'
+                          <XCircle className="h-4 w-4 mr-2" />
                         )}
+                        删除
                       </Button>
                     ) : (
-                      <>
-                        {item.callbackType === '11' && (
-                          <Button
-                            onClick={() => handleConfigureCallback(item.callbackType)}
-                            disabled={configuring === item.callbackType}
-                            variant="outline"
-                          >
-                            {configuring === item.callbackType ? (
-                              <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                更新中...
-                              </>
-                            ) : (
-                              '更新配置'
-                            )}
-                          </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleConfigureCallback(callbackConfig.callbackType)}
+                        disabled={configuring === callbackConfig.callbackType}
+                      >
+                        {configuring === callbackConfig.callbackType ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Settings className="h-4 w-4 mr-2" />
                         )}
-                        <Button
-                          onClick={() => handleDeleteCallback(item.callbackType)}
-                          disabled={configuring === item.callbackType}
-                          variant="destructive"
-                        >
-                          {configuring === item.callbackType ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              删除中...
-                            </>
-                          ) : (
-                            '删除配置'
-                          )}
-                        </Button>
-                      </>
+                        配置
+                      </Button>
                     )}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                </div>
+
+                {/* 回调URL */}
+                {callbackConfig.configured && callbackConfig.callbackUrl && (
+                  <div className="bg-muted p-3 rounded-md">
+                    <div className="text-xs font-medium mb-1">回调地址：</div>
+                    <div className="font-mono text-xs break-all">
+                      {callbackConfig.callbackUrl}
+                    </div>
+                  </div>
+                )}
+
+                {/* 消息回调的 replyAll 配置 */}
+                {callbackConfig.callbackType === '11' && (
+                  <div className="pt-2">
+                    <Label htmlFor="replyAll">回复模式</Label>
+                    <select
+                      id="replyAll"
+                      value={replyAll}
+                      onChange={(e) => setReplyAll(e.target.value)}
+                      className="mt-1 w-full p-2 border rounded-md"
+                      disabled={configuring === '11'}
+                    >
+                      <option value="0">仅回复提问者</option>
+                      <option value="1">回复所有人</option>
+                    </select>
+                    {callbackConfig.configured && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => handleConfigureCallback('11')}
+                        disabled={configuring === '11'}
+                      >
+                        {configuring === '11' ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Settings className="h-4 w-4 mr-2" />
+                        )}
+                        更新配置
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      {/* 提示信息 */}
+      <Card className="border-amber-200 bg-amber-50">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+            <div className="space-y-1 text-sm">
+              <div className="font-medium text-amber-900">配置提示</div>
+              <div className="text-amber-800 space-y-1">
+                <p>• 机器人上线回调地址: {backendUrl}/api/worktool/callback/robot-online?robotId={robotId}</p>
+                <p>• 机器人下线回调地址: {backendUrl}/api/worktool/callback/robot-offline?robotId={robotId}</p>
+                <p>• 配置后需要等待 WorkTool 平台同步更新，可能需要几分钟时间</p>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

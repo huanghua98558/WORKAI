@@ -404,7 +404,145 @@ const worktoolCallbackRoutes = async function (fastify, options) {
   });
 
   /**
-   * 机器人状态回调（上线/下线）
+   * 机器人上线回调
+   * 
+   * 请求参数：
+   * - status: 状态（5=上线）
+   * - timestamp: 时间戳
+   */
+  fastify.post('/robot-online', {
+    preHandler: [verifySignatureMiddleware]
+  }, async (request, reply) => {
+    const startTime = Date.now();
+    const requestId = generateRequestId();
+    const callbackData = request.body;
+    const { robotId } = request.query;
+
+    try {
+      // 验证 robotId
+      if (!robotId) {
+        console.error('缺少 robotId 参数');
+        const responseTime = Date.now() - startTime;
+        await recordCallbackHistory('', '5', requestId, 400, '缺少 robotId 参数', { responseTime });
+        return reply.status(400).send(errorResponse(400, '缺少 robotId 参数'));
+      }
+
+      // 查询机器人配置
+      const robot = await robotService.getRobotByRobotId(robotId);
+      if (!robot) {
+        console.error('机器人不存在:', robotId);
+        const responseTime = Date.now() - startTime;
+        await recordCallbackHistory(robotId, '5', requestId, 404, `机器人不存在: ${robotId}`, { responseTime });
+        return reply.status(404).send(errorResponse(404, `机器人不存在: ${robotId}`));
+      }
+
+      // 记录审计日志
+      await auditLogger.log('robot_online_callback', 'worktool', {
+        requestId,
+        robotId,
+        callbackData
+      });
+
+      // 记录监控指标
+      await monitorService.recordSystemMetric('callback_received', 1, {
+        type: 'robot_online',
+        robotId
+      });
+
+      // 记录回调历史
+      const responseTime = Date.now() - startTime;
+      await recordCallbackHistory(robotId, '5', requestId, 0, '', { 
+        responseTime,
+        status: callbackData.status,
+        timestamp: callbackData.timestamp
+      });
+
+      // 更新机器人状态为在线
+      await robotService.updateRobotStatus(robotId, true);
+      console.log('机器人上线:', robotId);
+
+      reply.send(successResponse({}, 'success'));
+
+    } catch (error) {
+      console.error('处理机器人上线回调失败:', error);
+      const responseTime = Date.now() - startTime;
+      await recordCallbackHistory(robotId, '5', requestId, 500, error.message, { responseTime });
+
+      reply.status(500).send(errorResponse(500, error.message));
+    }
+  });
+
+  /**
+   * 机器人下线回调
+   * 
+   * 请求参数：
+   * - status: 状态（6=下线）
+   * - timestamp: 时间戳
+   */
+  fastify.post('/robot-offline', {
+    preHandler: [verifySignatureMiddleware]
+  }, async (request, reply) => {
+    const startTime = Date.now();
+    const requestId = generateRequestId();
+    const callbackData = request.body;
+    const { robotId } = request.query;
+
+    try {
+      // 验证 robotId
+      if (!robotId) {
+        console.error('缺少 robotId 参数');
+        const responseTime = Date.now() - startTime;
+        await recordCallbackHistory('', '6', requestId, 400, '缺少 robotId 参数', { responseTime });
+        return reply.status(400).send(errorResponse(400, '缺少 robotId 参数'));
+      }
+
+      // 查询机器人配置
+      const robot = await robotService.getRobotByRobotId(robotId);
+      if (!robot) {
+        console.error('机器人不存在:', robotId);
+        const responseTime = Date.now() - startTime;
+        await recordCallbackHistory(robotId, '6', requestId, 404, `机器人不存在: ${robotId}`, { responseTime });
+        return reply.status(404).send(errorResponse(404, `机器人不存在: ${robotId}`));
+      }
+
+      // 记录审计日志
+      await auditLogger.log('robot_offline_callback', 'worktool', {
+        requestId,
+        robotId,
+        callbackData
+      });
+
+      // 记录监控指标
+      await monitorService.recordSystemMetric('callback_received', 1, {
+        type: 'robot_offline',
+        robotId
+      });
+
+      // 记录回调历史
+      const responseTime = Date.now() - startTime;
+      await recordCallbackHistory(robotId, '6', requestId, 0, '', { 
+        responseTime,
+        status: callbackData.status,
+        timestamp: callbackData.timestamp
+      });
+
+      // 更新机器人状态为离线
+      await robotService.updateRobotStatus(robotId, false);
+      console.log('机器人下线:', robotId);
+
+      reply.send(successResponse({}, 'success'));
+
+    } catch (error) {
+      console.error('处理机器人下线回调失败:', error);
+      const responseTime = Date.now() - startTime;
+      await recordCallbackHistory(robotId, '6', requestId, 500, error.message, { responseTime });
+
+      reply.status(500).send(errorResponse(500, error.message));
+    }
+  });
+
+  /**
+   * 机器人状态回调（上线/下线）- 兼容旧接口
    * 
    * 请求参数：
    * - status: 状态（5=上线 6=下线）
