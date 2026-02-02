@@ -101,6 +101,36 @@ exports.robots = pgTable(
   })
 );
 
+// 回调历史记录表
+exports.callbackHistory = pgTable(
+  "callback_history",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    robotId: varchar("robot_id", { length: 64 }).notNull(), // WorkTool Robot ID
+    messageId: varchar("message_id", { length: 128 }).notNull(), // 消息ID
+    callbackType: integer("callback_type").notNull(), // 回调类型: 0=群二维码, 1=指令结果, 5=上线, 6=下线, 11=消息
+    errorCode: integer("error_code").notNull(), // 错误码: 0=成功
+    errorReason: text("error_reason").notNull(), // 错误原因
+    runTime: integer("run_time"), // 执行时间戳（毫秒）
+    timeCost: integer("time_cost"), // 指令执行耗时（毫秒）
+    commandType: integer("command_type"), // 指令类型
+    rawMsg: text("raw_msg"), // 原始指令
+    extraData: jsonb("extra_data"), // 额外数据（JSON格式，包含 successList, failList, groupName, qrCode 等）
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    robotIdIdx: index("callback_history_robot_id_idx").on(table.robotId),
+    messageIdIdx: index("callback_history_message_id_idx").on(table.messageId),
+    callbackTypeIdx: index("callback_history_callback_type_idx").on(table.callbackType),
+    errorCodeIdx: index("callback_history_error_code_idx").on(table.errorCode),
+    createdAtIdx: index("callback_history_created_at_idx").on(table.createdAt),
+  })
+);
+
 // Zod schemas for validation
 exports.insertUserSchema = z.object({
   username: z.string().min(1).max(64),
@@ -172,3 +202,16 @@ exports.updateRobotSchema = z.object({
   status: z.enum(['online', 'offline', 'unknown', 'error']).optional(),
   lastError: z.string().optional()
 }).partial();
+
+exports.insertCallbackHistorySchema = z.object({
+  robotId: z.string().min(1).max(64),
+  messageId: z.string().min(1).max(128),
+  callbackType: z.number().int(),
+  errorCode: z.number().int(),
+  errorReason: z.string(),
+  runTime: z.number().int().optional(),
+  timeCost: z.number().int().optional(),
+  commandType: z.number().int().optional(),
+  rawMsg: z.string().optional(),
+  extraData: z.any().optional(),
+});
