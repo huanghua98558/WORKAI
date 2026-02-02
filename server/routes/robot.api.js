@@ -408,16 +408,18 @@ const robotApiRoutes = async function (fastify, options) {
 
       // 调用 WorkTool 配置接口
       const axios = require('axios');
-      const updateUrl = `${robot.apiBaseUrl.replace(/\/$/, '')}/robot/robotInfo/update`;
+
+      // 从 apiBaseUrl 提取基础地址（去除 /wework/ 等路径）
+      const baseUrl = robot.apiBaseUrl.replace(/\/wework\/?$/, '').replace(/\/$/, '');
+      const updateUrl = `${baseUrl}/robot/robotInfo/update`;
 
       const response = await axios.post(updateUrl, {
         openCallback: 1,
-        replyAll: 1,
+        replyAll: '1',  // 注意：根据文档，replyAll 是字符串类型
         callbackUrl: callbackUrl
       }, {
         headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': worktoolApiKey
+          'Content-Type': 'application/json'
         },
         params: {
           robotId: robot.robotId,
