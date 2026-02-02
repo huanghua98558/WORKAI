@@ -6,6 +6,7 @@
 const aiService = require('./ai.service');
 const sessionService = require('./session.service');
 const worktoolService = require('./worktool.service');
+const humanHandoverService = require('./human-handover.service');
 const config = require('../lib/config');
 const redisClient = require('../lib/redis');
 
@@ -76,7 +77,12 @@ class DecisionService {
 
     // 风险内容：强制转人工
     if (intent === 'risk' || needHuman) {
-      await sessionService.markAsRisky(session.sessionId, `意图: ${intent}`);
+      // 使用人工转接服务
+      const handoverResult = await humanHandoverService.handoverRiskContent(
+        session,
+        `意图: ${intent}`,
+        context
+      );
       
       // 触发告警
       await this.triggerAlert('risk_content', {
@@ -89,7 +95,8 @@ class DecisionService {
       return {
         action: 'takeover_human',
         reason: '检测到风险内容，转人工处理',
-        intent: intentResult
+        intent: intentResult,
+        ...handoverResult
       };
     }
 

@@ -59,6 +59,7 @@ const adminApiRoutes = async function (fastify, options) {
       alert: {
         rules: config.get('alert.rules')
       },
+      humanHandover: config.get('humanHandover'),
       tencentDoc: {
         enabled: config.get('tencentDoc.enabled')
       }
@@ -118,8 +119,17 @@ const adminApiRoutes = async function (fastify, options) {
    * 获取回调地址
    */
   fastify.get('/callbacks', async (request, reply) => {
-    const callbacks = config.getAllCallbackUrls();
-    const baseUrl = config.getCallbackBaseUrl();
+    let baseUrl = config.getCallbackBaseUrl();
+    
+    // 如果没有配置 baseUrl，尝试从请求头中获取
+    if (!baseUrl) {
+      const host = request.headers['x-forwarded-host'] || request.headers['host'] || 'localhost:5001';
+      const protocol = request.headers['x-forwarded-proto'] || (request.headers['host']?.includes('localhost') ? 'http' : 'https');
+      baseUrl = `${protocol}://${host}`;
+      
+      // 更新配置文件
+      config.set('deployment.callbackBaseUrl', baseUrl);
+    }
     
     return {
       success: true,

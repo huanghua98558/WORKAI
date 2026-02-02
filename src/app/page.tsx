@@ -59,7 +59,8 @@ import {
   Info,
   Sliders,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Plus
 } from 'lucide-react';
 
 // 类型定义
@@ -1354,9 +1355,13 @@ ${callbacks.robotStatus}
     const config = aiConfig?.ai?.[type as keyof typeof aiConfig.ai];
     const builtinModels = aiConfig?.ai?.builtinModels || [];
     
+    console.log(`[${type}] aiConfig:`, aiConfig);
+    console.log(`[${type}] builtinModels count:`, builtinModels.length);
+    
     // 只在第一次加载或配置真正变化时初始化
     useEffect(() => {
       if (!initializedRef.current && config) {
+        console.log(`[${type}] 初始化配置:`, config);
         setUseBuiltin(config.useBuiltin);
         setBuiltinModelId(config.builtinModelId || '');
         if (config.customModel) {
@@ -1981,6 +1986,79 @@ ${callbacks.robotStatus}
 
             <Button onClick={saveSettings} className="w-full">
               保存设置
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* 人工坐席配置 */}
+        <Card className="border-2 border-blue-200 dark:border-blue-900">
+          <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              人工坐席配置
+            </CardTitle>
+            <CardDescription className="text-blue-100">
+              配置风险转人工的目标坐席和分配策略
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-6">
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">启用人工转接</label>
+                <p className="text-xs text-muted-foreground">检测到风险内容时自动转人工处理</p>
+              </div>
+              <Switch defaultChecked />
+            </div>
+
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">转接模式</label>
+                <p className="text-xs text-muted-foreground">选择自动转接或手动转接</p>
+              </div>
+              <select className="px-3 py-2 border rounded-md text-sm">
+                <option value="risk">风险内容自动转人工</option>
+                <option value="manual">手动转人工</option>
+                <option value="all">所有消息转人工</option>
+              </select>
+            </div>
+
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">分配策略</label>
+                <p className="text-xs text-muted-foreground">选择坐席分配方式</p>
+              </div>
+              <select className="px-3 py-2 border rounded-md text-sm">
+                <option value="round_robin">轮询分配</option>
+                <option value="priority">优先级分配</option>
+                <option value="load_balance">负载均衡</option>
+              </select>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">人工坐席列表</label>
+                <Button variant="outline" size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  添加坐席
+                </Button>
+              </div>
+              
+              <div className="text-sm text-muted-foreground p-4 border rounded-lg bg-muted/30">
+                暂无配置人工坐席。请点击上方按钮添加。
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">用户通知消息</label>
+              <textarea
+                placeholder="输入转人工时给用户的通知消息..."
+                defaultValue="您的会话已转人工处理，请稍候..."
+                className="w-full min-h-[80px] px-3 py-2 border rounded-md text-sm resize-vertical"
+              />
+            </div>
+
+            <Button onClick={saveSettings} className="w-full">
+              保存配置
             </Button>
           </CardContent>
         </Card>

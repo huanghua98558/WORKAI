@@ -204,6 +204,25 @@
       }
     ]
   },
+  "humanHandover": {
+    "enabled": true,
+    "autoMode": "risk", // risk: 风险内容自动转人工, manual: 手动转人工
+    "agents": [
+      {
+        "id": "agent1",
+        "name": "人工坐席1",
+        "userId": "user123",
+        "type": "group", // group 或 private
+        "avatar": "",
+        "status": "online",
+        "priority": 1,
+        "specialties": ["service", "risk"]
+      }
+    ],
+    "handoverStrategy": "round_robin", // round_robin: 轮询, priority: 优先级, load_balance: 负载均衡
+    "notificationMessage": "您的会话已转人工处理，请稍候...",
+    "timeoutMinutes": 30
+  },
   "tencentDoc": {
     "enabled": false,
     "apiBaseUrl": "",
