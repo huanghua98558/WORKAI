@@ -1635,6 +1635,9 @@ ${callbacks.robotStatus}
                   <SelectItem value="help">帮助请求</SelectItem>
                   <SelectItem value="chat">闲聊</SelectItem>
                   <SelectItem value="welcome">欢迎</SelectItem>
+                  <SelectItem value="risk">风险内容</SelectItem>
+                  <SelectItem value="spam">垃圾信息</SelectItem>
+                  <SelectItem value="admin">管理指令</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1700,6 +1703,12 @@ ${callbacks.robotStatus}
                             <Badge variant="outline" className="gap-1">
                               <Sparkles className="h-3 w-3" />
                               {session.lastIntent}
+                            </Badge>
+                          )}
+                          {session.aiReplyCount > 0 && (
+                            <Badge variant="outline" className="gap-1 border-green-500 text-green-600 dark:text-green-400">
+                              <CheckCircle className="h-3 w-3" />
+                              已回复
                             </Badge>
                           )}
                         </div>
@@ -4569,21 +4578,13 @@ ${callbacks.robotStatus}
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">仪表盘</span>
             </TabsTrigger>
-            <TabsTrigger value="callbacks" className="gap-2 py-2">
-              <Link2 className="h-4 w-4" />
-              <span className="hidden sm:inline">回调中心</span>
+            <TabsTrigger value="sessions" className="gap-2 py-2">
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">会话管理</span>
             </TabsTrigger>
             <TabsTrigger value="robots" className="gap-2 py-2">
               <Bot className="h-4 w-4" />
               <span className="hidden sm:inline">机器人管理</span>
-            </TabsTrigger>
-            <TabsTrigger value="qa" className="gap-2 py-2">
-              <Database className="h-4 w-4" />
-              <span className="hidden sm:inline">QA 问答库</span>
-            </TabsTrigger>
-            <TabsTrigger value="sessions" className="gap-2 py-2">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">会话管理</span>
             </TabsTrigger>
             <TabsTrigger value="monitor" className="gap-2 py-2">
               <Activity className="h-4 w-4" />
@@ -4597,9 +4598,17 @@ ${callbacks.robotStatus}
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">报告中心</span>
             </TabsTrigger>
+            <TabsTrigger value="callbacks" className="gap-2 py-2">
+              <Link2 className="h-4 w-4" />
+              <span className="hidden sm:inline">回调中心</span>
+            </TabsTrigger>
             <TabsTrigger value="users" className="gap-2 py-2">
               <UserCheck className="h-4 w-4" />
               <span className="hidden sm:inline">用户管理</span>
+            </TabsTrigger>
+            <TabsTrigger value="qa" className="gap-2 py-2">
+              <Database className="h-4 w-4" />
+              <span className="hidden sm:inline">问答库</span>
             </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2 py-2">
               <Settings className="h-4 w-4" />
