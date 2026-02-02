@@ -12,6 +12,9 @@ const adminApiRoutes = async function (fastify, options) {
   const aiService = require('../services/ai.service');
   const worktoolService = require('../services/worktool.service');
 
+  // 数据库管理器
+  const { userManager, systemSettingManager } = require('../database');
+
   /**
    * 获取系统配置
    */
@@ -673,7 +676,12 @@ const adminApiRoutes = async function (fastify, options) {
    */
   fastify.get('/users', async (request, reply) => {
     try {
-      const users = config.get('users', []);
+      const { skip, limit, filters } = request.query;
+      const users = await userManager.getUsers({
+        skip: parseInt(skip) || 0,
+        limit: parseInt(limit) || 100,
+        filters: filters ? JSON.parse(filters) : undefined
+      });
       return { success: true, data: users };
     } catch (error) {
       return reply.status(500).send({
@@ -688,7 +696,7 @@ const adminApiRoutes = async function (fastify, options) {
    */
   fastify.post('/users', async (request, reply) => {
     try {
-      const { username, password, role, name, wechatId } = request.body;
+      const { username, password, role, email, isActive } = request.body;
       
       if (!username || !password || !role) {
         return reply.status(400).send({
@@ -697,36 +705,40 @@ const adminApiRoutes = async function (fastify, options) {
         });
       }
       
-      if (!['admin', 'monitor'].includes(role)) {
+      if (!['admin', 'operator'].includes(role)) {
         return reply.status(400).send({
           success: false,
-          error: '角色必须是 admin 或 monitor'
+          error: '角色必须是 admin 或 operator'
         });
       }
       
-      const users = config.get('users', []);
-      
       // 检查用户名是否已存在
-      if (users.find((u) => u.username === username)) {
+      const existingUser = await userManager.getUserByUsername(username);
+      if (existingUser) {
         return reply.status(400).send({
           success: false,
           error: '用户名已存在'
         });
       }
       
-      const newUser = {
-        id: `user_${Date.now()}`,
+      // 检查邮箱是否已存在
+      if (email) {
+        const existingEmail = await userManager.getUserByEmail(email);
+        if (existingEmail) {
+          return reply.status(400).send({
+            success: false,
+            error: '邮箱已存在'
+          });
+        }
+      }
+      
+      const newUser = await userManager.createUser({
         username,
         password, // 实际项目中应该加密存储
         role,
-        name: name || username,
-        wechatId: wechatId || '',
-        enabled: true,
-        createdAt: new Date().toISOString()
-      };
-      
-      users.push(newUser);
-      config.set('users', users);
+        email: email || null,
+        isActive: isActive !== undefined ? isActive : true
+      });
       
       return { success: true, data: newUser };
     } catch (error) {
@@ -743,46 +755,53 @@ const adminApiRoutes = async function (fastify, options) {
   fastify.put('/users/:id', async (request, reply) => {
     try {
       const { id } = request.params;
-      const { password, role, name, wechatId, enabled } = request.body;
+      const { password, role, email, isActive } = request.body;
       
-      const users = config.get('users', []);
-      const userIndex = users.findIndex((u) => u.id === id);
-      
-      if (userIndex === -1) {
+      // 检查用户是否存在
+      const existingUser = await userManager.getUserById(id);
+      if (!existingUser) {
         return reply.status(404).send({
           success: false,
           error: '用户不存在'
         });
       }
       
-      // 更新用户信息
-      if (password !== undefined) {
-        users[userIndex].password = password;
-      }
-      if (role !== undefined) {
-        if (!['admin', 'monitor'].includes(role)) {
+      // 检查邮箱是否已被其他用户使用
+      if (email && email !== existingUser.email) {
+        const existingEmail = await userManager.getUserByEmail(email);
+        if (existingEmail) {
           return reply.status(400).send({
             success: false,
-            error: '角色必须是 admin 或 monitor'
+            error: '邮箱已被其他用户使用'
           });
         }
-        users[userIndex].role = role;
-      }
-      if (name !== undefined) {
-        users[userIndex].name = name;
-      }
-      if (wechatId !== undefined) {
-        users[userIndex].wechatId = wechatId;
-      }
-      if (enabled !== undefined) {
-        users[userIndex].enabled = enabled;
       }
       
-      users[userIndex].updatedAt = new Date().toISOString();
+      // 检查角色是否有效
+      if (role !== undefined && !['admin', 'operator'].includes(role)) {
+        return reply.status(400).send({
+          success: false,
+          error: '角色必须是 admin 或 operator'
+        });
+      }
       
-      config.set('users', users);
+      const updateData = {};
+      if (password !== undefined) {
+        updateData.password = password;
+      }
+      if (role !== undefined) {
+        updateData.role = role;
+      }
+      if (email !== undefined) {
+        updateData.email = email;
+      }
+      if (isActive !== undefined) {
+        updateData.isActive = isActive;
+      }
       
-      return { success: true, data: users[userIndex] };
+      const updatedUser = await userManager.updateUser(id, updateData);
+      
+      return { success: true, data: updatedUser };
     } catch (error) {
       return reply.status(500).send({
         success: false,
@@ -798,22 +817,181 @@ const adminApiRoutes = async function (fastify, options) {
     try {
       const { id } = request.params;
       
-      const users = config.get('users', []);
-      const userIndex = users.findIndex((u) => u.id === id);
-      
-      if (userIndex === -1) {
+      const existingUser = await userManager.getUserById(id);
+      if (!existingUser) {
         return reply.status(404).send({
           success: false,
           error: '用户不存在'
         });
       }
       
-      const deletedUser = users[userIndex];
-      users.splice(userIndex, 1);
+      const success = await userManager.deleteUser(id);
       
-      config.set('users', users);
+      if (!success) {
+        return reply.status(500).send({
+          success: false,
+          error: '删除用户失败'
+        });
+      }
       
-      return { success: true, data: deletedUser };
+      return { success: true, data: existingUser };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // ============ 系统设置管理 API ============
+
+  /**
+   * 获取系统设置列表
+   */
+  fastify.get('/settings', async (request, reply) => {
+    try {
+      const { skip, limit, filters } = request.query;
+      const settings = await systemSettingManager.getSettings({
+        skip: parseInt(skip) || 0,
+        limit: parseInt(limit) || 100,
+        filters: filters ? JSON.parse(filters) : undefined
+      });
+      return { success: true, data: settings };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 获取系统设置（按 Key）
+   */
+  fastify.get('/settings/:key', async (request, reply) => {
+    try {
+      const { key } = request.params;
+      const setting = await systemSettingManager.getSettingByKey(key);
+      
+      if (!setting) {
+        return reply.status(404).send({
+          success: false,
+          error: '设置不存在'
+        });
+      }
+      
+      return { success: true, data: setting };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 创建或更新系统设置
+   */
+  fastify.post('/settings', async (request, reply) => {
+    try {
+      const { key, value, category, description, updatedBy } = request.body;
+      
+      if (!key || value === undefined) {
+        return reply.status(400).send({
+          success: false,
+          error: 'key 和 value 不能为空'
+        });
+      }
+      
+      const setting = await systemSettingManager.upsertSetting(
+        key,
+        value,
+        category || 'general',
+        description,
+        updatedBy
+      );
+      
+      return { success: true, data: setting };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 更新系统设置
+   */
+  fastify.put('/settings/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const { value, description, updatedBy } = request.body;
+      
+      const existingSetting = await systemSettingManager.getSettingById(id);
+      if (!existingSetting) {
+        return reply.status(404).send({
+          success: false,
+          error: '设置不存在'
+        });
+      }
+      
+      const updatedSetting = await systemSettingManager.updateSetting(id, {
+        value: value !== undefined ? value : existingSetting.value,
+        description: description !== undefined ? description : existingSetting.description,
+        updatedAtBy: updatedBy
+      });
+      
+      return { success: true, data: updatedSetting };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 删除系统设置
+   */
+  fastify.delete('/settings/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      
+      const existingSetting = await systemSettingManager.getSettingById(id);
+      if (!existingSetting) {
+        return reply.status(404).send({
+          success: false,
+          error: '设置不存在'
+        });
+      }
+      
+      const success = await systemSettingManager.deleteSetting(id);
+      
+      if (!success) {
+        return reply.status(500).send({
+          success: false,
+          error: '删除设置失败'
+        });
+      }
+      
+      return { success: true, data: existingSetting };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 按类别获取设置
+   */
+  fastify.get('/settings/category/:category', async (request, reply) => {
+    try {
+      const { category } = request.params;
+      const settings = await systemSettingManager.getSettingsByCategory(category);
+      return { success: true, data: settings };
     } catch (error) {
       return reply.status(500).send({
         success: false,

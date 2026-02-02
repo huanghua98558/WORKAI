@@ -16,7 +16,11 @@
     "ioredis": "^5.9.2",
     "axios": "^1.13.4",
     "dotenv": "^17.2.3",
-    "openai": "^6.17.0"
+    "openai": "^6.17.0",
+    "drizzle-orm": "^0.45.1",
+    "pg": "^8.16.3",
+    "zod": "^4.3.6",
+    "coze-coding-dev-sdk": "^0.7.3"
   },
   "engines": {
     "node": ">=18.0.0"
