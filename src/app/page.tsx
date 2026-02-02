@@ -5,9 +5,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import RobotManagement from '@/components/robot-management';
 import { 
   BarChart3, 
@@ -72,6 +88,8 @@ import {
   Building2,
   TestTube
 } from 'lucide-react';
+
+import DebugDialog from '@/components/debug-dialog';
 
 // 类型定义
 interface CallbackUrl {
@@ -174,6 +192,7 @@ export default function AdminDashboard() {
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'loading'>('loading');
   const [aiConfig, setAiConfig] = useState<any>(null);
   const [isLoadingAiConfig, setIsLoadingAiConfig] = useState(false);
+  const [showDebugDialog, setShowDebugDialog] = useState(false);
 
   // 初始化加载（只执行一次）
   useEffect(() => {
@@ -4166,7 +4185,7 @@ ${callbacks.robotStatus}
                   </Button>
                 </li>
                 <li>
-                  <Button variant="ghost" className="h-auto p-0 text-left text-blue-600 hover:text-blue-700" onClick={() => window.open('/debug', '_blank')}>
+                  <Button variant="ghost" className="h-auto p-0 text-left text-blue-600 hover:text-blue-700" onClick={() => setShowDebugDialog(true)}>
                     <TestTube className="h-3 w-3 mr-1 inline" />
                     调试功能
                   </Button>
@@ -4177,24 +4196,52 @@ ${callbacks.robotStatus}
             {/* 联系方式 */}
             <div>
               <h5 className="font-semibold mb-4 text-gray-900 dark:text-white">联系我们</h5>
-              <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
-                <li className="flex items-start gap-2">
-                  <Globe className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                  <div className="space-y-1">
-                    <span className="block">手机号:</span>
-                    <span className="block ml-4">1: 13337289759</span>
-                    <span className="block ml-4">2: 18474358043</span>
-                  </div>
-                </li>
-                <li className="flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4" />
-                  <span>微信: xhy12040523</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Globe className="h-4 w-4" />
-                  <span>QQ: 1823985558</span>
-                </li>
-              </ul>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <Card className="border-2 border-blue-100 dark:border-blue-900/50 hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                        <MessageCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">手机号</div>
+                        <div className="space-y-1">
+                          <div className="text-gray-600 dark:text-gray-400">13337289759</div>
+                          <div className="text-gray-600 dark:text-gray-400">18474358043</div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-2 border-green-100 dark:border-green-900/50 hover:border-green-300 dark:hover:border-green-700 transition-colors">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                        <MessageCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">微信</div>
+                        <div className="text-gray-600 dark:text-gray-400">xhy12040523</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-2 border-purple-100 dark:border-purple-900/50 hover:border-purple-300 dark:hover:border-purple-700 transition-colors md:col-span-2">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                        <Globe className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">QQ</div>
+                        <div className="text-gray-600 dark:text-gray-400">1823985558</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </div>
 
@@ -4211,6 +4258,8 @@ ${callbacks.robotStatus}
           </div>
         </div>
       </footer>
+
+      <DebugDialog open={showDebugDialog} onOpenChange={setShowDebugDialog} />
     </div>
   );
 }
