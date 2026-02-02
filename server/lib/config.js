@@ -79,24 +79,12 @@ class ConfigManager {
   }
 
   getCallbackBaseUrl() {
-    // 1. 优先使用环境变量
+    // 1. 优先使用环境变量（推荐用于生产环境）
     if (process.env.CALLBACK_BASE_URL) {
       return process.env.CALLBACK_BASE_URL;
     }
     
-    // 2. 尝试从数据库读取（延迟加载以避免循环依赖）
-    try {
-      const db = require('../database/index.js');
-      const setting = db.systemSettings.getByKey('deployment.callbackBaseUrl');
-      if (setting && setting.value) {
-        return setting.value;
-      }
-    } catch (error) {
-      // 数据库未初始化或读取失败，忽略错误
-      console.log('⚠️  数据库配置读取失败，使用配置文件');
-    }
-    
-    // 3. 使用配置文件
+    // 2. 使用配置文件
     return this.get('deployment.callbackBaseUrl', 'http://localhost:5001');
   }
 
