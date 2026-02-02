@@ -3601,7 +3601,23 @@ ${callbacks.robotStatus}
     const [chatProbability, setChatProbability] = useState(30);
     const [serviceReplyEnabled, setServiceReplyEnabled] = useState(true);
     const [riskAutoHuman, setRiskAutoHuman] = useState(true);
-    const [activeAiTab, setActiveAiTab] = useState('intentRecognition');
+    
+    // 使用 localStorage 保存用户的标签页选择
+    const [activeAiTab, setActiveAiTab] = useState(() => {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('aiConfigTab');
+        return saved || 'intentRecognition';
+      }
+      return 'intentRecognition';
+    });
+
+    // 当标签页变化时，保存到 localStorage
+    const handleTabChange = (value: string) => {
+      setActiveAiTab(value);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('aiConfigTab', value);
+      }
+    };
 
     // 移除内部加载逻辑，使用父组件传入的状态
     // const [aiConfig, setAiConfig] = useState<any>(null);
@@ -3744,7 +3760,7 @@ ${callbacks.robotStatus}
                 </div>
               </div>
             ) : (
-              <Tabs value={activeAiTab} onValueChange={setActiveAiTab} className="space-y-4">
+              <Tabs value={activeAiTab} onValueChange={handleTabChange} className="space-y-4">
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="intentRecognition">意图判断</TabsTrigger>
                   <TabsTrigger value="serviceChat">客服与闲聊</TabsTrigger>
