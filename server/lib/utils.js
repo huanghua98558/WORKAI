@@ -99,19 +99,21 @@ class IdempotencyChecker {
 
   async check(key) {
     const idempotencyKey = `idempotency:${key}`;
-    const exists = await this.redis.exists(idempotencyKey);
+    const redisClient = await this.redis; // 确保 redis 已初始化
+    const exists = await redisClient.exists(idempotencyKey);
     
     if (exists) {
       return false; // 已处理过，拒绝重复
     }
 
-    await this.redis.setex(idempotencyKey, this.ttl, '1');
+    await redisClient.setex(idempotencyKey, this.ttl, '1');
     return true; // 首次处理
   }
 
   async clear(key) {
     const idempotencyKey = `idempotency:${key}`;
-    await this.redis.del(idempotencyKey);
+    const redisClient = await this.redis; // 确保 redis 已初始化
+    await redisClient.del(idempotencyKey);
   }
 }
 
@@ -210,18 +212,20 @@ class AuditLogger {
     };
 
     const key = `${this.keyPrefix}${formatDate()}`;
-    await this.redis.lpush(key, JSON.stringify(logEntry));
-    await this.redis.expire(key, this.retentionDays * 24 * 3600);
+    const redisClient = await this.redis; // 确保 redis 已初始化
+    await redisClient.lpush(key, JSON.stringify(logEntry));
+    await redisClient.expire(key, this.retentionDays * 24 * 3600);
 
     return logEntry;
   }
 
   async query(filters = {}, limit = 100) {
-    const keys = await this.redis.keys(`${this.keyPrefix}*`);
+    const redisClient = await this.redis; // 确保 redis 已初始化
+    const keys = await redisClient.keys(`${this.keyPrefix}*`);
     const logs = [];
 
     for (const key of keys.slice(0, 10)) { // 限制查询最近10天
-      const entries = await this.redis.lrange(key, 0, limit);
+      const entries = await redisClient.lrange(key, 0, limit);
       for (const entry of entries) {
         const log = JSON.parse(entry);
         if (this.matchFilters(log, filters)) {

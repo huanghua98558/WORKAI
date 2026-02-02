@@ -17,7 +17,20 @@ const worktoolCallbackRoutes = async function (fastify, options) {
   const sessionService = require('../services/session.service');
   const config = require('../lib/config');
 
-  const redis = redisClient.getClient();
+  // WorkTool 标准响应格式
+  const successResponse = (data = {}, message = 'success') => ({
+    code: 0,
+    msg: message,
+    data
+  });
+
+  const errorResponse = (code = -1, message = 'error', data = null) => ({
+    code,
+    msg: message,
+    data
+  });
+
+  const redis = await redisClient.getClient();
   const idempotencyChecker = new IdempotencyChecker(redis);
   const auditLogger = new AuditLogger(redis);
 
@@ -29,10 +42,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
     const secret = config.get('callback.signatureSecret');
     
     if (!verifySignature(payload, signature, secret)) {
-      return reply.status(403).send({
-        success: false,
-        error: '签名验证失败'
-      });
+      return reply.status(403).send(errorResponse(403, '签名验证失败'));
     }
   };
 
@@ -42,10 +52,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
     const isOpen = await alertService.isCircuitBreakerOpen();
 
     if (isOpen) {
-      return reply.status(503).send({
-        success: false,
-        error: '服务暂时不可用（熔断中）'
-      });
+      return reply.status(503).send(errorResponse(503, '服务暂时不可用（熔断中）'));
     }
   };
 
@@ -64,7 +71,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
       const isAllowed = await idempotencyChecker.check(idempotencyKey);
       
       if (!isAllowed) {
-        return reply.send({ success: true, message: '重复回调，已处理' });
+        return reply.send(successResponse({}, '重复回调，已处理'));
       }
 
       // 记录审计日志
@@ -126,11 +133,10 @@ const worktoolCallbackRoutes = async function (fastify, options) {
       await monitorService.recordUserMetric(message.fromId, message.toId, 'messages', 1);
       await monitorService.recordSystemMetric(`intent_${decision.intent?.intent || 'unknown'}`, 1);
 
-      reply.send({
-        success: true,
+      reply.send(successResponse({
         requestId,
         decision
-      });
+      }, '消息处理成功'));
 
     } catch (error) {
       console.error('处理消息回调失败:', error);
@@ -139,10 +145,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
         error: error.message
       });
 
-      reply.status(500).send({
-        success: false,
-        error: error.message
-      });
+      reply.status(500).send(errorResponse(500, error.message));
     }
   });
 
@@ -161,7 +164,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
       const isAllowed = await idempotencyChecker.check(idempotencyKey);
       
       if (!isAllowed) {
-        return reply.send({ success: true, message: '重复回调，已处理' });
+        return reply.send(successResponse({}, '重复回调，已处理'));
       }
 
       // 记录审计日志
@@ -200,10 +203,9 @@ const worktoolCallbackRoutes = async function (fastify, options) {
         success: callbackData.success
       });
 
-      reply.send({
-        success: true,
+      reply.send(successResponse({
         requestId
-      });
+      }, '指令执行结果处理成功'));
 
     } catch (error) {
       console.error('处理指令执行结果回调失败:', error);
@@ -212,10 +214,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
         error: error.message
       });
 
-      reply.status(500).send({
-        success: false,
-        error: error.message
-      });
+      reply.status(500).send(errorResponse(500, error.message));
     }
   });
 
@@ -234,7 +233,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
       const isAllowed = await idempotencyChecker.check(idempotencyKey);
       
       if (!isAllowed) {
-        return reply.send({ success: true, message: '重复回调，已处理' });
+        return reply.send(successResponse({}, '重复回调，已处理'));
       }
 
       // 记录审计日志
@@ -256,10 +255,9 @@ const worktoolCallbackRoutes = async function (fastify, options) {
         updateTime: new Date().toISOString()
       }));
 
-      reply.send({
-        success: true,
+      reply.send(successResponse({
         requestId
-      });
+      }, '群二维码处理成功'));
 
     } catch (error) {
       console.error('处理群二维码回调失败:', error);
@@ -268,10 +266,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
         error: error.message
       });
 
-      reply.status(500).send({
-        success: false,
-        error: error.message
-      });
+      reply.status(500).send(errorResponse(500, error.message));
     }
   });
 
@@ -290,7 +285,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
       const isAllowed = await idempotencyChecker.check(idempotencyKey);
       
       if (!isAllowed) {
-        return reply.send({ success: true, message: '重复回调，已处理' });
+        return reply.send(successResponse({}, '重复回调，已处理'));
       }
 
       // 记录审计日志
@@ -322,10 +317,9 @@ const worktoolCallbackRoutes = async function (fastify, options) {
         });
       }
 
-      reply.send({
-        success: true,
+      reply.send(successResponse({
         requestId
-      });
+      }, '机器人状态更新成功'));
 
     } catch (error) {
       console.error('处理机器人状态回调失败:', error);
@@ -334,10 +328,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
         error: error.message
       });
 
-      reply.status(500).send({
-        success: false,
-        error: error.message
-      });
+      reply.status(500).send(errorResponse(500, error.message));
     }
   });
 };

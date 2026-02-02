@@ -34,6 +34,9 @@ export async function GET(
       headers['host'] = host;
     }
 
+    // 传递后端的真实地址，用于生成回调地址
+    headers['x-backend-url'] = BACKEND_URL;
+
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers,
@@ -78,6 +81,9 @@ export async function POST(
       headers['x-forwarded-proto'] = proto;
       headers['host'] = host;
     }
+
+    // 传递后端的真实地址，用于生成回调地址
+    headers['x-backend-url'] = BACKEND_URL;
 
     const response = await fetch(url.toString(), {
       method: 'POST',

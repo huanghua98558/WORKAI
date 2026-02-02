@@ -10,7 +10,11 @@ const redisClient = require('../lib/redis');
 
 class AlertService {
   constructor() {
-    this.redis = redisClient.getClient();
+    this.redisPromise = redisClient.getClient();
+  }
+
+  async getRedis() {
+    return await this.redisPromise;
   }
 
   /**
@@ -147,7 +151,8 @@ class AlertService {
     };
 
     // 记录告警
-    await this.redis.setex(alertId, 86400, JSON.stringify(alertData)); // 保存24小时
+    const redis = await this.getRedis();
+    await redis.setex(alertId, 86400, JSON.stringify(alertData)); // 保存24小时
 
     // 执行告警动作
     for (const action of rule.actions) {
@@ -155,7 +160,7 @@ class AlertService {
     }
 
     // 发布告警事件
-    await this.redis.publish('alert:triggered', JSON.stringify(alertData));
+    await redis.publish('alert:triggered', JSON.stringify(alertData));
 
     console.log(`🚨 告警触发: [${rule.level}] ${rule.name}`);
     
@@ -236,7 +241,8 @@ class AlertService {
    * 禁用 AI（全局熔断）
    */
   async disableAI() {
-    await this.redis.set('circuit_breaker:enabled', 'true');
+    const redis = await this.getRedis();
+    await redis.set('circuit_breaker:enabled', 'true');
     console.log('🧯 AI 已被全局禁用（熔断）');
   }
 
@@ -245,11 +251,12 @@ class AlertService {
    */
   async getAlertHistory(limit = 50) {
     const pattern = 'alert:*';
-    const keys = await this.redis.keys(pattern);
+    const redis = await this.getRedis();
+    const keys = await redis.keys(pattern);
     
     const alerts = [];
     for (const key of keys.slice(-limit)) {
-      const data = await this.redis.get(key);
+      const data = await redis.get(key);
       if (data) {
         alerts.push(JSON.parse(data));
       }
@@ -265,7 +272,8 @@ class AlertService {
    */
   async getAlertStats(days = 7) {
     const pattern = 'alert:*';
-    const keys = await this.redis.keys(pattern);
+    const redis = await this.getRedis();
+    const keys = await redis.keys(pattern);
     
     const stats = {
       total: 0,
@@ -282,7 +290,7 @@ class AlertService {
     const daysAgo = now - days * 24 * 3600000;
 
     for (const key of keys) {
-      const data = await this.redis.get(key);
+      const data = await redis.get(key);
       if (!data) continue;
 
       const alert = JSON.parse(data);
@@ -333,7 +341,9 @@ class AlertService {
    * 检查熔断状态
    */
   async isCircuitBreakerOpen() {
-    const enabled = await this.redis.get('circuit_breaker:enabled');
+    const redis = await this.getRedis();
+    console.log('[isCircuitBreakerOpen] redis:', typeof redis, typeof redis.get);
+    const enabled = await redis.get('circuit_breaker:enabled');
     return enabled === 'true';
   }
 
@@ -341,7 +351,8 @@ class AlertService {
    * 重置熔断器
    */
   async resetCircuitBreaker() {
-    await this.redis.del('circuit_breaker:enabled');
+    const redis = await this.getRedis();
+    await redis.del('circuit_breaker:enabled');
     console.log('✅ 熔断器已重置');
   }
 }
