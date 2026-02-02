@@ -181,13 +181,15 @@ export default function AdminDashboard() {
   const checkConnection = async () => {
     setConnectionStatus('loading');
     try {
-      const res = await fetch('/api/admin/health');
+      // 通过 Next.js API 代理调用后端健康检查
+      const res = await fetch('/api/proxy/health');
       if (res.ok) {
         setConnectionStatus('connected');
       } else {
         setConnectionStatus('disconnected');
       }
     } catch (error) {
+      console.error('连接检查失败:', error);
       setConnectionStatus('disconnected');
     }
   };
@@ -299,11 +301,23 @@ ${callbacks.robotStatus}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant={connectionStatus === 'connected' ? 'default' : 'destructive'} className="gap-1">
+          <Badge 
+            variant={
+              connectionStatus === 'connected' ? 'default' : 
+              connectionStatus === 'loading' ? 'secondary' : 
+              'destructive'
+            } 
+            className="gap-1"
+          >
             {connectionStatus === 'connected' ? (
               <>
                 <CheckCircle className="h-3 w-3" />
                 已连接
+              </>
+            ) : connectionStatus === 'loading' ? (
+              <>
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                加载中
               </>
             ) : (
               <>
@@ -2141,7 +2155,7 @@ ${callbacks.robotStatus}
     const [serviceReplyEnabled, setServiceReplyEnabled] = useState(true);
     const [riskAutoHuman, setRiskAutoHuman] = useState(true);
     const [aiConfig, setAiConfig] = useState<any>(null);
-    const [activeAiTab, setActiveAiTab] = useState('builtin');
+    const [activeAiTab, setActiveAiTab] = useState('intentRecognition');
     const [isLoadingAiConfig, setIsLoadingAiConfig] = useState(false);
     
     // 使用 ref 避免重复加载
@@ -2160,16 +2174,24 @@ ${callbacks.robotStatus}
       
       setIsLoadingAiConfig(true);
       try {
+        console.log('[AI配置] 开始加载 AI 模型配置...');
         const res = await fetch('/api/admin/config', { cache: 'no-store' });
+        
+        console.log('[AI配置] API 响应状态:', res.status, res.statusText);
+        
         if (res.ok) {
           const data = await res.json();
-          console.log('AI 配置加载成功:', data.data);
+          console.log('[AI配置] AI 配置加载成功:', data.data);
           setAiConfig(data.data);
         } else {
-          console.error('AI 配置加载失败:', res.status, res.statusText);
+          console.error('[AI配置] API 返回错误状态:', res.status, res.statusText);
+          const errorText = await res.text();
+          console.error('[AI配置] 错误响应内容:', errorText);
+          setAiConfig(null); // 明确设置为 null
         }
       } catch (error) {
-        console.error('加载 AI 配置失败:', error);
+        console.error('[AI配置] 加载 AI 配置失败:', error);
+        setAiConfig(null); // 明确设置为 null
       } finally {
         setIsLoadingAiConfig(false);
       }
