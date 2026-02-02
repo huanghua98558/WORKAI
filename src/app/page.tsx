@@ -1351,16 +1351,20 @@ ${callbacks.robotStatus}
     
     // 使用 ref 避免重复初始化
     const initializedRef = useRef(false);
+    const prevConfigRef = useRef<any>(null);
 
     const config = aiConfig?.ai?.[type as keyof typeof aiConfig.ai];
     const builtinModels = aiConfig?.ai?.builtinModels || [];
     
-    console.log(`[${type}] aiConfig:`, aiConfig);
-    console.log(`[${type}] builtinModels count:`, builtinModels.length);
-    
     // 只在第一次加载或配置真正变化时初始化
     useEffect(() => {
-      if (!initializedRef.current && config) {
+      // 检查配置是否真的变化了（避免重复设置）
+      const configStr = JSON.stringify(config);
+      if (initializedRef.current && prevConfigRef.current === configStr) {
+        return; // 配置没有变化，跳过
+      }
+      
+      if (config) {
         console.log(`[${type}] 初始化配置:`, config);
         setUseBuiltin(config.useBuiltin);
         setBuiltinModelId(config.builtinModelId || '');
@@ -1376,6 +1380,7 @@ ${callbacks.robotStatus}
         setMaxTokens(config.maxTokens ?? 1000);
         setTopP(config.topP ?? 1.0);
         initializedRef.current = true;
+        prevConfigRef.current = configStr;
       }
     }, [config, type]);
 
@@ -1757,6 +1762,377 @@ ${callbacks.robotStatus}
     );
   });
 
+  // 人工告警配置组件
+  const HumanAlertConfig = () => {
+    const [alertEnabled, setAlertEnabled] = useState(true);
+    const [alertMode, setAlertMode] = useState('risk');
+    const [recipients, setRecipients] = useState<any[]>([]);
+    const [alertCount, setAlertCount] = useState(1);
+    const [alertInterval, setAlertInterval] = useState(5);
+    const [messageTemplate, setMessageTemplate] = useState(
+      "⚠️ 风险告警\n\n【用户信息】\n用户：{userName}\n群组：{groupName}\n\n【风险内容】\n{messageContent}\n\n【时间】\n{timestamp}"
+    );
+    const [showAddDialog, setShowAddDialog] = useState(false);
+    const [newRecipient, setNewRecipient] = useState({
+      name: '',
+      userId: '',
+      type: 'private'
+    });
+    const [isLoading, setIsLoading] = useState(false);
+
+    // 加载配置
+    useEffect(() => {
+      loadAlertConfig();
+    }, []);
+
+    const loadAlertConfig = async () => {
+      try {
+        setIsLoading(true);
+        const res = await fetch('/api/admin/human-handover/config');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.data) {
+            setAlertEnabled(data.data.enabled || false);
+            setAlertMode(data.data.autoMode || 'risk');
+            setRecipients(data.data.alertRecipients || []);
+            setAlertCount(data.data.alertCount || 1);
+            setAlertInterval((data.data.alertInterval || 5000) / 1000);
+            setMessageTemplate(data.data.alertMessageTemplate || messageTemplate);
+          }
+        }
+      } catch (error) {
+        console.error('加载告警配置失败:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const handleSaveConfig = async () => {
+      try {
+        setIsLoading(true);
+        const res = await fetch('/api/admin/human-handover/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            enabled: alertEnabled,
+            autoMode: alertMode,
+            alertRecipients: recipients,
+            alertCount: alertCount,
+            alertInterval: alertInterval * 1000,
+            alertMessageTemplate: messageTemplate
+          })
+        });
+        
+        if (res.ok) {
+          alert('✅ 配置已保存');
+        } else {
+          alert('❌ 保存失败');
+        }
+      } catch (error) {
+        console.error('保存配置失败:', error);
+        alert('❌ 保存失败');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const handleAddRecipient = async () => {
+      if (!newRecipient.name || !newRecipient.userId) {
+        alert('请填写完整的接收者信息');
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const res = await fetch('/api/admin/human-handover/recipients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newRecipient)
+        });
+
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+          alert('✅ 接收者添加成功');
+          setShowAddDialog(false);
+          setNewRecipient({ name: '', userId: '', type: 'private' });
+          loadAlertConfig();
+        } else {
+          alert(`❌ 添加失败: ${data.error || '未知错误'}`);
+        }
+      } catch (error) {
+        console.error('添加接收者失败:', error);
+        alert('❌ 添加失败');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const handleToggleRecipient = async (id: string, enabled: boolean) => {
+      try {
+        const res = await fetch(`/api/admin/human-handover/recipients/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled })
+        });
+
+        if (res.ok) {
+          loadAlertConfig();
+        }
+      } catch (error) {
+        console.error('更新接收者失败:', error);
+      }
+    };
+
+    const handleDeleteRecipient = async (id: string) => {
+      if (!confirm('确定要删除这个接收者吗？')) return;
+
+      try {
+        const res = await fetch(`/api/admin/human-handover/recipients/${id}`, {
+          method: 'DELETE'
+        });
+
+        if (res.ok) {
+          alert('✅ 接收者已删除');
+          loadAlertConfig();
+        } else {
+          alert('❌ 删除失败');
+        }
+      } catch (error) {
+        console.error('删除接收者失败:', error);
+        alert('❌ 删除失败');
+      }
+    };
+
+    return (
+      <Card className="border-2 border-blue-200 dark:border-blue-900">
+        <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            人工告警配置
+          </CardTitle>
+          <CardDescription className="text-blue-100">
+            配置风险内容的告警接收者和消息模板
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-6 space-y-6">
+          {/* 启用开关 */}
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="space-y-0.5">
+              <label className="text-sm font-medium">启用人工告警</label>
+              <p className="text-xs text-muted-foreground">检测到风险内容时自动发送告警消息</p>
+            </div>
+            <Switch 
+              checked={alertEnabled} 
+              onCheckedChange={setAlertEnabled}
+            />
+          </div>
+
+          {/* 告警模式 */}
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="space-y-0.5">
+              <label className="text-sm font-medium">告警模式</label>
+              <p className="text-xs text-muted-foreground">选择自动告警或手动告警</p>
+            </div>
+            <select 
+              className="px-3 py-2 border rounded-md text-sm"
+              value={alertMode}
+              onChange={(e) => setAlertMode(e.target.value)}
+            >
+              <option value="risk">风险内容自动告警</option>
+              <option value="manual">手动发送告警</option>
+            </select>
+          </div>
+
+          {/* 接收者列表 */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">告警接收者</label>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowAddDialog(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                添加接收者
+              </Button>
+            </div>
+            
+            {recipients.length === 0 ? (
+              <div className="text-sm text-muted-foreground p-4 border rounded-lg bg-muted/30">
+                <p className="mb-2">配置接收告警的微信用户：</p>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>填写微信用户的名称</li>
+                  <li>填写微信用户的ID（必填）</li>
+                  <li>选择发送方式（私聊或群聊）</li>
+                  <li>可配置多个接收者，系统会逐一发送告警</li>
+                </ul>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {recipients.map((recipient: any) => (
+                  <div 
+                    key={recipient.id}
+                    className="flex items-center justify-between p-4 border rounded-lg bg-muted/30"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        checked={recipient.enabled}
+                        onCheckedChange={(checked) => handleToggleRecipient(recipient.id, checked)}
+                      />
+                      <div>
+                        <p className="font-medium text-sm">{recipient.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {recipient.type === 'private' ? '私聊' : '群聊'}: {recipient.userId}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteRecipient(recipient.id)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 发送配置 */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">发送次数</label>
+                <p className="text-xs text-muted-foreground">每个接收者发送的告警消息数量</p>
+              </div>
+              <select 
+                className="px-3 py-2 border rounded-md text-sm"
+                value={alertCount}
+                onChange={(e) => setAlertCount(parseInt(e.target.value))}
+              >
+                <option value="1">1 次</option>
+                <option value="2">2 次</option>
+                <option value="3">3 次</option>
+                <option value="5">5 次</option>
+                <option value="10">10 次</option>
+              </select>
+            </div>
+
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">发送间隔</label>
+                <p className="text-xs text-muted-foreground">多次发送时的间隔时间（秒）</p>
+              </div>
+              <select 
+                className="px-3 py-2 border rounded-md text-sm"
+                value={alertInterval}
+                onChange={(e) => setAlertInterval(parseInt(e.target.value))}
+              >
+                <option value="1">1 秒</option>
+                <option value="5">5 秒</option>
+                <option value="10">10 秒</option>
+                <option value="30">30 秒</option>
+                <option value="60">60 秒</option>
+              </select>
+            </div>
+          </div>
+
+          {/* 消息模板 */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">告警消息模板</label>
+            <p className="text-xs text-muted-foreground">
+              支持的变量：{'{userName}'} - 用户名，{'{groupName}'} - 群组名，{'{messageContent}'} - 消息内容，{'{timestamp}'} - 时间
+            </p>
+            <textarea
+              value={messageTemplate}
+              onChange={(e) => setMessageTemplate(e.target.value)}
+              placeholder="输入告警消息模板..."
+              className="w-full min-h-[120px] px-3 py-2 border rounded-md text-sm resize-vertical font-mono"
+            />
+          </div>
+
+          {/* 保存按钮 */}
+          <Button 
+            onClick={handleSaveConfig} 
+            disabled={isLoading}
+            className="w-full"
+          >
+            {isLoading ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                保存中...
+              </>
+            ) : (
+              '保存配置'
+            )}
+          </Button>
+
+          {/* 添加接收者对话框 */}
+          {showAddDialog && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+                <h3 className="text-lg font-semibold mb-4">添加接收者</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium">名称</label>
+                    <Input
+                      value={newRecipient.name}
+                      onChange={(e) => setNewRecipient({...newRecipient, name: e.target.value})}
+                      placeholder="例如：管理员小王"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">用户ID（必填）</label>
+                    <Input
+                      value={newRecipient.userId}
+                      onChange={(e) => setNewRecipient({...newRecipient, userId: e.target.value})}
+                      placeholder="例如：wxid_xxx"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">发送方式</label>
+                    <select
+                      value={newRecipient.type}
+                      onChange={(e) => setNewRecipient({...newRecipient, type: e.target.value})}
+                      className="w-full mt-1 px-3 py-2 border rounded-md text-sm"
+                    >
+                      <option value="private">私聊</option>
+                      <option value="group">群聊</option>
+                    </select>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => {
+                        setShowAddDialog(false);
+                        setNewRecipient({ name: '', userId: '', type: 'private' });
+                      }}
+                    >
+                      取消
+                    </Button>
+                    <Button 
+                      className="flex-1"
+                      onClick={handleAddRecipient}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? '添加中...' : '添加'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
   // 系统设置页面
   const SettingsTab = () => {
     const [autoReplyMode, setAutoReplyMode] = useState('ai');
@@ -1765,14 +2141,25 @@ ${callbacks.robotStatus}
     const [riskAutoHuman, setRiskAutoHuman] = useState(true);
     const [aiConfig, setAiConfig] = useState<any>(null);
     const [activeAiTab, setActiveAiTab] = useState('builtin');
+    const [isLoadingAiConfig, setIsLoadingAiConfig] = useState(false);
+    
+    // 使用 ref 避免重复加载
+    const aiConfigLoadedRef = useRef(false);
 
     useEffect(() => {
-      loadAiConfig();
+      // 只在第一次加载，避免重复请求
+      if (!aiConfigLoadedRef.current) {
+        loadAiConfig();
+        aiConfigLoadedRef.current = true;
+      }
     }, []);
 
     const loadAiConfig = async () => {
+      if (isLoadingAiConfig) return; // 防止重复加载
+      
+      setIsLoadingAiConfig(true);
       try {
-        const res = await fetch('/api/admin/config');
+        const res = await fetch('/api/admin/config', { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           console.log('AI 配置加载成功:', data.data);
@@ -1782,6 +2169,8 @@ ${callbacks.robotStatus}
         }
       } catch (error) {
         console.error('加载 AI 配置失败:', error);
+      } finally {
+        setIsLoadingAiConfig(false);
       }
     };
 
@@ -1853,11 +2242,29 @@ ${callbacks.robotStatus}
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6 space-y-6">
-            {!aiConfig ? (
+            {isLoadingAiConfig ? (
               <div className="flex items-center justify-center py-8">
                 <div className="text-center">
                   <RefreshCw className="h-8 w-8 animate-spin mx-auto text-purple-500" />
                   <p className="text-sm text-muted-foreground mt-2">正在加载 AI 模型配置...</p>
+                </div>
+              </div>
+            ) : !aiConfig ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <AlertCircle className="h-8 w-8 mx-auto text-red-500" />
+                  <p className="text-sm text-muted-foreground mt-2">AI 模型配置加载失败</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-3"
+                    onClick={() => {
+                      aiConfigLoadedRef.current = false;
+                      loadAiConfig();
+                    }}
+                  >
+                    重新加载
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -1991,101 +2398,7 @@ ${callbacks.robotStatus}
         </Card>
 
         {/* 人工告警配置 */}
-        <Card className="border-2 border-blue-200 dark:border-blue-900">
-          <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              人工告警配置
-            </CardTitle>
-            <CardDescription className="text-blue-100">
-              配置风险内容的告警接收者和消息模板
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6 space-y-6">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="space-y-0.5">
-                <label className="text-sm font-medium">启用人工告警</label>
-                <p className="text-xs text-muted-foreground">检测到风险内容时自动发送告警消息</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="space-y-0.5">
-                <label className="text-sm font-medium">告警模式</label>
-                <p className="text-xs text-muted-foreground">选择自动告警或手动告警</p>
-              </div>
-              <select className="px-3 py-2 border rounded-md text-sm">
-                <option value="risk">风险内容自动告警</option>
-                <option value="manual">手动发送告警</option>
-              </select>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">告警接收者</label>
-                <Button variant="outline" size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  添加接收者
-                </Button>
-              </div>
-              
-              <div className="text-sm text-muted-foreground p-4 border rounded-lg bg-muted/30">
-                <p className="mb-2">配置接收告警的微信用户：</p>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>填写微信用户的名称</li>
-                  <li>填写微信用户的ID（必填）</li>
-                  <li>选择发送方式（私聊或群聊）</li>
-                  <li>可配置多个接收者，系统会逐一发送告警</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="space-y-0.5">
-                <label className="text-sm font-medium">发送次数</label>
-                <p className="text-xs text-muted-foreground">每个接收者发送的告警消息数量</p>
-              </div>
-              <select className="px-3 py-2 border rounded-md text-sm">
-                <option value="1">1 次</option>
-                <option value="2">2 次</option>
-                <option value="3">3 次</option>
-                <option value="5">5 次</option>
-                <option value="10">10 次</option>
-              </select>
-            </div>
-
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="space-y-0.5">
-                <label className="text-sm font-medium">发送间隔</label>
-                <p className="text-xs text-muted-foreground">多次发送时的间隔时间（秒）</p>
-              </div>
-              <select className="px-3 py-2 border rounded-md text-sm">
-                <option value="1">1 秒</option>
-                <option value="5">5 秒</option>
-                <option value="10">10 秒</option>
-                <option value="30">30 秒</option>
-                <option value="60">60 秒</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">告警消息模板</label>
-              <p className="text-xs text-muted-foreground">
-                支持的变量：{'{userName}'} - 用户名，{'{groupName}'} - 群组名，{'{messageContent}'} - 消息内容，{'{timestamp}'} - 时间
-              </p>
-              <textarea
-                placeholder="输入告警消息模板..."
-                defaultValue="⚠️ 风险告警\n\n【用户信息】\n用户：{userName}\n群组：{groupName}\n\n【风险内容】\n{messageContent}\n\n【时间】\n{timestamp}"
-                className="w-full min-h-[120px] px-3 py-2 border rounded-md text-sm resize-vertical font-mono"
-              />
-            </div>
-
-            <Button onClick={saveSettings} className="w-full">
-              保存配置
-            </Button>
-          </CardContent>
-        </Card>
+        <HumanAlertConfig />
 
         {/* 监控预警设置 */}
         <Card>

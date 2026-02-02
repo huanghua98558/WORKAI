@@ -331,4 +331,4 @@ class HumanHandoverService {
   }
 }
 
-module.exports = HumanHandoverService;
+module.exports = new HumanHandoverService();

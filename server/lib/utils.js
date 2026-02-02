@@ -3,6 +3,16 @@
  */
 
 /**
+ * 日志工具
+ */
+const logger = {
+  info: (message, ...args) => console.log(`[INFO] ${message}`, ...args),
+  warn: (message, ...args) => console.warn(`[WARN] ${message}`, ...args),
+  error: (message, ...args) => console.error(`[ERROR] ${message}`, ...args),
+  debug: (message, ...args) => console.log(`[DEBUG] ${message}`, ...args)
+};
+
+/**
  * 验证 WorkTool 回调签名
  */
 function verifySignature(payload, signature, secret) {
@@ -233,6 +243,7 @@ class AuditLogger {
 }
 
 module.exports = {
+  logger,
   verifySignature,
   generateRequestId,
   sleep,

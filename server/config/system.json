@@ -26,7 +26,12 @@
         "provider": "doubao",
         "modelId": "doubao-pro-128k",
         "description": "适合复杂对话和长文本处理",
-        "category": ["intent", "service", "chat", "report"],
+        "category": [
+          "intent",
+          "service",
+          "chat",
+          "report"
+        ],
         "maxTokens": 128000,
         "supportStream": true
       },
@@ -36,7 +41,11 @@
         "provider": "doubao",
         "modelId": "doubao-pro-32k",
         "description": "平衡性能和成本，适合客服场景",
-        "category": ["intent", "service", "chat"],
+        "category": [
+          "intent",
+          "service",
+          "chat"
+        ],
         "maxTokens": 32000,
         "supportStream": true
       },
@@ -46,7 +55,9 @@
         "provider": "doubao",
         "modelId": "doubao-lite-4k",
         "description": "轻量级模型，适合简单任务",
-        "category": ["intent"],
+        "category": [
+          "intent"
+        ],
         "maxTokens": 4000,
         "supportStream": true
       },
@@ -56,7 +67,11 @@
         "provider": "deepseek",
         "modelId": "deepseek-chat",
         "description": "强大的对话能力，适合复杂推理",
-        "category": ["service", "chat", "report"],
+        "category": [
+          "service",
+          "chat",
+          "report"
+        ],
         "maxTokens": 128000,
         "supportStream": true
       },
@@ -66,7 +81,10 @@
         "provider": "deepseek",
         "modelId": "deepseek-reasoner",
         "description": "强化推理能力，适合复杂问题",
-        "category": ["intent", "service"],
+        "category": [
+          "intent",
+          "service"
+        ],
         "maxTokens": 64000,
         "supportStream": true
       },
@@ -76,7 +94,10 @@
         "provider": "kimi",
         "modelId": "moonshot-v1-8k",
         "description": "快速响应，适合实时对话",
-        "category": ["intent", "chat"],
+        "category": [
+          "intent",
+          "chat"
+        ],
         "maxTokens": 8000,
         "supportStream": true
       },
@@ -86,7 +107,10 @@
         "provider": "kimi",
         "modelId": "moonshot-v1-32k",
         "description": "长文本处理，适合复杂场景",
-        "category": ["service", "report"],
+        "category": [
+          "service",
+          "report"
+        ],
         "maxTokens": 32000,
         "supportStream": true
       },
@@ -96,7 +120,11 @@
         "provider": "qwen",
         "modelId": "qwen-plus",
         "description": "阿里巴巴大模型，综合能力强",
-        "category": ["intent", "service", "chat"],
+        "category": [
+          "intent",
+          "service",
+          "chat"
+        ],
         "maxTokens": 32000,
         "supportStream": true
       },
@@ -106,7 +134,10 @@
         "provider": "qwen",
         "modelId": "qwen-turbo",
         "description": "快速响应，成本更低",
-        "category": ["intent", "chat"],
+        "category": [
+          "intent",
+          "chat"
+        ],
         "maxTokens": 8000,
         "supportStream": true
       }
@@ -181,7 +212,9 @@
         "name": "机器人掉线",
         "enabled": true,
         "level": "critical",
-        "actions": ["send_message"],
+        "actions": [
+          "send_message"
+        ],
         "targets": []
       },
       {
@@ -191,7 +224,10 @@
         "level": "warning",
         "threshold": 0.1,
         "window": "5m",
-        "actions": ["send_message", "mark_human"],
+        "actions": [
+          "send_message",
+          "mark_human"
+        ],
         "targets": []
       },
       {
@@ -199,7 +235,10 @@
         "name": "垃圾消息检测",
         "enabled": true,
         "level": "warning",
-        "actions": ["remove_user", "mark_human"],
+        "actions": [
+          "remove_user",
+          "mark_human"
+        ],
         "targets": []
       }
     ]
@@ -212,6 +251,20 @@
         "id": "recipient1",
         "name": "管理员",
         "userId": "",
+        "type": "private",
+        "enabled": true
+      },
+      {
+        "id": "recipient1770034952056",
+        "name": "测试用户",
+        "userId": "test_user_123",
+        "type": "private",
+        "enabled": true
+      },
+      {
+        "id": "recipient1770035182584",
+        "name": "新测试用户",
+        "userId": "test_user_456",
         "type": "private",
         "enabled": true
       }

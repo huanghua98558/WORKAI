@@ -504,19 +504,22 @@ const adminApiRoutes = async function (fastify, options) {
    */
   fastify.get('/human-handover/config', async (request, reply) => {
     try {
-      console.log('[GET /api/admin/human-handover/config] Loading HumanHandoverService...');
-      const HumanHandoverService = require('../services/human-handover.service');
-      console.log('[GET /api/admin/human-handover/config] Creating HumanHandoverService instance...');
-      const service = new HumanHandoverService();
+      console.log('[GET /api/admin/human-handover/config] Loading humanHandoverService...');
+      const humanHandoverService = require('../services/human-handover.service');
+      console.log('[GET /api/admin/human-handover/config] humanHandoverService loaded:', typeof humanHandoverService);
       console.log('[GET /api/admin/human-handover/config] Getting config...');
       
-      return { success: true, data: service.getConfig() };
+      const config = humanHandoverService.getConfig();
+      console.log('[GET /api/admin/human-handover/config] Config:', JSON.stringify(config));
+      
+      return { success: true, data: config };
     } catch (error) {
       console.error('[GET /api/admin/human-handover/config] ERROR:', error);
       console.error('[GET /api/admin/human-handover/config] ERROR stack:', error.stack);
       return reply.status(500).send({
         success: false,
-        error: error.message
+        error: error.message,
+        stack: error.stack
       });
     }
   });
@@ -526,10 +529,9 @@ const adminApiRoutes = async function (fastify, options) {
    */
   fastify.post('/human-handover/config', async (request, reply) => {
     try {
-      const HumanHandoverService = require('../services/human-handover.service');
-      const service = new HumanHandoverService();
+      const humanHandoverService = require('../services/human-handover.service');
       
-      const result = service.updateConfig(request.body);
+      const result = humanHandoverService.updateConfig(request.body);
       return { success: true, data: result };
     } catch (error) {
       return reply.status(500).send({
@@ -544,8 +546,8 @@ const adminApiRoutes = async function (fastify, options) {
    */
   fastify.post('/human-handover/recipients', async (request, reply) => {
     try {
-      const HumanHandoverService = require('../services/human-handover.service');
-      const service = new HumanHandoverService();
+      const humanHandoverService = require('../services/human-handover.service');
+      const service = humanHandoverService;
       
       const result = service.addRecipient(request.body);
       
@@ -567,8 +569,8 @@ const adminApiRoutes = async function (fastify, options) {
    */
   fastify.put('/human-handover/recipients/:id', async (request, reply) => {
     try {
-      const HumanHandoverService = require('../services/human-handover.service');
-      const service = new HumanHandoverService();
+      const humanHandoverService = require('../services/human-handover.service');
+      const service = humanHandoverService;
       
       const result = service.updateRecipient(request.params.id, request.body);
       
@@ -590,8 +592,8 @@ const adminApiRoutes = async function (fastify, options) {
    */
   fastify.delete('/human-handover/recipients/:id', async (request, reply) => {
     try {
-      const HumanHandoverService = require('../services/human-handover.service');
-      const service = new HumanHandoverService();
+      const humanHandoverService = require('../services/human-handover.service');
+      const service = humanHandoverService;
       
       const result = service.deleteRecipient(request.params.id);
       
@@ -613,8 +615,8 @@ const adminApiRoutes = async function (fastify, options) {
    */
   fastify.post('/human-handover/alert', async (request, reply) => {
     try {
-      const HumanHandoverService = require('../services/human-handover.service');
-      const service = new HumanHandoverService();
+      const humanHandoverService = require('../services/human-handover.service');
+      const service = humanHandoverService;
       
       const result = await service.sendManualAlert(request.body);
       
