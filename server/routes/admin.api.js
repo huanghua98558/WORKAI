@@ -69,12 +69,16 @@ const adminApiRoutes = async function (fastify, options) {
    */
   fastify.get('/callbacks', async (request, reply) => {
     const callbacks = config.getAllCallbackUrls();
+    const baseUrl = config.getCallbackBaseUrl();
     
     return {
       success: true,
       data: {
-        baseUrl: config.getCallbackBaseUrl(),
-        callbacks
+        baseUrl: baseUrl,
+        message: baseUrl + '/api/worktool/callback/message',
+        actionResult: baseUrl + '/api/worktool/callback/action-result',
+        groupQrcode: baseUrl + '/api/worktool/callback/group-qrcode',
+        robotStatus: baseUrl + '/api/worktool/callback/robot-status'
       }
     };
   });

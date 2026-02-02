@@ -4,6 +4,10 @@
  */
 
 require('dotenv').config();
+
+// 强制使用内存模式
+process.env.USE_MEMORY_MODE = 'true';
+
 const Fastify = require('fastify');
 const cors = require('@fastify/cors');
 const helmet = require('@fastify/helmet');
@@ -18,6 +22,17 @@ const fastify = Fastify({
     level: process.env.LOG_LEVEL || 'info'
   }
 });
+
+// Redis 可选配置 - 如果 Redis 不可用，使用内存模式
+let redisAvailable = false;
+try {
+  redisClient.connect();
+  redisAvailable = true;
+} catch (error) {
+  console.warn('⚠️  Redis 不可用，系统将以内存模式运行');
+}
+
+console.log(`📊 Redis 状态: ${redisAvailable ? '已连接' : '内存模式'}`);
 
 // 注册插件
 fastify.register(cors, {
