@@ -10,6 +10,13 @@ DEPLOY_RUN_PORT="${DEPLOY_RUN_PORT:-$FRONTEND_PORT}"
 export BACKEND_URL="http://localhost:${BACKEND_PORT}"
 export NODE_ENV=production
 
+# 检测是否为只读文件系统
+IS_READONLY_FILESYSTEM=false
+if [ ! -w . ]; then
+    IS_READONLY_FILESYSTEM=true
+    echo "检测到只读文件系统，日志将输出到标准输出"
+fi
+
 kill_port_if_listening() {
     local port=$1
     local pids
@@ -35,13 +42,30 @@ kill_port_if_listening ${BACKEND_PORT}
 
 cd "${COZE_WORKSPACE_PATH}"
 
-# 创建日志目录
-mkdir -p logs
+# 根据文件系统是否可写，决定日志输出方式
+if [ "$IS_READONLY_FILESYSTEM" = true ]; then
+    # 只读文件系统：直接输出到标准输出/错误输出
+    LOG_REDIRECT=""
+    LOG_MESSAGE="日志将输出到标准输出"
+else
+    # 可写文件系统：输出到日志文件
+    mkdir -p logs
+    LOG_REDIRECT="> logs/backend.log 2>&1"
+    LOG_MESSAGE="后端日志: logs/backend.log"
+fi
 
 # 启动后端服务
 echo "Starting backend service on port ${BACKEND_PORT}..."
 cd server
-PORT=${BACKEND_PORT} node app.js > ../logs/backend.log 2>&1 &
+
+if [ "$IS_READONLY_FILESYSTEM" = true ]; then
+    # 只读文件系统：直接启动，不重定向日志
+    PORT=${BACKEND_PORT} node app.js &
+else
+    # 可写文件系统：重定向日志到文件
+    PORT=${BACKEND_PORT} node app.js > ../logs/backend.log 2>&1 &
+fi
+
 BACKEND_PID=$!
 cd ..
 
@@ -51,7 +75,9 @@ sleep 3
 # 检查后端是否启动成功
 if ! kill -0 ${BACKEND_PID} 2>/dev/null; then
     echo "❌ Backend failed to start"
-    cat logs/backend.log
+    if [ "$IS_READONLY_FILESYSTEM" = false ]; then
+        cat logs/backend.log
+    fi
     exit 1
 fi
 
@@ -71,9 +97,11 @@ echo "📊 管理后台: http://localhost:${FRONTEND_PORT}"
 echo "🔧 后端 API: http://localhost:${BACKEND_PORT}"
 echo "=================================================="
 echo ""
-echo "日志文件:"
-echo "  - 后端日志: logs/backend.log"
-echo ""
+if [ "$IS_READONLY_FILESYSTEM" = false ]; then
+    echo "日志:"
+    echo "  - ${LOG_MESSAGE}"
+    echo ""
+fi
 echo "停止服务: Ctrl+C 或 kill ${BACKEND_PID} ${FRONTEND_PID}"
 echo ""
 
