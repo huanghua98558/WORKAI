@@ -8,20 +8,29 @@ const { formatDate, generateRequestId } = require('../lib/utils');
 
 class SessionService {
   constructor() {
-    this.redis = redisClient.getClient();
+    this.redis = null; // 延迟初始化
     this.sessionPrefix = 'session:';
     this.sessionTTL = 3600 * 24; // 24小时过期
     this.contextPrefix = 'context:';
+  }
+
+  // 获取 Redis 客户端（延迟初始化）
+  async getRedis() {
+    if (!this.redis) {
+      this.redis = await redisClient.getClient();
+    }
+    return this.redis;
   }
 
   /**
    * 创建或获取会话
    */
   async getOrCreateSession(userId, groupId, userInfo = {}) {
+    const redis = await this.getRedis();
     const sessionId = `${groupId}_${userId}`;
     const key = `${this.sessionPrefix}${sessionId}`;
 
-    const existing = await this.redis.get(key);
+    const existing = await redis.get(key);
     if (existing) {
       return JSON.parse(existing);
     }
@@ -42,7 +51,7 @@ class SessionService {
       tags: []
     };
 
-    await this.redis.setex(key, this.sessionTTL, JSON.stringify(session));
+    await redis.setex(key, this.sessionTTL, JSON.stringify(session));
     return session;
   }
 
@@ -50,6 +59,7 @@ class SessionService {
    * 更新会话
    */
   async updateSession(sessionId, updates) {
+    const redis = await this.getRedis();
     const key = `${this.sessionPrefix}${sessionId}`;
     const session = await this.getSession(sessionId);
 
@@ -63,7 +73,7 @@ class SessionService {
       lastActiveTime: new Date().toISOString()
     };
 
-    await this.redis.setex(key, this.sessionTTL, JSON.stringify(updated));
+    await redis.setex(key, this.sessionTTL, JSON.stringify(updated));
     return updated;
   }
 
@@ -71,8 +81,9 @@ class SessionService {
    * 获取会话
    */
   async getSession(sessionId) {
+    const redis = await this.getRedis();
     const key = `${this.sessionPrefix}${sessionId}`;
-    const data = await this.redis.get(key);
+    const data = await redis.get(key);
     return data ? JSON.parse(data) : null;
   }
 
@@ -80,6 +91,7 @@ class SessionService {
    * 添加上下文
    */
   async addContext(sessionId, message) {
+    const redis = await this.getRedis();
     const session = await this.getSession(sessionId);
     if (!session) return null;
 
@@ -145,10 +157,9 @@ class SessionService {
    * 获取今日会话统计
    */
   async getTodayStats() {
+    const redis = await this.getRedis();
     const pattern = `${this.sessionPrefix}*`;
-    // 确保客户端是最新的
-    const client = await redisClient.getClient();
-    const keys = await client.keys(pattern);
+    const keys = await redis.keys(pattern);
     
     let stats = {
       totalSessions: 0,
@@ -164,7 +175,7 @@ class SessionService {
     const today = formatDate();
 
     for (const key of keys) {
-      const session = JSON.parse(await this.redis.get(key));
+      const session = JSON.parse(await redis.get(key));
       const sessionDate = formatDate(session.startTime);
       
       if (sessionDate === today) {

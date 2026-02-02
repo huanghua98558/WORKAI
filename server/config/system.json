@@ -3,7 +3,7 @@
   "systemName": "WorkTool AI 中枢系统",
   "deployment": {
     "baseUrl": "",
-    "callbackBaseUrl": "https://my-production-domain.com"
+    "callbackBaseUrl": "http://localhost:5001"
   },
   "worktool": {
     "apiBaseUrl": "",
