@@ -225,33 +225,74 @@ const adminApiRoutes = async function (fastify, options) {
         });
       }
 
-      // 测试回调路由是否可访问（不发送实际请求，只验证路由存在）
-      const pathMap = {
-        'message': '/api/worktool/callback/message',
-        'actionResult': '/api/worktool/callback/action-result',
-        'groupQrcode': '/api/worktool/callback/group-qrcode',
-        'robotStatus': '/api/worktool/callback/robot-status'
-      };
+      // 尝试实际连接回调地址
+      const axios = require('axios');
+      const testStartTime = Date.now();
 
-      const testPath = pathMap[type];
-      if (!testPath) {
-        return reply.status(400).send({
-          success: false,
-          error: '无效的回调类型'
+      try {
+        // 发送一个测试请求（使用 HEAD 方法快速检查）
+        const response = await axios.head(callbackUrl, {
+          timeout: 5000, // 5秒超时
+          validateStatus: () => true // 接受任何状态码
         });
-      }
 
-      // 返回测试结果（路由配置正确）
-      return {
-        success: true,
-        message: '回调路由配置正确',
-        data: {
-          type,
-          callbackUrl,
-          path: testPath,
-          note: '回调路由已正确配置，实际连接性需要部署后测试'
+        const testDuration = Date.now() - testStartTime;
+
+        // 检查响应状态
+        if (response.status === 404) {
+          return {
+            success: false,
+            message: '回调路由不存在（404）',
+            data: {
+              type,
+              callbackUrl,
+              status: response.status,
+              duration: testDuration
+            }
+          };
+        } else if (response.status >= 500) {
+          return {
+            success: false,
+            message: `服务器错误（${response.status}）`,
+            data: {
+              type,
+              callbackUrl,
+              status: response.status,
+              duration: testDuration
+            }
+          };
+        } else {
+          return {
+            success: true,
+            message: `连接成功 (${testDuration}ms)`,
+            data: {
+              type,
+              callbackUrl,
+              status: response.status,
+              duration: testDuration
+            }
+          };
         }
-      };
+      } catch (error) {
+        // 网络错误
+        const errorMessage = error.code === 'ECONNREFUSED' 
+          ? '无法连接到服务器'
+          : error.code === 'ETIMEDOUT'
+          ? '连接超时'
+          : error.code === 'ENOTFOUND'
+          ? '域名解析失败'
+          : error.message;
+
+        return {
+          success: false,
+          message: errorMessage,
+          data: {
+            type,
+            callbackUrl,
+            error: error.message
+          }
+        };
+      }
     } catch (error) {
       return reply.status(500).send({
         success: false,

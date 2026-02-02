@@ -148,15 +148,17 @@ export default function AdminDashboard() {
     loadAiConfig(); // 只在组件挂载时加载一次 AI 配置
   }, []);
 
-  // 自动测试回调（当回调地址加载完成后）
+  // 初始化回调测试状态（当回调地址加载完成后）
   useEffect(() => {
     if (callbacks) {
-      // 延迟 1 秒后自动测试所有回调，避免加载时立即测试
-      const timer = setTimeout(() => {
-        testAllCallbacks();
-      }, 1000);
-      
-      return () => clearTimeout(timer);
+      // 初始化所有回调状态为"未测试"
+      const initialResults: Record<string, { status: 'success' | 'error' | 'loading' | 'pending', message?: string, lastTest?: string }> = {};
+      Object.keys(callbacks).forEach(key => {
+        if (key !== 'baseUrl' && callbacks[key as keyof CallbackUrl]) {
+          initialResults[key] = { status: 'pending', message: '未测试' };
+        }
+      });
+      setCallbackTestResults(initialResults);
     }
   }, [!!callbacks]);
 
