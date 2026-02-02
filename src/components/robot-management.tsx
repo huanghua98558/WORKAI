@@ -390,6 +390,13 @@ export default function RobotManagement() {
         method: 'POST'
       });
 
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('批量刷新失败，HTTP状态:', res.status, errorText);
+        alert(`批量刷新失败：HTTP ${res.status} - ${errorText || '未知错误'}`);
+        return;
+      }
+
       const data = await res.json();
       if (data.code === 0) {
         loadRobots();
