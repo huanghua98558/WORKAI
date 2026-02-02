@@ -1,39 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
+import http from 'http';
 
 export async function GET(request: NextRequest) {
   try {
-    const url = new URL('/health', BACKEND_URL);
-
-    // 构建请求头，传递原始请求头信息
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+    const options = {
+      hostname: 'localhost',
+      port: 5001,
+      path: '/health',
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
     };
 
-    // 传递关键请求头，让后端能获取真实的部署地址
-    if (request.headers.get('x-forwarded-host')) {
-      headers['x-forwarded-host'] = request.headers.get('x-forwarded-host')!;
-    }
-    if (request.headers.get('x-forwarded-proto')) {
-      headers['x-forwarded-proto'] = request.headers.get('x-forwarded-proto')!;
-    }
-    // 注意：不要覆盖 x-forwarded-host，host 只在不存在 x-forwarded-host 时使用
-    // 后端会优先使用 x-forwarded-host
-    
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers,
-    });
+    return new Promise((resolve) => {
+      const req = http.request(options, (res) => {
+        let data = '';
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        res.on('end', () => {
+          try {
+            const jsonData = JSON.parse(data);
+            resolve(
+              NextResponse.json(jsonData, {
+                status: res.statusCode,
+              })
+            );
+          } catch (e) {
+            resolve(
+              NextResponse.json(
+                { code: -1, message: '解析响应失败' },
+                { status: res.statusCode || 500 }
+              )
+            );
+          }
+        });
+      });
 
-    const data = await response.json();
-    
-    return NextResponse.json(data, { status: response.status });
-  } catch (error) {
-    console.error('Health check proxy error:', error);
+      req.on('error', (error) => {
+        resolve(
+          NextResponse.json(
+            { code: -1, message: error.message },
+            { status: 500 }
+          )
+        );
+      });
+
+      req.end();
+    });
+  } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: 'Backend not available' },
-      { status: 503 }
+      { code: -1, message: error.message || '服务器错误' },
+      { status: 500 }
     );
   }
 }

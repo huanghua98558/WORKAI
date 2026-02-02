@@ -193,6 +193,7 @@ export default function AdminDashboard() {
   const [aiConfig, setAiConfig] = useState<any>(null);
   const [isLoadingAiConfig, setIsLoadingAiConfig] = useState(false);
   const [showDebugDialog, setShowDebugDialog] = useState(false);
+  const [serverUptime, setServerUptime] = useState<string>('加载中...');
 
   // 初始化加载（只执行一次）
   useEffect(() => {
@@ -238,13 +239,14 @@ export default function AdminDashboard() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [callbacksRes, monitorRes, alertRes, sessionsRes] = await Promise.all([
+      const [callbacksRes, monitorRes, alertRes, sessionsRes, uptimeRes] = await Promise.all([
         fetch('/api/admin/callbacks'),
         fetch('/api/admin/monitor/summary'),
         fetch('/api/admin/alerts/stats'),
-        fetch('/api/admin/sessions/active?limit=20')
+        fetch('/api/admin/sessions/active?limit=20'),
+        fetch('/api/proxy/health') // 获取服务器运行时间
       ]);
-      
+
       if (callbacksRes.ok) {
         const data = await callbacksRes.json();
         setCallbacks(data.data);
@@ -264,6 +266,15 @@ export default function AdminDashboard() {
         const data = await sessionsRes.json();
         setSessions(data.data || []);
       }
+
+      if (uptimeRes.ok) {
+        const data = await uptimeRes.json();
+        // 更新服务器运行时间（假设返回的是启动时间戳）
+        if (data.startTime) {
+          const uptimeMs = Date.now() - data.startTime;
+          setServerUptime(formatUptime(uptimeMs));
+        }
+      }
     } catch (error) {
       // 加载数据失败
     } finally {
@@ -271,6 +282,45 @@ export default function AdminDashboard() {
       setLastUpdateTime(new Date());
     }
   };
+
+  // 格式化运行时间
+  const formatUptime = (ms: number): string => {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) {
+      return `${days}天${hours % 24}h`;
+    } else if (hours > 0) {
+      return `${hours}h${minutes % 60}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m${seconds % 60}s`;
+    } else {
+      return `${seconds}s`;
+    }
+  };
+
+  // 定期更新服务器运行时间
+  useEffect(() => {
+    const updateUptime = () => {
+      // 假设服务器启动时间保存在某个地方
+      // 这里我们通过health接口获取启动时间
+      fetch('/api/proxy/health')
+        .then(res => res.json())
+        .then(data => {
+          if (data.startTime) {
+            const uptimeMs = Date.now() - data.startTime;
+            setServerUptime(formatUptime(uptimeMs));
+          }
+        })
+        .catch(() => {});
+    };
+
+    // 每10秒更新一次
+    const interval = setInterval(updateUptime, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const loadAiConfig = async () => {
     if (isLoadingAiConfig) return;
@@ -1052,7 +1102,7 @@ ${callbacks.robotStatus}
                 <Clock className="h-5 w-5 text-blue-300" />
                 <span className="text-sm font-medium">运行时间</span>
               </div>
-              <p className="text-2xl font-bold">24h</p>
+              <p className="text-2xl font-bold">{serverUptime}</p>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">

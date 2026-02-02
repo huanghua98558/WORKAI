@@ -8,6 +8,9 @@ require('dotenv').config();
 // 强制使用内存模式
 process.env.USE_MEMORY_MODE = 'true';
 
+// 记录服务器启动时间
+const SERVER_START_TIME = Date.now();
+
 const Fastify = require('fastify');
 const cors = require('@fastify/cors');
 const helmet = require('@fastify/helmet');
@@ -72,6 +75,8 @@ fastify.get('/health', async (request, reply) => {
   return {
     status: 'ok',
     timestamp: new Date().toISOString(),
+    startTime: SERVER_START_TIME,
+    uptime: Date.now() - SERVER_START_TIME,
     version: process.env.npm_package_version || '1.0.0'
   };
 });
