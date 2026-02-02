@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-const logger = require('../../../../server/services/system-logger.service');
+
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 /**
  * GET - 获取系统日志
@@ -7,37 +8,20 @@ const logger = require('../../../../server/services/system-logger.service');
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const level = searchParams.get('level');
-    const module = searchParams.get('module');
-    const limit = parseInt(searchParams.get('limit') || '100');
-    const offset = parseInt(searchParams.get('offset') || '0');
-    const days = parseInt(searchParams.get('days') || '7');
+    const queryString = searchParams.toString();
 
-    // 时间范围过滤
-    const startTime = new Date();
-    startTime.setDate(startTime.getDate() - days);
-
-    const logs = await logger.getDatabaseLogs({
-      level,
-      module,
-      limit,
-      offset,
-      startTime: startTime.toISOString()
+    // 转发请求到后端
+    const url = new URL(`/api/system-logs?${queryString}`, BACKEND_URL);
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
 
-    // 获取统计信息
-    const stats = await logger.getStats(days);
+    const data = await response.json();
 
-    return NextResponse.json({
-      success: true,
-      data: logs,
-      stats,
-      pagination: {
-        limit,
-        offset,
-        total: logs.length
-      }
-    });
+    return NextResponse.json(data, { status: response.status });
   } catch (error: any) {
     console.error('获取系统日志失败:', error);
     return NextResponse.json({
@@ -53,14 +37,20 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const days = parseInt(searchParams.get('days') || '30');
+    const queryString = searchParams.toString();
 
-    const deletedCount = await logger.cleanup(days);
-
-    return NextResponse.json({
-      success: true,
-      deletedCount
+    // 转发请求到后端
+    const url = new URL(`/api/system-logs?${queryString}`, BACKEND_URL);
+    const response = await fetch(url.toString(), {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
+
+    const data = await response.json();
+
+    return NextResponse.json(data, { status: response.status });
   } catch (error: any) {
     console.error('清理日志失败:', error);
     return NextResponse.json({
