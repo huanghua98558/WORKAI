@@ -72,7 +72,7 @@ export function CallbackConfigPanel({ robotId, robotName }: CallbackConfigPanelP
       
       // 设置 replyAll 默认值
       if (data.data.callbackConfigList) {
-        const messageCallback = data.data.callbackConfigList.find(c => c.callbackType === '11');
+        const messageCallback = data.data.callbackConfigList.find((c: CallbackConfig) => c.callbackType === '11');
         if (messageCallback && messageCallback.configured) {
           // 从 URL 中解析 replyAll 参数（如果有）
           const urlParams = new URLSearchParams(messageCallback.callbackUrl?.split('?')[1]);
