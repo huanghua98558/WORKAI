@@ -7,6 +7,8 @@ const aiService = require('./ai.service');
 const sessionService = require('./session.service');
 const worktoolService = require('./worktool.service');
 const humanHandoverService = require('./human-handover.service');
+const instructionService = require('./instruction.service');
+const qaService = require('./qa.service');
 const config = require('../lib/config');
 const redisClient = require('../lib/redis');
 
@@ -54,6 +56,48 @@ class DecisionService {
 
     // 4. 意图识别（使用 spoken 或 content）
     const contentToAnalyze = spoken || message.content || '';
+    
+    // 5. 先尝试指令识别（优先级最高）
+    const instructionResult = await instructionService.executeInstruction(contentToAnalyze, {
+      ...context,
+      message,
+      groupName: toGroupName,
+      roomType,
+      atMe
+    });
+
+    if (instructionResult.matched) {
+      console.log(`指令识别成功:`, instructionResult);
+
+      // 如果指令执行成功，返回结果
+      if (instructionResult.success !== false) {
+        return {
+          action: 'instruction',
+          instructionType: instructionResult.instruction?.type,
+          result: instructionResult,
+          reason: '执行指令成功'
+        };
+      }
+    }
+
+    // 6. QA 问答库匹配（优先级次之）
+    const qaResult = await qaService.matchQA(contentToAnalyze, toGroupName);
+    if (qaResult.matched) {
+      console.log(`QA 问答匹配成功:`, qaResult);
+
+      // 发送 QA 回复
+      const toType = worktoolService.getReceiverType(roomType);
+      await worktoolService.sendTextMessage(toType, toGroupName, qaResult.reply);
+
+      return {
+        action: 'qa_reply',
+        reply: qaResult.reply,
+        qaId: qaResult.qaId,
+        reason: 'QA 问答匹配成功'
+      };
+    }
+
+    // 7. AI 意图识别（优先级最低）
     const intentResult = await aiService.recognizeIntent(
       contentToAnalyze,
       {
@@ -67,7 +111,7 @@ class DecisionService {
 
     console.log(`意图识别结果:`, intentResult);
 
-    // 5. 根据意图决定动作
+    // 8. 根据意图决定动作
     return await this.decideByIntent(
       intentResult,
       session,

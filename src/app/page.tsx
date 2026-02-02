@@ -2989,6 +2989,398 @@ ${callbacks.robotStatus}
     );
   });
 
+  // QA 问答库管理页面
+  const QAManagement = () => {
+    const [qaList, setQaList] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [editingQA, setEditingQA] = useState<any>(null);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [newQA, setNewQA] = useState({
+      keyword: '',
+      reply: '',
+      receiverType: 'all',
+      priority: 5,
+      isExactMatch: false,
+      relatedKeywords: '',
+      groupName: '',
+      isActive: true
+    });
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const loadQAList = async () => {
+      setIsLoading(true);
+      try {
+        const res = await fetch('/api/admin/qa');
+        if (res.ok) {
+          const data = await res.json();
+          setQaList(data.data || []);
+        }
+      } catch (error) {
+        console.error('加载 QA 列表失败:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const handleAddQA = async () => {
+      try {
+        const res = await fetch('/api/admin/qa', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newQA)
+        });
+        if (res.ok) {
+          alert('✅ QA 问答添加成功');
+          setShowAddModal(false);
+          setNewQA({
+            keyword: '',
+            reply: '',
+            receiverType: 'all',
+            priority: 5,
+            isExactMatch: false,
+            relatedKeywords: '',
+            groupName: '',
+            isActive: true
+          });
+          loadQAList();
+        } else {
+          alert('❌ 添加失败');
+        }
+      } catch (error) {
+        alert('❌ 添加失败');
+      }
+    };
+
+    const handleUpdateQA = async () => {
+      if (!editingQA) return;
+      try {
+        const res = await fetch(`/api/admin/qa/${editingQA.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(editingQA)
+        });
+        if (res.ok) {
+          alert('✅ QA 问答更新成功');
+          setEditingQA(null);
+          loadQAList();
+        } else {
+          alert('❌ 更新失败');
+        }
+      } catch (error) {
+        alert('❌ 更新失败');
+      }
+    };
+
+    const handleDeleteQA = async (id: string) => {
+      if (!confirm('确定要删除这条 QA 问答吗？')) return;
+      try {
+        const res = await fetch(`/api/admin/qa/${id}`, {
+          method: 'DELETE'
+        });
+        if (res.ok) {
+          alert('✅ QA 问答删除成功');
+          loadQAList();
+        } else {
+          alert('❌ 删除失败');
+        }
+      } catch (error) {
+        alert('❌ 删除失败');
+      }
+    };
+
+    useEffect(() => {
+      loadQAList();
+    }, []);
+
+    const filteredQAList = qaList.filter(qa => 
+      qa.keyword.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      qa.reply.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 className="text-2xl font-bold flex items-center gap-2">
+              <Database className="h-6 w-6 text-gray-500" />
+              QA 问答库
+            </h3>
+            <p className="text-muted-foreground mt-1">
+              管理系统问答知识库，支持精确匹配和模糊匹配
+            </p>
+          </div>
+          <Button onClick={() => setShowAddModal(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            添加问答
+          </Button>
+        </div>
+
+        {/* 搜索框 */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex gap-2">
+              <Search className="h-4 w-4 mt-3 text-muted-foreground" />
+              <Input
+                placeholder="搜索关键词或回复内容..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="flex-1"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* QA 列表 */}
+        <Card>
+          <CardContent className="pt-6">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="h-8 w-8 animate-spin text-blue-500" />
+              </div>
+            ) : filteredQAList.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                暂无 QA 问答
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredQAList.map((qa) => (
+                  <div key={qa.id} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={qa.isExactMatch ? 'default' : 'secondary'}>
+                            {qa.isExactMatch ? '精确匹配' : '模糊匹配'}
+                          </Badge>
+                          <Badge variant="outline">
+                            优先级: {qa.priority}
+                          </Badge>
+                          {qa.groupName && (
+                            <Badge variant="outline">
+                              群: {qa.groupName}
+                            </Badge>
+                          )}
+                          <Badge variant={qa.isActive ? 'default' : 'secondary'}>
+                            {qa.isActive ? '启用' : '禁用'}
+                          </Badge>
+                        </div>
+                        <div>
+                          <span className="text-sm text-muted-foreground">关键词:</span>
+                          <span className="font-medium ml-2">{qa.keyword}</span>
+                        </div>
+                        {qa.relatedKeywords && (
+                          <div>
+                            <span className="text-sm text-muted-foreground">关联关键词:</span>
+                            <span className="ml-2">{qa.relatedKeywords}</span>
+                          </div>
+                        )}
+                        <div>
+                          <span className="text-sm text-muted-foreground">回复:</span>
+                          <p className="mt-1">{qa.reply}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 ml-4">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingQA(qa)}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteQA(qa.id)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 添加 QA 模态框 */}
+        {showAddModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <CardHeader>
+                <CardTitle>添加 QA 问答</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">关键词 *</label>
+                  <Input
+                    value={newQA.keyword}
+                    onChange={(e) => setNewQA({ ...newQA, keyword: e.target.value })}
+                    placeholder="输入关键词"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">回复内容 *</label>
+                  <textarea
+                    value={newQA.reply}
+                    onChange={(e) => setNewQA({ ...newQA, reply: e.target.value })}
+                    placeholder="输入回复内容"
+                    rows={4}
+                    className="w-full px-3 py-2 border rounded-md"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">接收者类型</label>
+                    <select
+                      value={newQA.receiverType}
+                      onChange={(e) => setNewQA({ ...newQA, receiverType: e.target.value })}
+                      className="w-full mt-1 px-3 py-2 border rounded-md"
+                    >
+                      <option value="all">全部</option>
+                      <option value="user">私聊</option>
+                      <option value="group">群聊</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">优先级</label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={newQA.priority}
+                      onChange={(e) => setNewQA({ ...newQA, priority: parseInt(e.target.value) })}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">关联关键词（逗号分隔）</label>
+                  <Input
+                    value={newQA.relatedKeywords}
+                    onChange={(e) => setNewQA({ ...newQA, relatedKeywords: e.target.value })}
+                    placeholder="输入关联关键词"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">限制群名（可选）</label>
+                  <Input
+                    value={newQA.groupName}
+                    onChange={(e) => setNewQA({ ...newQA, groupName: e.target.value })}
+                    placeholder="输入群名"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={newQA.isExactMatch}
+                    onCheckedChange={(checked) => setNewQA({ ...newQA, isExactMatch: checked })}
+                  />
+                  <span className="text-sm">精确匹配</span>
+                </div>
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button variant="outline" onClick={() => setShowAddModal(false)}>
+                    取消
+                  </Button>
+                  <Button onClick={handleAddQA}>
+                    添加
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* 编辑 QA 模态框 */}
+        {editingQA && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <CardHeader>
+                <CardTitle>编辑 QA 问答</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">关键词 *</label>
+                  <Input
+                    value={editingQA.keyword}
+                    onChange={(e) => setEditingQA({ ...editingQA, keyword: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">回复内容 *</label>
+                  <textarea
+                    value={editingQA.reply}
+                    onChange={(e) => setEditingQA({ ...editingQA, reply: e.target.value })}
+                    rows={4}
+                    className="w-full px-3 py-2 border rounded-md"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">接收者类型</label>
+                    <select
+                      value={editingQA.receiverType}
+                      onChange={(e) => setEditingQA({ ...editingQA, receiverType: e.target.value })}
+                      className="w-full mt-1 px-3 py-2 border rounded-md"
+                    >
+                      <option value="all">全部</option>
+                      <option value="user">私聊</option>
+                      <option value="group">群聊</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">优先级</label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={editingQA.priority}
+                      onChange={(e) => setEditingQA({ ...editingQA, priority: parseInt(e.target.value) })}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">关联关键词（逗号分隔）</label>
+                  <Input
+                    value={editingQA.relatedKeywords || ''}
+                    onChange={(e) => setEditingQA({ ...editingQA, relatedKeywords: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">限制群名（可选）</label>
+                  <Input
+                    value={editingQA.groupName || ''}
+                    onChange={(e) => setEditingQA({ ...editingQA, groupName: e.target.value })}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={editingQA.isExactMatch}
+                    onCheckedChange={(checked) => setEditingQA({ ...editingQA, isExactMatch: checked })}
+                  />
+                  <span className="text-sm">精确匹配</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={editingQA.isActive}
+                    onCheckedChange={(checked) => setEditingQA({ ...editingQA, isActive: checked })}
+                  />
+                  <span className="text-sm">启用</span>
+                </div>
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button variant="outline" onClick={() => setEditingQA(null)}>
+                    取消
+                  </Button>
+                  <Button onClick={handleUpdateQA}>
+                    保存
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // 系统设置页面
   const SettingsTab = ({ aiConfig: propsAiConfig, isLoadingAiConfig: propsIsLoadingAiConfig }: { 
     aiConfig: any; 
@@ -3434,7 +3826,7 @@ ${callbacks.robotStatus}
       {/* 主内容 */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid h-auto p-1 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+          <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:inline-grid h-auto p-1 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
             <TabsTrigger value="dashboard" className="gap-2 py-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">仪表盘</span>
@@ -3442,6 +3834,10 @@ ${callbacks.robotStatus}
             <TabsTrigger value="callbacks" className="gap-2 py-2">
               <Link2 className="h-4 w-4" />
               <span className="hidden sm:inline">回调中心</span>
+            </TabsTrigger>
+            <TabsTrigger value="qa" className="gap-2 py-2">
+              <Database className="h-4 w-4" />
+              <span className="hidden sm:inline">QA 问答库</span>
             </TabsTrigger>
             <TabsTrigger value="sessions" className="gap-2 py-2">
               <Users className="h-4 w-4" />
@@ -3471,6 +3867,10 @@ ${callbacks.robotStatus}
 
           <TabsContent value="callbacks" className="space-y-6">
             <CallbackCenter />
+          </TabsContent>
+
+          <TabsContent value="qa" className="space-y-6">
+            <QAManagement />
           </TabsContent>
 
           <TabsContent value="sessions" className="space-y-6">

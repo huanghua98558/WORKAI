@@ -15,6 +15,7 @@ const rateLimit = require('@fastify/rate-limit');
 
 const worktoolCallbackRoutes = require('./routes/worktool.callback');
 const adminApiRoutes = require('./routes/admin.api');
+const qaApiRoutes = require('./routes/qa.api');
 
 const redisClient = require('./lib/redis');
 
@@ -58,6 +59,7 @@ fastify.register(rateLimit, {
 // 注册路由
 fastify.register(worktoolCallbackRoutes, { prefix: '/api/worktool/callback' });
 fastify.register(adminApiRoutes, { prefix: '/api/admin' });
+fastify.register(qaApiRoutes, { prefix: '/api/admin' });
 
 // 健康检查
 fastify.get('/health', async (request, reply) => {
