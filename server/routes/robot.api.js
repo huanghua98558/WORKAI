@@ -396,16 +396,6 @@ const robotApiRoutes = async function (fastify, options) {
       // 生成回调地址
       const callbackUrl = `${callbackBaseUrl}/api/worktool/callback/message?robotId=${robot.robotId}`;
 
-      // 获取 WorkTool API Key
-      const worktoolApiKey = config.get('worktool.globalApiKey') || process.env.WORKTOOL_API_KEY || request.body.worktoolApiKey;
-
-      if (!worktoolApiKey) {
-        return reply.status(400).send({
-          code: -1,
-          message: '未配置 WorkTool API Key'
-        });
-      }
-
       // 调用 WorkTool 配置接口
       const axios = require('axios');
 
@@ -422,13 +412,13 @@ const robotApiRoutes = async function (fastify, options) {
           'Content-Type': 'application/json'
         },
         params: {
-          robotId: robot.robotId,
-          key: worktoolApiKey
+          robotId: robot.robotId
         },
         timeout: 10000
       });
 
-      if (response.data && response.data.code === 0) {
+      // WorkTool API 返回 code=200 表示成功
+      if (response.data && response.data.code === 200) {
         // 更新机器人状态
         await robotService.updateRobot(id, {
           status: 'online',
@@ -482,16 +472,6 @@ const robotApiRoutes = async function (fastify, options) {
         });
       }
 
-      // 获取 WorkTool API Key
-      const worktoolApiKey = config.get('worktool.globalApiKey') || process.env.WORKTOOL_API_KEY;
-
-      if (!worktoolApiKey) {
-        return reply.status(400).send({
-          code: -1,
-          message: '未配置 WorkTool API Key'
-        });
-      }
-
       // 调用 WorkTool 查询接口
       const axios = require('axios');
       const baseUrl = robot.apiBaseUrl.replace(/\/wework\/?$/, '').replace(/\/$/, '');
@@ -502,13 +482,13 @@ const robotApiRoutes = async function (fastify, options) {
           'Content-Type': 'application/json'
         },
         params: {
-          robotId: robot.robotId,
-          robotKey: worktoolApiKey
+          robotId: robot.robotId
         },
         timeout: 10000
       });
 
-      if (response.data && response.data.code === 0) {
+      // WorkTool API 返回 code=200 表示成功
+      if (response.data && response.data.code === 200) {
         // 回调类型映射
         const callbackTypeMap = {
           0: '群二维码回调',
@@ -520,20 +500,15 @@ const robotApiRoutes = async function (fastify, options) {
 
         // 格式化回调配置数据
         const callbacks = (response.data.data || []).map(callback => ({
-          id: callback.id,
-          type: callback.type,
-          typeName: callback.typeName || callbackTypeMap[callback.type] || `类型${callback.type}`,
-          url: callback.callBackUrl
+          callbackType: callback.type,
+          callbackTypeName: callback.typeName || callbackTypeMap[callback.type] || `类型${callback.type}`,
+          callbackUrl: callback.callBackUrl
         }));
 
         return reply.send({
           code: 0,
           message: '查询成功',
-          data: {
-            robotId: robot.robotId,
-            robotName: robot.name,
-            callbacks
-          }
+          data: callbacks
         });
       } else {
         return reply.status(500).send({
