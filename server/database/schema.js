@@ -74,6 +74,33 @@ exports.qaDatabase = pgTable(
   })
 );
 
+// 机器人管理表
+exports.robots = pgTable(
+  "robots",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    name: varchar("name", { length: 255 }).notNull(), // 机器人名称
+    robotId: varchar("robot_id", { length: 64 }).notNull().unique(), // WorkTool Robot ID
+    apiBaseUrl: varchar("api_base_url", { length: 255 }).notNull(), // API Base URL
+    description: text("description"), // 描述
+    isActive: boolean("is_active").notNull().default(true), // 是否启用
+    status: varchar("status", { length: 20 }).notNull().default("unknown"), // 状态: online, offline, unknown, error
+    lastCheckAt: timestamp("last_check_at", { withTimezone: true }), // 最后检查时间
+    lastError: text("last_error"), // 最后错误信息
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    robotIdIdx: index("robots_robot_id_idx").on(table.robotId),
+    isActiveIdx: index("robots_is_active_idx").on(table.isActive),
+    statusIdx: index("robots_status_idx").on(table.status),
+  })
+);
+
 // Zod schemas for validation
 exports.insertUserSchema = z.object({
   username: z.string().min(1).max(64),
@@ -126,4 +153,22 @@ exports.updateQADatabaseSchema = z.object({
   relatedKeywords: z.string().optional(),
   groupName: z.string().max(255).optional(),
   isActive: z.boolean().optional()
+}).partial();
+
+exports.insertRobotSchema = z.object({
+  name: z.string().min(1).max(255),
+  robotId: z.string().min(1).max(64),
+  apiBaseUrl: z.string().min(1).max(255),
+  description: z.string().optional(),
+  isActive: z.boolean().optional()
+});
+
+exports.updateRobotSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  robotId: z.string().min(1).max(64).optional(),
+  apiBaseUrl: z.string().min(1).max(255).optional(),
+  description: z.string().optional(),
+  isActive: z.boolean().optional(),
+  status: z.enum(['online', 'offline', 'unknown', 'error']).optional(),
+  lastError: z.string().optional()
 }).partial();

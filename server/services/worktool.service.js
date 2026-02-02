@@ -228,6 +228,96 @@ class WorkToolService {
   }
 
   /**
+   * 发送文件消息 (type: 213)
+   *
+   * @param {string} receiverType - 接收者类型: "user" 或 "group"
+   * @param {string} receiver - 接收者标识
+   * @param {string} filePath - 文件路径（服务器本地路径）
+   * @param {string} fileName - 文件名（可选）
+   */
+  async sendFileMessage(receiverType, receiver, filePath, fileName = '') {
+    const data = {
+      socketType: 2,
+      list: [{
+        type: 213,
+        receiverType,
+        receiver,
+        filePath,
+        ...(fileName && { fileName })
+      }]
+    };
+
+    return await this.sendRequest('sendRawMessage', data);
+  }
+
+  /**
+   * 发送图片消息 (type: 214)
+   *
+   * @param {string} receiverType - 接收者类型: "user" 或 "group"
+   * @param {string} receiver - 接收者标识
+   * @param {string} imageBase64 - 图片 Base64 编码
+   */
+  async sendImageMessage(receiverType, receiver, imageBase64) {
+    const data = {
+      socketType: 2,
+      list: [{
+        type: 214,
+        receiverType,
+        receiver,
+        imageBase64
+      }]
+    };
+
+    return await this.sendRequest('sendRawMessage', data);
+  }
+
+  /**
+   * 发送链接消息 (type: 215)
+   *
+   * @param {string} receiverType - 接收者类型: "user" 或 "group"
+   * @param {string} receiver - 接收者标识
+   * @param {string} linkUrl - 链接 URL
+   * @param {string} linkTitle - 链接标题
+   * @param {string} linkDesc - 链接描述（可选）
+   */
+  async sendLinkMessage(receiverType, receiver, linkUrl, linkTitle, linkDesc = '') {
+    const data = {
+      socketType: 2,
+      list: [{
+        type: 215,
+        receiverType,
+        receiver,
+        linkUrl,
+        linkTitle,
+        ...(linkDesc && { linkDesc })
+      }]
+    };
+
+    return await this.sendRequest('sendRawMessage', data);
+  }
+
+  /**
+   * 发送卡片消息 (type: 216)
+   *
+   * @param {string} receiverType - 接收者类型: "user" 或 "group"
+   * @param {string} receiver - 接收者标识
+   * @param {Object} cardData - 卡片数据
+   */
+  async sendCardMessage(receiverType, receiver, cardData) {
+    const data = {
+      socketType: 2,
+      list: [{
+        type: 216,
+        receiverType,
+        receiver,
+        ...cardData
+      }]
+    };
+
+    return await this.sendRequest('sendRawMessage', data);
+  }
+
+  /**
    * 根据消息上下文判断接收者类型
    * @param {string} roomType - 房间类型（1=外部群 2=外部联系人 3=内部群 4=内部联系人）
    * @returns {string} "user" 或 "group"

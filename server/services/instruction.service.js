@@ -5,6 +5,9 @@
  * 支持的指令类型：
  * - 转发指令：消息到XXX、转发上一条消息到XXX、转发下一条消息到XXX
  * - 建群指令：创建外部群、立窝、解散群
+ * - 发送文件指令：发送文件XXX
+ * - 发送图片指令：发送图片XXX
+ * - 发送链接指令：发送链接XXX
  * - @触发指令：@机器人名 + 内容
  */
 
@@ -18,7 +21,7 @@ class InstructionService {
       // 匹配：消息到XXX
       /^消息到(.+)$/,
       // 匹配：转发消息到XXX
-      /^转发消息到(.+)$/,
+      /^转发(这条)?消息到(.+)$/,
       // 匹配：转发上一条消息到XXX
       /^转发上一条消息到(.+)$/,
       // 匹配：转发下一条消息到XXX
@@ -39,6 +42,30 @@ class InstructionService {
       /^立窝$/,
       // 匹配：解散群XXX
       /^解散群(.+)$/
+    ];
+
+    // 发送文件指令正则表达式
+    this.filePatterns = [
+      // 匹配：发送文件XXX
+      /^发送文件(.+)$/
+    ];
+
+    // 发送图片指令正则表达式
+    this.imagePatterns = [
+      // 匹配：发送图片XXX
+      /^发送图片(.+)$/,
+      // 匹配：发图XXX
+      /^发图(.+)$/
+    ];
+
+    // 发送链接指令正则表达式
+    this.linkPatterns = [
+      // 匹配：发送链接XXX
+      /^发送链接(.+)$/,
+      // 匹配：分享链接XXX
+      /^分享链接(.+)$/,
+      // 匹配：发链接XXX
+      /^发链接(.+)$/
     ];
 
     // @触发指令正则表达式
@@ -69,20 +96,34 @@ class InstructionService {
         result.matched = true;
         
         // 解析转发参数
-        if (match.length === 2) {
+        // match[0] 是完整匹配
+        // match[1] 是第一个捕获组
+        // match[2] 是第二个捕获组（如果有）
+        
+        const groups = match.slice(1).filter(g => g !== undefined);
+        
+        if (groups.length === 1) {
           // 简单转发：消息到XXX
-          result.params.target = match[1].trim();
+          result.params.target = groups[0].trim();
           result.params.forwardType = 'current';
-        } else if (match.length === 3) {
+        } else if (groups.length === 2) {
           // 组合转发：消息到XXX，转发上一条消息到XXX
-          result.params.source = match[1].trim();
-          result.params.target = match[2].trim();
-          
-          if (message.includes('上一条')) {
-            result.params.forwardType = 'previous';
-          } else if (message.includes('下一条')) {
-            result.params.forwardType = 'next';
+          // 或：转发(这条)?消息到XXX（第一个捕获组是"这条"或undefined）
+          if (message.includes('，')) {
+            // 这是组合转发
+            result.params.source = groups[0].trim();
+            result.params.target = groups[1].trim();
+            
+            if (message.includes('上一条')) {
+              result.params.forwardType = 'previous';
+            } else if (message.includes('下一条')) {
+              result.params.forwardType = 'next';
+            } else {
+              result.params.forwardType = 'current';
+            }
           } else {
+            // 这是转发这条消息到XXX
+            result.params.target = groups[1].trim();
             result.params.forwardType = 'current';
           }
         }
@@ -109,7 +150,40 @@ class InstructionService {
       }
     }
 
-    // 3. 检查@触发指令
+    // 3. 检查发送文件指令
+    for (const pattern of this.filePatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        result.type = 'send_file';
+        result.matched = true;
+        result.params.filePath = match[1].trim();
+        return result;
+      }
+    }
+
+    // 4. 检查发送图片指令
+    for (const pattern of this.imagePatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        result.type = 'send_image';
+        result.matched = true;
+        result.params.imagePath = match[1].trim();
+        return result;
+      }
+    }
+
+    // 5. 检查发送链接指令
+    for (const pattern of this.linkPatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        result.type = 'send_link';
+        result.matched = true;
+        result.params.linkUrl = match[1].trim();
+        return result;
+      }
+    }
+
+    // 6. 检查@触发指令
     if (context.atMe) {
       const atMatch = message.match(/^@(.+)$/i);
       if (atMatch) {
@@ -168,6 +242,90 @@ class InstructionService {
       return {
         success: false,
         message: `转发失败: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * 执行发送文件指令
+   * @param {Object} instruction - 指令对象
+   * @param {Object} context - 上下文信息
+   * @returns {Object} 执行结果
+   */
+  async executeSendFileInstruction(instruction, context) {
+    try {
+      const { params } = instruction;
+      
+      // TODO: 实现文件发送逻辑
+      // 需要从文件路径读取文件，然后调用 WorkTool API 发送
+      console.log('发送文件:', params.filePath);
+      
+      return {
+        success: true,
+        message: `文件发送功能开发中: ${params.filePath}`,
+        params
+      };
+    } catch (error) {
+      console.error('执行发送文件指令失败:', error);
+      return {
+        success: false,
+        message: `发送文件失败: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * 执行发送图片指令
+   * @param {Object} instruction - 指令对象
+   * @param {Object} context - 上下文信息
+   * @returns {Object} 执行结果
+   */
+  async executeSendImageInstruction(instruction, context) {
+    try {
+      const { params } = instruction;
+      
+      // TODO: 实现图片发送逻辑
+      // 需要从图片路径读取图片，然后调用 WorkTool API 发送
+      console.log('发送图片:', params.imagePath);
+      
+      return {
+        success: true,
+        message: `图片发送功能开发中: ${params.imagePath}`,
+        params
+      };
+    } catch (error) {
+      console.error('执行发送图片指令失败:', error);
+      return {
+        success: false,
+        message: `发送图片失败: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * 执行发送链接指令
+   * @param {Object} instruction - 指令对象
+   * @param {Object} context - 上下文信息
+   * @returns {Object} 执行结果
+   */
+  async executeSendLinkInstruction(instruction, context) {
+    try {
+      const { params } = instruction;
+      
+      // TODO: 实现链接发送逻辑
+      // 调用 WorkTool API 发送链接消息
+      console.log('发送链接:', params.linkUrl);
+      
+      return {
+        success: true,
+        message: `链接发送功能开发中: ${params.linkUrl}`,
+        params
+      };
+    } catch (error) {
+      console.error('执行发送链接指令失败:', error);
+      return {
+        success: false,
+        message: `发送链接失败: ${error.message}`
       };
     }
   }
@@ -245,6 +403,15 @@ class InstructionService {
       case 'group':
         result = await this.executeGroupInstruction(instruction, context);
         break;
+      case 'send_file':
+        result = await this.executeSendFileInstruction(instruction, context);
+        break;
+      case 'send_image':
+        result = await this.executeSendImageInstruction(instruction, context);
+        break;
+      case 'send_link':
+        result = await this.executeSendLinkInstruction(instruction, context);
+        break;
       case 'at_trigger':
         result = {
           matched: true,
@@ -272,7 +439,13 @@ class InstructionService {
    * @returns {boolean}
    */
   shouldReply(instruction) {
-    return instruction.type === 'at_trigger' || instruction.type === 'forward';
+    return (
+      instruction.type === 'at_trigger' || 
+      instruction.type === 'forward' ||
+      instruction.type === 'send_file' ||
+      instruction.type === 'send_image' ||
+      instruction.type === 'send_link'
+    );
   }
 }
 
