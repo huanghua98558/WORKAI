@@ -1,10 +1,10 @@
 /**
  * AI 服务封装
- * 支持多 AI 模型（OpenAI 协议兼容）
- * 支持内置模型和自定义 API 配置
+ * 使用 coze-coding-dev-sdk 调用大语言模型
+ * 支持意图识别、服务回复、闲聊、报告生成
  */
 
-const OpenAI = require('openai');
+const { LLMClient, Config } = require('coze-coding-dev-sdk');
 const config = require('../lib/config');
 
 class AIService {
@@ -40,10 +40,9 @@ class AIService {
         const builtinModel = this.builtinModelMap[configItem.builtinModelId];
         if (builtinModel) {
           this.initializeClient(provider, {
-            model: builtinModel.model,
-            apiKey: builtinModel.apiKey,
-            apiBase: builtinModel.apiBase,
-            provider: builtinModel.provider
+            modelId: builtinModel.modelId,
+            temperature: configItem.temperature ?? this.getDefaultTemperature(provider),
+            systemPrompt: configItem.systemPrompt ?? this.getDefaultSystemPrompt(provider)
           });
           console.log(`✅ ${provider} 使用内置模型: ${builtinModel.name}`);
           return;
@@ -52,11 +51,14 @@ class AIService {
         }
       }
 
-      // 使用自定义 API
+      // 使用自定义模型配置
       if (configItem.useCustom && configItem.customModel) {
-        const customConfig = this.parseCustomProvider(configItem.customModel);
-        this.initializeClient(provider, customConfig);
-        console.log(`✅ ${provider} 使用自定义模型: ${customConfig.model} (${customConfig.provider})`);
+        this.initializeClient(provider, {
+          modelId: configItem.customModel.model,
+          temperature: configItem.temperature ?? this.getDefaultTemperature(provider),
+          systemPrompt: configItem.systemPrompt ?? this.getDefaultSystemPrompt(provider)
+        });
+        console.log(`✅ ${provider} 使用自定义模型: ${configItem.customModel.model}`);
       }
     });
   }
@@ -66,69 +68,39 @@ class AIService {
    */
   initializeClient(provider, configItem) {
     try {
-      this.clients[provider] = new OpenAI({
-        apiKey: configItem.apiKey,
-        baseURL: configItem.apiBase || this.getDefaultApiBase(configItem.provider)
-      });
-      this.clients[provider].model = configItem.model;
-      this.clients[provider].provider = configItem.provider;
+      const sdkConfig = new Config();
+      const client = new LLMClient(sdkConfig);
+      
+      this.clients[provider] = {
+        client,
+        modelId: configItem.modelId,
+        temperature: configItem.temperature,
+        systemPrompt: configItem.systemPrompt
+      };
     } catch (error) {
       console.error(`❌ ${provider} AI 客户端初始化失败:`, error.message);
     }
   }
 
   /**
-   * 解析自定义提供商配置
+   * 获取默认温度参数
    */
-  parseCustomProvider(customModel) {
-    const provider = customModel.provider || 'openai';
-    const apiBase = customModel.apiBase || this.getDefaultApiBase(provider);
-    
-    return {
-      provider,
-      model: customModel.model,
-      apiKey: customModel.apiKey,
-      apiBase
+  getDefaultTemperature(provider) {
+    const defaults = {
+      'intentRecognition': 0.1,  // 意图识别需要确定性高
+      'serviceReply': 0.7,      // 服务回复需要一定的创造性
+      'chat': 0.9,              // 闲聊需要高创造性
+      'report': 0.3             // 报告生成需要确定性和专业性
     };
+    return defaults[provider] || 0.7;
   }
 
   /**
-   * 获取默认 API Base
+   * 获取默认系统提示词
    */
-  getDefaultApiBase(provider) {
-    const baseUrls = {
-      openai: 'https://api.openai.com/v1',
-      anthropic: 'https://api.anthropic.com/v1',
-      google: 'https://generativelanguage.googleapis.com/v1beta',
-      azure: 'https://your-resource.openai.azure.com',
-      zhipu: 'https://open.bigmodel.cn/api/paas/v4',
-      baichuan: 'https://api.baichuan-ai.com/v1',
-      minimax: 'https://api.minimax.chat/v1',
-      xunfei: 'https://spark-api.xf-yun.com/v1',
-      custom: 'https://api.custom-provider.com/v1'
-    };
-    return baseUrls[provider] || 'https://api.openai.com/v1';
-  }
-
-  /**
-   * 获取指定类型的客户端
-   */
-  getClient(provider) {
-    const client = this.clients[provider];
-    if (!client) {
-      throw new Error(`${provider} AI 未配置`);
-    }
-    return client;
-  }
-
-  /**
-   * 意图识别
-   */
-  async recognizeIntent(message, context = {}) {
-    try {
-      const client = this.getClient('intentRecognition');
-
-      const systemPrompt = `你是一个企业微信群消息意图识别专家。请分析用户消息并返回意图类型。
+  getDefaultSystemPrompt(provider) {
+    const prompts = {
+      'intentRecognition': `你是一个企业微信群消息意图识别专家。请分析用户消息并返回意图类型。
 
 意图类型定义：
 - chat: 闲聊、问候、日常对话
@@ -146,22 +118,87 @@ class AIService {
   "needHuman": true/false,
   "confidence": 0.0-1.0,
   "reason": "判断理由"
-}`;
+}`,
 
-      const response = await client.chat.completions.create({
-        model: client.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { 
-            role: 'user', 
-            content: `消息内容：${message}\n\n上下文信息：${JSON.stringify(context)}` 
-          }
-        ],
-        temperature: 0.1,
-        response_format: { type: 'json_object' }
+      'serviceReply': `你是一个企业微信群服务助手。请根据用户问题和意图，生成专业、友好的回复。
+
+回复要求：
+1. 语言简洁明了，控制在 200 字以内
+2. 语气亲切友好，使用表情符号增加亲和力
+3. 避免敏感词汇和不当内容
+4. 如果需要人工介入，明确提示`,
+
+      'chat': `你是一个友好的聊天伙伴。请以轻松、自然的方式回应用户的闲聊内容。
+
+要求：
+1. 回复简短，控制在 100 字以内
+2. 语气轻松活泼，可以使用表情符号
+3. 保持对话连贯性`,
+
+      'report': `你是一个数据分析师。请根据以下数据生成日终总结报告。
+
+报告要求：
+1. 包含关键指标统计（消息数、回复数、人工介入数等）
+2. 识别问题和风险
+3. 提出改进建议
+4. 语言简洁专业`
+    };
+    return prompts[provider] || '';
+  }
+
+  /**
+   * 获取指定类型的客户端
+   */
+  getClient(provider) {
+    const clientConfig = this.clients[provider];
+    if (!clientConfig) {
+      throw new Error(`${provider} AI 未配置`);
+    }
+    return clientConfig;
+  }
+
+  /**
+   * 意图识别
+   */
+  async recognizeIntent(message, context = {}) {
+    try {
+      const clientConfig = this.getClient('intentRecognition');
+      
+      const messages = [
+        { 
+          role: 'system', 
+          content: clientConfig.systemPrompt 
+        },
+        { 
+          role: 'user', 
+          content: `消息内容：${message}\n\n上下文信息：${JSON.stringify(context)}` 
+        }
+      ];
+
+      const response = await clientConfig.client.invoke(messages, {
+        model: clientConfig.modelId,
+        temperature: clientConfig.temperature
       });
 
-      const result = JSON.parse(response.choices[0].message.content);
+      const content = response.content;
+      
+      // 尝试解析 JSON
+      let result;
+      try {
+        // 清理可能的 markdown 代码块标记
+        const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
+        result = JSON.parse(cleanContent);
+      } catch (e) {
+        console.warn('意图识别返回格式错误，使用默认值:', content);
+        result = {
+          intent: 'chat',
+          needReply: true,
+          needHuman: false,
+          confidence: 0.5,
+          reason: '解析失败，降级处理'
+        };
+      }
+
       return result;
     } catch (error) {
       console.error('意图识别失败:', error.message);
@@ -181,32 +218,25 @@ class AIService {
    */
   async generateServiceReply(userMessage, intent, knowledgeBase = '') {
     try {
-      const client = this.getClient('serviceReply');
+      const clientConfig = this.getClient('serviceReply');
 
-      const systemPrompt = `你是一个企业微信群服务助手。请根据用户问题和意图，生成专业、友好的回复。
+      const messages = [
+        { 
+          role: 'system', 
+          content: clientConfig.systemPrompt 
+        },
+        { 
+          role: 'user', 
+          content: `用户问题：${userMessage}\n意图：${intent}` 
+        }
+      ];
 
-回复要求：
-1. 语言简洁明了，控制在 200 字以内
-2. 语气亲切友好，使用表情符号增加亲和力
-3. 避免敏感词汇和不当内容
-4. 如果需要人工介入，明确提示
-
-${knowledgeBase ? `知识库参考：\n${knowledgeBase}` : ''}`;
-
-      const response = await client.chat.completions.create({
-        model: client.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { 
-            role: 'user', 
-            content: `用户问题：${userMessage}\n意图：${intent}` 
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 300
+      const response = await clientConfig.client.invoke(messages, {
+        model: clientConfig.modelId,
+        temperature: clientConfig.temperature
       });
 
-      return response.choices[0].message.content;
+      return response.content;
     } catch (error) {
       console.error('生成服务回复失败:', error.message);
       // 降级处理：返回固定话术
@@ -219,26 +249,22 @@ ${knowledgeBase ? `知识库参考：\n${knowledgeBase}` : ''}`;
    */
   async generateChatReply(userMessage) {
     try {
-      const client = this.getClient('chat');
+      const clientConfig = this.getClient('chat');
 
-      const systemPrompt = `你是一个友好的聊天伙伴。请以轻松、自然的方式回应用户的闲聊内容。
+      const messages = [
+        { 
+          role: 'system', 
+          content: clientConfig.systemPrompt 
+        },
+        { role: 'user', content: userMessage }
+      ];
 
-要求：
-1. 回复简短，控制在 100 字以内
-2. 语气轻松活泼，可以使用表情符号
-3. 保持对话连贯性`;
-
-      const response = await client.chat.completions.create({
-        model: client.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage }
-        ],
-        temperature: 0.9,
-        max_tokens: 150
+      const response = await clientConfig.client.invoke(messages, {
+        model: clientConfig.modelId,
+        temperature: clientConfig.temperature
       });
 
-      return response.choices[0].message.content;
+      return response.content;
     } catch (error) {
       console.error('生成闲聊回复失败:', error.message);
       // 降级处理：返回随机表情
@@ -252,27 +278,22 @@ ${knowledgeBase ? `知识库参考：\n${knowledgeBase}` : ''}`;
    */
   async generateDailyReport(data) {
     try {
-      const client = this.getClient('report');
+      const clientConfig = this.getClient('report');
 
-      const systemPrompt = `你是一个数据分析师。请根据以下数据生成日终总结报告。
+      const messages = [
+        { 
+          role: 'system', 
+          content: clientConfig.systemPrompt 
+        },
+        { role: 'user', content: JSON.stringify(data) }
+      ];
 
-报告要求：
-1. 包含关键指标统计（消息数、回复数、人工介入数等）
-2. 识别问题和风险
-3. 提出改进建议
-4. 语言简洁专业`;
-
-      const response = await client.chat.completions.create({
-        model: client.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: JSON.stringify(data) }
-        ],
-        temperature: 0.3,
-        max_tokens: 1000
+      const response = await clientConfig.client.invoke(messages, {
+        model: clientConfig.modelId,
+        temperature: clientConfig.temperature
       });
 
-      return response.choices[0].message.content;
+      return response.content;
     } catch (error) {
       console.error('生成日终总结失败:', error.message);
       return '日终总结生成失败，请查看详细数据。';
@@ -296,18 +317,18 @@ ${knowledgeBase ? `知识库参考：\n${knowledgeBase}` : ''}`;
     const providers = ['intentRecognition', 'serviceReply', 'chat', 'report'];
     
     providers.forEach(provider => {
-      const client = this.clients[provider];
-      if (client) {
+      const clientConfig = this.clients[provider];
+      if (clientConfig) {
         status[provider] = {
           configured: true,
-          model: client.model,
-          provider: client.provider
+          model: clientConfig.modelId,
+          temperature: clientConfig.temperature
         };
       } else {
         status[provider] = {
           configured: false,
           model: null,
-          provider: null
+          temperature: null
         };
       }
     });

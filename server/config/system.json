@@ -22,11 +22,11 @@
   "ai": {
     "builtinModels": [
       {
-        "id": "doubao-pro-128k",
-        "name": "豆包 Pro 128K",
-        "provider": "doubao",
-        "modelId": "doubao-pro-128k",
-        "description": "适合复杂对话和长文本处理",
+        "id": "doubao-seed-1-8-251228",
+        "name": "豆包 Seed 1.8",
+        "provider": "coze",
+        "modelId": "doubao-seed-1-8-251228",
+        "description": "多模态Agent优化模型（默认）",
         "category": [
           "intent",
           "service",
@@ -37,11 +37,11 @@
         "supportStream": true
       },
       {
-        "id": "doubao-pro-32k",
-        "name": "豆包 Pro 32K",
-        "provider": "doubao",
-        "modelId": "doubao-pro-32k",
-        "description": "平衡性能和成本，适合客服场景",
+        "id": "doubao-seed-1-6-251015",
+        "name": "豆包 Seed 1.6 平衡版",
+        "provider": "coze",
+        "modelId": "doubao-seed-1-6-251015",
+        "description": "平衡性能，适合通用对话",
         "category": [
           "intent",
           "service",
@@ -51,22 +51,49 @@
         "supportStream": true
       },
       {
-        "id": "doubao-lite-4k",
-        "name": "豆包 Lite 4K",
-        "provider": "doubao",
-        "modelId": "doubao-lite-4k",
-        "description": "轻量级模型，适合简单任务",
+        "id": "doubao-seed-1-6-flash-250615",
+        "name": "豆包 Seed 1.6 快速版",
+        "provider": "coze",
+        "modelId": "doubao-seed-1-6-flash-250615",
+        "description": "快速响应模型，适合简单任务",
         "category": [
-          "intent"
+          "intent",
+          "chat"
         ],
         "maxTokens": 4000,
         "supportStream": true
       },
       {
-        "id": "deepseek-chat",
-        "name": "DeepSeek Chat",
-        "provider": "deepseek",
-        "modelId": "deepseek-chat",
+        "id": "doubao-seed-1-6-thinking-250715",
+        "name": "豆包 Seed 1.6 思考版",
+        "provider": "coze",
+        "modelId": "doubao-seed-1-6-thinking-250715",
+        "description": "深度推理模型，适合复杂任务",
+        "category": [
+          "intent",
+          "service"
+        ],
+        "maxTokens": 64000,
+        "supportStream": true
+      },
+      {
+        "id": "doubao-seed-1-6-lite-251015",
+        "name": "豆包 Seed 1.6 轻量版",
+        "provider": "coze",
+        "modelId": "doubao-seed-1-6-lite-251015",
+        "description": "轻量级模型，成本更低",
+        "category": [
+          "intent",
+          "chat"
+        ],
+        "maxTokens": 4000,
+        "supportStream": true
+      },
+      {
+        "id": "deepseek-v3-2-251201",
+        "name": "DeepSeek V3.2",
+        "provider": "coze",
+        "modelId": "deepseek-v3-2-251201",
         "description": "强大的对话能力，适合复杂推理",
         "category": [
           "service",
@@ -77,76 +104,37 @@
         "supportStream": true
       },
       {
-        "id": "deepseek-reasoner",
-        "name": "DeepSeek Reasoner",
-        "provider": "deepseek",
-        "modelId": "deepseek-reasoner",
-        "description": "强化推理能力，适合复杂问题",
+        "id": "deepseek-r1-250528",
+        "name": "DeepSeek R1",
+        "provider": "coze",
+        "modelId": "deepseek-r1-250528",
+        "description": "研究和分析专用模型",
         "category": [
           "intent",
-          "service"
+          "service",
+          "report"
         ],
         "maxTokens": 64000,
         "supportStream": true
       },
       {
-        "id": "kimi-moonshot-v1-8k",
-        "name": "Kimi Moonshot 8K",
-        "provider": "kimi",
-        "modelId": "moonshot-v1-8k",
-        "description": "快速响应，适合实时对话",
-        "category": [
-          "intent",
-          "chat"
-        ],
-        "maxTokens": 8000,
-        "supportStream": true
-      },
-      {
-        "id": "kimi-moonshot-v1-32k",
-        "name": "Kimi Moonshot 32K",
-        "provider": "kimi",
-        "modelId": "moonshot-v1-32k",
-        "description": "长文本处理，适合复杂场景",
+        "id": "kimi-k2-250905",
+        "name": "Kimi K2",
+        "provider": "coze",
+        "modelId": "kimi-k2-250905",
+        "description": "长上下文处理，适合复杂场景",
         "category": [
           "service",
           "report"
         ],
         "maxTokens": 32000,
         "supportStream": true
-      },
-      {
-        "id": "qwen-plus",
-        "name": "通义千问 Plus",
-        "provider": "qwen",
-        "modelId": "qwen-plus",
-        "description": "阿里巴巴大模型，综合能力强",
-        "category": [
-          "intent",
-          "service",
-          "chat"
-        ],
-        "maxTokens": 32000,
-        "supportStream": true
-      },
-      {
-        "id": "qwen-turbo",
-        "name": "通义千问 Turbo",
-        "provider": "qwen",
-        "modelId": "qwen-turbo",
-        "description": "快速响应，成本更低",
-        "category": [
-          "intent",
-          "chat"
-        ],
-        "maxTokens": 8000,
-        "supportStream": true
       }
     ],
     "customModels": [],
     "intentRecognition": {
       "useBuiltin": true,
-      "builtinModelId": "doubao-pro-32k",
+      "builtinModelId": "doubao-seed-1-6-251015",
       "useCustom": false,
       "customModel": {
         "provider": "openai",
@@ -157,7 +145,7 @@
     },
     "serviceReply": {
       "useBuiltin": true,
-      "builtinModelId": "doubao-pro-128k",
+      "builtinModelId": "doubao-seed-1-8-251228",
       "useCustom": false,
       "customModel": {
         "provider": "openai",
@@ -168,7 +156,7 @@
     },
     "chat": {
       "useBuiltin": true,
-      "builtinModelId": "doubao-pro-32k",
+      "builtinModelId": "doubao-seed-1-6-flash-250615",
       "useCustom": false,
       "customModel": {
         "provider": "openai",
@@ -179,7 +167,7 @@
     },
     "report": {
       "useBuiltin": true,
-      "builtinModelId": "deepseek-chat",
+      "builtinModelId": "deepseek-v3-2-251201",
       "useCustom": false,
       "customModel": {
         "provider": "openai",
@@ -314,16 +302,6 @@
       "wechatId": "",
       "enabled": true,
       "createdAt": "2026-02-02T13:46:35.918Z"
-    },
-    {
-      "id": "user_1770040009595",
-      "username": "testuser",
-      "password": "test123",
-      "role": "monitor",
-      "name": "测试监测员",
-      "wechatId": "wx_test123",
-      "enabled": true,
-      "createdAt": "2026-02-02T13:46:49.595Z"
     }
   ]
 }

@@ -122,6 +122,23 @@ class RedisClient {
         this.memoryStore.set(key, hash);
         return 1;
       },
+      mget: async (...keys) => {
+        return keys.map(key => this.memoryStore.get(key) || null);
+      },
+      incr: async (key) => {
+        const current = parseInt(this.memoryStore.get(key)) || 0;
+        this.memoryStore.set(key, String(current + 1));
+        return current + 1;
+      },
+      ltrim: async (key, start, stop) => {
+        const list = this.memoryStore.get(key) || [];
+        if (stop === -1) {
+          this.memoryStore.set(key, list.slice(start));
+        } else {
+          this.memoryStore.set(key, list.slice(start, stop + 1));
+        }
+        return 'OK';
+      },
       expire: async (key, seconds) => {
         // 内存模式下忽略过期时间
         return 1;

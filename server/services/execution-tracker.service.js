@@ -18,7 +18,9 @@ class ExecutionTrackerService {
   /**
    * 开始处理追踪
    */
-  startProcessing(context) {
+  async startProcessing(context) {
+    await this.init(); // 确保 Redis 已初始化
+    
     const processingId = `process:${Date.now()}:${Math.random().toString(36).substring(2, 9)}`;
     
     const processingData = {
@@ -33,18 +35,18 @@ class ExecutionTrackerService {
     };
 
     // 使用 Redis 存储处理数据，保留7天
-    this.redis.setex(
+    await this.redis.setex(
       `execution:${processingId}`,
       7 * 24 * 3600,
       JSON.stringify(processingData)
     );
 
     // 添加到最近记录列表（保留最近100条）
-    this.redis.lpush('execution:recent', processingId);
-    this.redis.ltrim('execution:recent', 0, 99);
+    await this.redis.lpush('execution:recent', processingId);
+    await this.redis.ltrim('execution:recent', 0, 99);
 
     // 更新统计
-    this.redis.incr('execution:stats:total');
+    await this.redis.incr('execution:stats:total');
 
     return processingId;
   }
@@ -52,144 +54,116 @@ class ExecutionTrackerService {
   /**
    * 更新处理步骤
    */
-  updateStep(processingId, stepName, stepData) {
-    this.redis.hget(`execution:${processingId}`, 'value', (err, data) => {
-      if (err || !data) return;
+  async updateStep(processingId, stepName, stepData) {
+    const data = await this.redis.get(`execution:${processingId}`);
+    if (!data) return;
 
-      const processing = JSON.parse(data);
-      processing.steps[stepName] = {
-        ...stepData,
-        timestamp: new Date().toISOString()
-      };
+    const processing = JSON.parse(data);
+    processing.steps[stepName] = {
+      ...stepData,
+      timestamp: new Date().toISOString()
+    };
 
-      this.redis.setex(
-        `execution:${processingId}`,
-        7 * 24 * 3600,
-        JSON.stringify(processing)
-      );
-    });
+    await this.redis.setex(
+      `execution:${processingId}`,
+      7 * 24 * 3600,
+      JSON.stringify(processing)
+    );
   }
 
   /**
    * 完成处理
    */
-  completeProcessing(processingId, result) {
-    this.redis.get(`execution:${processingId}`, (err, data) => {
-      if (err || !data) return;
+  async completeProcessing(processingId, result) {
+    const data = await this.redis.get(`execution:${processingId}`);
+    if (!data) return;
 
-      const processing = JSON.parse(data);
+    const processing = JSON.parse(data);
       processing.status = result.status || 'completed';
       processing.completedAt = new Date().toISOString();
       processing.error = result.error || null;
       processing.decision = result.decision || null;
       processing.processingTime = result.processingTime || 0;
 
-      // 更新统计
-      if (result.status === 'success') {
-        this.redis.incr('execution:stats:success');
-        
-        if (result.decision?.action === 'auto_reply') {
-          this.redis.incr('execution:stats:auto_reply');
-        } else if (result.decision?.action === 'none') {
-          this.redis.incr('execution:stats:none');
-        } else if (result.decision?.action === 'human_takeover') {
-          this.redis.incr('execution:stats:human_takeover');
-        }
-      } else {
-        this.redis.incr('execution:stats:error');
+    // 更新统计
+    if (result.status === 'success') {
+      await this.redis.incr('execution:stats:success');
+      
+      if (result.decision?.action === 'auto_reply') {
+        await this.redis.incr('execution:stats:auto_reply');
+      } else if (result.decision?.action === 'none') {
+        await this.redis.incr('execution:stats:none');
+      } else if (result.decision?.action === 'human_takeover') {
+        await this.redis.incr('execution:stats:human_takeover');
       }
+    } else {
+      await this.redis.incr('execution:stats:error');
+    }
 
-      this.redis.setex(
-        `execution:${processingId}`,
-        7 * 24 * 3600,
-        JSON.stringify(processing)
-      );
-    });
+    await this.redis.setex(
+      `execution:${processingId}`,
+      7 * 24 * 3600,
+      JSON.stringify(processing)
+    );
   }
 
   /**
    * 获取处理详情
    */
   async getProcessingDetail(processingId) {
-    return new Promise((resolve, reject) => {
-      this.redis.get(`execution:${processingId}`, (err, data) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-
-        if (!data) {
-          resolve(null);
-          return;
-        }
-
-        resolve(JSON.parse(data));
-      });
-    });
+    const data = await this.redis.get(`execution:${processingId}`);
+    if (!data) {
+      return null;
+    }
+    return JSON.parse(data);
   }
 
   /**
    * 获取最近处理记录
    */
   async getRecentRecords(limit = 50) {
-    return new Promise((resolve, reject) => {
-      this.redis.lrange('execution:recent', 0, limit - 1, async (err, processingIds) => {
-        if (err) {
-          reject(err);
-          return;
-        }
+    const processingIds = await this.redis.lrange('execution:recent', 0, limit - 1);
+    
+    if (!processingIds || processingIds.length === 0) {
+      return [];
+    }
 
-        if (!processingIds || processingIds.length === 0) {
-          resolve([]);
-          return;
-        }
+    // 批量获取处理详情
+    const promises = processingIds.map(id => this.getProcessingDetail(id));
+    const results = await Promise.all(promises);
 
-        // 批量获取处理详情
-        const promises = processingIds.map(id => this.getProcessingDetail(id));
-        const results = await Promise.all(promises);
+    // 过滤掉 null 并按时间排序
+    const records = results
+      .filter(r => r !== null)
+      .sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
 
-        // 过滤掉 null 并按时间排序
-        const records = results
-          .filter(r => r !== null)
-          .sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
-
-        resolve(records);
-      });
-    });
+    return records;
   }
 
   /**
    * 获取统计数据
    */
   async getStats(timeRange = '24h') {
-    return new Promise((resolve, reject) => {
-      this.redis.mget(
-        [
-          'execution:stats:total',
-          'execution:stats:success',
-          'execution:stats:error',
-          'execution:stats:auto_reply',
-          'execution:stats:none',
-          'execution:stats:human_takeover'
-        ],
-        (err, values) => {
-          if (err) {
-            reject(err);
-            return;
-          }
+    const values = await this.redis.mget(
+      [
+        'execution:stats:total',
+        'execution:stats:success',
+        'execution:stats:error',
+        'execution:stats:auto_reply',
+        'execution:stats:none',
+        'execution:stats:human_takeover'
+      ]
+    );
 
-          resolve({
-            total: parseInt(values[0]) || 0,
-            success: parseInt(values[1]) || 0,
-            error: parseInt(values[2]) || 0,
-            autoReply: parseInt(values[3]) || 0,
-            none: parseInt(values[4]) || 0,
-            humanTakeover: parseInt(values[5]) || 0,
-            successRate: values[0] ? ((parseInt(values[1]) / parseInt(values[0])) * 100).toFixed(2) : '0'
-          });
-        }
-      );
-    });
+    return {
+      total: parseInt(values[0]) || 0,
+      success: parseInt(values[1]) || 0,
+      error: parseInt(values[2]) || 0,
+      autoReply: parseInt(values[3]) || 0,
+      none: parseInt(values[4]) || 0,
+      humanTakeover: parseInt(values[5]) || 0,
+      successRate: values[0] ? ((parseInt(values[1]) / parseInt(values[0])) * 100).toFixed(2) : '0'
+    };
   }
 
   /**
