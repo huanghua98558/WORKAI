@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -1474,12 +1474,16 @@ ${callbacks.robotStatus}
     // 使用 ref 避免重复初始化
     const initializedRef = useRef(false);
     const prevConfigRef = useRef<any>(null);
+    const configRef = useRef<any>(null);
 
     const config = aiConfig?.ai?.[type as keyof typeof aiConfig.ai];
     const builtinModels = aiConfig?.ai?.builtinModels || [];
     
     // 只在第一次加载或配置真正变化时初始化
     useEffect(() => {
+      // 使用 ref 来跟踪配置，避免重复执行
+      configRef.current = config;
+      
       // 检查配置是否真的变化了（避免重复设置）
       const configStr = JSON.stringify(config);
       if (initializedRef.current && prevConfigRef.current === configStr) {
@@ -1487,7 +1491,6 @@ ${callbacks.robotStatus}
       }
       
       if (config) {
-        console.log(`[${type}] 初始化配置:`, config);
         setUseBuiltin(config.useBuiltin);
         setBuiltinModelId(config.builtinModelId || '');
         if (config.customModel) {
@@ -1504,7 +1507,7 @@ ${callbacks.robotStatus}
         initializedRef.current = true;
         prevConfigRef.current = configStr;
       }
-    }, [config, type]);
+    }, [config]); // 只依赖 config
 
     // 获取默认的系统提示词
     const getDefaultSystemPrompt = (type: string): string => {
@@ -2307,7 +2310,27 @@ ${callbacks.robotStatus}
     //   }
     // };
 
-    const saveSettings = async () => {
+    // 保存 AI 模型配置
+    const saveAiConfig = useCallback(async (type: string, config: any) => {
+      try {
+        const res = await fetch('/api/admin/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ai: {
+              [type]: config
+            }
+          })
+        });
+        if (res.ok) {
+          alert('✅ AI 模型配置已保存');
+        }
+      } catch (error) {
+        alert('❌ 保存失败');
+      }
+    }, []);
+
+    const saveSettings = useCallback(async () => {
       try {
         const res = await fetch('/api/admin/config', {
           method: 'POST',
@@ -2327,27 +2350,7 @@ ${callbacks.robotStatus}
       } catch (error) {
         alert('❌ 保存失败');
       }
-    };
-
-    // 保存 AI 模型配置
-    const saveAiConfig = async (type: string, config: any) => {
-      try {
-        const res = await fetch('/api/admin/config', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ai: {
-              [type]: config
-            }
-          })
-        });
-        if (res.ok) {
-          alert('✅ AI 模型配置已保存');
-        }
-      } catch (error) {
-        alert('❌ 保存失败');
-      }
-    };
+    }, [autoReplyMode, chatProbability, serviceReplyEnabled, riskAutoHuman]);
 
     return (
       <div className="space-y-6">
@@ -2392,8 +2395,9 @@ ${callbacks.robotStatus}
                     size="sm" 
                     className="mt-3"
                     onClick={() => {
-                      // 调用父组件的 loadAiConfig 函数重新加载
-                      loadAiConfig();
+                      // TODO: 需要将父组件的 loadAiConfig 函数通过 props 传递下来
+                      // 临时方案：重新加载页面
+                      window.location.reload();
                     }}
                   >
                     重新加载
