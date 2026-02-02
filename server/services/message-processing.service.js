@@ -101,7 +101,11 @@ class MessageProcessingService {
           groupId: messageContext.groupName,
           userName: messageContext.fromName,
           groupName: messageContext.groupName,
-          history: session.context.slice(-5)
+          history: session.context.slice(-5),
+          sessionId: session.sessionId,
+          messageId: messageData.messageId,
+          robotId: robot.robotId,
+          robotName: robot.name
         }
       );
 
@@ -342,7 +346,14 @@ class MessageProcessingService {
       
       reply = await aiService.generateServiceReply(
         messageContext.content,
-        intent
+        intent,
+        '',
+        {
+          sessionId: session.sessionId,
+          messageId: messageContext.messageId,
+          robotId: robot.robotId,
+          robotName: robot.name
+        }
       );
       actionReason = '服务问题自动回复';
     } else if (intent === 'chat') {
@@ -374,14 +385,26 @@ class MessageProcessingService {
         // AI 自然陪聊：使用闲聊AI模型
         logger.info('MessageProcessing', '使用闲聊AI模型');
         
-        reply = await aiService.generateChatReply(messageContext.content);
+        reply = await aiService.generateChatReply(messageContext.content, {
+          sessionId: session.sessionId,
+          messageId: messageContext.messageId,
+          robotId: robot.robotId,
+          robotName: robot.name
+        });
         actionReason = '闲聊 AI 陪聊';
       }
     } else {
       // 其他意图：使用回复AI模型
       reply = await aiService.generateServiceReply(
         messageContext.content,
-        intent
+        intent,
+        '',
+        {
+          sessionId: session.sessionId,
+          messageId: messageContext.messageId,
+          robotId: robot.robotId,
+          robotName: robot.name
+        }
       );
       actionReason = '通用自动回复';
     }

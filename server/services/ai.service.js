@@ -6,6 +6,7 @@
 
 const { LLMClient, Config } = require('coze-coding-dev-sdk');
 const config = require('../lib/config');
+const aiIoLogService = require('./ai-io-log.service');
 
 class AIService {
   constructor() {
@@ -161,6 +162,12 @@ class AIService {
    * 意图识别
    */
   async recognizeIntent(message, context = {}) {
+    const startTime = Date.now();
+    const sessionId = context.sessionId || null;
+    const messageId = context.messageId || `msg_${Date.now()}`;
+    const robotId = context.robotId || null;
+    const robotName = context.robotName || null;
+
     try {
       const clientConfig = this.getClient('intentRecognition');
       
@@ -181,6 +188,22 @@ class AIService {
       });
 
       const content = response.content;
+      const duration = Date.now() - startTime;
+      
+      // 记录 AI IO 日志
+      await aiIoLogService.saveLog({
+        sessionId,
+        messageId,
+        robotId,
+        robotName,
+        operationType: 'intent_recognition',
+        aiInput: JSON.stringify(messages),
+        aiOutput: content,
+        modelId: clientConfig.modelId,
+        temperature: clientConfig.temperature,
+        requestDuration: duration,
+        status: 'success',
+      });
       
       // 尝试解析 JSON
       let result;
@@ -201,7 +224,25 @@ class AIService {
 
       return result;
     } catch (error) {
+      const duration = Date.now() - startTime;
       console.error('意图识别失败:', error.message);
+      
+      // 记录错误日志
+      await aiIoLogService.saveLog({
+        sessionId,
+        messageId,
+        robotId,
+        robotName,
+        operationType: 'intent_recognition',
+        aiInput: JSON.stringify(messages),
+        aiOutput: null,
+        modelId: clientConfig?.modelId,
+        temperature: clientConfig?.temperature,
+        requestDuration: duration,
+        status: 'error',
+        errorMessage: error.message,
+      });
+      
       // 降级处理：返回默认意图
       return {
         intent: 'chat',
@@ -216,7 +257,13 @@ class AIService {
   /**
    * 服务回复生成
    */
-  async generateServiceReply(userMessage, intent, knowledgeBase = '') {
+  async generateServiceReply(userMessage, intent, knowledgeBase = '', context = {}) {
+    const startTime = Date.now();
+    const sessionId = context.sessionId || null;
+    const messageId = context.messageId || null;
+    const robotId = context.robotId || null;
+    const robotName = context.robotName || null;
+
     try {
       const clientConfig = this.getClient('serviceReply');
 
@@ -236,9 +283,45 @@ class AIService {
         temperature: clientConfig.temperature
       });
 
-      return response.content;
+      const duration = Date.now() - startTime;
+      const content = response.content;
+      
+      // 记录 AI IO 日志
+      await aiIoLogService.saveLog({
+        sessionId,
+        messageId,
+        robotId,
+        robotName,
+        operationType: 'service_reply',
+        aiInput: JSON.stringify(messages),
+        aiOutput: content,
+        modelId: clientConfig.modelId,
+        temperature: clientConfig.temperature,
+        requestDuration: duration,
+        status: 'success',
+      });
+
+      return content;
     } catch (error) {
+      const duration = Date.now() - startTime;
       console.error('生成服务回复失败:', error.message);
+      
+      // 记录错误日志
+      await aiIoLogService.saveLog({
+        sessionId,
+        messageId,
+        robotId,
+        robotName,
+        operationType: 'service_reply',
+        aiInput: JSON.stringify(messages),
+        aiOutput: null,
+        modelId: clientConfig?.modelId,
+        temperature: clientConfig?.temperature,
+        requestDuration: duration,
+        status: 'error',
+        errorMessage: error.message,
+      });
+      
       // 降级处理：返回固定话术
       return '您好，我已收到您的问题，正在为您处理中，请稍等片刻 🙏';
     }
@@ -247,7 +330,13 @@ class AIService {
   /**
    * 闲聊回复生成
    */
-  async generateChatReply(userMessage) {
+  async generateChatReply(userMessage, context = {}) {
+    const startTime = Date.now();
+    const sessionId = context.sessionId || null;
+    const messageId = context.messageId || null;
+    const robotId = context.robotId || null;
+    const robotName = context.robotName || null;
+
     try {
       const clientConfig = this.getClient('chat');
 
@@ -264,9 +353,45 @@ class AIService {
         temperature: clientConfig.temperature
       });
 
-      return response.content;
+      const duration = Date.now() - startTime;
+      const content = response.content;
+      
+      // 记录 AI IO 日志
+      await aiIoLogService.saveLog({
+        sessionId,
+        messageId,
+        robotId,
+        robotName,
+        operationType: 'chat_reply',
+        aiInput: JSON.stringify(messages),
+        aiOutput: content,
+        modelId: clientConfig.modelId,
+        temperature: clientConfig.temperature,
+        requestDuration: duration,
+        status: 'success',
+      });
+
+      return content;
     } catch (error) {
+      const duration = Date.now() - startTime;
       console.error('生成闲聊回复失败:', error.message);
+      
+      // 记录错误日志
+      await aiIoLogService.saveLog({
+        sessionId,
+        messageId,
+        robotId,
+        robotName,
+        operationType: 'chat_reply',
+        aiInput: JSON.stringify(messages),
+        aiOutput: null,
+        modelId: clientConfig?.modelId,
+        temperature: clientConfig?.temperature,
+        requestDuration: duration,
+        status: 'error',
+        errorMessage: error.message,
+      });
+      
       // 降级处理：返回随机表情
       const emojis = ['👋', '😊', '🎉', '✨', '👍', '💪'];
       return emojis[Math.floor(Math.random() * emojis.length)];

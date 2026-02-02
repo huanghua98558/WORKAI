@@ -179,6 +179,75 @@ exports.sessionMessages = pgTable(
   })
 );
 
+// AI IO 日志表
+exports.aiIoLogs = pgTable(
+  "ai_io_logs",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    sessionId: varchar("session_id", { length: 255 }), // 关联的会话ID
+    messageId: varchar("message_id", { length: 255 }), // 关联的消息ID
+    robotId: varchar("robot_id", { length: 64 }), // 机器人ID
+    robotName: varchar("robot_name", { length: 255 }), // 机器人名称
+    operationType: varchar("operation_type", { length: 50 }).notNull(), // 操作类型: intent_recognition, service_reply, chat_reply, report
+    aiInput: text("ai_input").notNull(), // 发送给 AI 的输入（prompt）
+    aiOutput: text("ai_output"), // AI 返回的输出
+    modelId: varchar("model_id", { length: 255 }), // 使用的 AI 模型 ID
+    temperature: varchar("temperature", { length: 10 }), // 温度参数
+    requestDuration: integer("request_duration"), // 请求耗时（毫秒）
+    status: varchar("status", { length: 20 }).notNull(), // 状态: success, error, timeout
+    errorMessage: text("error_message"), // 错误信息
+    extraData: jsonb("extra_data"), // 额外数据（JSON格式）
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    sessionIdIdx: index("ai_io_logs_session_id_idx").on(table.sessionId),
+    messageIdIdx: index("ai_io_logs_message_id_idx").on(table.messageId),
+    robotIdIdx: index("ai_io_logs_robot_id_idx").on(table.robotId),
+    operationTypeIdx: index("ai_io_logs_operation_type_idx").on(table.operationType),
+    statusIdx: index("ai_io_logs_status_idx").on(table.status),
+    createdAtIdx: index("ai_io_logs_created_at_idx").on(table.createdAt),
+  })
+);
+
+// 运营日志表
+exports.operationLogs = pgTable(
+  "operation_logs",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: varchar("user_id", { length: 36 }), // 操作用户ID
+    username: varchar("username", { length: 64 }), // 操作用户名
+    action: varchar("action", { length: 100 }).notNull(), // 操作动作
+    module: varchar("module", { length: 50 }).notNull(), // 操作模块: robot, session, ai, config, etc.
+    targetId: varchar("target_id", { length: 255 }), // 目标对象ID
+    targetType: varchar("target_type", { length: 50 }), // 目标对象类型: robot, session, setting, etc.
+    description: text("description"), // 操作描述
+    ipAddress: varchar("ip_address", { length: 45 }), // 操作 IP 地址
+    userAgent: text("user_agent"), // 用户代理（浏览器信息）
+    requestData: jsonb("request_data"), // 请求数据（JSON格式）
+    responseData: jsonb("response_data"), // 响应数据（JSON格式）
+    status: varchar("status", { length: 20 }).notNull(), // 状态: success, error
+    errorMessage: text("error_message"), // 错误信息
+    duration: integer("duration"), // 操作耗时（毫秒）
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    userIdIdx: index("operation_logs_user_id_idx").on(table.userId),
+    actionIdx: index("operation_logs_action_idx").on(table.action),
+    moduleIdx: index("operation_logs_module_idx").on(table.module),
+    targetIdIdx: index("operation_logs_target_id_idx").on(table.targetId),
+    statusIdx: index("operation_logs_status_idx").on(table.status),
+    createdAtIdx: index("operation_logs_created_at_idx").on(table.createdAt),
+  })
+);
+
 // Zod schemas for validation
 exports.insertUserSchema = z.object({
   username: z.string().min(1).max(64),
