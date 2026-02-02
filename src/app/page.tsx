@@ -14,6 +14,7 @@ import {
   Settings, 
   Activity, 
   AlertTriangle, 
+  AlertCircle,
   FileText,
   Bot,
   Zap,
