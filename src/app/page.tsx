@@ -66,7 +66,8 @@ import {
   Save,
   X,
   Edit2,
-  Circle
+  Circle,
+  Mail
 } from 'lucide-react';
 
 // 类型定义
@@ -971,6 +972,45 @@ ${callbacks.robotStatus}
   // 仪表盘组件
   const OverviewTab = () => (
     <div className="space-y-6">
+      {/* 欢迎横幅 */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 p-8 text-white">
+        <div className="absolute inset-0 bg-grid-white/10 bg-[size:20px_20px]" />
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+              <Sparkles className="h-8 w-8" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold">欢迎回来！</h1>
+              <p className="text-white/80">WorkTool AI 中枢系统已准备就绪</p>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3 mt-6">
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="h-5 w-5 text-green-300" />
+                <span className="text-sm font-medium">系统状态</span>
+              </div>
+              <p className="text-2xl font-bold">正常运行</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="h-5 w-5 text-blue-300" />
+                <span className="text-sm font-medium">运行时间</span>
+              </div>
+              <p className="text-2xl font-bold">24h</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageSquare className="h-5 w-5 text-pink-300" />
+                <span className="text-sm font-medium">今日消息</span>
+              </div>
+              <p className="text-2xl font-bold">{monitorData?.system?.callback_received || 0}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* 状态栏 */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -993,111 +1033,214 @@ ${callbacks.robotStatus}
         </div>
       </div>
 
-      {/* 核心指标卡片 */}
+      {/* 核心指标卡片 - 升级版 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-l-4 border-l-blue-500">
+        <Card className="border-none shadow-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:shadow-xl transition-all duration-300 hover:scale-105">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">总回调数</CardTitle>
-            <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-              <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <CardTitle className="text-sm font-medium text-white/90">总回调数</CardTitle>
+            <div className="p-2 bg-white/20 rounded-lg">
+              <MessageSquare className="h-4 w-4 text-white" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{monitorData?.summary.totalCallbacks || 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <div className="text-3xl font-bold">{monitorData?.summary.totalCallbacks || 0}</div>
+            <p className="text-xs text-white/80 mt-2 flex items-center gap-1">
+              <TrendingUp className="h-3 w-3" />
               今日累计
               {monitorData?.system?.callback_received && monitorData?.system?.callback_received > 0 && (
-                <span className="text-green-600 ml-1">+{monitorData?.system?.callback_received}</span>
+                <span className="ml-1">+{monitorData?.system?.callback_received}</span>
               )}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-green-500">
+        <Card className="border-none shadow-lg bg-gradient-to-br from-green-500 to-green-600 text-white hover:shadow-xl transition-all duration-300 hover:scale-105">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">处理成功率</CardTitle>
-            <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-              <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <CardTitle className="text-sm font-medium text-white/90">处理成功率</CardTitle>
+            <div className="p-2 bg-white/20 rounded-lg">
+              <TrendingUp className="h-4 w-4 text-white" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{monitorData?.summary.successRate || '0%'}</div>
-            <p className="text-xs text-muted-foreground mt-1">回调处理成功率</p>
+            <div className="text-3xl font-bold">{monitorData?.summary.successRate || '0%'}</div>
+            <p className="text-xs text-white/80 mt-2">回调处理成功率</p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-purple-500">
+        <Card className="border-none shadow-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white hover:shadow-xl transition-all duration-300 hover:scale-105">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">AI 成功率</CardTitle>
-            <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
-              <Bot className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            <CardTitle className="text-sm font-medium text-white/90">AI 成功率</CardTitle>
+            <div className="p-2 bg-white/20 rounded-lg">
+              <Bot className="h-4 w-4 text-white" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{monitorData?.summary.aiSuccessRate || '0%'}</div>
-            <p className="text-xs text-muted-foreground mt-1">AI 响应成功率</p>
+            <div className="text-3xl font-bold">{monitorData?.summary.aiSuccessRate || '0%'}</div>
+            <p className="text-xs text-white/80 mt-2">AI 响应成功率</p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-orange-500">
+        <Card className="border-none shadow-lg bg-gradient-to-br from-orange-500 to-orange-600 text-white hover:shadow-xl transition-all duration-300 hover:scale-105">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">告警数量</CardTitle>
-            <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
-              <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+            <CardTitle className="text-sm font-medium text-white/90">告警数量</CardTitle>
+            <div className="p-2 bg-white/20 rounded-lg">
+              <AlertTriangle className="h-4 w-4 text-white" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{alertData?.total || 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">近 7 天告警</p>
+            <div className="text-3xl font-bold">{alertData?.total || 0}</div>
+            <p className="text-xs text-white/80 mt-2">近 7 天告警</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 活跃会话和告警预览 */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {/* 最近活跃会话 */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Users className="h-4 w-4 text-blue-500" />
+                最近活跃会话
+              </CardTitle>
+              <Badge variant="secondary">{sessions.length} 个活跃会话</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {sessions.slice(0, 4).map((session) => (
+                <div key={session.sessionId} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg">
+                      {session.userName.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">{session.userName}</p>
+                      <p className="text-xs text-muted-foreground">{session.groupName}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge 
+                      variant={session.status === 'auto' ? 'default' : 'secondary'}
+                      className="gap-1"
+                    >
+                      {session.status === 'auto' ? (
+                        <>
+                          <Bot className="h-3 w-3" />
+                          AI 接管
+                        </>
+                      ) : (
+                        <>
+                          <UserCheck className="h-3 w-3" />
+                          人工
+                        </>
+                      )}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {session.messageCount} 消息
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {sessions.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>暂无活跃会话</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 快速操作 */}
+        <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Zap className="h-4 w-4 text-yellow-500" />
+              快速操作
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button 
+              className="w-full justify-start gap-2" 
+              variant="outline"
+              onClick={() => setActiveTab('callbacks')}
+            >
+              <Link2 className="h-4 w-4" />
+              配置回调地址
+            </Button>
+            <Button 
+              className="w-full justify-start gap-2" 
+              variant="outline"
+              onClick={() => setActiveTab('users')}
+            >
+              <UserCheck className="h-4 w-4" />
+              管理用户
+            </Button>
+            <Button 
+              className="w-full justify-start gap-2" 
+              variant="outline"
+              onClick={() => setActiveTab('reports')}
+            >
+              <FileText className="h-4 w-4" />
+              查看报告
+            </Button>
+            <Button 
+              className="w-full justify-start gap-2" 
+              variant="outline"
+              onClick={() => setActiveTab('settings')}
+            >
+              <Settings className="h-4 w-4" />
+              系统设置
+            </Button>
           </CardContent>
         </Card>
       </div>
 
       {/* 详细指标 */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
+        <Card className="shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
             <CardTitle className="text-base flex items-center gap-2">
               <Server className="h-4 w-4" />
               系统指标
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">回调接收</span>
-              <Badge variant="secondary">{monitorData?.system.callback_received || 0}</Badge>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">回调处理</span>
-              <Badge variant="secondary">{monitorData?.system.callback_processed || 0}</Badge>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">回调错误</span>
-              <Badge variant={(monitorData?.system?.callback_error ?? 0) > 0 ? 'destructive' : 'secondary'}>
-                {monitorData?.system?.callback_error || 0}
-              </Badge>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">AI 请求</span>
-              <Badge variant="secondary">{monitorData?.system?.ai_requests || 0}</Badge>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">AI 错误</span>
-              <Badge variant={(monitorData?.system?.ai_errors ?? 0) > 0 ? 'destructive' : 'secondary'}>
-                {monitorData?.system?.ai_errors || 0}
-              </Badge>
+          <CardContent className="pt-6">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                <span className="text-sm font-medium">回调接收</span>
+                <Badge className="bg-blue-600 hover:bg-blue-700">{monitorData?.system.callback_received || 0}</Badge>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950 rounded-lg">
+                <span className="text-sm font-medium">回调处理</span>
+                <Badge className="bg-green-600 hover:bg-green-700">{monitorData?.system.callback_processed || 0}</Badge>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950 rounded-lg">
+                <span className="text-sm font-medium">回调错误</span>
+                <Badge variant="destructive">{monitorData?.system?.callback_error || 0}</Badge>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-purple-50 dark:bg-purple-950 rounded-lg">
+                <span className="text-sm font-medium">AI 请求</span>
+                <Badge className="bg-purple-600 hover:bg-purple-700">{monitorData?.system?.ai_requests || 0}</Badge>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-orange-50 dark:bg-orange-950 rounded-lg">
+                <span className="text-sm font-medium">AI 错误</span>
+                <Badge variant="destructive">{monitorData?.system?.ai_errors || 0}</Badge>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
+        <Card className="shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
             <CardTitle className="text-base flex items-center gap-2">
               <ZapIcon className="h-4 w-4" />
               AI 模型状态
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="pt-6">
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">意图识别</span>
               <div className="flex items-center gap-2">
@@ -3355,6 +3498,104 @@ ${callbacks.robotStatus}
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* 精美页脚 */}
+      <footer className="mt-auto border-t bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="container mx-auto px-4 py-8">
+          <div className="grid gap-8 md:grid-cols-4">
+            {/* 品牌信息 */}
+            <div className="md:col-span-2">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl">
+                  <div className="w-8 h-8 flex items-center justify-center">
+                    <span className="text-xl">🐟</span>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold text-gray-900 dark:text-white">小黄鱼视频号</h4>
+                  <p className="text-sm text-gray-500">专业号商</p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                专注于视频号生态服务，为企业提供全方位的数字化解决方案。
+                助力企业快速搭建私域流量池，实现商业价值最大化。
+              </p>
+              <div className="flex gap-3">
+                <Badge variant="outline" className="gap-1">
+                  <CheckCircle className="h-3 w-3" />
+                  专业认证
+                </Badge>
+                <Badge variant="outline" className="gap-1">
+                  <ShieldCheck className="h-3 w-3" />
+                  安全可靠
+                </Badge>
+                <Badge variant="outline" className="gap-1">
+                  <Zap className="h-3 w-3" />
+                  高效服务
+                </Badge>
+              </div>
+            </div>
+
+            {/* 快速链接 */}
+            <div>
+              <h5 className="font-semibold mb-4 text-gray-900 dark:text-white">快速链接</h5>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <Button variant="ghost" className="h-auto p-0 text-left" onClick={() => setActiveTab('dashboard')}>
+                    仪表盘
+                  </Button>
+                </li>
+                <li>
+                  <Button variant="ghost" className="h-auto p-0 text-left" onClick={() => setActiveTab('callbacks')}>
+                    回调中心
+                  </Button>
+                </li>
+                <li>
+                  <Button variant="ghost" className="h-auto p-0 text-left" onClick={() => setActiveTab('sessions')}>
+                    会话管理
+                  </Button>
+                </li>
+                <li>
+                  <Button variant="ghost" className="h-auto p-0 text-left" onClick={() => setActiveTab('users')}>
+                    用户管理
+                  </Button>
+                </li>
+              </ul>
+            </div>
+
+            {/* 联系方式 */}
+            <div>
+              <h5 className="font-semibold mb-4 text-gray-900 dark:text-white">联系我们</h5>
+              <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
+                <li className="flex items-center gap-2">
+                  <Globe className="h-4 w-4" />
+                  <span>www.xiaohuangyu.com</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4" />
+                  <span>微信: xiaohuangyu</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  <span>contact@xiaohuangyu.com</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* 底部版权 */}
+          <div className="border-t mt-8 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-sm text-gray-500">
+              © 2026 小黄鱼视频号专业号商. All rights reserved.
+            </p>
+            <div className="flex items-center gap-4 text-sm text-gray-500">
+              <Button variant="ghost" className="h-auto p-0 text-xs">隐私政策</Button>
+              <Button variant="ghost" className="h-auto p-0 text-xs">服务条款</Button>
+              <Button variant="ghost" className="h-auto p-0 text-xs">帮助中心</Button>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
