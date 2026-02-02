@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -99,14 +99,11 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
           const activeRobots = robots.filter((r: any) => r.isActive);
           setAvailableRobots(activeRobots);
 
-          // 如果只有一个在线机器人，自动选择
-          if (activeRobots.length === 1) {
-            setSelectedRobot(activeRobots[0]);
-            setShowRobotSelection(false);
-          } else if (activeRobots.length === 0) {
-            // 没有可用机器人
+          // 不再自动选择，必须由用户手动选择
+          // 如果没有可用机器人，显示空状态
+          if (activeRobots.length === 0) {
             setSelectedRobot(null);
-            setShowRobotSelection(false);
+            setShowRobotSelection(true); // 显示空状态
           }
         }
       }
@@ -142,6 +139,34 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
   const handleBackToRobotSelection = () => {
     setShowRobotSelection(true);
     setSelectedRobot(null);
+    // 清空所有表单数据
+    setMessageForm({
+      messageType: 'private',
+      robotId: '',
+      recipient: '',
+      content: ''
+    });
+    setMessageResult(null);
+    setGroupForm({
+      groupName: '',
+      operationType: 'create',
+      newGroupName: '',
+      selectList: '',
+      removeList: '',
+      groupAnnouncement: '',
+      groupRemark: '',
+      showMessageHistory: false,
+      groupTemplate: ''
+    });
+    setGroupResult(null);
+    setFileForm({
+      recipient: '',
+      fileType: 'image',
+      fileName: '',
+      fileUrl: '',
+      remark: ''
+    });
+    setFileResult(null);
   };
   
   // 发送消息相关状态
@@ -191,7 +216,12 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
   const loadExecutionRecords = async () => {
     setIsLoadingRecords(true);
     try {
-      const response = await fetch('/api/proxy/admin/execution?endpoint=records&limit=50');
+      // 如果选择了机器人，只显示该机器人的记录
+      const url = selectedRobot
+        ? `/api/proxy/admin/execution?endpoint=records&robotId=${selectedRobot.robotId}&limit=50`
+        : '/api/proxy/admin/execution?endpoint=records&limit=50';
+
+      const response = await fetch(url);
       const data = await response.json();
       if (data.success) {
         setExecutionRecords(data.data || []);
@@ -395,7 +425,7 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
                 选择调试机器人
               </DialogTitle>
               <DialogDescription>
-                选择要调试的机器人进行功能测试
+                所有调试操作都需要先选择机器人，请从下方选择要调试的机器人
               </DialogDescription>
             </DialogHeader>
 
@@ -408,11 +438,17 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
                   </div>
                 </div>
               ) : availableRobots.length === 0 ? (
-                <Alert>
+                <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertTitle>没有可用的机器人</AlertTitle>
                   <AlertDescription>
-                    请先在"机器人管理"页面添加并启用机器人，然后重试。
+                    <p className="mb-2">无法进行调试操作。请先完成以下步骤：</p>
+                    <ol className="list-decimal list-inside space-y-1 text-sm">
+                      <li>在"机器人管理"页面添加机器人</li>
+                      <li>确保机器人状态为"在线"</li>
+                      <li>启用机器人（打开开关）</li>
+                      <li>刷新此对话框</li>
+                    </ol>
                   </AlertDescription>
                 </Alert>
               ) : (
@@ -420,8 +456,16 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
                   {availableRobots.map((robot) => (
                     <Card
                       key={robot.id}
-                      className="cursor-pointer hover:shadow-lg hover:border-blue-500 transition-all border-2"
-                      onClick={() => handleSelectRobot(robot)}
+                      className={`cursor-pointer hover:shadow-lg transition-all border-2 ${
+                        robot.status === 'online'
+                          ? 'hover:border-blue-500 border-blue-200 dark:border-blue-800'
+                          : 'opacity-50 border-gray-200 dark:border-gray-800 cursor-not-allowed'
+                      }`}
+                      onClick={() => {
+                        if (robot.status === 'online') {
+                          handleSelectRobot(robot);
+                        }
+                      }}
                     >
                       <CardContent className="p-6">
                         <div className="flex items-start gap-4">
@@ -449,8 +493,14 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
                                 <span className="text-xs text-muted-foreground">{robot.nickname}</span>
                               )}
                             </div>
-                            {robot.description && (
-                              <p className="text-xs text-muted-foreground">{robot.description}</p>
+                            {robot.status === 'offline' && (
+                              <Alert variant="destructive" className="mt-2">
+                                <AlertTriangle className="h-3 w-3" />
+                                <p className="text-xs">此机器人离线，无法调试</p>
+                              </Alert>
+                            )}
+                            {robot.description && robot.status === 'online' && (
+                              <p className="text-xs text-muted-foreground mt-2">{robot.description}</p>
                             )}
                           </div>
                         </div>
@@ -964,7 +1014,20 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
               {/* 执行记录列表 */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">最近执行记录</CardTitle>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    最近执行记录
+                    {selectedRobot && (
+                      <Badge variant="outline" className="text-xs">
+                        <Bot className="h-3 w-3 mr-1" />
+                        {selectedRobot.name}
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  <CardDescription>
+                    {selectedRobot
+                      ? `显示机器人 "${selectedRobot.name}" 的执行记录`
+                      : '显示所有机器人的执行记录'}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {isLoadingRecords ? (
