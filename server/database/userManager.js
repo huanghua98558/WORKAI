@@ -61,7 +61,12 @@ class UserManager {
 
   async updateUser(id, data) {
     const db = await getDb();
-    const validated = updateUserSchema.parse(data);
+    // 过滤掉空字符串的 password 字段
+    const updateData = { ...data };
+    if (updateData.password === "" || updateData.password?.trim() === "") {
+      delete updateData.password;
+    }
+    const validated = updateUserSchema.parse(updateData);
     const [user] = await db
       .update(users)
       .set({ ...validated, updatedAt: new Date() })

@@ -786,7 +786,8 @@ const adminApiRoutes = async function (fastify, options) {
       }
       
       const updateData = {};
-      if (password !== undefined) {
+      // 只有在 password 存在且非空时才更新密码
+      if (password && password.trim()) {
         updateData.password = password;
       }
       if (role !== undefined) {

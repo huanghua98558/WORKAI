@@ -1973,7 +1973,10 @@ ${callbacks.robotStatus}
       try {
         setIsLoading(true);
         const updateData: any = {};
-        if (editingUser.password) updateData.password = editingUser.password;
+        // 只有在密码非空时才包含密码字段
+        if (editingUser.password && editingUser.password.trim() !== '') {
+          updateData.password = editingUser.password;
+        }
         if (editingUser.role) updateData.role = editingUser.role;
         if (editingUser.email !== undefined) updateData.email = editingUser.email;
         if (editingUser.isActive !== undefined) updateData.isActive = editingUser.isActive;
@@ -2085,7 +2088,10 @@ ${callbacks.robotStatus}
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          setEditingUser(user);
+                          setEditingUser({
+                            ...user,
+                            password: ''  // 清空密码字段，避免显示当前密码
+                          });
                           setShowEditDialog(true);
                         }}
                       >
