@@ -468,6 +468,98 @@ const robotApiRoutes = async function (fastify, options) {
       });
     }
   });
+
+  // 查询机器人回调配置
+  fastify.get('/robots/:id/callback-config', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const robot = await robotService.getRobotById(id);
+
+      if (!robot) {
+        return reply.status(404).send({
+          code: -1,
+          message: '机器人不存在'
+        });
+      }
+
+      // 获取 WorkTool API Key
+      const worktoolApiKey = config.get('worktool.globalApiKey') || process.env.WORKTOOL_API_KEY;
+
+      if (!worktoolApiKey) {
+        return reply.status(400).send({
+          code: -1,
+          message: '未配置 WorkTool API Key'
+        });
+      }
+
+      // 调用 WorkTool 查询接口
+      const axios = require('axios');
+      const baseUrl = robot.apiBaseUrl.replace(/\/wework\/?$/, '').replace(/\/$/, '');
+      const queryUrl = `${baseUrl}/robot/robotInfo/callBack/get`;
+
+      const response = await axios.get(queryUrl, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        params: {
+          robotId: robot.robotId,
+          robotKey: worktoolApiKey
+        },
+        timeout: 10000
+      });
+
+      if (response.data && response.data.code === 0) {
+        // 回调类型映射
+        const callbackTypeMap = {
+          0: '群二维码回调',
+          1: '指令消息回调',
+          5: '机器人上线回调',
+          6: '机器人下线回调',
+          11: '消息回调'
+        };
+
+        // 格式化回调配置数据
+        const callbacks = (response.data.data || []).map(callback => ({
+          id: callback.id,
+          type: callback.type,
+          typeName: callback.typeName || callbackTypeMap[callback.type] || `类型${callback.type}`,
+          url: callback.callBackUrl
+        }));
+
+        return reply.send({
+          code: 0,
+          message: '查询成功',
+          data: {
+            robotId: robot.robotId,
+            robotName: robot.name,
+            callbacks
+          }
+        });
+      } else {
+        return reply.status(500).send({
+          code: -1,
+          message: '查询失败',
+          error: response.data?.message || '未知错误'
+        });
+      }
+    } catch (error) {
+      console.error('查询回调配置失败:', error);
+
+      if (error.response) {
+        return reply.status(error.response.status).send({
+          code: -1,
+          message: '查询失败',
+          error: error.response.data?.message || error.message
+        });
+      }
+
+      return reply.status(500).send({
+        code: -1,
+        message: '查询失败',
+        error: error.message
+      });
+    }
+  });
 };
 
 module.exports = robotApiRoutes;

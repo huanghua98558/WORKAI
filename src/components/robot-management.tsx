@@ -83,6 +83,8 @@ export default function RobotManagement() {
   const [testingRobotId, setTestingRobotId] = useState<string | null>(null);
   const [callbackUrls, setCallbackUrls] = useState<Record<string, string>>({});
   const [configuringRobotId, setConfiguringRobotId] = useState<string | null>(null);
+  const [callbackConfigs, setCallbackConfigs] = useState<Record<string, any[]>>({});
+  const [queryingRobotId, setQueryingRobotId] = useState<string | null>(null);
 
   // 加载机器人列表
   const loadRobots = async () => {
@@ -361,6 +363,33 @@ export default function RobotManagement() {
       alert('配置失败，请检查网络连接');
     } finally {
       setConfiguringRobotId(null);
+    }
+  };
+
+  // 查询回调配置
+  const queryCallbackConfig = async (robot: Robot) => {
+    setQueryingRobotId(robot.id);
+    try {
+      const res = await fetch(`/api/proxy/admin/robots/${robot.id}/callback-config`);
+      const data = await res.json();
+      if (data.code === 0) {
+        setCallbackConfigs(prev => ({
+          ...prev,
+          [robot.id]: data.data || []
+        }));
+        if (data.data && data.data.length > 0) {
+          alert(`查询成功！当前配置了 ${data.data.length} 个回调类型：\n${data.data.map((item: any) => `${item.callbackType}: ${item.callbackUrl}`).join('\n')}`);
+        } else {
+          alert('查询成功！当前未配置任何回调地址');
+        }
+      } else {
+        alert(data.message || '查询失败');
+      }
+    } catch (error) {
+      console.error('查询回调配置失败:', error);
+      alert('查询失败，请检查网络连接');
+    } finally {
+      setQueryingRobotId(null);
     }
   };
 
@@ -672,6 +701,25 @@ export default function RobotManagement() {
                           <>
                             <Settings className="h-4 w-4 mr-2" />
                             自动配置到 WorkTool
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => queryCallbackConfig(robot)}
+                        disabled={queryingRobotId === robot.id}
+                        className="w-full"
+                      >
+                        {queryingRobotId === robot.id ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            查询中...
+                          </>
+                        ) : (
+                          <>
+                            <Info className="h-4 w-4 mr-2" />
+                            查询回调配置
                           </>
                         )}
                       </Button>
