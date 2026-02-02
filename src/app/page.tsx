@@ -162,7 +162,11 @@ export default function AdminDashboard() {
 
       if (callbacksRes.ok) {
         const data = await callbacksRes.json();
+        console.log('[回调解析] data:', data);
+        console.log('[回调解析] data.data:', data.data);
         setCallbacks(data.data);
+      } else {
+        console.error('[回调解析] callbacksRes.ok = false, status:', callbacksRes.status, callbacksRes.statusText);
       }
 
       if (monitorRes.ok) {

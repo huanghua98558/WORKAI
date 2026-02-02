@@ -21,15 +21,18 @@ export async function GET(
       'Content-Type': 'application/json',
     };
 
-    // 传递关键请求头，让后端能获取真实的部署地址
-    if (request.headers.get('x-forwarded-host')) {
-      headers['x-forwarded-host'] = request.headers.get('x-forwarded-host')!;
+    // 传递原始的 host 和协议信息，让后端能获取真实的前端部署地址
+    const host = request.headers.get('host');
+    
+    // 从 request.headers 获取协议，而不是 nextUrl.protocol
+    const proto = request.headers.get('x-forwarded-proto') || 
+                  (request.headers.get('host')?.includes('localhost') ? 'http' : 'https');
+    
+    if (host) {
+      headers['x-forwarded-host'] = host;
+      headers['x-forwarded-proto'] = proto;
+      headers['host'] = host;
     }
-    if (request.headers.get('x-forwarded-proto')) {
-      headers['x-forwarded-proto'] = request.headers.get('x-forwarded-proto')!;
-    }
-    // 注意：不要覆盖 x-forwarded-host，host 只在不存在 x-forwarded-host 时使用
-    // 后端会优先使用 x-forwarded-host
 
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -63,15 +66,18 @@ export async function POST(
       'Content-Type': 'application/json',
     };
 
-    // 传递关键请求头，让后端能获取真实的部署地址
-    if (request.headers.get('x-forwarded-host')) {
-      headers['x-forwarded-host'] = request.headers.get('x-forwarded-host')!;
+    // 传递原始的 host 和协议信息，让后端能获取真实的前端部署地址
+    const host = request.headers.get('host');
+    
+    // 从 request.headers 获取协议，而不是 nextUrl.protocol
+    const proto = request.headers.get('x-forwarded-proto') || 
+                  (request.headers.get('host')?.includes('localhost') ? 'http' : 'https');
+    
+    if (host) {
+      headers['x-forwarded-host'] = host;
+      headers['x-forwarded-proto'] = proto;
+      headers['host'] = host;
     }
-    if (request.headers.get('x-forwarded-proto')) {
-      headers['x-forwarded-proto'] = request.headers.get('x-forwarded-proto')!;
-    }
-    // 注意：不要覆盖 x-forwarded-host，host 只在不存在 x-forwarded-host 时使用
-    // 后端会优先使用 x-forwarded-host
 
     const response = await fetch(url.toString(), {
       method: 'POST',
