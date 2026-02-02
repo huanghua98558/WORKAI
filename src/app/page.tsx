@@ -1909,9 +1909,8 @@ ${callbacks.robotStatus}
     const [newUser, setNewUser] = useState({
       username: '',
       password: '',
-      role: 'monitor',
-      name: '',
-      wechatId: ''
+      role: 'operator',
+      email: ''
     });
 
     // 使用 useRef 保存 loadUsers 函数，避免依赖项变化导致重复调用
@@ -1954,7 +1953,7 @@ ${callbacks.robotStatus}
         if (res.ok) {
           alert('✅ 用户添加成功');
           setShowAddDialog(false);
-          setNewUser({ username: '', password: '', role: 'monitor', name: '', wechatId: '' });
+          setNewUser({ username: '', password: '', role: 'operator', email: '' });
           loadUsersRef.current();
         } else {
           const data = await res.json();
@@ -1976,9 +1975,8 @@ ${callbacks.robotStatus}
         const updateData: any = {};
         if (editingUser.password) updateData.password = editingUser.password;
         if (editingUser.role) updateData.role = editingUser.role;
-        if (editingUser.name !== undefined) updateData.name = editingUser.name;
-        if (editingUser.wechatId !== undefined) updateData.wechatId = editingUser.wechatId;
-        if (editingUser.enabled !== undefined) updateData.enabled = editingUser.enabled;
+        if (editingUser.email !== undefined) updateData.email = editingUser.email;
+        if (editingUser.isActive !== undefined) updateData.isActive = editingUser.isActive;
 
         const res = await fetch(`/api/admin/users/${editingUser.id}`, {
           method: 'PUT',
@@ -2061,7 +2059,7 @@ ${callbacks.robotStatus}
             ) : (
               <div className="space-y-3">
                 {users.map((user) => (
-                  <div 
+                  <div
                     key={user.id}
                     className="flex items-center justify-between p-4 border rounded-lg bg-muted/30"
                   >
@@ -2071,15 +2069,14 @@ ${callbacks.robotStatus}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{user.name || user.username}</span>
+                          <span className="font-medium">{user.username}</span>
                           <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                            {user.role === 'admin' ? '管理员' : '监测员'}
+                            {user.role === 'admin' ? '管理员' : '操作员'}
                           </Badge>
-                          {!user.enabled && <Badge variant="destructive">已禁用</Badge>}
+                          {!user.isActive && <Badge variant="destructive">已禁用</Badge>}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                          用户名: {user.username}
-                          {user.wechatId && ` • 微信: ${user.wechatId}`}
+                          {user.email && `邮箱: ${user.email}`}
                         </p>
                       </div>
                     </div>
@@ -2143,35 +2140,27 @@ ${callbacks.robotStatus}
                     onChange={(e) => setNewUser({...newUser, role: e.target.value})}
                     className="w-full mt-1 px-3 py-2 border rounded-md text-sm"
                   >
-                    <option value="monitor">监测员</option>
+                    <option value="operator">操作员</option>
                     <option value="admin">管理员</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">姓名</label>
+                  <label className="text-sm font-medium">邮箱</label>
                   <Input
-                    value={newUser.name}
-                    onChange={(e) => setNewUser({...newUser, name: e.target.value})}
-                    placeholder="输入姓名"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">微信ID</label>
-                  <Input
-                    value={newUser.wechatId}
-                    onChange={(e) => setNewUser({...newUser, wechatId: e.target.value})}
-                    placeholder="输入微信ID"
+                    type="email"
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                    placeholder="输入邮箱（可选）"
                     className="mt-1"
                   />
                 </div>
                 <div className="flex gap-2 pt-2">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="flex-1"
                     onClick={() => {
                       setShowAddDialog(false);
-                      setNewUser({ username: '', password: '', role: 'monitor', name: '', wechatId: '' });
+                      setNewUser({ username: '', password: '', role: 'operator', email: '' });
                     }}
                   >
                     取消
@@ -2221,25 +2210,17 @@ ${callbacks.robotStatus}
                     className="w-full mt-1 px-3 py-2 border rounded-md text-sm"
                     disabled={editingUser.username === 'admin'}
                   >
-                    <option value="monitor">监测员</option>
+                    <option value="operator">操作员</option>
                     <option value="admin">管理员</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">姓名</label>
+                  <label className="text-sm font-medium">邮箱</label>
                   <Input
-                    value={editingUser.name || ''}
-                    onChange={(e) => setEditingUser({...editingUser, name: e.target.value})}
-                    placeholder="输入姓名"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">微信ID</label>
-                  <Input
-                    value={editingUser.wechatId || ''}
-                    onChange={(e) => setEditingUser({...editingUser, wechatId: e.target.value})}
-                    placeholder="输入微信ID"
+                    type="email"
+                    value={editingUser.email || ''}
+                    onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
+                    placeholder="输入邮箱"
                     className="mt-1"
                   />
                 </div>
@@ -2247,8 +2228,8 @@ ${callbacks.robotStatus}
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium">启用状态</label>
                     <Switch
-                      checked={editingUser.enabled}
-                      onCheckedChange={(checked) => setEditingUser({...editingUser, enabled: checked})}
+                      checked={editingUser.isActive}
+                      onCheckedChange={(checked) => setEditingUser({...editingUser, isActive: checked})}
                     />
                   </div>
                 )}

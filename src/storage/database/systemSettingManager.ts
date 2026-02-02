@@ -30,7 +30,7 @@ export class SystemSettingManager {
       conditions.push(like(systemSettings.key, `%${filters.key}%`));
     }
     if (filters.category !== undefined) {
-      conditions.push(eq(systemSettings.category, filters.category));
+      conditions.push(eq(systemSettings.category, filters.category!));
     }
 
     if (conditions.length > 0) {
@@ -114,7 +114,7 @@ export class SystemSettingManager {
   /**
    * 部分字段查询（如下拉选项）
    */
-  async getSettingOptions(): Promise<{ id: string; key: string; category: string }[]> {
+  async getSettingOptions(): Promise<{ id: string; key: string; category: string | null }[]> {
     const db = await getDb();
     return db.select({
       id: systemSettings.id,

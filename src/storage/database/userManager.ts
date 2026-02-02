@@ -117,7 +117,7 @@ export class UserManager {
   /**
    * 部分字段查询（如下拉选项）
    */
-  async getUserOptions(): Promise<{ id: string; username: string; email: string }[]> {
+  async getUserOptions(): Promise<{ id: string; username: string; email: string | null }[]> {
     const db = await getDb();
     return db.select({
       id: users.id,
