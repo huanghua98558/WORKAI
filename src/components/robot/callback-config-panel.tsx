@@ -244,7 +244,7 @@ export function CallbackConfigPanel({ robotId, robotName }: CallbackConfigPanelP
   // 回调类型映射
   const callbackTypes = {
     '0': { name: '群二维码', description: '机器人拉群成功后的群二维码', endpoint: '/api/worktool/callback/qrcode' },
-    '1': { name: '指令结果', description: '机器人发送指令的执行结果', endpoint: '/api/worktool/callback/command' },
+    '1': { name: '指令结果', description: '机器人发送指令的执行结果', endpoint: '/api/worktool/callback/action-result' },
     '5': { name: '上线回调', description: '机器人上线时的通知', endpoint: '/api/worktool/callback/robot-online' },
     '6': { name: '下线回调', description: '机器人下线时的通知', endpoint: '/api/worktool/callback/robot-offline' },
     '11': { name: '消息回调', description: '群内有人提问时触发的消息回调', endpoint: '/api/worktool/callback/message' }

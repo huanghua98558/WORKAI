@@ -180,6 +180,132 @@ const worktoolCallbackRoutes = async function (fastify, options) {
     }
   });
 
+  // 别名路由：/action-result -> /result（兼容 WorkTool 的指令结果回调）
+  fastify.post('/action-result', {
+    preHandler: [verifySignatureMiddleware]
+  }, async (request, reply) => {
+    const startTime = Date.now();
+    const requestId = generateRequestId();
+    const callbackData = request.body;
+    const { robotId } = request.query;
+
+    try {
+      // 验证 robotId
+      if (!robotId) {
+        console.error('缺少 robotId 参数');
+        const responseTime = Date.now() - startTime;
+        await recordCallbackHistory('', '1', requestId, 400, '缺少 robotId 参数', { responseTime });
+        return reply.status(400).send(errorResponse(400, '缺少 robotId 参数'));
+      }
+
+      // 查询机器人配置
+      const robot = await robotService.getRobotByRobotId(robotId);
+      if (!robot) {
+        console.error('机器人不存在:', robotId);
+        const responseTime = Date.now() - startTime;
+        await recordCallbackHistory(robotId, '1', requestId, 404, `机器人不存在: ${robotId}`, { responseTime });
+        return reply.status(404).send(errorResponse(404, `机器人不存在: ${robotId}`));
+      }
+
+      // 记录审计日志
+      await auditLogger.log('action_result_callback', 'worktool', {
+        requestId,
+        robotId,
+        callbackData
+      });
+
+      // 记录监控指标
+      await monitorService.recordSystemMetric('callback_received', 1, {
+        type: 'action_result',
+        robotId
+      });
+
+      // 记录回调历史
+      const responseTime = Date.now() - startTime;
+      await recordCallbackHistory(robotId, '1', callbackData.messageId || requestId, 0, '', { 
+        responseTime,
+        command: callbackData.command,
+        status: callbackData.status,
+        result: callbackData.result
+      });
+
+      // 处理指令结果（记录到数据库、触发后续流程等）
+      // TODO: 根据业务需求处理指令结果
+
+      reply.send(successResponse({}, 'success'));
+
+    } catch (error) {
+      console.error('处理指令结果回调失败:', error);
+      const responseTime = Date.now() - startTime;
+      await recordCallbackHistory(robotId, '1', requestId, 500, error.message, { responseTime });
+
+      reply.status(500).send(errorResponse(500, error.message));
+    }
+  });
+
+  // 别名路由：/command -> /result（兼容性路由）
+  fastify.post('/command', {
+    preHandler: [verifySignatureMiddleware]
+  }, async (request, reply) => {
+    const startTime = Date.now();
+    const requestId = generateRequestId();
+    const callbackData = request.body;
+    const { robotId } = request.query;
+
+    try {
+      // 验证 robotId
+      if (!robotId) {
+        console.error('缺少 robotId 参数');
+        const responseTime = Date.now() - startTime;
+        await recordCallbackHistory('', '1', requestId, 400, '缺少 robotId 参数', { responseTime });
+        return reply.status(400).send(errorResponse(400, '缺少 robotId 参数'));
+      }
+
+      // 查询机器人配置
+      const robot = await robotService.getRobotByRobotId(robotId);
+      if (!robot) {
+        console.error('机器人不存在:', robotId);
+        const responseTime = Date.now() - startTime;
+        await recordCallbackHistory(robotId, '1', requestId, 404, `机器人不存在: ${robotId}`, { responseTime });
+        return reply.status(404).send(errorResponse(404, `机器人不存在: ${robotId}`));
+      }
+
+      // 记录审计日志
+      await auditLogger.log('command_callback', 'worktool', {
+        requestId,
+        robotId,
+        callbackData
+      });
+
+      // 记录监控指标
+      await monitorService.recordSystemMetric('callback_received', 1, {
+        type: 'command',
+        robotId
+      });
+
+      // 记录回调历史
+      const responseTime = Date.now() - startTime;
+      await recordCallbackHistory(robotId, '1', callbackData.messageId || requestId, 0, '', { 
+        responseTime,
+        command: callbackData.command,
+        status: callbackData.status,
+        result: callbackData.result
+      });
+
+      // 处理指令结果（记录到数据库、触发后续流程等）
+      // TODO: 根据业务需求处理指令结果
+
+      reply.send(successResponse({}, 'success'));
+
+    } catch (error) {
+      console.error('处理指令结果回调失败:', error);
+      const responseTime = Date.now() - startTime;
+      await recordCallbackHistory(robotId, '1', requestId, 500, error.message, { responseTime });
+
+      reply.status(500).send(errorResponse(500, error.message));
+    }
+  });
+
   /**
    * 异步处理消息
    */
@@ -377,6 +503,69 @@ const worktoolCallbackRoutes = async function (fastify, options) {
       // 记录监控指标
       await monitorService.recordSystemMetric('callback_received', 1, {
         type: 'group_qrcode',
+        robotId
+      });
+
+      // 记录回调历史
+      const responseTime = Date.now() - startTime;
+      await recordCallbackHistory(robotId, '0', requestId, 0, '', { 
+        responseTime,
+        groupId: callbackData.groupId,
+        groupName: callbackData.groupName,
+        qrcodeUrl: callbackData.qrcodeUrl
+      });
+
+      // 处理群二维码（保存到数据库等）
+      // TODO: 根据业务需求处理群二维码
+
+      reply.send(successResponse({}, 'success'));
+
+    } catch (error) {
+      console.error('处理群二维码回调失败:', error);
+      const responseTime = Date.now() - startTime;
+      await recordCallbackHistory(robotId, '0', requestId, 500, error.message, { responseTime });
+
+      reply.status(500).send(errorResponse(500, error.message));
+    }
+  });
+
+  // 别名路由：/qrcode -> /group-qrcode（兼容性路由）
+  fastify.post('/qrcode', {
+    preHandler: [verifySignatureMiddleware]
+  }, async (request, reply) => {
+    const startTime = Date.now();
+    const requestId = generateRequestId();
+    const callbackData = request.body;
+    const { robotId } = request.query;
+
+    try {
+      // 验证 robotId
+      if (!robotId) {
+        console.error('缺少 robotId 参数');
+        const responseTime = Date.now() - startTime;
+        await recordCallbackHistory('', '0', requestId, 400, '缺少 robotId 参数', { responseTime });
+        return reply.status(400).send(errorResponse(400, '缺少 robotId 参数'));
+      }
+
+      // 查询机器人配置
+      const robot = await robotService.getRobotByRobotId(robotId);
+      if (!robot) {
+        console.error('机器人不存在:', robotId);
+        const responseTime = Date.now() - startTime;
+        await recordCallbackHistory(robotId, '0', requestId, 404, `机器人不存在: ${robotId}`, { responseTime });
+        return reply.status(404).send(errorResponse(404, `机器人不存在: ${robotId}`));
+      }
+
+      // 记录审计日志
+      await auditLogger.log('qrcode_callback', 'worktool', {
+        requestId,
+        robotId,
+        callbackData
+      });
+
+      // 记录监控指标
+      await monitorService.recordSystemMetric('callback_received', 1, {
+        type: 'qrcode',
         robotId
       });
 
