@@ -205,6 +205,8 @@ export default function AdminDashboard() {
   const [sessionSearchQuery, setSessionSearchQuery] = useState('');
   const [sessionStatusFilter, setSessionStatusFilter] = useState<'all' | 'auto' | 'human'>('all');
   const [isSearchingSessions, setIsSearchingSessions] = useState(false);
+  const [showRobotDetail, setShowRobotDetail] = useState(false);
+  const [selectedRobot, setSelectedRobot] = useState<Robot | null>(null);
 
   // 初始化加载（只执行一次）
   useEffect(() => {
@@ -213,6 +215,18 @@ export default function AdminDashboard() {
     checkConnection();
     loadAiConfig(); // 只在组件挂载时加载一次 AI 配置
   }, []);
+
+  // 自动刷新数据（每30秒）
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (activeTab === 'callbacks' || activeTab === 'robots') {
+        loadData();
+        loadRobots();
+      }
+    }, 30000); // 30秒刷新一次
+
+    return () => clearInterval(interval);
+  }, [activeTab]);
 
   // 加载机器人列表
   const loadRobots = async () => {
@@ -1324,39 +1338,14 @@ ${callbacks.robotStatus}
                 </CardTitle>
                 <Badge variant="secondary">{sessions.length} 个</Badge>
               </div>
-
-              {/* 搜索和筛选 */}
-              <div className="flex gap-2 w-full sm:w-auto">
-                <div className="relative flex-1 sm:flex-none">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="搜索会话..."
-                    value={sessionSearchQuery}
-                    onChange={(e) => setSessionSearchQuery(e.target.value)}
-                    className="pl-9 w-full sm:w-[200px]"
-                  />
-                </div>
-                <Select value={sessionStatusFilter} onValueChange={(v: any) => setSessionStatusFilter(v)}>
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">全部</SelectItem>
-                    <SelectItem value="auto">AI 接管</SelectItem>
-                    <SelectItem value="human">人工</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <Button variant="outline" size="sm" onClick={() => setActiveTab('sessions')}>
+                查看全部 <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
             </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {isSearchingSessions ? (
-                <div className="flex items-center justify-center py-12">
-                  <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
-                  <span className="text-sm text-muted-foreground">搜索中...</span>
-                </div>
-              ) : sessions.length === 0 ? (
+              {sessions.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
                   <p>暂无活跃会话</p>
@@ -1547,7 +1536,14 @@ ${callbacks.robotStatus}
           ) : (
             <div className="space-y-3">
               {sessions.map((session) => (
-                <div key={session.sessionId} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                <div 
+                  key={session.sessionId} 
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                  onClick={() => {
+                    setSelectedSession(session);
+                    setShowSessionDetail(true);
+                  }}
+                >
                   <div className="flex items-center gap-4 flex-1 min-w-0">
                     <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
                       <UserCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -4230,7 +4226,10 @@ ${callbacks.robotStatus}
                 <div 
                   key={robot.id} 
                   className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950"
-                  onClick={() => window.location.href = `/robot/${robot.id}`}
+                  onClick={() => {
+                    setSelectedRobot(robot);
+                    setShowRobotDetail(true);
+                  }}
                 >
                   <div className="flex items-start gap-3">
                     <div className="p-2 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
@@ -4859,6 +4858,143 @@ ${callbacks.robotStatus}
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowSessionDetail(false)}>
               关闭
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 机器人详情对话框 */}
+      <Dialog open={showRobotDetail} onOpenChange={setShowRobotDetail}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5" />
+              机器人详情
+            </DialogTitle>
+            <DialogDescription>
+              查看和管理机器人配置信息
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedRobot && (
+            <div className="grid gap-6 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">机器人名称</p>
+                  <p className="font-medium">{selectedRobot.name}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">机器人ID</p>
+                  <p className="font-mono text-sm">{selectedRobot.robotId}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">状态</p>
+                  <Badge variant={selectedRobot.status === 'online' ? 'default' : 'secondary'}>
+                    {selectedRobot.status === 'online' ? (
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-green-500 rounded-full" />
+                        在线
+                      </div>
+                    ) : selectedRobot.status === 'offline' ? (
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-gray-500 rounded-full" />
+                        离线
+                      </div>
+                    ) : (
+                      '未知'
+                    )}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">启用状态</p>
+                  <Badge variant={selectedRobot.isActive ? 'default' : 'secondary'}>
+                    {selectedRobot.isActive ? '已启用' : '已禁用'}
+                  </Badge>
+                </div>
+                {selectedRobot.nickname && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">昵称</p>
+                    <p className="font-medium">{selectedRobot.nickname}</p>
+                  </div>
+                )}
+                {selectedRobot.company && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">公司</p>
+                    <p className="font-medium">{selectedRobot.company}</p>
+                  </div>
+                )}
+                {selectedRobot.ipAddress && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">IP地址</p>
+                    <p className="font-mono text-sm">{selectedRobot.ipAddress}</p>
+                  </div>
+                )}
+                {selectedRobot.apiBaseUrl && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-muted-foreground mb-1">API地址</p>
+                    <p className="font-mono text-sm break-all">{selectedRobot.apiBaseUrl}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t pt-4">
+                <p className="text-xs text-muted-foreground mb-2">时间信息</p>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">创建时间</p>
+                    <p>{new Date(selectedRobot.createdAt).toLocaleString('zh-CN')}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">更新时间</p>
+                    <p>{new Date(selectedRobot.updatedAt).toLocaleString('zh-CN')}</p>
+                  </div>
+                  {selectedRobot.lastCheckAt && (
+                    <div>
+                      <p className="text-muted-foreground">最后检查时间</p>
+                      <p>{new Date(selectedRobot.lastCheckAt).toLocaleString('zh-CN')}</p>
+                    </div>
+                  )}
+                  {selectedRobot.activatedAt && (
+                    <div>
+                      <p className="text-muted-foreground">激活时间</p>
+                      <p>{new Date(selectedRobot.activatedAt).toLocaleString('zh-CN')}</p>
+                    </div>
+                  )}
+                  {selectedRobot.expiresAt && (
+                    <div>
+                      <p className="text-muted-foreground">过期时间</p>
+                      <p>{new Date(selectedRobot.expiresAt).toLocaleString('zh-CN')}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {selectedRobot.lastError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>最近错误</AlertTitle>
+                  <AlertDescription>{selectedRobot.lastError}</AlertDescription>
+                </Alert>
+              )}
+
+              {selectedRobot.description && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">描述</p>
+                  <p className="text-sm">{selectedRobot.description}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRobotDetail(false)}>
+              关闭
+            </Button>
+            <Button onClick={() => {
+              setActiveTab('robots');
+              setShowRobotDetail(false);
+            }}>
+              管理机器人
             </Button>
           </DialogFooter>
         </DialogContent>

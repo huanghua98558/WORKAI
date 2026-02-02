@@ -224,6 +224,40 @@ class SessionService {
       const lastActive = new Date(session.lastActiveTime);
       
       if (lastActive > oneHourAgo) {
+        // 从数据库查询最新的机器人信息
+        try {
+          const { getDb } = require('coze-coding-dev-sdk');
+          const { sql } = require('drizzle-orm');
+          const { sessionMessages } = require('../database/schema');
+          const db = await getDb();
+
+          // 查询该会话最近的机器人消息，获取 robotId 和 robotName
+          const robotMessage = await db.execute(sql`
+            SELECT robot_id as "robotId", robot_name as "robotName"
+            FROM session_messages
+            WHERE session_id = ${session.sessionId}
+              AND robot_id IS NOT NULL
+              AND robot_name IS NOT NULL
+            ORDER BY created_at DESC
+            LIMIT 1
+          `);
+
+          if (robotMessage.rows && robotMessage.rows.length > 0) {
+            session.robotId = robotMessage.rows[0].robotId;
+            session.robotName = robotMessage.rows[0].robotName;
+          }
+
+          // 填充用户信息
+          if (!session.userName && session.userInfo?.userName) {
+            session.userName = session.userInfo.userName;
+          }
+          if (!session.groupName && session.userInfo?.groupName) {
+            session.groupName = session.userInfo.groupName;
+          }
+        } catch (error) {
+          console.error(`[会话服务] 获取会话 ${session.sessionId} 机器人信息失败:`, error);
+        }
+
         sessions.push(session);
       }
     }
