@@ -16,6 +16,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
   const reportService = require('../services/report.service');
   const sessionService = require('../services/session.service');
   const robotService = require('../services/robot.service');
+  const worktoolService = require('../services/worktool.service');
   const config = require('../lib/config');
 
   // WorkTool 标准响应格式（按照 WorkTool 规范）
@@ -226,51 +227,40 @@ const worktoolCallbackRoutes = async function (fastify, options) {
    */
   async function sendWorkToolMessage(groupName, userName, content, roomType, robot) {
     try {
-      // 使用机器人的配置
-      if (!robot.apiBaseUrl) {
-        console.warn('机器人 API Base URL 配置不完整，无法发送消息');
-        return;
-      }
-
       // 根据房间类型确定接收者
-      let toId, toType;
+      let toName, toType;
       if (roomType == 1 || roomType == 3) {
         // 群聊
-        toId = groupName;
+        toName = groupName;
         toType = 'group';
       } else {
         // 单聊
-        toId = userName;
+        toName = userName;
         toType = 'single';
       }
 
-      // 调用 WorkTool 发送消息接口
-      // 注意：这里需要根据实际的 WorkTool API 文档来实现
+      // 调用 WorkTool 发送消息服务
       console.log('发送消息到 WorkTool:', {
         robotId: robot.robotId,
-        toId,
+        toName,
         toType,
         content
       });
 
-      // TODO: 实现实际的 WorkTool 发送消息接口调用
-      // const response = await fetch(`${robot.apiBaseUrl}/send/message`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${robot.apiKey}`
-      //   },
-      //   body: JSON.stringify({
-      //     to_id: toId,
-      //     to_type: toType,
-      //     content: content
-      //   })
-      // });
+      const result = await worktoolService.sendTextMessage(robot.robotId, toName, content);
 
-      await monitorService.recordSystemMetric('message_sent', 1, {
-        robotId: robot.robotId,
-        toType
-      });
+      if (result.success) {
+        await monitorService.recordSystemMetric('message_sent', 1, {
+          robotId: robot.robotId,
+          toType
+        });
+      } else {
+        console.error('发送消息失败:', result.message);
+        await monitorService.recordSystemMetric('message_error', 1, {
+          robotId: robot.robotId,
+          error: result.message
+        });
+      }
     } catch (error) {
       console.error('发送 WorkTool 消息失败:', error);
       await monitorService.recordSystemMetric('message_error', 1, {

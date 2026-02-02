@@ -1,331 +1,186 @@
 /**
- * WorkTool API 服务封装
- * 负责与 WorkTool 官方 API 交互
- *
- * 官方文档: https://doc.worktool.ymdyes.cn/
- * Base URL: https://api.worktool.ymdyes.cn/wework/
- * 认证方式: robotId (Query 参数)
+ * WorkTool 服务
+ * 负责与 WorkTool 平台的交互
  */
 
-console.log('[worktool.service.js] Loading WorkToolService...');
-
 const axios = require('axios');
-const config = require('../lib/config');
-const redisClient = require('../lib/redis');
+const robotService = require('./robot.service');
 
 class WorkToolService {
-  constructor() {
-    // 从配置读取 WorkTool API 配置
-    this.apiBaseUrl = config.get('worktool.apiBaseUrl') || 'https://api.worktool.ymdyes.cn/wework/';
-    this.robotId = config.get('worktool.robotId') || 'worktool1';
-
-    // 创建 axios 实例
-    this.axios = axios.create({
-      baseURL: this.apiBaseUrl,
-      timeout: 30000,
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-  }
-
   /**
-   * 构建请求 URL（自动添加 robotId 参数）
+   * 发送文本消息
+   * @param {string} robotId - 机器人ID
+   * @param {string} toName - 接收者名称（好友昵称或群名）
+   * @param {string} content - 消息内容
+   * @param {string[]} atList - @的人（可选）
    */
-  buildUrl(endpoint) {
-    const separator = endpoint.includes('?') ? '&' : '?';
-    return `${endpoint}${separator}robotId=${this.robotId}`;
-  }
-
-  /**
-   * 发送请求到 WorkTool API
-   */
-  async sendRequest(endpoint, data) {
+  async sendTextMessage(robotId, toName, content, atList = []) {
     try {
-      const url = this.buildUrl(endpoint);
-      const response = await this.axios.post(url, data);
+      // 获取机器人配置
+      const robot = await robotService.getRobotByRobotId(robotId);
 
-      // WorkTool API 响应格式: { code, message, data }
-      if (response.data.code === 0) {
-        return { success: true, data: response.data.data, message: response.data.message };
+      if (!robot) {
+        throw new Error(`机器人不存在: ${robotId}`);
+      }
+
+      if (!robot.isActive) {
+        throw new Error(`机器人未启用: ${robotId}`);
+      }
+
+      // 构建请求体
+      const requestBody = {
+        socketType: 2,
+        list: [
+          {
+            type: 203,
+            titleList: [toName],
+            receivedContent: content,
+            ...(atList.length > 0 && { atList })
+          }
+        ]
+      };
+
+      // 从 apiBaseUrl 提取基础地址
+      const baseUrl = robot.apiBaseUrl.replace(/\/wework\/?$/, '').replace(/\/$/, '');
+      const apiUrl = `${baseUrl}/wework/sendRawMessage`;
+
+      // 发送请求
+      const response = await axios.post(apiUrl, requestBody, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        params: {
+          robotId: robotId
+        },
+        timeout: 10000
+      });
+
+      if (response.data && response.data.code === 0) {
+        return {
+          success: true,
+          message: '发送成功',
+          data: response.data.data
+        };
       } else {
-        return { success: false, code: response.data.code, message: response.data.message };
+        return {
+          success: false,
+          message: response.data?.message || '发送失败',
+          code: response.data?.code
+        };
       }
     } catch (error) {
-      console.error('WorkTool API 请求失败:', error.message);
-      throw error;
+      console.error('发送 WorkTool 消息失败:', error);
+
+      if (error.response) {
+        return {
+          success: false,
+          message: error.response.data?.message || error.message,
+          code: error.response.data?.code || error.response.status
+        };
+      }
+
+      return {
+        success: false,
+        message: error.message,
+        error: error.code
+      };
     }
   }
 
   /**
-   * 发送文本消息 (type: 206)
-   *
-   * @param {string} receiverType - 接收者类型: "user"(私聊) 或 "group"(群聊)
-   * @param {string} receiver - 接收者: 私聊填昵称/用户ID，群聊填群名或备注名
-   * @param {string} content - 消息内容（长度≤2000字）
-   * @param {string} messageTitle - 消息标题（仅群聊生效，可选）
+   * 发送群消息
+   * @param {string} robotId - 机器人ID
+   * @param {string} groupName - 群名称
+   * @param {string} content - 消息内容
+   * @param {string[]} atList - @的人（可选）
    */
-  async sendTextMessage(receiverType, receiver, content, messageTitle = '') {
-    const data = {
-      socketType: 2,
-      list: [{
-        type: 206,
-        receiverType,
-        receiver,
-        content,
-        ...(messageTitle && { messageTitle })
-      }]
-    };
-
-    return await this.sendRequest('sendRawMessage', data);
+  async sendGroupMessage(robotId, groupName, content, atList = []) {
+    return this.sendTextMessage(robotId, groupName, content, atList);
   }
 
   /**
-   * 修改群信息 (type: 207)
-   * 支持修改群名、群公告、群备注、拉人、踢人等
-   *
-   * @param {Object} options - 群信息配置
-   * @param {string} options.groupName - 目标群名（改过备注则用备注名）
-   * @param {string} options.newGroupName - 新群名（可选）
-   * @param {string} options.newGroupAnnouncement - 新群公告（可选）
-   * @param {string} options.groupRemark - 群备注（可选）
-   * @param {string} options.groupTemplate - 群模板名称（可选）
-   * @param {string[]} options.selectList - 待添加成员列表（可选）
-   * @param {boolean} options.showMessageHistory - 拉人是否附带历史消息（可选）
-   * @param {string[]} options.removeList - 待移除成员列表（可选）
+   * 发送私聊消息
+   * @param {string} robotId - 机器人ID
+   * @param {string} userName - 用户昵称
+   * @param {string} content - 消息内容
    */
-  async modifyGroupInfo(options) {
-    const {
-      groupName,
-      newGroupName,
-      newGroupAnnouncement,
-      groupRemark,
-      groupTemplate,
-      selectList,
-      showMessageHistory,
-      removeList
-    } = options;
-
-    const data = {
-      socketType: 2,
-      list: [{
-        type: 207,
-        groupName,
-        ...(newGroupName && { newGroupName }),
-        ...(newGroupAnnouncement && { newGroupAnnouncement }),
-        ...(groupRemark && { groupRemark }),
-        ...(groupTemplate && { groupTemplate }),
-        ...(selectList && { selectList }),
-        ...(showMessageHistory !== undefined && { showMessageHistory }),
-        ...(removeList && { removeList })
-      }]
-    };
-
-    return await this.sendRequest('sendRawMessage', data);
+  async sendPrivateMessage(robotId, userName, content) {
+    return this.sendTextMessage(robotId, userName, content);
   }
 
   /**
-   * 转发消息 (type: 208)
-   *
-   * @param {Object} options - 转发配置
-   * @param {string} options.sourceMessageId - 原消息唯一ID
-   * @param {string} options.sourceReceiverType - 原消息来源类型: "user" 或 "group"
-   * @param {string} options.sourceReceiver - 原消息来源标识
-   * @param {string} options.forwardType - 转发类型: "current"(当前) / "previous"(上一条) / "next"(下一条)
-   * @param {string} options.targetReceiverType - 目标接收者类型: "user" 或 "group"
-   * @param {string} options.targetReceiver - 目标接收者标识
+   * 批量发送消息
+   * @param {string} robotId - 机器人ID
+   * @param {Array} messages - 消息数组，格式：[{ toName: string, content: string, atList?: string[] }]
    */
-  async forwardMessage(options) {
-    const {
-      sourceMessageId,
-      sourceReceiverType,
-      sourceReceiver,
-      forwardType,
-      targetReceiverType,
-      targetReceiver
-    } = options;
-
-    const data = {
-      socketType: 2,
-      list: [{
-        type: 208,
-        sourceMessageId,
-        sourceReceiverType,
-        sourceReceiver,
-        forwardType,
-        targetReceiverType,
-        targetReceiver
-      }]
-    };
-
-    return await this.sendRequest('sendRawMessage', data);
-  }
-
-  /**
-   * 创建外部群 (type: 209)
-   *
-   * @param {Object} options - 群创建配置
-   * @param {string} options.groupName - 群名（长度≤30字）
-   * @param {string[]} options.memberList - 初始成员列表（可选，最多200人）
-   * @param {string} options.groupTemplate - 群模板名称（可选）
-   * @param {string} options.groupRemark - 群备注（可选）
-   */
-  async createExternalGroup(options) {
-    const {
-      groupName,
-      memberList,
-      groupTemplate,
-      groupRemark
-    } = options;
-
-    const data = {
-      socketType: 2,
-      list: [{
-        type: 209,
-        groupType: 'external',
-        groupName,
-        ...(memberList && { memberList }),
-        ...(groupTemplate && { groupTemplate }),
-        ...(groupRemark && { groupRemark })
-      }]
-    };
-
-    return await this.sendRequest('sendRawMessage', data);
-  }
-
-  /**
-   * 解散群 (type: 210)
-   *
-   * @param {string} groupName - 群名（改过备注则用备注名）
-   * @param {string} groupType - 群类型: "external"(外部群) 或 "internal"(内部群)，默认external
-   */
-  async dissolveGroup(groupName, groupType = 'external') {
-    const data = {
-      socketType: 2,
-      list: [{
-        type: 210,
-        groupName,
-        groupType
-      }]
-    };
-
-    return await this.sendRequest('sendRawMessage', data);
-  }
-
-  /**
-   * 获取机器人状态
-   */
-  async getRobotStatus() {
+  async sendBatchMessages(robotId, messages) {
     try {
-      const url = this.buildUrl('getRobotStatus');
-      const response = await this.axios.get(url);
-      
-      return response.data;
+      // 获取机器人配置
+      const robot = await robotService.getRobotByRobotId(robotId);
+
+      if (!robot) {
+        throw new Error(`机器人不存在: ${robotId}`);
+      }
+
+      // 构建批量请求
+      const list = messages.map(msg => ({
+        type: 203,
+        titleList: [msg.toName],
+        receivedContent: msg.content,
+        ...(msg.atList && msg.atList.length > 0 && { atList: msg.atList })
+      }));
+
+      const requestBody = {
+        socketType: 2,
+        list
+      };
+
+      // 从 apiBaseUrl 提取基础地址
+      const baseUrl = robot.apiBaseUrl.replace(/\/wework\/?$/, '').replace(/\/$/, '');
+      const apiUrl = `${baseUrl}/wework/sendRawMessage`;
+
+      // 发送请求
+      const response = await axios.post(apiUrl, requestBody, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        params: {
+          robotId: robotId
+        },
+        timeout: 10000
+      });
+
+      if (response.data && response.data.code === 0) {
+        return {
+          success: true,
+          message: '发送成功',
+          data: response.data.data,
+          sentCount: messages.length
+        };
+      } else {
+        return {
+          success: false,
+          message: response.data?.message || '发送失败',
+          code: response.data?.code
+        };
+      }
     } catch (error) {
-      console.error('获取机器人状态失败:', error.message);
-      throw error;
+      console.error('批量发送 WorkTool 消息失败:', error);
+
+      if (error.response) {
+        return {
+          success: false,
+          message: error.response.data?.message || error.message,
+          code: error.response.data?.code || error.response.status
+        };
+      }
+
+      return {
+        success: false,
+        message: error.message,
+        error: error.code
+      };
     }
-  }
-
-  /**
-   * 发送文件消息 (type: 213)
-   *
-   * @param {string} receiverType - 接收者类型: "user" 或 "group"
-   * @param {string} receiver - 接收者标识
-   * @param {string} filePath - 文件路径（服务器本地路径）
-   * @param {string} fileName - 文件名（可选）
-   */
-  async sendFileMessage(receiverType, receiver, filePath, fileName = '') {
-    const data = {
-      socketType: 2,
-      list: [{
-        type: 213,
-        receiverType,
-        receiver,
-        filePath,
-        ...(fileName && { fileName })
-      }]
-    };
-
-    return await this.sendRequest('sendRawMessage', data);
-  }
-
-  /**
-   * 发送图片消息 (type: 214)
-   *
-   * @param {string} receiverType - 接收者类型: "user" 或 "group"
-   * @param {string} receiver - 接收者标识
-   * @param {string} imageBase64 - 图片 Base64 编码
-   */
-  async sendImageMessage(receiverType, receiver, imageBase64) {
-    const data = {
-      socketType: 2,
-      list: [{
-        type: 214,
-        receiverType,
-        receiver,
-        imageBase64
-      }]
-    };
-
-    return await this.sendRequest('sendRawMessage', data);
-  }
-
-  /**
-   * 发送链接消息 (type: 215)
-   *
-   * @param {string} receiverType - 接收者类型: "user" 或 "group"
-   * @param {string} receiver - 接收者标识
-   * @param {string} linkUrl - 链接 URL
-   * @param {string} linkTitle - 链接标题
-   * @param {string} linkDesc - 链接描述（可选）
-   */
-  async sendLinkMessage(receiverType, receiver, linkUrl, linkTitle, linkDesc = '') {
-    const data = {
-      socketType: 2,
-      list: [{
-        type: 215,
-        receiverType,
-        receiver,
-        linkUrl,
-        linkTitle,
-        ...(linkDesc && { linkDesc })
-      }]
-    };
-
-    return await this.sendRequest('sendRawMessage', data);
-  }
-
-  /**
-   * 发送卡片消息 (type: 216)
-   *
-   * @param {string} receiverType - 接收者类型: "user" 或 "group"
-   * @param {string} receiver - 接收者标识
-   * @param {Object} cardData - 卡片数据
-   */
-  async sendCardMessage(receiverType, receiver, cardData) {
-    const data = {
-      socketType: 2,
-      list: [{
-        type: 216,
-        receiverType,
-        receiver,
-        ...cardData
-      }]
-    };
-
-    return await this.sendRequest('sendRawMessage', data);
-  }
-
-  /**
-   * 根据消息上下文判断接收者类型
-   * @param {string} roomType - 房间类型（1=外部群 2=外部联系人 3=内部群 4=内部联系人）
-   * @returns {string} "user" 或 "group"
-   */
-  getReceiverType(roomType) {
-    // 1=外部群, 3=内部群 -> group
-    // 2=外部联系人, 4=内部联系人 -> user
-    return ['1', '3'].includes(String(roomType)) ? 'group' : 'user';
   }
 }
 
