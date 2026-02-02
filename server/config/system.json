@@ -1,0 +1,116 @@
+{
+  "version": "1.0.0",
+  "systemName": "WorkTool AI 中枢系统",
+  "deployment": {
+    "baseUrl": "",
+    "callbackBaseUrl": ""
+  },
+  "worktool": {
+    "apiBaseUrl": "",
+    "apiKey": "",
+    "apiSecret": "",
+    "robotId": ""
+  },
+  "callback": {
+    "message": "/api/worktool/callback/message",
+    "actionResult": "/api/worktool/callback/action-result",
+    "groupQrcode": "/api/worktool/callback/group-qrcode",
+    "robotStatus": "/api/worktool/callback/robot-status",
+    "signatureSecret": ""
+  },
+  "ai": {
+    "intentRecognition": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "apiKey": "",
+      "apiBase": ""
+    },
+    "serviceReply": {
+      "provider": "openai",
+      "model": "gpt-4o",
+      "apiKey": "",
+      "apiBase": ""
+    },
+    "chat": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "apiKey": "",
+      "apiBase": ""
+    },
+    "report": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "apiKey": "",
+      "apiBase": ""
+    }
+  },
+  "autoReply": {
+    "chatMode": "ai",
+    "chatProbability": 0.3,
+    "chatFixedReply": "",
+    "serviceMode": "auto",
+    "riskMode": "human"
+  },
+  "monitor": {
+    "enabled": true,
+    "alertEnabled": true,
+    "metrics": {
+      "system": true,
+      "group": true,
+      "user": true,
+      "ai": true
+    }
+  },
+  "alert": {
+    "rules": [
+      {
+        "id": "robot_offline",
+        "name": "机器人掉线",
+        "enabled": true,
+        "level": "critical",
+        "actions": ["send_message"],
+        "targets": []
+      },
+      {
+        "id": "high_error_rate",
+        "name": "错误率过高",
+        "enabled": true,
+        "level": "warning",
+        "threshold": 0.1,
+        "window": "5m",
+        "actions": ["send_message", "mark_human"],
+        "targets": []
+      },
+      {
+        "id": "spam_detected",
+        "name": "垃圾消息检测",
+        "enabled": true,
+        "level": "warning",
+        "actions": ["remove_user", "mark_human"],
+        "targets": []
+      }
+    ]
+  },
+  "tencentDoc": {
+    "enabled": false,
+    "apiBaseUrl": "",
+    "appId": "",
+    "appSecret": "",
+    "templateDocId": ""
+  },
+  "redis": {
+    "host": "localhost",
+    "port": 6379,
+    "db": 0
+  },
+  "circuitBreaker": {
+    "enabled": true,
+    "failureThreshold": 5,
+    "recoveryTimeout": 60000,
+    "monitoringPeriod": 10000
+  },
+  "auditLog": {
+    "enabled": true,
+    "retentionDays": 30
+  }
+}

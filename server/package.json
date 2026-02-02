@@ -1,0 +1,24 @@
+{
+  "name": "worktool-ai-backend",
+  "version": "1.0.0",
+  "description": "WorkTool AI 中枢系统 - 后端服务",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "fastify": "^5.7.2",
+    "@fastify/cors": "^11.2.0",
+    "@fastify/helmet": "^13.0.2",
+    "@fastify/rate-limit": "^10.3.0",
+    "ioredis": "^5.9.2",
+    "axios": "^1.13.4",
+    "dotenv": "^17.2.3",
+    "openai": "^6.17.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
