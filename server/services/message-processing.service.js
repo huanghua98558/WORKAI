@@ -54,7 +54,8 @@ class MessageProcessingService {
           ...messageContext,
           timestamp: messageData.timestamp || new Date()
         },
-        messageData.messageId
+        messageData.messageId,
+        robot
       );
 
       // 4. AI 意图识别
@@ -321,7 +322,8 @@ class MessageProcessingService {
       session.sessionId,
       reply,
       messageContext,
-      intent
+      intent,
+      robot
     );
 
     return {

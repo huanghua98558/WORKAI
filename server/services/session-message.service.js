@@ -11,7 +11,7 @@ class SessionMessageService {
   /**
    * 保存用户消息
    */
-  async saveUserMessage(sessionId, messageContext, messageId) {
+  async saveUserMessage(sessionId, messageContext, messageId, robot) {
     const db = await getDb();
 
     const message = {
@@ -25,17 +25,19 @@ class SessionMessageService {
       isFromUser: true,
       isFromBot: false,
       isHuman: false,
+      robotId: robot?.robotId || null,
+      robotName: robot?.nickname || robot?.name || null,
       timestamp: messageContext.timestamp || new Date(),
     };
 
     await db.insert(sessionMessages).values(message);
-    console.log(`[会话消息] 保存用户消息: sessionId=${sessionId}, content="${messageContext.content.substring(0, 50)}..."`);
+    console.log(`[会话消息] 保存用户消息: sessionId=${sessionId}, robot=${robot?.nickname || robot?.name || '未知'}, content="${messageContext.content.substring(0, 50)}..."`);
   }
 
   /**
    * 保存机器人回复消息
    */
-  async saveBotMessage(sessionId, content, messageContext, intent) {
+  async saveBotMessage(sessionId, content, messageContext, intent, robot) {
     const db = await getDb();
 
     const message = {
@@ -50,17 +52,19 @@ class SessionMessageService {
       isFromBot: true,
       isHuman: false,
       intent: intent,
+      robotId: robot?.robotId || null,
+      robotName: robot?.nickname || robot?.name || null,
       timestamp: new Date(),
     };
 
     await db.insert(sessionMessages).values(message);
-    console.log(`[会话消息] 保存机器人回复: sessionId=${sessionId}, intent=${intent}, content="${content.substring(0, 50)}..."`);
+    console.log(`[会话消息] 保存机器人回复: sessionId=${sessionId}, robot=${robot?.nickname || robot?.name || '未知'}, intent=${intent}, content="${content.substring(0, 50)}..."`);
   }
 
   /**
    * 保存人工回复消息
    */
-  async saveHumanMessage(sessionId, content, messageContext, operator) {
+  async saveHumanMessage(sessionId, content, messageContext, operator, robot) {
     const db = await getDb();
 
     const message = {
@@ -74,12 +78,14 @@ class SessionMessageService {
       isFromUser: false,
       isFromBot: false,
       isHuman: true,
+      robotId: robot?.robotId || null,
+      robotName: robot?.nickname || robot?.name || null,
       extraData: { operator },
       timestamp: new Date(),
     };
 
     await db.insert(sessionMessages).values(message);
-    console.log(`[会话消息] 保存人工回复: sessionId=${sessionId}, operator=${operator}`);
+    console.log(`[会话消息] 保存人工回复: sessionId=${sessionId}, robot=${robot?.nickname || robot?.name || '未知'}, operator=${operator}`);
   }
 
   /**

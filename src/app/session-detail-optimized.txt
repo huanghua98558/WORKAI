@@ -1,0 +1,228 @@
+      {/* 会话详情弹窗 */}
+      <Dialog open={showSessionDetail} onOpenChange={setShowSessionDetail}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <MessageSquare className="h-6 w-6 text-blue-500" />
+              会话详情
+            </DialogTitle>
+            <DialogDescription className="text-base">
+              查看会话的详细信息和消息记录
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedSession && (
+            <div className="space-y-6">
+              {/* 会话基本信息卡片 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">基本信息</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">用户</p>
+                      <p className="font-medium">{selectedSession.userName || selectedSession.userInfo?.userName || '未知用户'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">群组</p>
+                      <p className="font-medium">{selectedSession.groupName || selectedSession.userInfo?.groupName || '未知群组'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">机器人</p>
+                      <p className="font-medium">{selectedSession.robotName || '未知机器人'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">会话ID</p>
+                      <p className="font-mono text-sm">{selectedSession.sessionId}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">最后活跃</p>
+                      <p className="text-sm">
+                        {new Date(selectedSession.lastActiveTime).toLocaleString('zh-CN')}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">消息数</p>
+                      <p className="font-medium">{selectedSession.messageCount}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">当前状态</p>
+                      <Badge variant={selectedSession.status === 'auto' ? 'default' : 'secondary'}>
+                        {selectedSession.status === 'auto' ? (
+                          <>
+                            <Bot className="h-3 w-3 mr-1" />
+                            AI 接管
+                          </>
+                        ) : (
+                          <>
+                            <UserCheck className="h-3 w-3 mr-1" />
+                            人工
+                          </>
+                        )}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">AI 回复</p>
+                      <p className="font-medium">{selectedSession.aiReplyCount || 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">人工回复</p>
+                      <p className="font-medium">{selectedSession.humanReplyCount || 0}</p>
+                    </div>
+                  </div>
+
+                  {/* 操作按钮 */}
+                  <div className="flex flex-wrap gap-3 mt-6 pt-6 border-t">
+                    {selectedSession.status === 'auto' ? (
+                      <Button
+                        variant="outline"
+                        className="flex items-center gap-2"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`/api/admin/sessions/${selectedSession.sessionId}/takeover`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ operator: 'admin' })
+                            });
+                            if (res.ok) {
+                              alert('✅ 已切换为人工接管');
+                              setShowSessionDetail(false);
+                              // 重新加载会话列表
+                              const sessionsRes = await fetch('/api/admin/sessions/active?limit=20');
+                              if (sessionsRes.ok) {
+                                const data = await sessionsRes.json();
+                                setSessions(data.data || []);
+                              }
+                            } else {
+                              alert('❌ 切换失败');
+                            }
+                          } catch (error) {
+                            console.error('切换失败:', error);
+                            alert('❌ 切换失败');
+                          }
+                        }}
+                      >
+                        <UserCheck className="h-4 w-4" />
+                        切换为人工接管
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        className="flex items-center gap-2"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`/api/admin/sessions/${selectedSession.sessionId}/auto`, {
+                              method: 'POST'
+                            });
+                            if (res.ok) {
+                              alert('✅ 已切换回自动模式');
+                              setShowSessionDetail(false);
+                              // 重新加载会话列表
+                              const sessionsRes = await fetch('/api/admin/sessions/active?limit=20');
+                              if (sessionsRes.ok) {
+                                const data = await sessionsRes.json();
+                                setSessions(data.data || []);
+                              }
+                            } else {
+                              alert('❌ 切换失败');
+                            }
+                          } catch (error) {
+                            console.error('切换失败:', error);
+                            alert('❌ 切换失败');
+                          }
+                        }}
+                      >
+                        <Bot className="h-4 w-4" />
+                        切换回自动模式
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 消息记录 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    消息记录
+                    <Badge variant="outline" className="ml-2">{sessionMessages.length} 条</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingSessionMessages ? (
+                    <div className="flex items-center justify-center py-12">
+                      <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
+                      <span className="text-sm text-muted-foreground">加载中...</span>
+                    </div>
+                  ) : sessionMessages.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p>暂无消息记录</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                      {sessionMessages.map((msg: any, index: number) => (
+                        <div
+                          key={index}
+                          className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div className={`max-w-[80%] ${
+                            msg.isFromUser
+                              ? 'bg-blue-500 text-white'
+                              : msg.isHuman
+                                ? 'bg-green-100 dark:bg-green-900/30'
+                                : 'bg-gray-100 dark:bg-gray-800'
+                          } rounded-2xl p-4 ${msg.isFromUser ? 'rounded-br-sm' : 'rounded-bl-sm'}`}>
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <span className="text-xs font-semibold opacity-90">
+                                {msg.isFromUser ? (
+                                  <>
+                                    <User className="h-3 w-3 inline mr-1" />
+                                    {msg.userName || '用户'}
+                                  </>
+                                ) : msg.isHuman ? (
+                                  <>
+                                    <UserCheck className="h-3 w-3 inline mr-1" />
+                                    {msg.extraData?.operator || '人工客服'}
+                                  </>
+                                ) : (
+                                  <>
+                                    <Bot className="h-3 w-3 inline mr-1" />
+                                    {msg.robotName || 'AI'}
+                                  </>
+                                )}
+                              </span>
+                              <span className="text-xs opacity-70">
+                                {new Date(msg.timestamp).toLocaleString('zh-CN', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                            {msg.intent && (
+                              <Badge variant="outline" className="mt-2 text-xs">
+                                意图: {msg.intent}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSessionDetail(false)}>
+              关闭
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>

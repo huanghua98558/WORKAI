@@ -163,6 +163,8 @@ interface Session {
   groupId?: string;
   userName?: string;
   groupName?: string;
+  robotId?: string;
+  robotName?: string;
   userInfo?: {
     userName?: string;
     groupName?: string;
@@ -1179,82 +1181,88 @@ ${callbacks.robotStatus}
   );
 
   // 仪表盘组件
+  // 仪表盘组件
   const OverviewTab = () => (
     <div className="space-y-6">
-      {/* 欢迎横幅 */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 p-8 text-white">
-        <div className="absolute inset-0 bg-grid-white/10 bg-[size:20px_20px]" />
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
-              <Sparkles className="h-8 w-8" />
+      {/* 系统状态横幅 */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="bg-gradient-to-r from-green-500 to-emerald-600 border-none text-white">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5" />
+              <CardTitle className="text-base">系统状态</CardTitle>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold">欢迎回来！</h1>
-              <p className="text-white/80">WorkTool AI 中枢系统已准备就绪</p>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">正常运行</div>
+            <p className="text-sm text-white/80 mt-1">所有服务运行正常</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-r from-blue-500 to-indigo-600 border-none text-white">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              <CardTitle className="text-base">运行时间</CardTitle>
             </div>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3 mt-6">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="h-5 w-5 text-green-300" />
-                <span className="text-sm font-medium">系统状态</span>
-              </div>
-              <p className="text-2xl font-bold">正常运行</p>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{serverUptime}</div>
+            <p className="text-sm text-white/80 mt-1">系统持续运行中</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-r from-purple-500 to-pink-600 border-none text-white">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              <CardTitle className="text-base">今日消息</CardTitle>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Clock className="h-5 w-5 text-blue-300" />
-                <span className="text-sm font-medium">运行时间</span>
-              </div>
-              <p className="text-2xl font-bold">{serverUptime}</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <MessageSquare className="h-5 w-5 text-pink-300" />
-                <span className="text-sm font-medium">今日消息</span>
-              </div>
-              <p className="text-2xl font-bold">{monitorData?.system?.callback_received || 0}</p>
-            </div>
-          </div>
-        </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{monitorData?.system?.callback_received || 0}</div>
+            <p className="text-sm text-white/80 mt-1">今日累计接收消息</p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* 状态栏 */}
+      {/* 页面标题和操作 */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h3 className="text-2xl font-bold">系统概览</h3>
+          <h2 className="text-2xl font-bold">系统概览</h2>
           <p className="text-muted-foreground mt-1">
             实时监控系统运行状态和关键指标
           </p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Clock className="h-4 w-4" />
-          最后更新: {formatTime(lastUpdateTime.toISOString())}
-          <Button 
-            onClick={loadData} 
-            variant="ghost" 
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Clock className="h-4 w-4" />
+            最后更新: {formatTime(lastUpdateTime.toISOString())}
+          </div>
+          <Button
+            onClick={loadData}
+            variant="outline"
             size="sm"
             disabled={isLoading}
           >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            刷新
           </Button>
         </div>
       </div>
 
-      {/* 核心指标卡片 - 升级版 */}
+      {/* 核心指标卡片 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-none shadow-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:shadow-xl transition-all duration-300 hover:scale-105">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-white/90">总回调数</CardTitle>
-            <div className="p-2 bg-white/20 rounded-lg">
-              <MessageSquare className="h-4 w-4 text-white" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">回调消息</CardTitle>
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <MessageCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{monitorData?.summary.totalCallbacks || 0}</div>
-            <p className="text-xs text-white/80 mt-2 flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" />
+            <div className="text-2xl font-bold">{monitorData?.system?.callback_received || 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">
               今日累计
               {monitorData?.system?.callback_received && monitorData?.system?.callback_received > 0 && (
                 <span className="ml-1">+{monitorData?.system?.callback_received}</span>
@@ -1263,69 +1271,69 @@ ${callbacks.robotStatus}
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-lg bg-gradient-to-br from-green-500 to-green-600 text-white hover:shadow-xl transition-all duration-300 hover:scale-105">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-white/90">处理成功率</CardTitle>
-            <div className="p-2 bg-white/20 rounded-lg">
-              <TrendingUp className="h-4 w-4 text-white" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">处理成功率</CardTitle>
+            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+              <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{monitorData?.summary.successRate || '0%'}</div>
-            <p className="text-xs text-white/80 mt-2">回调处理成功率</p>
+            <div className="text-2xl font-bold">{monitorData?.summary.successRate || '0%'}</div>
+            <p className="text-xs text-muted-foreground mt-1">回调处理成功率</p>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white hover:shadow-xl transition-all duration-300 hover:scale-105">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-white/90">AI 成功率</CardTitle>
-            <div className="p-2 bg-white/20 rounded-lg">
-              <Bot className="h-4 w-4 text-white" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">AI 成功率</CardTitle>
+            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+              <Bot className="h-4 w-4 text-purple-600 dark:text-purple-400" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{monitorData?.summary.aiSuccessRate || '0%'}</div>
-            <p className="text-xs text-white/80 mt-2">AI 响应成功率</p>
+            <div className="text-2xl font-bold">{monitorData?.summary.aiSuccessRate || '0%'}</div>
+            <p className="text-xs text-muted-foreground mt-1">AI 响应成功率</p>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-lg bg-gradient-to-br from-orange-500 to-orange-600 text-white hover:shadow-xl transition-all duration-300 hover:scale-105">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-white/90">告警数量</CardTitle>
-            <div className="p-2 bg-white/20 rounded-lg">
-              <AlertTriangle className="h-4 w-4 text-white" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">告警数量</CardTitle>
+            <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+              <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{alertData?.total || 0}</div>
-            <p className="text-xs text-white/80 mt-2">近 7 天告警</p>
+            <div className="text-2xl font-bold">{alertData?.total || 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">近 7 天告警</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* 活跃会话和告警预览 */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {/* 最近活跃会话 */}
+      {/* 会话列表和快速操作 */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* 最近活跃会话 - 占2列 */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="flex items-center gap-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Users className="h-4 w-4 text-blue-500" />
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Users className="h-5 w-5 text-blue-500" />
                   最近活跃会话
                 </CardTitle>
-                <Badge variant="secondary">{sessions.length} 个活跃会话</Badge>
+                <Badge variant="secondary">{sessions.length} 个</Badge>
               </div>
 
               {/* 搜索和筛选 */}
               <div className="flex gap-2 w-full sm:w-auto">
                 <div className="relative flex-1 sm:flex-none">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="搜索会话..."
                     value={sessionSearchQuery}
                     onChange={(e) => setSessionSearchQuery(e.target.value)}
-                    className="pl-8 w-full sm:w-[200px]"
+                    className="pl-9 w-full sm:w-[200px]"
                   />
                 </div>
                 <Select value={sessionStatusFilter} onValueChange={(v: any) => setSessionStatusFilter(v)}>
@@ -1342,32 +1350,52 @@ ${callbacks.robotStatus}
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {isSearchingSessions ? (
-                <div className="flex items-center justify-center py-8">
+                <div className="flex items-center justify-center py-12">
                   <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
                   <span className="text-sm text-muted-foreground">搜索中...</span>
                 </div>
-              ) : sessions.slice(0, 4).map((session) => {
+              ) : sessions.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>暂无活跃会话</p>
+                </div>
+              ) : sessions.slice(0, 5).map((session) => {
                 const userName = session.userName || session.userInfo?.userName;
                 const groupName = session.groupName || session.userInfo?.groupName;
+                const robotName = session.robotName || '未知机器人';
 
                 return (
                   <div
                     key={session.sessionId}
-                    className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl hover:shadow-md transition-shadow cursor-pointer"
+                    className="flex items-start justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl hover:shadow-md transition-shadow cursor-pointer border border-transparent hover:border-gray-200 dark:hover:border-gray-700"
                     onClick={() => handleViewSessionDetail(session)}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg flex-shrink-0">
                         {userName?.charAt(0) || 'U'}
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold">{userName || '未知用户'}</p>
-                        <p className="text-xs text-muted-foreground">{groupName || '未知群组'}</p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <p className="text-sm font-semibold truncate">{userName || '未知用户'}</p>
+                          <span className="text-xs text-muted-foreground flex items-center gap-1 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">
+                            <Bot className="h-3 w-3" />
+                            {robotName}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">{groupName || '未知群组'}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(session.lastActiveTime).toLocaleString('zh-CN', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-end gap-2 ml-3 flex-shrink-0">
                       <Badge
                         variant={session.status === 'auto' ? 'default' : 'secondary'}
                         className="gap-1"
@@ -1375,7 +1403,7 @@ ${callbacks.robotStatus}
                         {session.status === 'auto' ? (
                           <>
                             <Bot className="h-3 w-3" />
-                            AI 接管
+                            AI
                           </>
                         ) : (
                           <>
@@ -1385,170 +1413,85 @@ ${callbacks.robotStatus}
                         )}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
-                        {session.messageCount} 消息
+                        {session.messageCount} 条
                       </span>
                     </div>
                   </div>
                 );
               })}
-              {!isSearchingSessions && sessions.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>暂无活跃会话</p>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* 快速操作 */}
-        <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Zap className="h-4 w-4 text-yellow-500" />
-              快速操作
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button 
-              className="w-full justify-start gap-2" 
-              variant="outline"
-              onClick={() => setActiveTab('callbacks')}
-            >
-              <Link2 className="h-4 w-4" />
-              配置回调地址
-            </Button>
-            <Button 
-              className="w-full justify-start gap-2" 
-              variant="outline"
-              onClick={() => setActiveTab('users')}
-            >
-              <UserCheck className="h-4 w-4" />
-              管理用户
-            </Button>
-            <Button 
-              className="w-full justify-start gap-2" 
-              variant="outline"
-              onClick={() => setActiveTab('reports')}
-            >
-              <FileText className="h-4 w-4" />
-              查看报告
-            </Button>
-            <Button 
-              className="w-full justify-start gap-2" 
-              variant="outline"
-              onClick={() => setActiveTab('settings')}
-            >
-              <Settings className="h-4 w-4" />
-              系统设置
-            </Button>
-          </CardContent>
-        </Card>
+        {/* 快速操作和系统信息 - 占1列 */}
+        <div className="space-y-6">
+          {/* 机器人状态 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Bot className="h-4 w-4 text-blue-500" />
+                机器人状态
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <span className="text-sm text-muted-foreground">在线机器人</span>
+                <Badge variant="default" className="bg-green-500">
+                  {onlineRobots.length} / {robots.length}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <span className="text-sm text-muted-foreground">总机器人数</span>
+                <span className="font-medium">{robots.length}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 快速操作 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Zap className="h-4 w-4 text-yellow-500" />
+                快速操作
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Button
+                className="w-full justify-start gap-2"
+                variant="outline"
+                onClick={() => setActiveTab('callbacks')}
+              >
+                <Link2 className="h-4 w-4" />
+                配置回调地址
+              </Button>
+              <Button
+                className="w-full justify-start gap-2"
+                variant="outline"
+                onClick={() => setActiveTab('robots')}
+              >
+                <Bot className="h-4 w-4" />
+                管理机器人
+              </Button>
+              <Button
+                className="w-full justify-start gap-2"
+                variant="outline"
+                onClick={() => setActiveTab('settings')}
+              >
+                <Settings className="h-4 w-4" />
+                系统设置
+              </Button>
+              <Button
+                className="w-full justify-start gap-2"
+                variant="outline"
+                onClick={() => setShowDebugDialog(true)}
+              >
+                <TestTube className="h-4 w-4" />
+                调试功能
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-
-      {/* 详细指标 */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Server className="h-4 w-4" />
-              系统指标
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-4">
-              <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
-                <span className="text-sm font-medium">回调接收</span>
-                <Badge className="bg-blue-600 hover:bg-blue-700">{monitorData?.system.callback_received || 0}</Badge>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950 rounded-lg">
-                <span className="text-sm font-medium">回调处理</span>
-                <Badge className="bg-green-600 hover:bg-green-700">{monitorData?.system.callback_processed || 0}</Badge>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950 rounded-lg">
-                <span className="text-sm font-medium">回调错误</span>
-                <Badge variant="destructive">{monitorData?.system?.callback_error || 0}</Badge>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-purple-50 dark:bg-purple-950 rounded-lg">
-                <span className="text-sm font-medium">AI 请求</span>
-                <Badge className="bg-purple-600 hover:bg-purple-700">{monitorData?.system?.ai_requests || 0}</Badge>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-orange-50 dark:bg-orange-950 rounded-lg">
-                <span className="text-sm font-medium">AI 错误</span>
-                <Badge variant="destructive">{monitorData?.system?.ai_errors || 0}</Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
-            <CardTitle className="text-base flex items-center gap-2">
-              <ZapIcon className="h-4 w-4" />
-              AI 模型状态
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">意图识别</span>
-              <div className="flex items-center gap-2">
-                <Badge variant={monitorData?.ai.intentRecognition.successRate === '100.00' ? 'default' : 'secondary'}>
-                  {monitorData?.ai.intentRecognition.successRate || '0%'}
-                </Badge>
-                {monitorData?.ai.intentRecognition.successRate === '100.00' && (
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                )}
-              </div>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">服务回复</span>
-              <div className="flex items-center gap-2">
-                <Badge variant={monitorData?.ai.serviceReply.successRate === '100.00' ? 'default' : 'secondary'}>
-                  {monitorData?.ai.serviceReply.successRate || '0%'}
-                </Badge>
-                {monitorData?.ai.serviceReply.successRate === '100.00' && (
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                )}
-              </div>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">闲聊回复</span>
-              <div className="flex items-center gap-2">
-                <Badge variant={monitorData?.ai.chat.successRate === '100.00' ? 'default' : 'secondary'}>
-                  {monitorData?.ai.chat.successRate || '0%'}
-                </Badge>
-                {monitorData?.ai.chat.successRate === '100.00' && (
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 告警提示 */}
-      {alertData && alertData.total > 0 && (
-        <Alert variant={alertData.byLevel.critical > 0 ? 'destructive' : 'default'}>
-          <BellRing className="h-4 w-4" />
-          <AlertTitle>系统告警</AlertTitle>
-          <AlertDescription className="mt-2">
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="destructive" className="gap-1">
-                <AlertTriangle className="h-3 w-3" />
-                严重: {alertData.byLevel.critical}
-              </Badge>
-              <Badge variant="secondary" className="gap-1">
-                <AlertTriangle className="h-3 w-3" />
-                警告: {alertData.byLevel.warning}
-              </Badge>
-              <Badge variant="outline" className="gap-1">
-                <Info className="h-3 w-3" />
-                信息: {alertData.byLevel.info}
-              </Badge>
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
     </div>
   );
 
@@ -4473,193 +4416,222 @@ ${callbacks.robotStatus}
 
       {/* 会话详情弹窗 */}
       <Dialog open={showSessionDetail} onOpenChange={setShowSessionDetail}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-blue-500" />
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <MessageSquare className="h-6 w-6 text-blue-500" />
               会话详情
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-base">
               查看会话的详细信息和消息记录
             </DialogDescription>
           </DialogHeader>
 
           {selectedSession && (
-            <div className="space-y-4">
-              {/* 会话基本信息 */}
-              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">用户</p>
-                  <p className="font-medium">{selectedSession.userName || selectedSession.userInfo?.userName || '未知用户'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">群组</p>
-                  <p className="font-medium">{selectedSession.groupName || selectedSession.userInfo?.groupName || '未知群组'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">会话ID</p>
-                  <p className="font-mono text-sm">{selectedSession.sessionId}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">最后活跃</p>
-                  <p className="text-sm">
-                    {new Date(selectedSession.lastActiveTime).toLocaleString('zh-CN')}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">消息数</p>
-                  <p className="font-medium">{selectedSession.messageCount}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">当前状态</p>
-                  <Badge variant={selectedSession.status === 'auto' ? 'default' : 'secondary'}>
-                    {selectedSession.status === 'auto' ? (
-                      <>
-                        <Bot className="h-3 w-3 mr-1" />
-                        AI 接管
-                      </>
-                    ) : (
-                      <>
-                        <UserCheck className="h-3 w-3 mr-1" />
-                        人工
-                      </>
-                    )}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">AI 回复</p>
-                  <p className="font-medium">{selectedSession.aiReplyCount || 0}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">人工回复</p>
-                  <p className="font-medium">{selectedSession.humanReplyCount || 0}</p>
-                </div>
-              </div>
+            <div className="space-y-6">
+              {/* 会话基本信息卡片 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">基本信息</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">用户</p>
+                      <p className="font-medium">{selectedSession.userName || selectedSession.userInfo?.userName || '未知用户'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">群组</p>
+                      <p className="font-medium">{selectedSession.groupName || selectedSession.userInfo?.groupName || '未知群组'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">机器人</p>
+                      <p className="font-medium">{selectedSession.robotName || '未知机器人'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">会话ID</p>
+                      <p className="font-mono text-sm">{selectedSession.sessionId}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">最后活跃</p>
+                      <p className="text-sm">
+                        {new Date(selectedSession.lastActiveTime).toLocaleString('zh-CN')}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">消息数</p>
+                      <p className="font-medium">{selectedSession.messageCount}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">当前状态</p>
+                      <Badge variant={selectedSession.status === 'auto' ? 'default' : 'secondary'}>
+                        {selectedSession.status === 'auto' ? (
+                          <>
+                            <Bot className="h-3 w-3 mr-1" />
+                            AI 接管
+                          </>
+                        ) : (
+                          <>
+                            <UserCheck className="h-3 w-3 mr-1" />
+                            人工
+                          </>
+                        )}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">AI 回复</p>
+                      <p className="font-medium">{selectedSession.aiReplyCount || 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">人工回复</p>
+                      <p className="font-medium">{selectedSession.humanReplyCount || 0}</p>
+                    </div>
+                  </div>
 
-              {/* 操作按钮 */}
-              <div className="flex flex-wrap gap-2">
-                {selectedSession.status === 'auto' ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center gap-2"
-                    onClick={async () => {
-                      try {
-                        const res = await fetch(`/api/admin/sessions/${selectedSession.sessionId}/takeover`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ operator: 'admin' })
-                        });
-                        if (res.ok) {
-                          alert('✅ 已切换为人工接管');
-                          setShowSessionDetail(false);
-                          // 重新加载会话列表
-                          const sessionsRes = await fetch('/api/admin/sessions/active?limit=20');
-                          if (sessionsRes.ok) {
-                            const data = await sessionsRes.json();
-                            setSessions(data.data || []);
+                  {/* 操作按钮 */}
+                  <div className="flex flex-wrap gap-3 mt-6 pt-6 border-t">
+                    {selectedSession.status === 'auto' ? (
+                      <Button
+                        variant="outline"
+                        className="flex items-center gap-2"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`/api/admin/sessions/${selectedSession.sessionId}/takeover`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ operator: 'admin' })
+                            });
+                            if (res.ok) {
+                              alert('✅ 已切换为人工接管');
+                              setShowSessionDetail(false);
+                              // 重新加载会话列表
+                              const sessionsRes = await fetch('/api/admin/sessions/active?limit=20');
+                              if (sessionsRes.ok) {
+                                const data = await sessionsRes.json();
+                                setSessions(data.data || []);
+                              }
+                            } else {
+                              alert('❌ 切换失败');
+                            }
+                          } catch (error) {
+                            console.error('切换失败:', error);
+                            alert('❌ 切换失败');
                           }
-                        } else {
-                          alert('❌ 切换失败');
-                        }
-                      } catch (error) {
-                        console.error('切换失败:', error);
-                        alert('❌ 切换失败');
-                      }
-                    }}
-                  >
-                    <UserCheck className="h-4 w-4" />
-                    切换为人工接管
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center gap-2"
-                    onClick={async () => {
-                      try {
-                        const res = await fetch(`/api/admin/sessions/${selectedSession.sessionId}/auto`, {
-                          method: 'POST'
-                        });
-                        if (res.ok) {
-                          alert('✅ 已切换回自动模式');
-                          setShowSessionDetail(false);
-                          // 重新加载会话列表
-                          const sessionsRes = await fetch('/api/admin/sessions/active?limit=20');
-                          if (sessionsRes.ok) {
-                            const data = await sessionsRes.json();
-                            setSessions(data.data || []);
+                        }}
+                      >
+                        <UserCheck className="h-4 w-4" />
+                        切换为人工接管
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        className="flex items-center gap-2"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`/api/admin/sessions/${selectedSession.sessionId}/auto`, {
+                              method: 'POST'
+                            });
+                            if (res.ok) {
+                              alert('✅ 已切换回自动模式');
+                              setShowSessionDetail(false);
+                              // 重新加载会话列表
+                              const sessionsRes = await fetch('/api/admin/sessions/active?limit=20');
+                              if (sessionsRes.ok) {
+                                const data = await sessionsRes.json();
+                                setSessions(data.data || []);
+                              }
+                            } else {
+                              alert('❌ 切换失败');
+                            }
+                          } catch (error) {
+                            console.error('切换失败:', error);
+                            alert('❌ 切换失败');
                           }
-                        } else {
-                          alert('❌ 切换失败');
-                        }
-                      } catch (error) {
-                        console.error('切换失败:', error);
-                        alert('❌ 切换失败');
-                      }
-                    }}
-                  >
-                    <Bot className="h-4 w-4" />
-                    切换回自动模式
-                  </Button>
-                )}
-              </div>
+                        }}
+                      >
+                        <Bot className="h-4 w-4" />
+                        切换回自动模式
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* 消息记录 */}
-              <div>
-                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4" />
-                  消息记录
-                </h4>
-                {isLoadingSessionMessages ? (
-                  <div className="flex items-center justify-center py-8">
-                    <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : sessionMessages.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                    <p>暂无消息记录</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {sessionMessages.map((msg: any, index: number) => (
-                      <div
-                        key={index}
-                        className={`p-3 rounded-lg ${
-                          msg.isFromUser
-                            ? 'bg-blue-50 dark:bg-blue-950 ml-8'
-                            : 'bg-gray-50 dark:bg-gray-900 mr-8'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-medium">
-                            {msg.isFromUser ? (
-                              <>
-                                <User className="h-3 w-3 inline mr-1" />
-                                用户
-                              </>
-                            ) : (
-                              <>
-                                <Bot className="h-3 w-3 inline mr-1" />
-                                {msg.isHuman ? '人工客服' : 'AI'}
-                              </>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    消息记录
+                    <Badge variant="outline" className="ml-2">{sessionMessages.length} 条</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingSessionMessages ? (
+                    <div className="flex items-center justify-center py-12">
+                      <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
+                      <span className="text-sm text-muted-foreground">加载中...</span>
+                    </div>
+                  ) : sessionMessages.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p>暂无消息记录</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                      {sessionMessages.map((msg: any, index: number) => (
+                        <div
+                          key={index}
+                          className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div className={`max-w-[80%] ${
+                            msg.isFromUser
+                              ? 'bg-blue-500 text-white'
+                              : msg.isHuman
+                                ? 'bg-green-100 dark:bg-green-900/30'
+                                : 'bg-gray-100 dark:bg-gray-800'
+                          } rounded-2xl p-4 ${msg.isFromUser ? 'rounded-br-sm' : 'rounded-bl-sm'}`}>
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <span className="text-xs font-semibold opacity-90">
+                                {msg.isFromUser ? (
+                                  <>
+                                    <User className="h-3 w-3 inline mr-1" />
+                                    {msg.userName || '用户'}
+                                  </>
+                                ) : msg.isHuman ? (
+                                  <>
+                                    <UserCheck className="h-3 w-3 inline mr-1" />
+                                    {msg.extraData?.operator || '人工客服'}
+                                  </>
+                                ) : (
+                                  <>
+                                    <Bot className="h-3 w-3 inline mr-1" />
+                                    {msg.robotName || 'AI'}
+                                  </>
+                                )}
+                              </span>
+                              <span className="text-xs opacity-70">
+                                {new Date(msg.timestamp).toLocaleString('zh-CN', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                            {msg.intent && (
+                              <Badge variant="outline" className="mt-2 text-xs">
+                                意图: {msg.intent}
+                              </Badge>
                             )}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {msg.timestamp ? new Date(msg.timestamp).toLocaleString('zh-CN') : ''}
-                          </span>
+                          </div>
                         </div>
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                        {msg.intent && (
-                          <Badge variant="outline" className="mt-2 text-xs">
-                            意图: {msg.intent}
-                          </Badge>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           )}
 
