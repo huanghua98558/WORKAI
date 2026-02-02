@@ -1057,11 +1057,10 @@ ${callbacks.robotStatus}
     const [alertHistory, setAlertHistory] = useState<any[]>([]);
     const [circuitBreakerStatus, setCircuitBreakerStatus] = useState<boolean>(false);
 
-    useEffect(() => {
-      loadAlertData();
-    }, []);
-
-    const loadAlertData = async () => {
+    // 使用 useRef 保存 loadAlertData 函数，避免依赖项变化导致重复调用
+    const loadAlertDataRef = useRef<any>(null);
+    
+    loadAlertDataRef.current = async () => {
       try {
         const [alertsRes, circuitRes] = await Promise.all([
           fetch('/api/admin/alerts/history?limit=20'),
@@ -1082,13 +1081,18 @@ ${callbacks.robotStatus}
       }
     };
 
+    // 只在组件挂载时加载一次
+    useEffect(() => {
+      loadAlertDataRef.current();
+    }, []);
+
     const resetCircuitBreaker = async () => {
       if (confirm('确定要重置熔断器吗？这将重新启用 AI 服务。')) {
         try {
           const res = await fetch('/api/admin/circuit-breaker/reset', { method: 'POST' });
           if (res.ok) {
             alert('✅ 熔断器已重置');
-            loadAlertData();
+            loadAlertDataRef.current();
           }
         } catch (error) {
           alert('❌ 重置失败');
@@ -1110,7 +1114,7 @@ ${callbacks.robotStatus}
           </div>
           <div className="flex items-center gap-2">
             <Button 
-              onClick={loadAlertData} 
+              onClick={() => loadAlertDataRef.current()} 
               variant="outline" 
               size="sm"
               disabled={isLoading}
@@ -1910,7 +1914,10 @@ ${callbacks.robotStatus}
       wechatId: ''
     });
 
-    const loadUsers = useCallback(async () => {
+    // 使用 useRef 保存 loadUsers 函数，避免依赖项变化导致重复调用
+    const loadUsersRef = useRef<any>(null);
+    
+    loadUsersRef.current = async () => {
       try {
         setIsLoading(true);
         const res = await fetch('/api/admin/users');
@@ -1923,11 +1930,12 @@ ${callbacks.robotStatus}
       } finally {
         setIsLoading(false);
       }
-    }, []);
+    };
 
+    // 只在组件挂载时加载一次
     useEffect(() => {
-      loadUsers();
-    }, [loadUsers]);
+      loadUsersRef.current();
+    }, []);
 
     const handleAddUser = async () => {
       if (!newUser.username || !newUser.password || !newUser.role) {
@@ -1947,7 +1955,7 @@ ${callbacks.robotStatus}
           alert('✅ 用户添加成功');
           setShowAddDialog(false);
           setNewUser({ username: '', password: '', role: 'monitor', name: '', wechatId: '' });
-          loadUsers();
+          loadUsersRef.current();
         } else {
           const data = await res.json();
           alert(`❌ 添加失败: ${data.error || '未知错误'}`);
@@ -1982,7 +1990,7 @@ ${callbacks.robotStatus}
           alert('✅ 用户更新成功');
           setShowEditDialog(false);
           setEditingUser(null);
-          loadUsers();
+          loadUsersRef.current();
         } else {
           const data = await res.json();
           alert(`❌ 更新失败: ${data.error || '未知错误'}`);
@@ -2006,7 +2014,7 @@ ${callbacks.robotStatus}
 
         if (res.ok) {
           alert('✅ 用户已删除');
-          loadUsers();
+          loadUsersRef.current();
         } else {
           alert('❌ 删除失败');
         }
