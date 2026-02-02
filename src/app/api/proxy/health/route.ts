@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
       },
     };
 
-    return new Promise((resolve) => {
+    return new Promise<NextResponse>((resolve) => {
       const req = http.request(options, (res) => {
         let data = '';
         res.on('data', (chunk) => {

@@ -4088,6 +4088,15 @@ ${callbacks.robotStatus}
                   </>
                 )}
               </Badge>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowDebugDialog(true)}
+                className="gap-2"
+              >
+                <TestTube className="h-4 w-4" />
+                <span className="hidden sm:inline">调试</span>
+              </Button>
             </div>
           </div>
         </div>
@@ -4235,7 +4244,7 @@ ${callbacks.robotStatus}
                   </Button>
                 </li>
                 <li>
-                  <Button variant="ghost" className="h-auto p-0 text-left text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+                  <Button variant="ghost" className="h-auto p-0 text-left text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200" onClick={() => setShowDebugDialog(true)}>
                     <TestTube className="h-3 w-3 mr-1 inline" />
                     调试功能
                   </Button>

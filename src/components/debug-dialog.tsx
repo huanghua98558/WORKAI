@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -38,7 +39,9 @@ import {
   AlertTriangle,
   Activity,
   Clock,
-  Search
+  Search,
+  TestTube,
+  Bot
 } from 'lucide-react';
 
 interface DebugDialogProps {
@@ -75,7 +78,66 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
     return `${(ms / 60000).toFixed(2)}m`;
   };
 
+  // 机器人选择相关状态
+  const [availableRobots, setAvailableRobots] = useState<any[]>([]);
+  const [selectedRobot, setSelectedRobot] = useState<any>(null);
+  const [showRobotSelection, setShowRobotSelection] = useState(true);
+  const [isLoadingRobots, setIsLoadingRobots] = useState(false);
+
   const [activeTab, setActiveTab] = useState('message');
+
+  // 加载机器人列表
+  const loadRobots = async () => {
+    setIsLoadingRobots(true);
+    try {
+      const res = await fetch('/api/proxy/admin/robots');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.code === 0) {
+          const robots = data.data || [];
+          // 只显示启用的机器人
+          const activeRobots = robots.filter((r: any) => r.isActive);
+          setAvailableRobots(activeRobots);
+
+          // 如果只有一个在线机器人，自动选择
+          if (activeRobots.length === 1) {
+            setSelectedRobot(activeRobots[0]);
+            setShowRobotSelection(false);
+          } else if (activeRobots.length === 0) {
+            // 没有可用机器人
+            setSelectedRobot(null);
+            setShowRobotSelection(false);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('加载机器人列表失败:', error);
+    } finally {
+      setIsLoadingRobots(false);
+    }
+  };
+
+  // 当Dialog打开时加载机器人列表
+  useEffect(() => {
+    if (open) {
+      loadRobots();
+      setActiveTab('message');
+      setShowRobotSelection(true);
+      setSelectedRobot(null);
+    }
+  }, [open]);
+
+  // 选择机器人
+  const handleSelectRobot = (robot: any) => {
+    setSelectedRobot(robot);
+    setShowRobotSelection(false);
+  };
+
+  // 返回机器人选择界面
+  const handleBackToRobotSelection = () => {
+    setShowRobotSelection(true);
+    setSelectedRobot(null);
+  };
   
   // 发送消息相关状态
   const [messageForm, setMessageForm] = useState({
@@ -294,37 +356,164 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl flex items-center gap-2">
-            调试功能
-          </DialogTitle>
-          <DialogDescription>
-            测试机器人的各种功能，包括发送消息、群操作和推送文件
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        {/* 机器人选择界面 */}
+        {showRobotSelection && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-2xl flex items-center gap-2">
+                <TestTube className="h-6 w-6" />
+                选择调试机器人
+              </DialogTitle>
+              <DialogDescription>
+                选择要调试的机器人进行功能测试
+              </DialogDescription>
+            </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="message" className="gap-2">
-              <MessageSquare className="h-4 w-4" />
-              发送消息
-            </TabsTrigger>
-            <TabsTrigger value="group" className="gap-2">
-              <Users className="h-4 w-4" />
-              群操作
-            </TabsTrigger>
-            <TabsTrigger value="file" className="gap-2">
-              <FileText className="h-4 w-4" />
-              推送文件
-            </TabsTrigger>
-            <TabsTrigger value="execution" className="gap-2">
-              <Activity className="h-4 w-4" />
-              执行结果
-            </TabsTrigger>
-          </TabsList>
+            <div className="space-y-4 py-4">
+              {isLoadingRobots ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <RefreshCw className="h-8 w-8 animate-spin mx-auto text-blue-500" />
+                    <p className="text-sm text-muted-foreground mt-2">加载机器人列表...</p>
+                  </div>
+                </div>
+              ) : availableRobots.length === 0 ? (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>没有可用的机器人</AlertTitle>
+                  <AlertDescription>
+                    请先在"机器人管理"页面添加并启用机器人，然后重试。
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {availableRobots.map((robot) => (
+                    <Card
+                      key={robot.id}
+                      className="cursor-pointer hover:shadow-lg hover:border-blue-500 transition-all border-2"
+                      onClick={() => handleSelectRobot(robot)}
+                    >
+                      <CardContent className="p-6">
+                        <div className="flex items-start gap-4">
+                          <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl">
+                            <Bot className="h-6 w-6 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold mb-1">{robot.name}</h3>
+                            <p className="text-sm text-muted-foreground font-mono mb-2">{robot.robotId}</p>
+                            <div className="flex items-center gap-2 mb-3">
+                              <Badge variant={robot.status === 'online' ? 'default' : 'secondary'} className="gap-1">
+                                {robot.status === 'online' ? (
+                                  <>
+                                    <CheckCircle className="h-3 w-3" />
+                                    在线
+                                  </>
+                                ) : (
+                                  <>
+                                    <XCircle className="h-3 w-3" />
+                                    离线
+                                  </>
+                                )}
+                              </Badge>
+                              {robot.nickname && (
+                                <span className="text-xs text-muted-foreground">{robot.nickname}</span>
+                              )}
+                            </div>
+                            {robot.description && (
+                              <p className="text-xs text-muted-foreground">{robot.description}</p>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
-          <TabsContent value="message">
+        {/* 调试功能界面 */}
+        {!showRobotSelection && (
+          <>
+            <DialogHeader>
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <DialogTitle className="text-2xl flex items-center gap-2">
+                    <TestTube className="h-6 w-6" />
+                    调试功能
+                  </DialogTitle>
+                  {selectedRobot && (
+                    <div className="mt-2 flex items-center gap-3">
+                      <Badge variant="outline" className="gap-1">
+                        <Bot className="h-3 w-3" />
+                        {selectedRobot.name}
+                      </Badge>
+                      <Badge variant={selectedRobot.status === 'online' ? 'default' : 'secondary'} className="gap-1">
+                        {selectedRobot.status === 'online' ? (
+                          <>
+                            <CheckCircle className="h-3 w-3" />
+                            在线
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="h-3 w-3" />
+                            离线
+                          </>
+                        )}
+                      </Badge>
+                      {availableRobots.length > 1 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleBackToRobotSelection}
+                          className="text-xs"
+                        >
+                          切换机器人
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  <DialogDescription>
+                    测试机器人的各种功能，包括发送消息、群操作和推送文件
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+
+            {!selectedRobot && (
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>未选择机器人</AlertTitle>
+                <AlertDescription>
+                  没有可用的机器人。请先在"机器人管理"页面添加并启用机器人。
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {selectedRobot && (
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="message" className="gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    发送消息
+                  </TabsTrigger>
+                  <TabsTrigger value="group" className="gap-2">
+                    <Users className="h-4 w-4" />
+                    群操作
+                  </TabsTrigger>
+                  <TabsTrigger value="file" className="gap-2">
+                    <FileText className="h-4 w-4" />
+                    推送文件
+                  </TabsTrigger>
+                  <TabsTrigger value="execution" className="gap-2">
+                    <Activity className="h-4 w-4" />
+                    执行结果
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="message">
             <Card>
               <CardHeader className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
                 <CardTitle className="flex items-center gap-2">
@@ -845,7 +1034,10 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
               )}
             </div>
           </TabsContent>
-        </Tabs>
+              </Tabs>
+          )}
+        </>
+        )}
       </DialogContent>
     </Dialog>
   );
