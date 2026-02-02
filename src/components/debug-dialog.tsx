@@ -131,6 +131,11 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
   const handleSelectRobot = (robot: any) => {
     setSelectedRobot(robot);
     setShowRobotSelection(false);
+    // 更新消息表单中的 robotId
+    setMessageForm(prev => ({
+      ...prev,
+      robotId: robot.robotId
+    }));
   };
 
   // 返回机器人选择界面
@@ -142,6 +147,7 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
   // 发送消息相关状态
   const [messageForm, setMessageForm] = useState({
     messageType: 'private',
+    robotId: '',
     recipient: '',
     content: ''
   });
@@ -264,13 +270,22 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
       alert('请填写接收方和消息内容');
       return;
     }
+    if (!messageForm.robotId) {
+      alert('请先选择机器人');
+      return;
+    }
     setIsSendingMessage(true);
     setMessageResult(null);
     try {
       const res = await fetch('/api/proxy/admin/debug/send-message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(messageForm)
+        body: JSON.stringify({
+          robotId: messageForm.robotId,
+          messageType: messageForm.messageType,
+          recipient: messageForm.recipient,
+          content: messageForm.content
+        })
       });
       const data = await res.json();
       setMessageResult(data);
@@ -296,16 +311,23 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
     setIsDoingGroupOperation(true);
     setGroupResult(null);
     try {
-      const selectListArray = groupForm.selectList 
+      const selectListArray = groupForm.selectList
         ? groupForm.selectList.split(',').map(s => s.trim()).filter(s => s)
         : [];
       const removeListArray = groupForm.removeList
         ? groupForm.removeList.split(',').map(s => s.trim()).filter(s => s)
         : [];
+
+      if (!messageForm.robotId) {
+        alert('请先选择机器人');
+        return;
+      }
+
       const res = await fetch('/api/proxy/admin/debug/group-operation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          robotId: messageForm.robotId,
           operationType: groupForm.operationType,
           groupName: groupForm.groupName,
           newGroupName: groupForm.newGroupName,
@@ -334,13 +356,20 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
       alert('请填写接收方和文件 URL');
       return;
     }
+    if (!messageForm.robotId) {
+      alert('请先选择机器人');
+      return;
+    }
     setIsPushingFile(true);
     setFileResult(null);
     try {
       const res = await fetch('/api/proxy/admin/debug/push-file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(fileForm)
+        body: JSON.stringify({
+          robotId: messageForm.robotId,
+          ...fileForm
+        })
       });
       const data = await res.json();
       setFileResult(data);
@@ -522,6 +551,29 @@ export default function DebugDialog({ open, onOpenChange }: DebugDialogProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 pt-6">
+                {/* 当前选择的机器人 */}
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Bot className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium">
+                        {selectedRobot ? selectedRobot.name : '未选择机器人'}
+                      </span>
+                      {selectedRobot && (
+                        <Badge variant="outline" className="text-xs">{selectedRobot.robotId}</Badge>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleBackToRobotSelection}
+                      className="text-xs"
+                    >
+                      切换机器人
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="space-y-3">
                   <div>
                     <Label htmlFor="messageType">发送类型</Label>

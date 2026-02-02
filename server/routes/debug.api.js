@@ -10,7 +10,14 @@ const debugApiRoutes = async function (fastify, options) {
   // 发送消息
   fastify.post('/debug/send-message', async (request, reply) => {
     try {
-      const { messageType, recipient, content } = request.body;
+      const { robotId, messageType, recipient, content } = request.body;
+
+      if (!robotId) {
+        return reply.status(400).send({
+          code: -1,
+          message: '缺少必要参数：robotId'
+        });
+      }
 
       if (!recipient || !content) {
         return reply.status(400).send({
@@ -19,19 +26,24 @@ const debugApiRoutes = async function (fastify, options) {
         });
       }
 
-      // 获取在线的机器人
+      // 获取指定的机器人
       const robotService = require('../services/robot.service');
-      const robots = await robotService.getAllRobots({ isActive: true, status: 'online' });
+      const robot = await robotService.getRobotByRobotId(robotId);
 
-      if (robots.length === 0) {
-        return reply.status(400).send({
+      if (!robot) {
+        return reply.status(404).send({
           code: -1,
-          message: '没有可用的在线机器人'
+          message: `机器人不存在: ${robotId}`
         });
       }
 
-      // 使用第一个在线机器人
-      const robot = robots[0];
+      if (!robot.isActive) {
+        return reply.status(403).send({
+          code: -1,
+          message: `机器人未启用: ${robotId}`
+        });
+      }
+
       let result;
 
       if (messageType === 'private') {
@@ -80,7 +92,14 @@ const debugApiRoutes = async function (fastify, options) {
   // 群操作
   fastify.post('/debug/group-operation', async (request, reply) => {
     try {
-      const { operationType, groupName, newGroupName, members, groupAnnouncement, groupRemark, selectList, removeList, showMessageHistory, groupTemplate } = request.body;
+      const { robotId, operationType, groupName, newGroupName, members, groupAnnouncement, groupRemark, selectList, removeList, showMessageHistory, groupTemplate } = request.body;
+
+      if (!robotId) {
+        return reply.status(400).send({
+          code: -1,
+          message: '缺少必要参数：robotId'
+        });
+      }
 
       if (!groupName) {
         return reply.status(400).send({
@@ -89,18 +108,23 @@ const debugApiRoutes = async function (fastify, options) {
         });
       }
 
-      // 获取在线的机器人
+      // 获取指定的机器人
       const robotService = require('../services/robot.service');
-      const robots = await robotService.getAllRobots({ isActive: true, status: 'online' });
+      const robot = await robotService.getRobotByRobotId(robotId);
 
-      if (robots.length === 0) {
-        return reply.status(400).send({
+      if (!robot) {
+        return reply.status(404).send({
           code: -1,
-          message: '没有可用的在线机器人'
+          message: `机器人不存在: ${robotId}`
         });
       }
 
-      const robot = robots[0];
+      if (!robot.isActive) {
+        return reply.status(403).send({
+          code: -1,
+          message: `机器人未启用: ${robotId}`
+        });
+      }
 
       // 构建 API 请求
       const baseUrl = robot.apiBaseUrl.replace(/\/wework\/?$/, '').replace(/\/$/, '');
@@ -199,7 +223,14 @@ const debugApiRoutes = async function (fastify, options) {
   // 推送文件
   fastify.post('/debug/push-file', async (request, reply) => {
     try {
-      const { recipient, fileType, fileName, fileUrl, remark } = request.body;
+      const { robotId, recipient, fileType, fileName, fileUrl, remark } = request.body;
+
+      if (!robotId) {
+        return reply.status(400).send({
+          code: -1,
+          message: '缺少必要参数：robotId'
+        });
+      }
 
       if (!recipient || !fileUrl) {
         return reply.status(400).send({
@@ -217,18 +248,23 @@ const debugApiRoutes = async function (fastify, options) {
         });
       }
 
-      // 获取在线的机器人
+      // 获取指定的机器人
       const robotService = require('../services/robot.service');
-      const robots = await robotService.getAllRobots({ isActive: true, status: 'online' });
+      const robot = await robotService.getRobotByRobotId(robotId);
 
-      if (robots.length === 0) {
-        return reply.status(400).send({
+      if (!robot) {
+        return reply.status(404).send({
           code: -1,
-          message: '没有可用的在线机器人'
+          message: `机器人不存在: ${robotId}`
         });
       }
 
-      const robot = robots[0];
+      if (!robot.isActive) {
+        return reply.status(403).send({
+          code: -1,
+          message: `机器人未启用: ${robotId}`
+        });
+      }
 
       // 构建 API 请求 - type = 218
       const baseUrl = robot.apiBaseUrl.replace(/\/wework\/?$/, '').replace(/\/$/, '');
