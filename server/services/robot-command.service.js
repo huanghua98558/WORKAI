@@ -353,12 +353,76 @@ class RobotCommandService {
       });
 
       switch (commandType) {
+        case 'send_group_message':
+          // 发送群消息
+          const { list: groupList } = commandData;
+          if (groupList && groupList.length > 0) {
+            const msg = groupList[0];
+            logger.info('RobotCommand', '指令执行 - 准备发送群消息', {
+              commandId: id,
+              groupName: msg.titleList[0],
+              contentLength: msg.receivedContent?.length || 0,
+              atList: msg.atList || [],
+              atListLength: (msg.atList || []).length
+            });
+            
+            result = await worktoolService.sendGroupMessage(
+              robotId,
+              msg.titleList[0],
+              msg.receivedContent,
+              msg.atList || []
+            );
+            
+            logger.info('RobotCommand', '指令执行 - 群消息发送完成', {
+              commandId: id,
+              workToolResult: result
+            });
+          } else {
+            logger.error('RobotCommand', '指令执行失败 - 群消息数据格式错误', {
+              commandId: id,
+              commandData
+            });
+            throw new Error('群消息数据格式错误');
+          }
+          break;
+
+        case 'send_private_message':
+          // 发送私聊消息
+          const { list: privateList } = commandData;
+          if (privateList && privateList.length > 0) {
+            const msg = privateList[0];
+            logger.info('RobotCommand', '指令执行 - 准备发送私聊消息', {
+              commandId: id,
+              userName: msg.titleList[0],
+              contentLength: msg.receivedContent?.length || 0,
+              atList: msg.atList || []
+            });
+            
+            result = await worktoolService.sendPrivateMessage(
+              robotId,
+              msg.titleList[0],
+              msg.receivedContent
+            );
+            
+            logger.info('RobotCommand', '指令执行 - 私聊消息发送完成', {
+              commandId: id,
+              workToolResult: result
+            });
+          } else {
+            logger.error('RobotCommand', '指令执行失败 - 私聊消息数据格式错误', {
+              commandId: id,
+              commandData
+            });
+            throw new Error('私聊消息数据格式错误');
+          }
+          break;
+
         case 'send_message':
-          // 发送消息
+          // 发送消息（兼容旧版本）
           const { list } = commandData;
           if (list && list.length > 0) {
             const msg = list[0];
-            logger.info('RobotCommand', '指令执行 - 准备发送消息', {
+            logger.info('RobotCommand', '指令执行 - 准备发送消息（兼容模式）', {
               commandId: id,
               toName: msg.titleList[0],
               contentLength: msg.receivedContent?.length || 0,
@@ -403,9 +467,22 @@ class RobotCommandService {
         default:
           logger.error('RobotCommand', '指令执行失败 - 不支持的指令类型', {
             commandId: id,
-            commandType
+            commandType,
+            supportedTypes: [
+              'send_group_message',
+              'send_private_message',
+              'send_message',
+              'batch_send_message',
+              'forward_message',
+              'create_room',
+              'invite_to_room',
+              'upload_file',
+              'get_contacts',
+              'get_rooms',
+              'update_profile'
+            ]
           });
-          throw new Error(`不支持的指令类型: ${commandType}`);
+          throw new Error(`不支持的指令类型: ${commandType}。支持的类型: send_group_message, send_private_message, batch_send_message 等`);
       }
 
       const executionEndTime = Date.now();

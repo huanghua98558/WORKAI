@@ -34,7 +34,9 @@ interface Command {
 }
 
 const COMMAND_TYPES = [
-  { value: 'send_message', label: '发送消息' },
+  { value: 'send_group_message', label: '发送群消息' },
+  { value: 'send_private_message', label: '发送私聊消息' },
+  { value: 'batch_send_message', label: '批量发送消息' },
   { value: 'forward_message', label: '转发消息' },
   { value: 'create_room', label: '创建群聊' },
   { value: 'invite_to_room', label: '邀请入群' },
@@ -222,15 +224,43 @@ export default function CommandSender() {
   // 根据命令类型生成默认 payload
   const getDefaultPayload = (type: string) => {
     switch (type) {
-      case 'send_message':
+      case 'send_group_message':
         return JSON.stringify({
           socketType: 2,
           list: [
             {
               type: 203,
-              titleList: ["目标群组或好友名称"],
-              receivedContent: "要发送的消息内容",
+              titleList: ["群聊名称"],
+              receivedContent: "要发送的群消息内容",
               atList: [] // @的人，如: ["张三", "李四"]
+            }
+          ]
+        }, null, 2);
+      case 'send_private_message':
+        return JSON.stringify({
+          socketType: 2,
+          list: [
+            {
+              type: 203,
+              titleList: ["用户昵称"],
+              receivedContent: "要发送的私聊消息内容",
+              atList: [] // 私聊消息不需要 @
+            }
+          ]
+        }, null, 2);
+      case 'batch_send_message':
+        return JSON.stringify({
+          socketType: 2,
+          list: [
+            {
+              type: 203,
+              titleList: ["接收者1（群聊或个人）"],
+              receivedContent: "消息内容1"
+            },
+            {
+              type: 203,
+              titleList: ["接收者2（群聊或个人）"],
+              receivedContent: "消息内容2"
             }
           ]
         }, null, 2);
@@ -354,6 +384,21 @@ export default function CommandSender() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {commandType === 'send_group_message' && (
+                    <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+                      💡 <strong>群发消息：</strong>向群聊发送消息，支持 @ 功能。titleList填写群名，atList填写需要@的人名。
+                    </div>
+                  )}
+                  {commandType === 'send_private_message' && (
+                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700">
+                      💡 <strong>私聊消息：</strong>向个人发送消息，不支持 @ 功能。titleList填写用户昵称。
+                    </div>
+                  )}
+                  {commandType === 'batch_send_message' && (
+                    <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded text-xs text-purple-700">
+                      💡 <strong>批量发送：</strong>一次性发送多条消息到不同的群聊或个人。list数组中配置多个消息对象。
+                    </div>
+                  )}
                 </div>
 
                 <div>
