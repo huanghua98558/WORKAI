@@ -66,6 +66,9 @@ export default function RobotManagement() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showConfigDialog, setShowConfigDialog] = useState(false);
   const [showTestDialog, setShowTestDialog] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
+  const [testError, setTestError] = useState<string | null>(null);
 
   // 加载机器人列表
   const loadRobots = async () => {
@@ -116,9 +119,37 @@ export default function RobotManagement() {
     setShowConfigDialog(true);
   };
 
-  const handleTest = async (robot: Robot) => {
+  const handleTest = (robot: Robot) => {
     setSelectedRobot(robot);
     setShowTestDialog(true);
+    setTestResult(null);
+    setTestError(null);
+  };
+
+  const executeTest = async () => {
+    if (!selectedRobot) return;
+
+    setIsTesting(true);
+    setTestResult(null);
+    setTestError(null);
+
+    try {
+      const res = await fetch(`/api/proxy/admin/robots/${selectedRobot.id}/test`, {
+        method: 'POST',
+      });
+      
+      const result = await res.json();
+      
+      if (res.ok) {
+        setTestResult(result);
+      } else {
+        setTestError(result.message || '测试失败');
+      }
+    } catch (error: any) {
+      setTestError(error.message || '网络错误，测试失败');
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   const formatDate = (dateStr?: string) => {
@@ -510,26 +541,81 @@ export default function RobotManagement() {
                 </div>
                 <div>
                   <label className="text-sm font-medium">API 地址</label>
-                  <div className="mt-1 p-2 border rounded">{selectedRobot.apiBaseUrl}</div>
+                  <div className="mt-1 p-2 border rounded break-all">{selectedRobot.apiBaseUrl}</div>
                 </div>
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
-                  <div className="font-semibold mb-2">测试步骤：</div>
-                  <ol className="list-decimal list-inside space-y-1 text-sm">
-                    <li>连接到机器人服务器</li>
-                    <li>验证 API 密钥</li>
-                    <li>获取机器人状态</li>
-                    <li>检查响应时间</li>
-                  </ol>
-                </div>
+                
+                {/* 测试状态 */}
+                {isTesting && (
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className="h-5 w-5 animate-spin text-blue-600" />
+                      <span className="font-medium text-blue-700">正在测试中...</span>
+                    </div>
+                    <div className="mt-2 text-sm text-blue-600">
+                      请稍候，正在连接机器人服务器...
+                    </div>
+                  </div>
+                )}
+
+                {/* 测试结果 - 成功 */}
+                {testResult && !isTesting && (
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <span className="font-semibold text-green-700">测试成功</span>
+                    </div>
+                    <div className="text-sm text-green-600 space-y-1">
+                      <p>✓ 机器人连接正常</p>
+                      <p>✓ API 验证通过</p>
+                      <p>✓ 响应时间: {testResult.responseTime || '< 1000ms'}</p>
+                      {testResult.message && (
+                        <p>✓ {testResult.message}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 测试结果 - 失败 */}
+                {testError && !isTesting && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <XCircle className="h-5 w-5 text-red-600" />
+                      <span className="font-semibold text-red-700">测试失败</span>
+                    </div>
+                    <div className="text-sm text-red-600">
+                      {testError}
+                    </div>
+                  </div>
+                )}
+
+                {/* 测试步骤 - 只在未测试时显示 */}
+                {!isTesting && !testResult && !testError && (
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
+                    <div className="font-semibold mb-2">测试步骤：</div>
+                    <ol className="list-decimal list-inside space-y-1 text-sm">
+                      <li>连接到机器人服务器</li>
+                      <li>验证 API 密钥</li>
+                      <li>获取机器人状态</li>
+                      <li>检查响应时间</li>
+                    </ol>
+                  </div>
+                )}
               </div>
             </CardContent>
             <div className="flex justify-end gap-2 p-6 pt-0">
               <Button variant="outline" onClick={() => setShowTestDialog(false)}>
-                取消
+                关闭
               </Button>
-              <Button onClick={() => setShowTestDialog(false)}>
-                开始测试
-              </Button>
+              {!isTesting && !testResult && (
+                <Button onClick={executeTest}>
+                  开始测试
+                </Button>
+              )}
+              {testResult && (
+                <Button onClick={executeTest}>
+                  重新测试
+                </Button>
+              )}
             </div>
           </Card>
         </div>
