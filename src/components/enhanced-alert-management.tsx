@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Select,
   SelectContent,
@@ -48,6 +49,7 @@ import {
   BarChart3,
   TrendingUp,
   AlertTriangle,
+  AlertCircle,
   CheckCircle2,
   XCircle,
   Clock,
@@ -192,6 +194,7 @@ export default function EnhancedAlertManagement() {
   const [groups, setGroups] = useState<AlertGroup[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<AlertGroup | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -205,17 +208,33 @@ export default function EnhancedAlertManagement() {
   // 加载数据
   const loadData = async () => {
     setLoading(true);
+    setApiError(null);
     try {
-      const [groupsData, analyticsData] = await Promise.all([
-        apiService.getGroups(),
-        apiService.getAnalyticsReport(7),
-      ]);
-      setGroups(groupsData);
-      setAnalytics(analyticsData);
-      groupsRef.current = groupsData;
-      analyticsRef.current = analyticsData;
+      // 尝试加载数据，如果API不存在则显示提示信息
+      try {
+        const [groupsData, analyticsData] = await Promise.all([
+          apiService.getGroups().catch(() => []),
+          apiService.getAnalyticsReport(7).catch(() => null),
+        ]);
+        setGroups(groupsData);
+        setAnalytics(analyticsData);
+        groupsRef.current = groupsData;
+        analyticsRef.current = analyticsData;
+        if (groupsData.length === 0 && !analyticsData) {
+          setApiError('告警增强功能暂不可用，相关API接口尚未实现');
+        }
+      } catch (apiError) {
+        console.warn('告警增强API不可用，这可能是因为后端功能未实现:', apiError);
+        // 设置空数据，避免显示错误
+        setGroups([]);
+        setAnalytics(null);
+        groupsRef.current = [];
+        analyticsRef.current = null;
+        setApiError('告警增强功能暂不可用，相关API接口尚未实现');
+      }
     } catch (error) {
       console.error('加载数据失败:', error);
+      setApiError('加载数据失败');
     } finally {
       setLoading(false);
     }
@@ -533,6 +552,15 @@ export default function EnhancedAlertManagement() {
         <h1 className="text-2xl font-bold">告警管理增强</h1>
         <p className="text-gray-500">分组管理 · 批量处理 · 升级机制 · 统计分析</p>
       </div>
+
+      {/* API错误提示 */}
+      {apiError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>功能暂不可用</AlertTitle>
+          <AlertDescription>{apiError}</AlertDescription>
+        </Alert>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4">
