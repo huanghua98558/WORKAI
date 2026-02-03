@@ -215,7 +215,7 @@ export default function AdminDashboard() {
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [sessionMessages, setSessionMessages] = useState<any[]>([]);
   const [isLoadingSessionMessages, setIsLoadingSessionMessages] = useState(false);
-  const [loadingSessionId, setLoadingSessionId] = useState<string | null>(null); // 跟踪正在加载的会话ID
+  const loadingSessionIdRef = useRef<string | null>(null); // 使用ref来跟踪正在加载的会话ID
   const [sessionSearchQuery, setSessionSearchQuery] = useState('');
   const [sessionStatusFilter, setSessionStatusFilter] = useState<'all' | 'auto' | 'human'>('all');
   const [isSearchingSessions, setIsSearchingSessions] = useState(false);
@@ -376,13 +376,13 @@ export default function AdminDashboard() {
     console.log('[会话消息] sessionId:', sessionId);
 
     // 如果已经在加载这个会话的消息，直接返回
-    if (loadingSessionId === sessionId && isLoadingSessionMessages) {
+    if (loadingSessionIdRef.current === sessionId) {
       console.log('[会话消息] 正在加载中，跳过重复请求');
       return;
     }
 
     // 更新正在加载的会话ID
-    setLoadingSessionId(sessionId);
+    loadingSessionIdRef.current = sessionId;
     setIsLoadingSessionMessages(true);
     setSessionMessages([]); // 清空旧消息
 
@@ -400,7 +400,7 @@ export default function AdminDashboard() {
           console.log('[会话消息] 消息列表:', messages);
 
           // 只有当正在加载的会话ID匹配时才更新消息
-          if (loadingSessionId === sessionId) {
+          if (loadingSessionIdRef.current === sessionId) {
             setSessionMessages(messages);
           }
 
@@ -410,26 +410,26 @@ export default function AdminDashboard() {
           }, 100);
         } else {
           console.error('[会话消息] API返回失败:', data);
-          if (loadingSessionId === sessionId) {
+          if (loadingSessionIdRef.current === sessionId) {
             setSessionMessages([]);
           }
         }
       } else {
         console.error('[会话消息] 请求失败，状态码:', res.status);
-        if (loadingSessionId === sessionId) {
+        if (loadingSessionIdRef.current === sessionId) {
           setSessionMessages([]);
         }
       }
     } catch (error) {
       console.error('[会话消息] 加载会话消息失败:', error);
-      if (loadingSessionId === sessionId) {
+      if (loadingSessionIdRef.current === sessionId) {
         setSessionMessages([]);
       }
     } finally {
       // 只有当正在加载的会话ID匹配时才重置加载状态
-      if (loadingSessionId === sessionId) {
+      if (loadingSessionIdRef.current === sessionId) {
         setIsLoadingSessionMessages(false);
-        setLoadingSessionId(null);
+        loadingSessionIdRef.current = null;
       }
       console.log('[会话消息] ========== 加载完成 ==========');
     }
@@ -442,7 +442,7 @@ export default function AdminDashboard() {
       setSessionMessages([]);
       setSelectedSession(null);
       setIsLoadingSessionMessages(false);
-      setLoadingSessionId(null);
+      loadingSessionIdRef.current = null;
     }
   }, [showSessionDetail]);
 
@@ -2695,11 +2695,12 @@ ${callbacks.robotStatus}
 
       {/* 会话详情弹窗 */}
       <Dialog
-        key={selectedSession?.sessionId || 'session-detail'}
+        key={showSessionDetail ? 'open' : 'closed'}
         open={showSessionDetail}
         onOpenChange={(open) => {
-          console.log('[Dialog] onOpenChange 触发:', open);
+          console.log('[Dialog] onOpenChange 触发, open:', open, 'current showSessionDetail:', showSessionDetail);
           setShowSessionDetail(open);
+          console.log('[Dialog] onOpenChange, after setShowSessionDetail');
       }}>
         <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
