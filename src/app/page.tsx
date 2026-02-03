@@ -93,7 +93,8 @@ import {
   Mail,
   Building2,
   TestTube,
-  Send
+  Send,
+  BookOpen
 } from 'lucide-react';
 
 import DebugDialog from '@/components/debug-dialog';
@@ -4945,10 +4946,6 @@ ${callbacks.robotStatus}
               <Terminal className="h-4 w-4" />
               <span className="hidden sm:inline">实时IO</span>
             </TabsTrigger>
-            <TabsTrigger value="reports" className="gap-2 py-2">
-              <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">报告中心</span>
-            </TabsTrigger>
             <TabsTrigger value="prompt-training" className="gap-2 py-2">
               <TestTube className="h-4 w-4" />
               <span className="hidden sm:inline">AI 训练</span>
@@ -4963,7 +4960,7 @@ ${callbacks.robotStatus}
             </TabsTrigger>
             <TabsTrigger value="qa" className="gap-2 py-2">
               <Database className="h-4 w-4" />
-              <span className="hidden sm:inline">问答库</span>
+              <span className="hidden sm:inline">知识库</span>
             </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2 py-2">
               <Settings className="h-4 w-4" />
@@ -4997,7 +4994,25 @@ ${callbacks.robotStatus}
           </TabsContent>
 
           <TabsContent value="qa" className="space-y-6">
-            <QAManagement />
+            <div className="text-center py-12 space-y-4">
+              <div className="flex justify-center">
+                <Database className="h-16 w-16 text-blue-500" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold">知识库管理</h3>
+                <p className="text-muted-foreground mt-2">
+                  管理问答库、文档和报告
+                </p>
+              </div>
+              <Button 
+                size="lg"
+                onClick={() => window.location.href = '/knowledge-base'}
+                className="gap-2"
+              >
+                <BookOpen className="h-5 w-5" />
+                进入知识库
+              </Button>
+            </div>
           </TabsContent>
 
           <TabsContent value="sessions" className="space-y-6">
@@ -5010,10 +5025,6 @@ ${callbacks.robotStatus}
 
           <TabsContent value="realtime" className="space-y-6">
             <RealtimeIOTab />
-          </TabsContent>
-
-          <TabsContent value="reports" className="space-y-6">
-            <ReportsTab />
           </TabsContent>
 
           <TabsContent value="prompt-training" className="space-y-6">

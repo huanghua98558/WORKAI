@@ -20,6 +20,7 @@ const Fastify = require('fastify');
 const cors = require('@fastify/cors');
 const helmet = require('@fastify/helmet');
 const rateLimit = require('@fastify/rate-limit');
+const multipart = require('@fastify/multipart');
 
 const worktoolCallbackRoutes = require('./routes/worktool.callback');
 const adminApiRoutes = require('./routes/admin.api');
@@ -37,6 +38,7 @@ const monitoringApiRoutes = require('./routes/monitoring.api');
 const promptApiRoutes = require('./routes/prompt.api');
 const robotRolesApiRoutes = require('./routes/robot-roles.api');
 const robotGroupsApiRoutes = require('./routes/robot-groups.api');
+const documentApiRoutes = require('./routes/document.api');
 
 const redisClient = require('./lib/redis');
 
@@ -80,6 +82,15 @@ fastify.register(rateLimit, {
   } : undefined
 });
 
+// 注册文件上传插件
+fastify.register(multipart, {
+  attachFieldsToBody: true,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+    files: 1
+  }
+});
+
 // 注册路由
 fastify.register(worktoolCallbackRoutes, { prefix: '/api/worktool/callback' });
 fastify.register(adminApiRoutes, { prefix: '/api/admin' });
@@ -97,6 +108,7 @@ fastify.register(monitoringApiRoutes, { prefix: '/api' });
 fastify.register(promptApiRoutes, { prefix: '/api' });
 fastify.register(robotRolesApiRoutes, { prefix: '/api' });
 fastify.register(robotGroupsApiRoutes, { prefix: '/api' });
+fastify.register(documentApiRoutes, { prefix: '/api/admin' });
 
 // 健康检查
 fastify.get('/health', async (request, reply) => {

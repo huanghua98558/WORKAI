@@ -473,6 +473,40 @@ exports.prompt_tests = pgTable(
 // Prompt 测试记录表（驼峰式导出）
 exports.promptTests = exports.prompt_tests;
 
+// 文档表
+exports.documents = pgTable(
+  "documents",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    title: varchar("title", { length: 500 }).notNull(), // 文档标题
+    content: text("content"), // 文档内容（文本类型）
+    fileName: varchar("file_name", { length: 500 }), // 原始文件名
+    fileType: varchar("file_type", { length: 100 }), // 文件类型: txt, pdf, doc, docx, md
+    fileSize: integer("file_size"), // 文件大小（字节）
+    fileUrl: text("file_url"), // 文件URL（对象存储地址）
+    category: varchar("category", { length: 100 }), // 文档分类
+    tags: jsonb("tags").default("[]"), // 文档标签
+    source: varchar("source", { length: 50 }).notNull().default("upload"), // 来源: upload, text
+    isActive: boolean("is_active").notNull().default(true), // 是否启用
+    uploadedBy: varchar("uploaded_by", { length: 255 }), // 上传者
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    categoryIdx: index("documents_category_idx").on(table.category),
+    isActiveIdx: index("documents_is_active_idx").on(table.isActive),
+    createdAtIdx: index("documents_created_at_idx").on(table.createdAt),
+    sourceIdx: index("documents_source_idx").on(table.source),
+  })
+);
+
+// 文档表（驼峰式导出）
+exports.documentsTable = exports.documents;
+
 
 // 运营日志表
 exports.operationLogs = pgTable(
@@ -1154,4 +1188,38 @@ exports.prompt_tests = pgTable(
 
 // Prompt 测试记录表（驼峰式导出）
 exports.promptTests = exports.prompt_tests;
+
+// 文档表
+exports.documents = pgTable(
+  "documents",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    title: varchar("title", { length: 500 }).notNull(), // 文档标题
+    content: text("content"), // 文档内容（文本类型）
+    fileName: varchar("file_name", { length: 500 }), // 原始文件名
+    fileType: varchar("file_type", { length: 100 }), // 文件类型: txt, pdf, doc, docx, md
+    fileSize: integer("file_size"), // 文件大小（字节）
+    fileUrl: text("file_url"), // 文件URL（对象存储地址）
+    category: varchar("category", { length: 100 }), // 文档分类
+    tags: jsonb("tags").default("[]"), // 文档标签
+    source: varchar("source", { length: 50 }).notNull().default("upload"), // 来源: upload, text
+    isActive: boolean("is_active").notNull().default(true), // 是否启用
+    uploadedBy: varchar("uploaded_by", { length: 255 }), // 上传者
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    categoryIdx: index("documents_category_idx").on(table.category),
+    isActiveIdx: index("documents_is_active_idx").on(table.isActive),
+    createdAtIdx: index("documents_created_at_idx").on(table.createdAt),
+    sourceIdx: index("documents_source_idx").on(table.source),
+  })
+);
+
+// 文档表（驼峰式导出）
+exports.documentsTable = exports.documents;
 
