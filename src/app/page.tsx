@@ -1787,10 +1787,7 @@ ${callbacks.robotStatus}
                   <div 
                     key={session.sessionId} 
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => {
-                      setSelectedSession(session);
-                      setShowSessionDetail(true);
-                    }}
+                    onClick={() => handleViewSessionDetail(session)}
                   >
                     <div className="flex items-center gap-4 flex-1 min-w-0">
                       <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
