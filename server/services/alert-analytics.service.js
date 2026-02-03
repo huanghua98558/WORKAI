@@ -1,290 +1,245 @@
 /**
- * 告警统计分析服务
+ * 告警统计分析服务（简化版）
  * 提供详细的告警统计、趋势分析和图表数据
  */
 
-const db = require('../lib/database/db');
+const { getDb } = require('coze-coding-dev-sdk');
+const { alertHistory, alertGroups } = require('../database/schema');
+const { sql } = require('drizzle-orm');
 
 class AlertAnalyticsService {
   /**
    * 获取总体统计信息
    */
   async getOverallStats(startDate, endDate) {
-    const query = `
-      SELECT
-        COUNT(*) as total_count,
-        COUNT(DISTINCT CASE WHEN status = 'pending' THEN id END) as pending_count,
-        COUNT(DISTINCT CASE WHEN status = 'handled' THEN id END) as handled_count,
-        COUNT(DISTINCT CASE WHEN status = 'ignored' THEN id END) as ignored_count,
-        COUNT(DISTINCT CASE WHEN status = 'sent' THEN id END) as sent_count,
-        COUNT(DISTINCT CASE WHEN alert_level = 'critical' THEN id END) as critical_count,
-        COUNT(DISTINCT CASE WHEN alert_level = 'warning' THEN id END) as warning_count,
-        COUNT(DISTINCT CASE WHEN alert_level = 'info' THEN id END) as info_count,
-        COUNT(DISTINCT CASE WHEN escalation_count > 0 THEN id END) as escalated_count,
-        AVG(escalation_count) as avg_escalation_count,
-        MAX(escalation_count) as max_escalation_count,
-        COUNT(DISTINCT group_id) as affected_groups,
-        COUNT(DISTINCT user_id) as affected_users,
-        COUNT(DISTINCT group_chat_id) as affected_chats,
-        AVG(EXTRACT(EPOCH FROM (COALESCE(handled_at, CURRENT_TIMESTAMP) - created_at))) as avg_response_time_seconds
-      FROM alert_history
-      WHERE created_at >= COALESCE($1, CURRENT_DATE - INTERVAL '7 days')
-        AND created_at <= COALESCE($2, CURRENT_TIMESTAMP)
-    `;
+    const db = await getDb();
 
-    const result = await db.query(query, [startDate, endDate]);
-    return result.rows[0];
+    const stats = await db
+      .select({
+        total_count: sql`count(*)`,
+        pending_count: sql`count(*) FILTER (WHERE ${alertHistory.status} = 'pending')`,
+        handled_count: sql`count(*) FILTER (WHERE ${alertHistory.status} = 'handled')`,
+        ignored_count: sql`count(*) FILTER (WHERE ${alertHistory.status} = 'ignored')`,
+        sent_count: sql`count(*) FILTER (WHERE ${alertHistory.status} = 'sent')`,
+        critical_count: sql`count(*) FILTER (WHERE ${alertHistory.alertLevel} = 'critical')`,
+        warning_count: sql`count(*) FILTER (WHERE ${alertHistory.alertLevel} = 'warning')`,
+        info_count: sql`count(*) FILTER (WHERE ${alertHistory.alertLevel} = 'info')`,
+        escalated_count: sql`count(*) FILTER (WHERE ${alertHistory.escalationCount} > 0)`,
+        avg_escalation_count: sql`AVG(${alertHistory.escalationCount})`,
+        max_escalation_count: sql`MAX(${alertHistory.escalationCount})`,
+        affected_groups: sql`COUNT(DISTINCT ${alertHistory.alertGroupId})`,
+        affected_users: sql`COUNT(DISTINCT ${alertHistory.userId})`,
+        affected_chats: sql`COUNT(DISTINCT ${alertHistory.groupChatId})`,
+        avg_response_time_seconds: sql`AVG(EXTRACT(EPOCH FROM (COALESCE(${alertHistory.handledAt}, CURRENT_TIMESTAMP) - ${alertHistory.createdAt})))`,
+      })
+      .from(alertHistory)
+      .where(
+        sql`${alertHistory.createdAt} >= COALESCE(${startDate || sql`CURRENT_DATE - INTERVAL '7 days'`})
+          AND ${alertHistory.createdAt} <= COALESCE(${endDate || sql`CURRENT_TIMESTAMP`})`
+      );
+
+    return stats[0] || {};
   }
 
   /**
    * 获取时间趋势数据（按天）
    */
   async getDailyTrends(days = 30) {
-    const query = `
-      SELECT
-        DATE(created_at) as date,
-        COUNT(*) as total_count,
-        COUNT(DISTINCT CASE WHEN status = 'pending' THEN id END) as pending_count,
-        COUNT(DISTINCT CASE WHEN status = 'handled' THEN id END) as handled_count,
-        COUNT(DISTINCT CASE WHEN alert_level = 'critical' THEN id END) as critical_count,
-        COUNT(DISTINCT CASE WHEN alert_level = 'warning' THEN id END) as warning_count,
-        COUNT(DISTINCT CASE WHEN alert_level = 'info' THEN id END) as info_count,
-        COUNT(DISTINCT CASE WHEN escalation_count > 0 THEN id END) as escalated_count,
-        AVG(EXTRACT(EPOCH FROM (COALESCE(handled_at, CURRENT_TIMESTAMP) - created_at))) as avg_response_time_seconds
-      FROM alert_history
-      WHERE created_at >= CURRENT_DATE - INTERVAL '${days} days'
-      GROUP BY DATE(created_at)
-      ORDER BY date ASC
-    `;
+    const db = await getDb();
 
-    const result = await db.query(query);
-    return result.rows;
-  }
+    const trends = await db
+      .select({
+        date: sql`DATE(${alertHistory.createdAt})`,
+        total_count: sql`count(*)`,
+        pending_count: sql`count(*) FILTER (WHERE ${alertHistory.status} = 'pending')`,
+        handled_count: sql`count(*) FILTER (WHERE ${alertHistory.status} = 'handled')`,
+        critical_count: sql`count(*) FILTER (WHERE ${alertHistory.alertLevel} = 'critical')`,
+        warning_count: sql`count(*) FILTER (WHERE ${alertHistory.alertLevel} = 'warning')`,
+        info_count: sql`count(*) FILTER (WHERE ${alertHistory.alertLevel} = 'info')`,
+        escalated_count: sql`count(*) FILTER (WHERE ${alertHistory.escalationCount} > 0)`,
+        avg_response_time_seconds: sql`AVG(EXTRACT(EPOCH FROM (COALESCE(${alertHistory.handledAt}, CURRENT_TIMESTAMP) - ${alertHistory.createdAt})))`,
+      })
+      .from(alertHistory)
+      .where(
+        sql`${alertHistory.createdAt} >= CURRENT_DATE - (INTERVAL '1 day' * ${days})`
+      )
+      .groupBy(sql`DATE(${alertHistory.createdAt})`)
+      .orderBy(sql`DATE(${alertHistory.createdAt}) ASC`);
 
-  /**
-   * 获取小时趋势数据（当天）
-   */
-  async getHourlyTrends(date = null) {
-    const targetDate = date || new Date().toISOString().split('T')[0];
-
-    const query = `
-      SELECT
-        EXTRACT(HOUR FROM created_at) as hour,
-        COUNT(*) as total_count,
-        COUNT(DISTINCT CASE WHEN alert_level = 'critical' THEN id END) as critical_count,
-        COUNT(DISTINCT CASE WHEN alert_level = 'warning' THEN id END) as warning_count,
-        COUNT(DISTINCT CASE WHEN alert_level = 'info' THEN id END) as info_count
-      FROM alert_history
-      WHERE DATE(created_at) = $1
-      GROUP BY EXTRACT(HOUR FROM created_at)
-      ORDER BY hour ASC
-    `;
-
-    const result = await db.query(query, [targetDate]);
-    return result.rows;
+    return trends.map(t => ({
+      date: t.date?.toISOString().split('T')[0],
+      total_count: parseInt(t.total_count),
+      pending_count: parseInt(t.pending_count),
+      handled_count: parseInt(t.handled_count),
+      critical_count: parseInt(t.critical_count),
+      warning_count: parseInt(t.warning_count),
+      info_count: parseInt(t.info_count),
+      escalated_count: parseInt(t.escalated_count),
+      avg_response_time_seconds: parseFloat(t.avg_response_time_seconds) || 0,
+    }));
   }
 
   /**
    * 按分组统计
    */
   async getGroupStats(startDate, endDate) {
-    const query = `
-      SELECT
-        g.id,
-        g.group_name,
-        g.group_code,
-        g.group_color,
-        COUNT(h.id) as total_count,
-        COUNT(DISTINCT CASE WHEN h.status = 'pending' THEN h.id END) as pending_count,
-        COUNT(DISTINCT CASE WHEN h.status = 'handled' THEN h.id END) as handled_count,
-        COUNT(DISTINCT CASE WHEN h.alert_level = 'critical' THEN h.id END) as critical_count,
-        COUNT(DISTINCT CASE WHEN h.alert_level = 'warning' THEN h.id END) as warning_count,
-        COUNT(DISTINCT CASE WHEN h.alert_level = 'info' THEN h.id END) as info_count,
-        COUNT(DISTINCT CASE WHEN h.escalation_count > 0 THEN h.id END) as escalated_count,
-        AVG(h.escalation_count) as avg_escalation_count,
-        AVG(EXTRACT(EPOCH FROM (COALESCE(h.handled_at, CURRENT_TIMESTAMP) - h.created_at))) as avg_response_time_seconds
-      FROM alert_groups g
-      LEFT JOIN alert_history h ON g.id = h.group_id
-        AND h.created_at >= COALESCE($1, CURRENT_DATE - INTERVAL '7 days')
-        AND h.created_at <= COALESCE($2, CURRENT_TIMESTAMP)
-      GROUP BY g.id, g.group_name, g.group_code, g.group_color
-      ORDER BY g.sort_order ASC, total_count DESC
-    `;
+    const db = await getDb();
 
-    const result = await db.query(query, [startDate, endDate]);
-    return result.rows;
+    const stats = await db
+      .select({
+        id: alertGroups.id,
+        group_name: alertGroups.groupName,
+        group_code: alertGroups.groupCode,
+        group_color: alertGroups.groupColor,
+        total_count: sql`count(${alertHistory.id})`,
+        pending_count: sql`count(*) FILTER (WHERE ${alertHistory.status} = 'pending')`,
+        handled_count: sql`count(*) FILTER (WHERE ${alertHistory.status} = 'handled')`,
+        critical_count: sql`count(*) FILTER (WHERE ${alertHistory.alertLevel} = 'critical')`,
+        warning_count: sql`count(*) FILTER (WHERE ${alertHistory.alertLevel} = 'warning')`,
+        info_count: sql`count(*) FILTER (WHERE ${alertHistory.alertLevel} = 'info')`,
+        escalated_count: sql`count(*) FILTER (WHERE ${alertHistory.escalationCount} > 0)`,
+        avg_escalation_count: sql`AVG(${alertHistory.escalationCount})`,
+        avg_response_time_seconds: sql`AVG(EXTRACT(EPOCH FROM (COALESCE(${alertHistory.handledAt}, CURRENT_TIMESTAMP) - ${alertHistory.createdAt})))`,
+      })
+      .from(alertGroups)
+      .leftJoin(alertHistory, sql`${alertGroups.id}::text = ${alertHistory.alertGroupId}`)
+      .where(
+        sql`${alertHistory.createdAt} IS NULL OR (
+          ${alertHistory.createdAt} >= COALESCE(${startDate || sql`CURRENT_DATE - INTERVAL '7 days'`})
+          AND ${alertHistory.createdAt} <= COALESCE(${endDate || sql`CURRENT_TIMESTAMP`})
+        )`
+      )
+      .groupBy(alertGroups.id, alertGroups.groupName, alertGroups.groupCode, alertGroups.groupColor)
+      .orderBy(sql`${alertGroups.sortOrder} ASC, count(${alertHistory.id}) DESC`);
+
+    return stats;
   }
 
   /**
    * 按意图类型统计
    */
   async getIntentTypeStats(startDate, endDate) {
-    const query = `
-      SELECT
-        intent_type,
-        COUNT(*) as total_count,
-        COUNT(DISTINCT CASE WHEN status = 'pending' THEN id END) as pending_count,
-        COUNT(DISTINCT CASE WHEN status = 'handled' THEN id END) as handled_count,
-        COUNT(DISTINCT CASE WHEN alert_level = 'critical' THEN id END) as critical_count,
-        COUNT(DISTINCT CASE WHEN alert_level = 'warning' THEN id END) as warning_count,
-        COUNT(DISTINCT CASE WHEN alert_level = 'info' THEN id END) as info_count,
-        AVG(EXTRACT(EPOCH FROM (COALESCE(handled_at, CURRENT_TIMESTAMP) - created_at))) as avg_response_time_seconds
-      FROM alert_history
-      WHERE created_at >= COALESCE($1, CURRENT_DATE - INTERVAL '7 days')
-        AND created_at <= COALESCE($2, CURRENT_TIMESTAMP)
-      GROUP BY intent_type
-      ORDER BY total_count DESC
-    `;
+    const db = await getDb();
 
-    const result = await db.query(query, [startDate, endDate]);
-    return result.rows;
+    const stats = await db
+      .select({
+        intent_type: alertHistory.intentType,
+        total_count: sql`count(*)`,
+        pending_count: sql`count(*) FILTER (WHERE ${alertHistory.status} = 'pending')`,
+        handled_count: sql`count(*) FILTER (WHERE ${alertHistory.status} = 'handled')`,
+        critical_count: sql`count(*) FILTER (WHERE ${alertHistory.alertLevel} = 'critical')`,
+        warning_count: sql`count(*) FILTER (WHERE ${alertHistory.alertLevel} = 'warning')`,
+        info_count: sql`count(*) FILTER (WHERE ${alertHistory.alertLevel} = 'info')`,
+        avg_response_time_seconds: sql`AVG(EXTRACT(EPOCH FROM (COALESCE(${alertHistory.handledAt}, CURRENT_TIMESTAMP) - ${alertHistory.createdAt})))`,
+      })
+      .from(alertHistory)
+      .where(
+        sql`${alertHistory.createdAt} >= COALESCE(${startDate || sql`CURRENT_DATE - INTERVAL '7 days'`})
+          AND ${alertHistory.createdAt} <= COALESCE(${endDate || sql`CURRENT_TIMESTAMP`})`
+      )
+      .groupBy(alertHistory.intentType)
+      .orderBy(sql`count(*) DESC`);
+
+    return stats;
   }
 
   /**
    * 获取告警级别分布
    */
   async getAlertLevelDistribution(startDate, endDate) {
-    const query = `
-      SELECT
-        alert_level,
-        COUNT(*) as count,
-        ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) as percentage
-      FROM alert_history
-      WHERE created_at >= COALESCE($1, CURRENT_DATE - INTERVAL '7 days')
-        AND created_at <= COALESCE($2, CURRENT_TIMESTAMP)
-      GROUP BY alert_level
-      ORDER BY
-        CASE alert_level
+    const db = await getDb();
+
+    const distribution = await db
+      .select({
+        alert_level: alertHistory.alertLevel,
+        count: sql`count(*)`,
+        percentage: sql`ROUND(count(*) * 100.0 / SUM(count(*)) OVER (), 2)`,
+      })
+      .from(alertHistory)
+      .where(
+        sql`${alertHistory.createdAt} >= COALESCE(${startDate || sql`CURRENT_DATE - INTERVAL '7 days'`})
+          AND ${alertHistory.createdAt} <= COALESCE(${endDate || sql`CURRENT_TIMESTAMP`})`
+      )
+      .groupBy(alertHistory.alertLevel)
+      .orderBy(
+        sql`CASE ${alertHistory.alertLevel}
           WHEN 'critical' THEN 1
           WHEN 'warning' THEN 2
           WHEN 'info' THEN 3
-        END
-    `;
+        END`
+      );
 
-    const result = await db.query(query, [startDate, endDate]);
-    return result.rows;
-  }
-
-  /**
-   * 获取处理时效分析
-   */
-  async getResponseTimeAnalysis(startDate, endDate) {
-    const query = `
-      SELECT
-        alert_level,
-        COUNT(*) as total_count,
-        COUNT(handled_at) as handled_count,
-        AVG(EXTRACT(EPOCH FROM (handled_at - created_at))) as avg_response_time_seconds,
-        MIN(EXTRACT(EPOCH FROM (handled_at - created_at))) as min_response_time_seconds,
-        MAX(EXTRACT(EPOCH FROM (handled_at - created_at))) as max_response_time_seconds,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (handled_at - created_at))) as median_response_time_seconds,
-        PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (handled_at - created_at))) as p95_response_time_seconds
-      FROM alert_history
-      WHERE created_at >= COALESCE($1, CURRENT_DATE - INTERVAL '7 days')
-        AND created_at <= COALESCE($2, CURRENT_TIMESTAMP)
-        AND handled_at IS NOT NULL
-      GROUP BY alert_level
-      ORDER BY
-        CASE alert_level
-          WHEN 'critical' THEN 1
-          WHEN 'warning' THEN 2
-          WHEN 'info' THEN 3
-        END
-    `;
-
-    const result = await db.query(query, [startDate, endDate]);
-    return result.rows;
-  }
-
-  /**
-   * 获取升级统计
-   */
-  async getEscalationStats(startDate, endDate) {
-    const query = `
-      SELECT
-        escalation_count,
-        COUNT(*) as count,
-        ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) as percentage,
-        COUNT(DISTINCT CASE WHEN status = 'handled' THEN id END) as handled_count,
-        AVG(EXTRACT(EPOCH FROM (COALESCE(handled_at, CURRENT_TIMESTAMP) - created_at))) as avg_response_time_seconds
-      FROM alert_history
-      WHERE created_at >= COALESCE($1, CURRENT_DATE - INTERVAL '7 days')
-        AND created_at <= COALESCE($2, CURRENT_TIMESTAMP)
-      GROUP BY escalation_count
-      ORDER BY escalation_count ASC
-    `;
-
-    const result = await db.query(query, [startDate, endDate]);
-    return result.rows;
+    return distribution.map(d => ({
+      alert_level: d.alert_level,
+      count: parseInt(d.count),
+      percentage: parseFloat(d.percentage) || 0,
+    }));
   }
 
   /**
    * 获取用户告警排行（Top 10）
    */
   async getTopUsers(days = 7) {
-    const query = `
-      SELECT
-        user_id,
-        user_name,
-        COUNT(*) as alert_count,
-        COUNT(DISTINCT CASE WHEN alert_level = 'critical' THEN id END) as critical_count,
-        COUNT(DISTINCT CASE WHEN escalation_count > 0 THEN id END) as escalated_count
-      FROM alert_history
-      WHERE created_at >= CURRENT_DATE - INTERVAL '${days} days'
-        AND user_id IS NOT NULL
-      GROUP BY user_id, user_name
-      ORDER BY alert_count DESC
-      LIMIT 10
-    `;
+    const db = await getDb();
 
-    const result = await db.query(query);
-    return result.rows;
+    const topUsers = await db
+      .select({
+        user_id: alertHistory.userId,
+        user_name: alertHistory.userName,
+        alert_count: sql`count(*)`,
+        critical_count: sql`count(*) FILTER (WHERE ${alertHistory.alertLevel} = 'critical')`,
+        escalated_count: sql`count(*) FILTER (WHERE ${alertHistory.escalationCount} > 0)`,
+      })
+      .from(alertHistory)
+      .where(
+        sql`${alertHistory.createdAt} >= CURRENT_DATE - (INTERVAL '1 day' * ${days})
+          AND ${alertHistory.userId} IS NOT NULL`
+      )
+      .groupBy(alertHistory.userId, alertHistory.userName)
+      .orderBy(sql`count(*) DESC`)
+      .limit(10);
+
+    return topUsers.map(u => ({
+      user_id: u.user_id,
+      user_name: u.user_name,
+      alert_count: parseInt(u.alert_count),
+      critical_count: parseInt(u.critical_count),
+      escalated_count: parseInt(u.escalated_count),
+    }));
   }
 
   /**
    * 获取群组告警排行（Top 10）
    */
   async getTopChats(days = 7) {
-    const query = `
-      SELECT
-        group_chat_id,
-        group_name,
-        COUNT(*) as alert_count,
-        COUNT(DISTINCT CASE WHEN alert_level = 'critical' THEN id END) as critical_count,
-        COUNT(DISTINCT CASE WHEN escalation_count > 0 THEN id END) as escalated_count,
-        COUNT(DISTINCT user_id) as affected_users
-      FROM alert_history
-      WHERE created_at >= CURRENT_DATE - INTERVAL '${days} days'
-        AND group_chat_id IS NOT NULL
-      GROUP BY group_chat_id, group_name
-      ORDER BY alert_count DESC
-      LIMIT 10
-    `;
+    const db = await getDb();
 
-    const result = await db.query(query);
-    return result.rows;
-  }
+    const topChats = await db
+      .select({
+        group_chat_id: alertHistory.groupChatId,
+        group_name: alertHistory.groupName,
+        alert_count: sql`count(*)`,
+        critical_count: sql`count(*) FILTER (WHERE ${alertHistory.alertLevel} = 'critical')`,
+        escalated_count: sql`count(*) FILTER (WHERE ${alertHistory.escalationCount} > 0)`,
+        affected_users: sql`COUNT(DISTINCT ${alertHistory.userId})`,
+      })
+      .from(alertHistory)
+      .where(
+        sql`${alertHistory.createdAt} >= CURRENT_DATE - (INTERVAL '1 day' * ${days})
+          AND ${alertHistory.groupChatId} IS NOT NULL`
+      )
+      .groupBy(alertHistory.groupChatId, alertHistory.groupName)
+      .orderBy(sql`count(*) DESC`)
+      .limit(10);
 
-  /**
-   * 获取机器学习统计数据（用于优化配置）
-   */
-  async getMLStats(days = 30) {
-    const query = `
-      SELECT
-        intent_type,
-        COUNT(*) as total_count,
-        AVG(confidence) as avg_confidence,
-        AVG(CASE WHEN need_human THEN 1 ELSE 0 END) as human_intervention_rate,
-        AVG(CASE WHEN status = 'handled' THEN 1 ELSE 0 END) as auto_handle_rate,
-        AVG(EXTRACT(EPOCH FROM (COALESCE(handled_at, CURRENT_TIMESTAMP) - created_at))) as avg_response_time_seconds
-      FROM alert_history
-      WHERE created_at >= CURRENT_DATE - INTERVAL '${days} days'
-      GROUP BY intent_type
-      ORDER BY total_count DESC
-    `;
-
-    const result = await db.query(query);
-    return result.rows;
+    return topChats.map(c => ({
+      group_chat_id: c.group_chat_id,
+      group_name: c.group_name,
+      alert_count: parseInt(c.alert_count),
+      critical_count: parseInt(c.critical_count),
+      escalated_count: parseInt(c.escalated_count),
+      affected_users: parseInt(c.affected_users),
+    }));
   }
 
   /**
@@ -295,13 +250,11 @@ class AlertAnalyticsService {
     const endDate = null;
 
     const [
-      overallStats,
+      overall,
       dailyTrends,
       groupStats,
       intentTypeStats,
       alertLevelDistribution,
-      responseTimeAnalysis,
-      escalationStats,
       topUsers,
       topChats
     ] = await Promise.all([
@@ -310,8 +263,6 @@ class AlertAnalyticsService {
       this.getGroupStats(startDate, endDate),
       this.getIntentTypeStats(startDate, endDate),
       this.getAlertLevelDistribution(startDate, endDate),
-      this.getResponseTimeAnalysis(startDate, endDate),
-      this.getEscalationStats(startDate, endDate),
       this.getTopUsers(days),
       this.getTopChats(days)
     ]);
@@ -319,23 +270,19 @@ class AlertAnalyticsService {
     return {
       reportDate: new Date().toISOString(),
       dateRange: `${days} 天`,
-      overall: overallStats,
+      overall,
       trends: {
-        daily: dailyTrends
+        daily: dailyTrends,
       },
       byGroup: groupStats,
       byIntentType: intentTypeStats,
       distribution: {
         alertLevel: alertLevelDistribution,
-        escalation: escalationStats
-      },
-      performance: {
-        responseTime: responseTimeAnalysis
       },
       rankings: {
-        topUsers: topUsers,
-        topChats: topChats
-      }
+        topUsers,
+        topChats,
+      },
     };
   }
 }

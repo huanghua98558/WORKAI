@@ -39,6 +39,12 @@ exports.alertRules = pgTable(
     threshold: integer("threshold").default(1), // 告警阈值（连续触发N次才告警）
     cooldownPeriod: integer("cooldown_period").default(300), // 冷却时间（秒），避免重复告警
     messageTemplate: text("message_template"), // 告警消息模板
+    groupId: varchar("group_id", { length: 36 }), // 关联的告警分组ID
+    enableEscalation: boolean("enable_escalation").default(false), // 是否启用升级
+    escalationLevel: integer("escalation_level").default(0), // 当前升级级别
+    escalationThreshold: integer("escalation_threshold").default(3), // 最大升级次数
+    escalationInterval: integer("escalation_interval").default(1800), // 升级间隔（秒）
+    escalationConfig: jsonb("escalation_config").default("{}"), // 升级配置
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -48,6 +54,7 @@ exports.alertRules = pgTable(
     intentTypeIdx: index("alert_rules_intent_type_idx").on(table.intentType),
     alertLevelIdx: index("alert_rules_alert_level_idx").on(table.alertLevel),
     isEnabledIdx: index("alert_rules_is_enabled_idx").on(table.isEnabled),
+    groupIdIdx: index("alert_rules_group_id_idx").on(table.groupId),
   })
 );
 
@@ -88,17 +95,32 @@ exports.alertHistory = pgTable(
     alertRuleId: varchar("alert_rule_id", { length: 36 }).notNull(), // 关联的告警规则ID
     intentType: varchar("intent_type", { length: 50 }).notNull(), // 触发告警的意图类型
     alertLevel: varchar("alert_level", { length: 20 }).notNull(), // 告警级别
-    userId: varchar("user_id", { length: 255 }), // 触发告警的用户ID
-    userName: varchar("user_name", { length: 255 }), // 触发告警的用户名
     groupId: varchar("group_id", { length: 255 }), // 群组ID
     groupName: varchar("group_name", { length: 255 }), // 群组名
+    alertGroupId: varchar("alert_group_id", { length: 36 }), // 关联的告警分组ID
+    userId: varchar("user_id", { length: 255 }), // 触发告警的用户ID
+    userName: varchar("user_name", { length: 255 }), // 触发告警的用户名
+    groupChatId: varchar("group_chat_id", { length: 255 }), // 企业微信群ID
     messageContent: text("message_content"), // 触发告警的消息内容
     alertMessage: text("alert_message").notNull(), // 告警消息
     notificationStatus: varchar("notification_status", { length: 20 }).notNull().default("pending"), // 通知状态: pending, sent, failed
     notificationResult: jsonb("notification_result"), // 通知结果（JSON格式，包含各方式的发送结果）
+    status: varchar("status", { length: 20 }).notNull().default("pending"), // 状态: pending, handled, ignored, sent
     isHandled: boolean("is_handled").notNull().default(false), // 是否已处理
     handledBy: varchar("handled_by", { length: 36 }), // 处理人ID
     handledAt: timestamp("handled_at", { withTimezone: true }), // 处理时间
+    handledNote: text("handled_note"), // 处理备注
+    escalationLevel: integer("escalation_level").default(0), // 升级级别
+    escalationCount: integer("escalation_count").default(0), // 升级次数
+    escalationHistory: jsonb("escalation_history").default("[]"), // 升级历史
+    parentAlertId: varchar("parent_alert_id", { length: 36 }), // 父告警ID（用于关联升级的告警）
+    batchId: varchar("batch_id", { length: 36 }), // 批量操作ID
+    batchSize: integer("batch_size").default(1), // 批量大小
+    robotId: varchar("robot_id", { length: 64 }), // 关联的机器人ID
+    assignee: varchar("assignee", { length: 36 }), // 负责人ID
+    confidence: integer("confidence"), // 意图识别置信度
+    needReply: boolean("need_reply"), // 是否需要回复
+    needHuman: boolean("need_human"), // 是否需要人工干预
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -110,6 +132,10 @@ exports.alertHistory = pgTable(
     alertLevelIdx: index("alert_history_alert_level_idx").on(table.alertLevel),
     notificationStatusIdx: index("alert_history_notification_status_idx").on(table.notificationStatus),
     createdAtIdx: index("alert_history_created_at_idx").on(table.createdAt),
+    alertGroupIdIdx: index("alert_history_group_id_idx").on(table.alertGroupId),
+    batchIdIdx: index("alert_history_batch_id_idx").on(table.batchId),
+    parentAlertIdIdx: index("alert_history_parent_alert_id_idx").on(table.parentAlertId),
+    escalationLevelIdx: index("alert_history_escalation_level_idx").on(table.escalationLevel),
   })
 );
 
@@ -699,3 +725,108 @@ exports.insertSessionMessageSchema = z.object({
   timestamp: z.date().optional(),
   extraData: z.any().optional(),
 });
+
+// ==================== 告警增强功能表 ====================
+
+// 告警分组表
+exports.alertGroups = pgTable(
+  "alert_groups",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    groupName: varchar("group_name", { length: 100 }).notNull().unique(),
+    groupCode: varchar("group_code", { length: 50 }).notNull().unique(),
+    groupDescription: text("group_description"),
+    groupColor: varchar("group_color", { length: 20 }).default("#3B82F6"),
+    sortOrder: integer("sort_order").default(0),
+    isDefault: boolean("is_default").default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    groupNameIdx: index("alert_groups_group_name_idx").on(table.groupName),
+    groupCodeIdx: index("alert_groups_group_code_idx").on(table.groupCode),
+    sortOrderIdx: index("alert_groups_sort_order_idx").on(table.sortOrder),
+  })
+);
+
+// 告警升级历史表
+exports.alertUpgrades = pgTable(
+  "alert_upgrades",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    alertId: varchar("alert_id", { length: 36 }).notNull(),
+    fromLevel: integer("from_level").notNull(),
+    toLevel: integer("to_level").notNull(),
+    escalateReason: text("escalate_reason"),
+    escalateMethod: varchar("escalate_method", { length: 50 }),
+    escalateConfig: jsonb("escalate_config"),
+    escalatedAt: timestamp("escalated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    escalatedBy: varchar("escalated_by", { length: 100 }),
+  },
+  (table) => ({
+    alertIdIdx: index("alert_upgrades_alert_id_idx").on(table.alertId),
+    escalatedAtIdx: index("alert_upgrades_escalated_at_idx").on(table.escalatedAt),
+  })
+);
+
+// 告警批量操作记录表
+exports.alertBatchOperations = pgTable(
+  "alert_batch_operations",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    operationType: varchar("operation_type", { length: 50 }).notNull(),
+    operationStatus: varchar("operation_status", { length: 20 }).default("pending"),
+    totalCount: integer("total_count").default(0),
+    successCount: integer("success_count").default(0),
+    failedCount: integer("failed_count").default(0),
+    filterConditions: jsonb("filter_conditions"),
+    operationResult: jsonb("operation_result"),
+    createdBy: varchar("created_by", { length: 100 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => ({
+    operationTypeIdx: index("alert_batch_operations_operation_type_idx").on(table.operationType),
+    operationStatusIdx: index("alert_batch_operations_operation_status_idx").on(table.operationStatus),
+    createdAtIdx: index("alert_batch_operations_created_at_idx").on(table.createdAt),
+  })
+);
+
+// 告警统计快照表（用于趋势分析）
+exports.alertStatsSnapshots = pgTable(
+  "alert_stats_snapshots",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    statDate: timestamp("stat_date", { withTimezone: false }).notNull(),
+    statHour: integer("stat_hour"),
+    totalCount: integer("total_count").default(0),
+    criticalCount: integer("critical_count").default(0),
+    warningCount: integer("warning_count").default(0),
+    infoCount: integer("info_count").default(0),
+    handledCount: integer("handled_count").default(0),
+    escalatedCount: integer("escalated_count").default(0),
+    avgResponseTime: timestamp("avg_response_time", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    statDateIdx: index("alert_stats_snapshots_stat_date_idx").on(table.statDate),
+    statHourIdx: index("alert_stats_snapshots_stat_hour_idx").on(table.statHour),
+    statUniqueIdx: index("alert_stats_snapshots_stat_unique_idx").on(table.statDate, table.statHour),
+  })
+);

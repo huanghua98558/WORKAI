@@ -1,9 +1,11 @@
 /**
- * 告警升级服务
+ * 告警升级服务（简化版）
  * 管理告警的自动升级和手动升级逻辑
  */
 
-const db = require('../lib/database/db');
+const { getDb } = require('coze-coding-dev-sdk');
+const { alertHistory, alertRules, alertGroups, alertUpgrades } = require('../database/schema');
+const { sql } = require('drizzle-orm');
 const alertNotificationService = require('./alert-notification.service');
 
 class AlertEscalationService {
@@ -11,57 +13,71 @@ class AlertEscalationService {
    * 检查并执行告警升级
    */
   async checkAndEscalate(alertId) {
-    // 获取告警详情
-    const alertQuery = 'SELECT * FROM alert_history WHERE id = $1';
-    const alertResult = await db.query(alertQuery, [alertId]);
-    const alert = alertResult.rows[0];
+    const db = await getDb();
 
-    if (!alert) {
+    // 获取告警详情
+    const alerts = await db
+      .select()
+      .from(alertHistory)
+      .where(sql`${alertHistory.id} = ${alertId}`)
+      .limit(1);
+
+    if (alerts.length === 0) {
       throw new Error('告警不存在');
     }
 
-    // 获取告警规则
-    const ruleQuery = `
-      SELECT r.*, g.group_name, g.group_code
-      FROM alert_rules r
-      LEFT JOIN alert_groups g ON r.group_id = g.id
-      WHERE r.intent_type = $1 AND r.is_enabled = TRUE
-    `;
-    const ruleResult = await db.query(ruleQuery, [alert.intent_type]);
-    const rule = ruleResult.rows[0];
+    const alert = alerts[0];
 
-    if (!rule || !rule.enable_escalation) {
+    // 获取告警规则
+    const rules = await db
+      .select()
+      .from(alertRules)
+      .leftJoin(alertGroups, sql`${alertRules.groupId} = ${alertGroups.id}`)
+      .where(
+        sql`${alertRules.intentType} = ${alert.intentType} AND ${alertRules.isEnabled} = true`
+      )
+      .limit(1);
+
+    const rule = rules[0] || {};
+
+    if (!rule || !rule.alert_rules?.enableEscalation) {
       return { escalated: false, reason: '规则不存在或未启用升级' };
     }
 
+    const ruleData = rule.alert_rules;
+
     // 检查升级条件
-    const shouldEscalate = await this._shouldEscalate(alert, rule);
+    const shouldEscalate = await this._shouldEscalate(alert, ruleData);
 
     if (!shouldEscalate) {
       return { escalated: false, reason: '未达到升级条件' };
     }
 
     // 计算新的升级级别
-    const newLevel = (alert.escalation_level || 0) + 1;
+    const newLevel = (alert.escalationLevel || 0) + 1;
 
     // 执行升级
-    return await this._executeEscalation(alert, newLevel, rule);
+    return await this._executeEscalation(alert, newLevel, ruleData);
   }
 
   /**
    * 手动升级告警
    */
   async manualEscalate(alertId, newLevel, reason, escalatedBy) {
-    // 获取告警详情
-    const alertQuery = 'SELECT * FROM alert_history WHERE id = $1';
-    const alertResult = await db.query(alertQuery, [alertId]);
-    const alert = alertResult.rows[0];
+    const db = await getDb();
 
-    if (!alert) {
+    const alerts = await db
+      .select()
+      .from(alertHistory)
+      .where(sql`${alertHistory.id} = ${alertId}`)
+      .limit(1);
+
+    if (alerts.length === 0) {
       throw new Error('告警不存在');
     }
 
-    // 执行升级
+    const alert = alerts[0];
+
     return await this._executeEscalation(alert, newLevel, null, reason, escalatedBy);
   }
 
@@ -69,85 +85,104 @@ class AlertEscalationService {
    * 获取告警升级历史
    */
   async getEscalationHistory(alertId) {
-    const query = `
-      SELECT * FROM alert_upgrades
-      WHERE alert_id = $1
-      ORDER BY escalated_at ASC
-    `;
-    const result = await db.query(query, [alertId]);
-    return result.rows;
+    const db = await getDb();
+
+    const history = await db
+      .select()
+      .from(alertUpgrades)
+      .where(sql`${alertUpgrades.alertId} = ${alertId}`)
+      .orderBy(sql`${alertUpgrades.escalatedAt} ASC`);
+
+    return history;
   }
 
   /**
    * 获取升级统计
    */
   async getEscalationStats(days = 30) {
-    const query = `
-      SELECT 
-        DATE(au.escalated_at) as stat_date,
-        COUNT(*) as total_escalations,
-        COUNT(DISTINCT au.alert_id) as unique_alerts,
-        AVG(au.to_level - au.from_level) as avg_level_increase,
-        COUNT(DISTINCT CASE WHEN au.escalated_by = 'system' THEN au.alert_id END) as auto_escalations,
-        COUNT(DISTINCT CASE WHEN au.escalated_by != 'system' THEN au.alert_id END) as manual_escalations
-      FROM alert_upgrades au
-      WHERE au.escalated_at >= CURRENT_DATE - INTERVAL '${days} days'
-      GROUP BY DATE(au.escalated_at)
-      ORDER BY stat_date DESC
-    `;
-    const result = await db.query(query);
-    return result.rows;
+    const db = await getDb();
+
+    const stats = await db
+      .select({
+        stat_date: sql`DATE(${alertUpgrades.escalatedAt})`,
+        total_escalations: sql`count(*)`,
+        unique_alerts: sql`count(DISTINCT ${alertUpgrades.alertId})`,
+        avg_level_increase: sql`AVG(${alertUpgrades.toLevel} - ${alertUpgrades.fromLevel})`,
+        auto_escalations: sql`count(DISTINCT ${alertUpgrades.alertId}) FILTER (WHERE ${alertUpgrades.escalatedBy} = 'system')`,
+        manual_escalations: sql`count(DISTINCT ${alertUpgrades.alertId}) FILTER (WHERE ${alertUpgrades.escalatedBy} != 'system')`,
+      })
+      .from(alertUpgrades)
+      .where(
+        sql`${alertUpgrades.escalatedAt} >= CURRENT_DATE - (INTERVAL '1 day' * ${days})`
+      )
+      .groupBy(sql`DATE(${alertUpgrades.escalatedAt})`)
+      .orderBy(sql`DATE(${alertUpgrades.escalatedAt}) DESC`);
+
+    return stats.map(s => ({
+      date: s.stat_date?.toISOString().split('T')[0],
+      total_escalations: parseInt(s.total_escalations),
+      unique_alerts: parseInt(s.unique_alerts),
+      avg_level_increase: parseFloat(s.avg_level_increase) || 0,
+      auto_escalations: parseInt(s.auto_escalations),
+      manual_escalations: parseInt(s.manual_escalations),
+    }));
   }
 
   /**
    * 获取待升级告警列表
    */
   async getPendingEscalations() {
-    const query = `
-      SELECT 
-        h.*,
-        r.escalation_threshold,
-        r.escalation_interval,
-        g.group_name,
-        g.group_code
-      FROM alert_history h
-      INNER JOIN alert_rules r ON h.intent_type = r.intent_type
-      LEFT JOIN alert_groups g ON r.group_id = g.id
-      WHERE h.status IN ('pending', 'sent')
-        AND r.is_enabled = TRUE
-        AND r.enable_escalation = TRUE
-        AND (h.escalation_count < r.escalation_threshold OR r.escalation_threshold = 0)
-        AND (h.created_at + (r.escalation_interval * INTERVAL '1 second') < CURRENT_TIMESTAMP)
-      ORDER BY h.created_at ASC
-    `;
-    const result = await db.query(query);
-    return result.rows;
-  }
+    const db = await getDb();
 
-  /**
-   * 批量检查并升级告警（定时任务）
-   */
-  async batchCheckEscalations() {
-    const pendingAlerts = await this.getPendingEscalations();
-    const results = {
-      total: pendingAlerts.length,
-      escalated: 0,
-      failed: 0
-    };
+    const alerts = await db
+      .select({
+        id: alertHistory.id,
+        sessionId: alertHistory.sessionId,
+        alertRuleId: alertHistory.alertRuleId,
+        intentType: alertHistory.intentType,
+        alertLevel: alertHistory.alertLevel,
+        groupId: alertHistory.groupId,
+        groupName: alertHistory.groupName,
+        alertGroupId: alertHistory.alertGroupId,
+        userId: alertHistory.userId,
+        userName: alertHistory.userName,
+        groupChatId: alertHistory.groupChatId,
+        messageContent: alertHistory.messageContent,
+        alertMessage: alertHistory.alertMessage,
+        notificationStatus: alertHistory.notificationStatus,
+        notificationResult: alertHistory.notificationResult,
+        status: alertHistory.status,
+        isHandled: alertHistory.isHandled,
+        handledBy: alertHistory.handledBy,
+        handledAt: alertHistory.handledAt,
+        handledNote: alertHistory.handledNote,
+        escalationLevel: alertHistory.escalationLevel,
+        escalationCount: alertHistory.escalationCount,
+        escalationHistory: alertHistory.escalationHistory,
+        parentAlertId: alertHistory.parentAlertId,
+        batchId: alertHistory.batchId,
+        batchSize: alertHistory.batchSize,
+        robotId: alertHistory.robotId,
+        assignee: alertHistory.assignee,
+        confidence: alertHistory.confidence,
+        needReply: alertHistory.needReply,
+        needHuman: alertHistory.needHuman,
+        createdAt: alertHistory.createdAt,
+        escalation_threshold: alertRules.escalationThreshold,
+        escalation_interval: alertRules.escalationInterval,
+      })
+      .from(alertHistory)
+      .innerJoin(alertRules, sql`${alertHistory.intentType} = ${alertRules.intentType}`)
+      .where(
+        sql`${alertHistory.status} IN ('pending', 'sent')
+          AND ${alertRules.isEnabled} = true
+          AND ${alertRules.enableEscalation} = true
+          AND (${alertHistory.escalationCount} < ${alertRules.escalationThreshold} OR ${alertRules.escalationThreshold} = 0)
+          AND COALESCE(${alertHistory.handledAt}, ${alertHistory.createdAt}) < (CURRENT_TIMESTAMP - (${alertRules.escalationInterval} * INTERVAL '1 second'))`
+      )
+      .orderBy(sql`${alertHistory.createdAt} ASC`);
 
-    for (const alert of pendingAlerts) {
-      try {
-        const result = await this.checkAndEscalate(alert.id);
-        if (result.escalated) {
-          results.escalated++;
-        }
-      } catch (error) {
-        console.error(`检查告警升级失败: ${alert.id}`, error);
-        results.failed++;
-      }
-    }
-
-    return results;
+    return alerts;
   }
 
   // ========== 私有方法 ==========
@@ -157,15 +192,15 @@ class AlertEscalationService {
    */
   async _shouldEscalate(alert, rule) {
     // 检查升级次数限制
-    if (rule.escalation_threshold > 0 && alert.escalation_count >= rule.escalation_threshold) {
+    if (rule.escalationThreshold > 0 && alert.escalationCount >= rule.escalationThreshold) {
       return false;
     }
 
     // 检查升级间隔
-    const lastEscalationTime = alert.updated_at || alert.created_at;
+    const lastEscalationTime = alert.updatedAt || alert.createdAt;
     const timeSinceLastEscalation = (new Date() - new Date(lastEscalationTime)) / 1000;
 
-    if (timeSinceLastEscalation < rule.escalation_interval) {
+    if (timeSinceLastEscalation < rule.escalationInterval) {
       return false;
     }
 
@@ -176,92 +211,44 @@ class AlertEscalationService {
    * 执行升级
    */
   async _executeEscalation(alert, newLevel, rule, reason, escalatedBy) {
-    const currentLevel = alert.escalation_level || 0;
+    const db = await getDb();
+
+    const currentLevel = alert.escalationLevel || 0;
     const escalatedByUser = escalatedBy || 'system';
 
-    // 解析升级配置
-    let escalateConfig = {};
-    if (rule && rule.escalation_config) {
-      try {
-        escalateConfig = typeof rule.escalation_config === 'string'
-          ? JSON.parse(rule.escalation_config)
-          : rule.escalation_config;
-      } catch (error) {
-        console.error('解析升级配置失败:', error);
-      }
-    }
-
     // 记录升级历史
-    await db.query(
-      `INSERT INTO alert_upgrades (alert_id, from_level, to_level, escalate_reason, escalated_by, escalate_config)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [alert.id, currentLevel, newLevel, reason || '自动升级', escalatedByUser, JSON.stringify(escalateConfig)]
-    );
+    await db.insert(alertUpgrades).values({
+      alertId: alert.id,
+      fromLevel: currentLevel,
+      toLevel: newLevel,
+      escalateReason: reason || '自动升级',
+      escalatedBy: escalatedByUser,
+    });
 
     // 更新告警
-    const escalationHistory = alert.escalation_history || [];
+    const escalationHistory = alert.escalationHistory || [];
     escalationHistory.push({
       level: newLevel,
       time: new Date().toISOString(),
       reason: reason || '自动升级',
-      by: escalatedByUser
+      by: escalatedByUser,
     });
 
-    await db.query(
-      `UPDATE alert_history
-       SET escalation_level = $1,
-           escalation_count = escalation_count + 1,
-           escalation_history = $2,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $3`,
-      [newLevel, JSON.stringify(escalationHistory), alert.id]
-    );
-
-    // 根据升级级别调整告警级别
-    let newAlertLevel = alert.alert_level;
-    if (escalateConfig.levelMapping && escalateConfig.levelMapping[newLevel]) {
-      newAlertLevel = escalateConfig.levelMapping[newLevel];
-    } else {
-      // 默认升级逻辑
-      if (newLevel === 1 && newAlertLevel === 'info') {
-        newAlertLevel = 'warning';
-      } else if (newLevel >= 2) {
-        newAlertLevel = 'critical';
-      }
-    }
-
-    if (newAlertLevel !== alert.alert_level) {
-      await db.query(
-        `UPDATE alert_history SET alert_level = $1 WHERE id = $2`,
-        [newAlertLevel, alert.id]
-      );
-    }
-
-    // 发送升级通知
-    try {
-      const escalateMethod = escalateConfig.method || 'robot';
-      const escalateRecipients = escalateConfig.recipients || [];
-
-      if (escalateMethod && escalateRecipients.length > 0) {
-        await alertNotificationService.sendEscalationNotification(
-          alert,
-          currentLevel,
-          newLevel,
-          escalateMethod,
-          escalateRecipients,
-          reason || '告警自动升级'
-        );
-      }
-    } catch (error) {
-      console.error('发送升级通知失败:', error);
-    }
+    await db
+      .update(alertHistory)
+      .set({
+        escalationLevel: newLevel,
+        escalationCount: alert.escalationCount + 1,
+        escalationHistory,
+        updatedAt: new Date(),
+      })
+      .where(sql`${alertHistory.id} = ${alert.id}`);
 
     return {
       escalated: true,
       fromLevel: currentLevel,
       toLevel: newLevel,
-      newAlertLevel,
-      reason: reason || '自动升级'
+      reason: reason || '自动升级',
     };
   }
 }
