@@ -26,6 +26,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import RobotManagement from '@/components/robot-management';
+import AlertConfigTab from '@/components/alert-config-tab';
 import { 
   BarChart3, 
   MessageSquare,
@@ -1748,6 +1749,7 @@ ${callbacks.robotStatus}
 
   // 监控告警页面
   const MonitorTab = () => {
+    const [monitorSubTab, setMonitorSubTab] = useState('monitor');
     const [alertHistory, setAlertHistory] = useState<any[]>([]);
     const [circuitBreakerStatus, setCircuitBreakerStatus] = useState<boolean>(false);
 
@@ -1803,7 +1805,7 @@ ${callbacks.robotStatus}
               监控与告警
             </h3>
             <p className="text-muted-foreground mt-1">
-              系统监控指标和告警历史记录
+              系统监控指标和告警管理
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -1819,126 +1821,142 @@ ${callbacks.robotStatus}
           </div>
         </div>
 
-        {/* 告警统计卡片 */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card className="border-l-4 border-l-red-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">总告警数</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-red-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{alertData?.total || 0}</div>
-              <p className="text-xs text-muted-foreground">近 7 天</p>
-            </CardContent>
-          </Card>
+        {/* 子 Tabs */}
+        <Tabs value={monitorSubTab} onValueChange={setMonitorSubTab} className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="monitor">系统监控</TabsTrigger>
+            <TabsTrigger value="alerts">告警配置</TabsTrigger>
+          </TabsList>
 
-          <Card className="border-l-4 border-l-red-600">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">严重告警</CardTitle>
-              <ShieldAlert className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{alertData?.byLevel.critical || 0}</div>
-              <p className="text-xs text-muted-foreground">需要立即处理</p>
-            </CardContent>
-          </Card>
+          {/* 系统监控 */}
+          <TabsContent value="monitor" className="space-y-4">
+            {/* 告警统计卡片 */}
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card className="border-l-4 border-l-red-500">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">总告警数</CardTitle>
+                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{alertData?.total || 0}</div>
+                  <p className="text-xs text-muted-foreground">近 7 天</p>
+                </CardContent>
+              </Card>
 
-          <Card className="border-l-4 border-l-yellow-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">警告告警</CardTitle>
-              <Bell className="h-4 w-4 text-yellow-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{alertData?.byLevel.warning || 0}</div>
-              <p className="text-xs text-muted-foreground">需要关注</p>
-            </CardContent>
-          </Card>
+              <Card className="border-l-4 border-l-red-600">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">严重告警</CardTitle>
+                  <ShieldAlert className="h-4 w-4 text-red-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{alertData?.byLevel.critical || 0}</div>
+                  <p className="text-xs text-muted-foreground">需要立即处理</p>
+                </CardContent>
+              </Card>
 
-          <Card className="border-l-4 border-l-blue-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">信息告警</CardTitle>
-              <Info className="h-4 w-4 text-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{alertData?.byLevel.info || 0}</div>
-              <p className="text-xs text-muted-foreground">提示信息</p>
-            </CardContent>
-          </Card>
-        </div>
+              <Card className="border-l-4 border-l-yellow-500">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">警告告警</CardTitle>
+                  <Bell className="h-4 w-4 text-yellow-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{alertData?.byLevel.warning || 0}</div>
+                  <p className="text-xs text-muted-foreground">需要关注</p>
+                </CardContent>
+              </Card>
 
-        {/* 熔断器状态 */}
-        <Alert variant={circuitBreakerStatus ? 'destructive' : 'default'}>
-          {circuitBreakerStatus ? (
-            <>
-              <ShieldAlert className="h-4 w-4" />
-              <AlertTitle>熔断器已开启</AlertTitle>
-              <AlertDescription>
-                AI 服务已被临时禁用，所有请求将跳过 AI 处理。
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="ml-2"
-                  onClick={resetCircuitBreaker}
-                >
-                  重置熔断器
-                </Button>
-              </AlertDescription>
-            </>
-          ) : (
-            <>
-              <ShieldCheck className="h-4 w-4" />
-              <AlertTitle>系统运行正常</AlertTitle>
-              <AlertDescription>熔断器已关闭，AI 服务正常运行。</AlertDescription>
-            </>
-          )}
-        </Alert>
+              <Card className="border-l-4 border-l-blue-500">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">信息告警</CardTitle>
+                  <Info className="h-4 w-4 text-blue-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{alertData?.byLevel.info || 0}</div>
+                  <p className="text-xs text-muted-foreground">提示信息</p>
+                </CardContent>
+              </Card>
+            </div>
 
-        {/* 告警历史 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">告警历史</CardTitle>
-            <CardDescription>最近的告警记录</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {alertHistory.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>暂无告警记录</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {alertHistory.map((alert, index) => (
-                  <div key={index} className="flex items-start gap-4 p-4 border rounded-lg">
-                    <div className={`p-2 rounded-lg ${
-                      alert.level === 'critical' ? 'bg-red-100 dark:bg-red-900' :
-                      alert.level === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900' :
-                      'bg-blue-100 dark:bg-blue-900'
-                    }`}>
-                      {alert.level === 'critical' && <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />}
-                      {alert.level === 'warning' && <Bell className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />}
-                      {alert.level === 'info' && <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{alert.ruleName}</span>
-                        <Badge variant={
-                          alert.level === 'critical' ? 'destructive' :
-                          alert.level === 'warning' ? 'secondary' :
-                          'outline'
-                        }>
-                          {alert.level}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {formatTime(alert.timestamp)}
-                      </p>
-                    </div>
+            {/* 熔断器状态 */}
+            <Alert variant={circuitBreakerStatus ? 'destructive' : 'default'}>
+              {circuitBreakerStatus ? (
+                <>
+                  <ShieldAlert className="h-4 w-4" />
+                  <AlertTitle>熔断器已开启</AlertTitle>
+                  <AlertDescription>
+                    AI 服务已被临时禁用，所有请求将跳过 AI 处理。
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="ml-2"
+                      onClick={resetCircuitBreaker}
+                    >
+                      重置熔断器
+                    </Button>
+                  </AlertDescription>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="h-4 w-4" />
+                  <AlertTitle>系统运行正常</AlertTitle>
+                  <AlertDescription>熔断器已关闭，AI 服务正常运行。</AlertDescription>
+                </>
+              )}
+            </Alert>
+
+            {/* 告警历史 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">告警历史</CardTitle>
+                <CardDescription>最近的告警记录</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {alertHistory.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>暂无告警记录</p>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {alertHistory.map((alert, index) => (
+                      <div key={index} className="flex items-start gap-4 p-4 border rounded-lg">
+                        <div className={`p-2 rounded-lg ${
+                          alert.level === 'critical' ? 'bg-red-100 dark:bg-red-900' :
+                          alert.level === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900' :
+                          'bg-blue-100 dark:bg-blue-900'
+                        }`}>
+                          {alert.level === 'critical' && <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />}
+                          {alert.level === 'warning' && <Bell className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />}
+                          {alert.level === 'info' && <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{alert.ruleName}</span>
+                            <Badge variant={
+                              alert.level === 'critical' ? 'destructive' :
+                              alert.level === 'warning' ? 'secondary' :
+                              'outline'
+                            }>
+                              {alert.level}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {formatTime(alert.timestamp)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 告警配置 */}
+          <TabsContent value="alerts">
+            <AlertConfigTab />
+          </TabsContent>
+        </Tabs>
       </div>
     );
   };

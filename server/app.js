@@ -25,6 +25,7 @@ const executionTrackerApiRoutes = require('./routes/execution-tracker.api');
 const aiIoApiRoutes = require('./routes/ai-io.api');
 const systemLogsApiRoutes = require('./routes/system-logs.api');
 const operationLogsApiRoutes = require('./routes/operation-logs.api');
+const alertConfigApiRoutes = require('./routes/alert-config.api');
 
 const redisClient = require('./lib/redis');
 
@@ -75,6 +76,7 @@ fastify.register(executionTrackerApiRoutes, { prefix: '/api/admin/execution' });
 fastify.register(aiIoApiRoutes, { prefix: '/api' });
 fastify.register(systemLogsApiRoutes, { prefix: '/api' });
 fastify.register(operationLogsApiRoutes, { prefix: '/api' });
+fastify.register(alertConfigApiRoutes, { prefix: '/api' });
 
 // 健康检查
 fastify.get('/health', async (request, reply) => {
