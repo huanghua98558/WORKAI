@@ -251,25 +251,24 @@ class SessionService {
       const { sessionMessages } = require('../database/schema');
       const db = await getDb();
 
-      // 改进的查询：使用子查询获取每个会话最近的机器人名称
+      // 使用 DISTINCT ON 查询每个会话的最新消息
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
       const result = await db.execute(sql`
-        SELECT 
-          sm.session_id,
-          COALESCE(sm.user_name, sm.user_id) as "userName",
-          COALESCE(sm.group_name, sm.group_id) as "groupName",
-          sm.robot_id,
-          sm.robot_name,
-          MAX(sm.created_at) as "lastActiveTime",
-          COUNT(*) as "messageCount",
-          SUM(CASE WHEN sm.is_from_user = true THEN 1 ELSE 0 END) as "userMessages",
-          SUM(CASE WHEN sm.is_from_bot = true THEN 1 ELSE 0 END) as "aiReplyCount",
-          SUM(CASE WHEN sm.is_human = true THEN 1 ELSE 0 END) as "humanReplyCount",
-          MAX(sm.intent) as "lastIntent"
-        FROM session_messages sm
-        WHERE sm.created_at > ${sevenDaysAgo.toISOString()}
-        GROUP BY sm.session_id
-        ORDER BY MAX(sm.created_at) DESC
+        SELECT DISTINCT ON (session_id)
+          session_id as "sessionId",
+          COALESCE(user_name, user_id) as "userName",
+          COALESCE(group_name, group_id) as "groupName",
+          robot_id as "robotId",
+          robot_name as "robotName",
+          created_at as "lastActiveTime",
+          COUNT(*) OVER (PARTITION BY session_id) as "messageCount",
+          SUM(CASE WHEN is_from_user = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "userMessages",
+          SUM(CASE WHEN is_from_bot = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "aiReplyCount",
+          SUM(CASE WHEN is_human = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "humanReplyCount",
+          MAX(intent) OVER (PARTITION BY session_id) as "lastIntent"
+        FROM session_messages
+        WHERE created_at > ${sevenDaysAgo.toISOString()}
+        ORDER BY session_id, created_at DESC
         LIMIT ${limit}
       `);
 
@@ -277,25 +276,12 @@ class SessionService {
         console.log(`[会话服务] 从数据库查询到 ${result.rows.length} 个会话`);
         
         for (const row of result.rows) {
-          // 从子查询中获取该会话最近的机器人名称
-          const latestRobotMessage = await db.execute(sql`
-            SELECT robot_id as "robotId", robot_name as "robotName"
-            FROM session_messages
-            WHERE session_id = ${row.session_id}
-              AND robot_name IS NOT NULL
-              AND robot_name != ''
-            ORDER BY created_at DESC
-            LIMIT 1
-          `);
-
-          const robotName = latestRobotMessage.rows?.[0]?.robotName || '未知机器人';
-          
           sessions.push({
             sessionId: row.sessionId,
             userName: row.userName || '未知用户',
             groupName: row.groupName || '未知群组',
-            robotId: latestRobotMessage.rows?.[0]?.robotId,
-            robotName: robotName,
+            robotId: row.robotId,
+            robotName: row.robotName || '未知机器人',
             lastActiveTime: row.lastActiveTime,
             messageCount: parseInt(row.messageCount),
             userMessages: parseInt(row.userMessages),

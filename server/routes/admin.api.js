@@ -383,7 +383,76 @@ const adminApiRoutes = async function (fastify, options) {
     const { sessionId } = request.params;
 
     try {
-      const session = await sessionService.getSession(sessionId);
+      let session = await sessionService.getSession(sessionId);
+
+      // 如果Redis中没有会话数据，从数据库中查询
+      if (!session) {
+        const { getDb } = require('coze-coding-dev-sdk');
+        const { sql } = require('drizzle-orm');
+        const { sessionMessages } = require('../database/schema');
+        const db = await getDb();
+
+        // 查询该会话的基本信息
+        const result = await db.execute(sql`
+          SELECT 
+            session_id as "sessionId",
+            robot_id as "robotId",
+            robot_name as "robotName",
+            MAX(created_at) as "lastActiveTime"
+          FROM session_messages
+          WHERE session_id = ${sessionId}
+          GROUP BY session_id, robot_id, robot_name
+          LIMIT 1
+        `);
+
+        if (result.rows && result.rows.length > 0) {
+          session = {
+            sessionId: result.rows[0].sessionId,
+            robotId: result.rows[0].robotId,
+            robotName: result.rows[0].robotName || '未知机器人',
+            lastActiveTime: result.rows[0].lastActiveTime,
+            status: 'auto', // 默认为自动模式
+            messageCount: 0,
+            aiReplyCount: 0,
+            humanReplyCount: 0
+          };
+
+          // 统计消息数量
+          const stats = await db.execute(sql`
+            SELECT 
+              COUNT(*) as "messageCount",
+              SUM(CASE WHEN is_from_bot = true THEN 1 ELSE 0 END) as "aiReplyCount",
+              SUM(CASE WHEN is_human = true THEN 1 ELSE 0 END) as "humanReplyCount"
+            FROM session_messages
+            WHERE session_id = ${sessionId}
+          `);
+
+          if (stats.rows && stats.rows.length > 0) {
+            session.messageCount = parseInt(stats.rows[0].messageCount) || 0;
+            session.aiReplyCount = parseInt(stats.rows[0].aiReplyCount) || 0;
+            session.humanReplyCount = parseInt(stats.rows[0].humanReplyCount) || 0;
+          }
+
+          // 获取用户信息
+          const userInfo = await db.execute(sql`
+            SELECT user_name as "userName", group_name as "groupName"
+            FROM session_messages
+            WHERE session_id = ${sessionId}
+            ORDER BY created_at ASC
+            LIMIT 1
+          `);
+
+          if (userInfo.rows && userInfo.rows.length > 0) {
+            session.userName = userInfo.rows[0].userName;
+            session.groupName = userInfo.rows[0].groupName;
+            session.userInfo = {
+              userName: userInfo.rows[0].userName,
+              groupName: userInfo.rows[0].groupName
+            };
+          }
+        }
+      }
+
       if (!session) {
         return reply.status(404).send({
           success: false,
@@ -396,6 +465,7 @@ const adminApiRoutes = async function (fastify, options) {
 
       return { success: true, data: session };
     } catch (error) {
+      console.error('获取会话详情失败:', error);
       return reply.status(500).send({
         success: false,
         error: error.message
