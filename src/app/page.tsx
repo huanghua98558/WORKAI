@@ -4767,8 +4767,8 @@ ${callbacks.robotStatus}
                         <MessageCircle className="h-3 w-3 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div className="flex-1 w-full">
-                        <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">手机</div>
-                        <div className="text-xs font-mono text-gray-900 dark:text-gray-100 break-all">13337289759</div>
+                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">手机</div>
+                        <div className="text-sm font-mono text-gray-900 dark:text-gray-100 break-all">13337289759</div>
                       </div>
                     </div>
                   </CardContent>
@@ -4782,8 +4782,8 @@ ${callbacks.robotStatus}
                         <MessageCircle className="h-3 w-3 text-green-600 dark:text-green-400" />
                       </div>
                       <div className="flex-1 w-full">
-                        <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">微信</div>
-                        <div className="text-xs font-mono text-gray-900 dark:text-gray-100 break-all">xhy12040523</div>
+                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">微信</div>
+                        <div className="text-sm font-mono text-gray-900 dark:text-gray-100 break-all">xhy12040523</div>
                       </div>
                     </div>
                   </CardContent>
@@ -4797,8 +4797,8 @@ ${callbacks.robotStatus}
                         <Globe className="h-3 w-3 text-purple-600 dark:text-purple-400" />
                       </div>
                       <div className="flex-1 w-full">
-                        <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">QQ</div>
-                        <div className="text-xs font-mono text-gray-900 dark:text-gray-100 break-all">1823985558</div>
+                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">QQ</div>
+                        <div className="text-sm font-mono text-gray-900 dark:text-gray-100 break-all">1823985558</div>
                       </div>
                     </div>
                   </CardContent>
