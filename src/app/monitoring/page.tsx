@@ -208,6 +208,29 @@ export default function MonitoringPage() {
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             刷新
           </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={async () => {
+              try {
+                const res = await fetch('/api/monitoring/create-test-message', {
+                  method: 'POST'
+                });
+                const data = await res.json();
+                if (data.success) {
+                  alert('测试消息已创建！请刷新页面查看。');
+                  fetchExecutions();
+                } else {
+                  alert('创建失败: ' + data.error);
+                }
+              } catch (error) {
+                alert('创建失败: ' + error);
+              }
+            }}
+          >
+            <MessageSquare className="w-4 h-4 mr-2" />
+            创建测试消息
+          </Button>
         </div>
       </div>
 

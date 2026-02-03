@@ -1388,6 +1388,76 @@ const adminApiRoutes = async function (fastify, options) {
       });
     }
   });
+
+  /**
+   * 创建测试消息（用于测试监控页面显示）
+   */
+  fastify.post('/create-test-message', async (request, reply) => {
+    try {
+      const { getDb } = require('coze-coding-dev-sdk');
+      const { sql } = require('drizzle-orm');
+      
+      const db = await getDb();
+      const testId = `process:${Date.now()}:test001`;
+      const timestamp = new Date().toISOString();
+      
+      const testSteps = {
+        user_message: {
+          content: "你好，我想咨询一下产品价格",
+          userId: "测试用户",
+          groupId: "测试群组",
+          messageId: "msg_test_001",
+          timestamp: timestamp
+        },
+        intent_recognition: {
+          result: "service",
+          confidence: 0.95,
+          timestamp: timestamp
+        },
+        ai_response: {
+          response: "您好！我们的产品价格如下：基础版99元/月，专业版199元/月，企业版399元/月。请问您对哪个版本感兴趣？",
+          model: "doubao-1.8",
+          timestamp: timestamp
+        }
+      };
+      
+      await db.execute(sql`
+        INSERT INTO execution_tracking
+        (id, processing_id, robot_id, robot_name, session_id, user_id, group_id, status, steps, decision, start_time, end_time, processing_time, created_at)
+        VALUES (
+          ${testId},
+          ${testId},
+          ${'test-robot-001'},
+          ${'测试机器人'},
+          ${'session-test-001'},
+          ${'测试用户'},
+          ${'测试群组'},
+          ${'completed'},
+          ${JSON.stringify(testSteps)}::jsonb,
+          ${JSON.stringify({action: 'auto_reply', reason: '测试数据'})}::jsonb,
+          ${timestamp},
+          ${timestamp},
+          ${1000},
+          ${timestamp}
+        )
+      `);
+      
+      return reply.send({
+        success: true,
+        message: '测试消息已创建',
+        data: {
+          processingId: testId,
+          content: testSteps.user_message.content
+        }
+      });
+    } catch (error) {
+      console.error('创建测试消息失败:', error);
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
 };
 
 /**

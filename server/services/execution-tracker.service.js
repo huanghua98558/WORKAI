@@ -105,13 +105,22 @@ class ExecutionTrackerService {
    * 完成处理
    */
   async completeProcessing(processingId, result, messageData = null) {
+    let processing = null;
+    
+    // 尝试从Redis读取
     const data = await this.redis.get(`execution:${processingId}`);
-    if (!data) {
-      console.warn(`[执行追踪] 未找到处理记录: ${processingId}`);
-      return;
+    if (data) {
+      processing = JSON.parse(data);
+    } else {
+      // 如果Redis中没有数据，创建基本结构
+      processing = {
+        processingId,
+        status: 'processing',
+        steps: {},
+        robotId: result.robotId || null
+      };
     }
 
-    const processing = JSON.parse(data);
     processing.status = result.status || 'completed';
     processing.completedAt = new Date().toISOString();
     processing.error = result.error || null;
@@ -127,6 +136,7 @@ class ExecutionTrackerService {
         messageId: messageData.messageId,
         timestamp: messageData.timestamp || new Date().toISOString()
       };
+      console.log(`[执行追踪] 添加用户消息到steps: ${processingId}, content: ${messageData.spoken || messageData.content || ''}`);
     }
 
     console.log(`[执行追踪] 完成处理: ${processingId}, processingTime: ${processing.processingTime}ms, status: ${processing.status}`);
@@ -193,25 +203,108 @@ class ExecutionTrackerService {
   }
 
   /**
-   * 获取最近处理记录
+   * 获取最近处理记录（从Redis和数据库合并）
    */
   async getRecentRecords(limit = 50) {
+    let allRecords = [];
+
+    // 从Redis获取最近记录
     const processingIds = await this.redis.lrange('execution:recent', 0, limit - 1);
     
-    if (!processingIds || processingIds.length === 0) {
-      return [];
+    if (processingIds && processingIds.length > 0) {
+      // 批量获取处理详情
+      const promises = processingIds.map(id => this.getProcessingDetail(id));
+      const results = await Promise.all(promises);
+      const redisRecords = results
+        .filter(r => r !== null)
+        .sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+      allRecords = [...allRecords, ...redisRecords];
     }
 
-    // 批量获取处理详情
-    const promises = processingIds.map(id => this.getProcessingDetail(id));
-    const results = await Promise.all(promises);
+    // 从数据库获取最近记录
+    try {
+      const db = await this.getDb();
+      const dbResults = await db.execute(sql`
+        SELECT 
+          processing_id as "processingId",
+          robot_id as "robotId",
+          robot_name as "robotName",
+          session_id as "sessionId",
+          user_id as "userId",
+          group_id as "groupId",
+          status,
+          steps,
+          decision,
+          start_time as "startTime",
+          end_time as "completedAt",
+          processing_time as "processingTime",
+          created_at
+        FROM execution_tracking
+        ORDER BY created_at DESC
+        LIMIT ${limit}
+      `);
 
-    // 过滤掉 null 并按时间排序
-    const records = results
-      .filter(r => r !== null)
-      .sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+      console.log('[执行追踪] dbResults类型:', typeof dbResults);
+      console.log('[执行追踪] dbResults是否为数组:', Array.isArray(dbResults));
+      console.log('[执行追踪] dbResults内容:', JSON.stringify(dbResults, null, 2));
 
-    return records;
+      // 确保dbResults是数组
+      const resultsArray = Array.isArray(dbResults) ? dbResults : (dbResults?.rows || dbResults || []);
+      
+      console.log('[执行追踪] 从数据库获取到记录数:', resultsArray.length);
+      if (resultsArray.length > 0) {
+        console.log('[执行追踪] 第一条记录:', {
+          processingId: resultsArray[0].processingId,
+          createdAt: resultsArray[0].created_at,
+          steps: resultsArray[0].steps
+        });
+      }
+
+      // 转换数据库记录为统一格式
+      const dbRecords = resultsArray.map(row => {
+        const steps = row.steps || {};
+        return {
+          processingId: row.processingId,
+          robotId: row.robotId,
+          robotName: row.robotName || row.robotId,
+          sessionId: row.sessionId,
+          userId: row.userId,
+          groupId: row.groupId,
+          status: row.status,
+          steps: steps,
+          decision: row.decision,
+          startTime: row.startTime,
+          completedAt: row.completedAt,
+          processingTime: row.processingTime || 0,
+          messageData: {
+            fromName: row.userId,
+            groupName: row.groupId,
+            content: steps.user_message?.content || ''
+          }
+        };
+      });
+
+      console.log('[执行追踪] 转换后的dbRecords数:', dbRecords.length);
+      allRecords = [...allRecords, ...dbRecords];
+    } catch (error) {
+      console.error('[执行追踪] 从数据库获取记录失败:', error);
+      // 不抛出错误，只使用Redis数据
+    }
+
+    // 去重（按processingId）
+    const seenIds = new Set();
+    const uniqueRecords = [];
+    for (const record of allRecords) {
+      if (!seenIds.has(record.processingId)) {
+        seenIds.add(record.processingId);
+        uniqueRecords.push(record);
+      }
+    }
+
+    // 按时间排序并限制数量
+    return uniqueRecords
+      .sort((a, b) => new Date(b.startTime) - new Date(a.startTime))
+      .slice(0, limit);
   }
 
   /**
