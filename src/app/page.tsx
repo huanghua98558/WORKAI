@@ -4347,6 +4347,8 @@ ${callbacks.robotStatus}
     const [filterType, setFilterType] = useState<'all' | 'user' | 'bot'>('all');
     const [selectedRobot, setSelectedRobot] = useState<string>('');
     const [messageLimit, setMessageLimit] = useState<number>(50);
+    const [showLogDownloadDialog, setShowLogDownloadDialog] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
     const lastFetchTime = useRef<number>(0);
 
     const loadMessages = useCallback(async (limit?: number) => {
@@ -4383,6 +4385,52 @@ ${callbacks.robotStatus}
         setIsLoading(false);
       }
     }, [filterType, selectedRobot, messageLimit]);
+
+    // 下载后台日志
+    const downloadLog = async (logType: string, lines?: number) => {
+      try {
+        setIsDownloading(true);
+        const params = new URLSearchParams();
+        if (lines) {
+          params.append('lines', lines.toString());
+        }
+
+        const url = `/api/admin/logs/${logType}?${params.toString()}`;
+        console.log(`下载日志: ${url}`);
+
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          throw new Error('下载失败');
+        }
+
+        // 获取文件名
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `${logType}_log.txt`;
+        if (contentDisposition) {
+          const match = contentDisposition.match(/filename="?([^"]+)"?/);
+          if (match) {
+            filename = match[1];
+          }
+        }
+
+        // 获取内容并下载
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = filename;
+        link.click();
+        window.URL.revokeObjectURL(downloadUrl);
+
+        console.log('日志下载成功');
+      } catch (error) {
+        console.error('下载日志失败:', error);
+        alert('下载日志失败，请稍后重试');
+      } finally {
+        setIsDownloading(false);
+      }
+    };
 
     // 初始化加载（只执行一次）
     useEffect(() => {
@@ -4436,6 +4484,14 @@ ${callbacks.robotStatus}
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               刷新
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowLogDownloadDialog(true)}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              下载日志
             </Button>
           </div>
         </div>

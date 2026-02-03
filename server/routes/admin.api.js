@@ -1194,6 +1194,192 @@ const adminApiRoutes = async function (fastify, options) {
       });
     }
   });
+
+  /**
+   * 获取可用的日志文件列表
+   */
+  fastify.get('/logs', async (request, reply) => {
+    try {
+      const fs = require('fs').promises;
+      const path = require('path');
+
+      const logDir = '/app/work/logs/bypass';
+      const logFiles = [
+        'app.log',
+        'dev.log',
+        'console.log'
+      ];
+
+      const logs = [];
+
+      for (const filename of logFiles) {
+        const filepath = path.join(logDir, filename);
+        try {
+          const stats = await fs.stat(filepath);
+          logs.push({
+            filename,
+            path: filepath,
+            size: stats.size,
+            modified: stats.mtime,
+            sizeFormatted: formatFileSize(stats.size)
+          });
+        } catch (err) {
+          console.error(`无法读取日志文件 ${filename}:`, err);
+          logs.push({
+            filename,
+            path: filepath,
+            error: '文件不存在或无法读取'
+          });
+        }
+      }
+
+      return { success: true, data: logs };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 下载日志文件
+   */
+  fastify.get('/logs/:filename', async (request, reply) => {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const { filename } = request.params;
+      const { lines } = request.query;
+
+      // 验证文件名，防止路径遍历攻击
+      const allowedFiles = ['app.log', 'dev.log', 'console.log'];
+      if (!allowedFiles.includes(filename)) {
+        return reply.status(400).send({
+          success: false,
+          error: '无效的日志文件名'
+        });
+      }
+
+      const logDir = '/app/work/logs/bypass';
+      const filepath = path.join(logDir, filename);
+
+      try {
+        // 检查文件是否存在
+        const stats = fs.statSync(filepath);
+        if (!stats.isFile()) {
+          return reply.status(404).send({
+            success: false,
+            error: '日志文件不存在'
+          });
+        }
+
+        let content;
+
+        // 如果指定了行数，只读取最后几行
+        if (lines && !isNaN(parseInt(lines))) {
+          const lineCount = parseInt(lines);
+          content = fs.readFileSync(filepath, 'utf-8');
+          const linesArray = content.split('\n');
+          content = linesArray.slice(-lineCount).join('\n');
+        } else {
+          // 读取整个文件
+          content = fs.readFileSync(filepath, 'utf-8');
+        }
+
+        // 设置响应头，提示浏览器下载文件
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const downloadFilename = `${filename}_${timestamp}.log`;
+
+        reply.header('Content-Type', 'text/plain; charset=utf-8');
+        reply.header('Content-Disposition', `attachment; filename="${downloadFilename}"`);
+        reply.header('Content-Length', Buffer.byteLength(content));
+
+        return reply.send(content);
+      } catch (err) {
+        if (err.code === 'ENOENT') {
+          return reply.status(404).send({
+            success: false,
+            error: '日志文件不存在'
+          });
+        }
+        throw err;
+      }
+    } catch (error) {
+      console.error('下载日志文件失败:', error);
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 获取日志文件内容（预览）
+   */
+  fastify.get('/logs/:filename/preview', async (request, reply) => {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const { filename } = request.params;
+      const { lines = 100 } = request.query;
+
+      // 验证文件名
+      const allowedFiles = ['app.log', 'dev.log', 'console.log'];
+      if (!allowedFiles.includes(filename)) {
+        return reply.status(400).send({
+          success: false,
+          error: '无效的日志文件名'
+        });
+      }
+
+      const logDir = '/app/work/logs/bypass';
+      const filepath = path.join(logDir, filename);
+
+      try {
+        const content = fs.readFileSync(filepath, 'utf-8');
+        const linesArray = content.split('\n');
+        const lineCount = parseInt(lines);
+        const previewLines = linesArray.slice(-lineCount);
+
+        return {
+          success: true,
+          data: {
+            filename,
+            totalLines: linesArray.length,
+            previewLines: previewLines.length,
+            lines: previewLines,
+            truncated: linesArray.length > lineCount
+          }
+        };
+      } catch (err) {
+        if (err.code === 'ENOENT') {
+          return reply.status(404).send({
+            success: false,
+            error: '日志文件不存在'
+          });
+        }
+        throw err;
+      }
+    } catch (error) {
+      console.error('获取日志预览失败:', error);
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
 };
+
+/**
+ * 格式化文件大小
+ */
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+}
 
 module.exports = adminApiRoutes;
