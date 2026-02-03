@@ -474,7 +474,7 @@ export default function PromptTraining() {
           </div>
 
           <div className="flex-1">
-            <Label>用户提示词模板 (使用 {{input}} 代表用户输入)</Label>
+            <Label>用户提示词模板 (使用 {'{{input}}'} 代表用户输入)</Label>
             <div className="h-[150px] border rounded-lg mt-1 overflow-hidden">
               <Editor
                 height="150px"
