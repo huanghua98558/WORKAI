@@ -35,7 +35,6 @@ import MonitorTab from '@/components/monitor-tab';
 import RealtimeIOTab from '@/components/realtime-io-tab';
 import UserManagement from '@/components/user-management';
 import SettingsTab from '@/components/settings-tab';
-import MonitorMetrics from '@/components/monitor-metrics';
 import { 
   BarChart3, 
   MessageSquare,
@@ -1686,9 +1685,6 @@ ${callbacks.robotStatus}
               </div>
             </CardContent>
           </Card>
-
-          {/* 监控指标 */}
-          <MonitorMetrics />
         </div>
       </div>
     </div>
