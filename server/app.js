@@ -39,6 +39,7 @@ const promptApiRoutes = require('./routes/prompt.api');
 const robotRolesApiRoutes = require('./routes/robot-roles.api');
 const robotGroupsApiRoutes = require('./routes/robot-groups.api');
 const documentApiRoutes = require('./routes/document.api');
+const robotSyncApiRoutes = require('./routes/robot-sync.api');
 
 const redisClient = require('./lib/redis');
 
@@ -109,6 +110,7 @@ fastify.register(promptApiRoutes, { prefix: '/api' });
 fastify.register(robotRolesApiRoutes, { prefix: '/api' });
 fastify.register(robotGroupsApiRoutes, { prefix: '/api' });
 fastify.register(documentApiRoutes, { prefix: '/api/admin' });
+fastify.register(robotSyncApiRoutes, { prefix: '/api/admin' });
 
 // 健康检查
 fastify.get('/health', async (request, reply) => {

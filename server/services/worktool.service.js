@@ -372,6 +372,107 @@ class WorkToolService {
       };
     }
   }
+
+  /**
+   * 获取机器人信息（从 WorkTool API）
+   * @param {string} robotId - 机器人ID
+   * @returns {Object} 机器人信息
+   */
+  async getRobotInfo(robotId) {
+    const startTime = Date.now();
+
+    try {
+      logger.info('WorkTool', '开始获取机器人信息', {
+        robotId,
+        timestamp: new Date().toISOString()
+      });
+
+      // 获取机器人配置
+      const robot = await robotService.getRobotByRobotId(robotId);
+      if (!robot) {
+        throw new Error(`机器人不存在: ${robotId}`);
+      }
+
+      logger.info('WorkTool', '获取机器人配置成功', {
+        robotId,
+        robotKeys: Object.keys(robot),
+        hasGetInfoApi: !!robot.getInfoApi,
+        getInfoApiValue: robot.getInfoApi
+      });
+
+      // 使用机器人的 getInfoApi 字段，而不是自己拼接 URL
+      const apiUrl = robot.getInfoApi || `${robot.apiBaseUrl}robot/robotInfo/get`;
+
+      logger.info('WorkTool', '使用机器人 API URL', {
+        robotId,
+        getInfoApi: robot.getInfoApi,
+        apiBaseUrl: robot.apiBaseUrl,
+        finalApiUrl: apiUrl
+      });
+
+      const response = await axios.get(apiUrl, {
+        timeout: 10000
+      });
+
+      const processingTime = Date.now() - startTime;
+
+      if (response.data && response.data.code === 200) {
+        logger.info('WorkTool', '获取机器人信息成功', {
+          robotId,
+          robotName: response.data.data?.name,
+          corporation: response.data.data?.corporation,
+          processingTime
+        });
+
+        return {
+          success: true,
+          data: response.data.data,
+          processingTime
+        };
+      } else {
+        logger.warn('WorkTool', '获取机器人信息失败', {
+          robotId,
+          apiCode: response.data?.code,
+          apiMessage: response.data?.message,
+          processingTime
+        });
+
+        return {
+          success: false,
+          message: response.data?.message || '获取机器人信息失败',
+          code: response.data?.code,
+          processingTime
+        };
+      }
+    } catch (error) {
+      const processingTime = Date.now() - startTime;
+
+      logger.error('WorkTool', '获取机器人信息异常', {
+        robotId,
+        error: error.message,
+        errorType: error.constructor.name,
+        processingTime
+      });
+
+      if (error.response) {
+        return {
+          success: false,
+          message: error.response.data?.message || error.message,
+          code: error.response.data?.code || error.response.status,
+          processingTime,
+          errorType: 'http_error'
+        };
+      }
+
+      return {
+        success: false,
+        message: error.message,
+        error: error.code,
+        processingTime,
+        errorType: 'network_error'
+      };
+    }
+  }
 }
 
 module.exports = new WorkToolService();
