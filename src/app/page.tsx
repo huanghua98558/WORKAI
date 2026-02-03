@@ -4343,12 +4343,21 @@ ${callbacks.robotStatus}
   const RealtimeIOTab = () => {
     const [messages, setMessages] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [autoRefresh, setAutoRefresh] = useState(true);
+    const [autoRefresh, setAutoRefresh] = useState(false); // 默认关闭自动刷新
     const [filterType, setFilterType] = useState<'all' | 'user' | 'bot'>('all');
     const [selectedRobot, setSelectedRobot] = useState<string>('');
     const [messageLimit, setMessageLimit] = useState<number>(50);
+    const lastFetchTime = useRef<number>(0);
 
     const loadMessages = useCallback(async (limit?: number) => {
+      // 防抖：1秒内不重复加载
+      const now = Date.now();
+      if (now - lastFetchTime.current < 1000) {
+        console.log('RealtimeIO: 防抖，跳过本次加载');
+        return;
+      }
+      lastFetchTime.current = now;
+
       try {
         setIsLoading(true);
         const params = new URLSearchParams();
@@ -4360,9 +4369,12 @@ ${callbacks.robotStatus}
           params.append('robotId', selectedRobot);
         }
 
+        console.log(`RealtimeIO: 加载消息 limit=${limit || messageLimit}, filter=${filterType}, robot=${selectedRobot}`);
+
         const res = await fetch(`/api/ai-io?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
+          console.log(`RealtimeIO: 加载完成，共 ${data.data?.length || 0} 条消息`);
           setMessages(data.data || []);
         }
       } catch (error) {
@@ -4372,36 +4384,36 @@ ${callbacks.robotStatus}
       }
     }, [filterType, selectedRobot, messageLimit]);
 
-    // 初始化加载
+    // 初始化加载（只执行一次）
     useEffect(() => {
+      console.log('RealtimeIO: 初始化加载');
+      loadMessages();
+    }, []); // 移除依赖，只执行一次
+
+    // 自动刷新
+    useEffect(() => {
+      if (!autoRefresh) {
+        console.log('RealtimeIO: 自动刷新已关闭');
+        return;
+      }
+
+      console.log('RealtimeIO: 开启自动刷新，间隔 5 秒');
+      const interval = setInterval(() => {
+        console.log('RealtimeIO: 自动刷新触发');
+        loadMessages();
+      }, 5000);
+
+      return () => {
+        console.log('RealtimeIO: 清除自动刷新定时器');
+        clearInterval(interval);
+      };
+    }, [autoRefresh, loadMessages]);
+
+    // 监听筛选条件变化，手动触发加载
+    useEffect(() => {
+      console.log(`RealtimeIO: 筛选条件变化 filter=${filterType}, robot=${selectedRobot}`);
       loadMessages();
     }, [filterType, selectedRobot, messageLimit]);
-
-    // 自动刷新（不依赖 loadMessages）
-    useEffect(() => {
-      if (!autoRefresh) return;
-
-      const interval = setInterval(() => {
-        // 直接调用 API，避免依赖 loadMessages 导致的循环
-        setIsLoading(true);
-        const params = new URLSearchParams();
-        params.append('limit', messageLimit.toString());
-        if (filterType !== 'all') {
-          params.append('type', filterType);
-        }
-        if (selectedRobot) {
-          params.append('robotId', selectedRobot);
-        }
-
-        fetch(`/api/ai-io?${params.toString()}`)
-          .then(res => res.json())
-          .then(data => setMessages(data.data || []))
-          .catch(error => console.error('加载消息失败:', error))
-          .finally(() => setIsLoading(false));
-      }, 5000); // 每5秒刷新一次
-
-      return () => clearInterval(interval);
-    }, [autoRefresh, messageLimit, filterType, selectedRobot]);
 
     return (
       <div className="space-y-6">
