@@ -234,6 +234,8 @@ exports.robots = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }), // 到期时间（从WorkTool API获取）
     messageCallbackEnabled: boolean("message_callback_enabled").notNull().default(false), // 消息回调是否开启（从WorkTool API获取）
     conversionMode: boolean("conversion_mode").notNull().default(false), // 是否启用转化客服模式
+    robotGroup: varchar("robot_group", { length: 50 }), // 机器人分组（如：营销、服务、技术支持等）
+    robotType: varchar("robot_type", { length: 50 }), // 机器人类型（如：角色、助手、客服等）
     extraData: jsonb("extra_data"), // 额外数据（JSON格式，存储其他WorkTool返回的信息）
 
     // 回调地址（5个）

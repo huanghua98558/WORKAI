@@ -366,10 +366,25 @@ class MessageProcessingService {
    */
   async makeDecision(intentResult, session, messageContext, processingId, robot) {
     // ========== 检查是否为转化客服模式 ==========
-    if (robot && robot.conversionMode) {
-      logger.info('MessageProcessing', '检测到转化客服模式，使用转化AI回复', {
+    // 1. 检查机器人是否显式开启了转化客服模式
+    // 2. 检查机器人分组是否为"营销"
+    // 3. 检查机器人类型是否为"角色"
+    const isConversionMode = robot && (
+      robot.conversionMode ||
+      robot.robotGroup === '营销' ||
+      robot.robotType === '角色'
+    );
+
+    if (isConversionMode) {
+      const reason = robot.conversionMode
+        ? '转化客服模式已启用'
+        : (robot.robotGroup === '营销' ? '机器人分组为营销' : '机器人类型为角色');
+
+      logger.info('MessageProcessing', `检测到${reason}，使用转化AI回复`, {
         robotId: robot.robotId,
-        sessionId: session.sessionId
+        sessionId: session.sessionId,
+        robotGroup: robot.robotGroup,
+        robotType: robot.robotType
       });
 
       try {
@@ -394,7 +409,7 @@ class MessageProcessingService {
           return {
             action: 'conversion_reply',
             reply: conversionReply.reply,
-            reason: '转化客服模式，使用转化AI回复',
+            reason: `${reason}，使用转化AI回复`,
             sessionStatus: 'auto'
           };
         } else {
