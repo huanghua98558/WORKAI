@@ -2538,7 +2538,12 @@ ${callbacks.robotStatus}
           </TabsContent>
 
           <TabsContent value="robots" className="space-y-6">
-            <RobotManagement />
+            {/* 临时禁用RobotManagement组件 */}
+            {false && <RobotManagement />}
+            <div className="text-center py-12 text-muted-foreground">
+              <Bot className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>机器人管理功能正在维护中</p>
+            </div>
           </TabsContent>
 
           <TabsContent value="qa" className="space-y-6">
@@ -2584,15 +2589,30 @@ ${callbacks.robotStatus}
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
-            <SettingsTab aiConfig={aiConfig} isLoadingAiConfig={isLoadingAiConfig} />
+            {/* 临时禁用SettingsTab组件 */}
+            {false && <SettingsTab aiConfig={aiConfig} isLoadingAiConfig={isLoadingAiConfig} />}
+            <div className="text-center py-12 text-muted-foreground">
+              <Settings className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>系统设置功能正在维护中</p>
+            </div>
           </TabsContent>
 
           <TabsContent value="system-logs" className="space-y-6">
-            <SystemLogs />
+            {/* 临时禁用SystemLogs组件 */}
+            {false && <SystemLogs />}
+            <div className="text-center py-12 text-muted-foreground">
+              <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>系统日志功能正在维护中</p>
+            </div>
           </TabsContent>
 
           <TabsContent value="monitoring" className="space-y-6">
-            <MonitoringTab />
+            {/* 临时禁用MonitoringTab组件 */}
+            {false && <MonitoringTab />}
+            <div className="text-center py-12 text-muted-foreground">
+              <Activity className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>监控功能正在维护中</p>
+            </div>
           </TabsContent>
         </Tabs>
       </main>
