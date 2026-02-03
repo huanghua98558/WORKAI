@@ -492,8 +492,9 @@ export default function RobotManagement() {
               <MonitoringDashboard />
             </TabsContent>
           </Tabs>
-        </CardContent>
-      </Card>
+          </>
+        )}
+      </div>
     </div>
   );
 }

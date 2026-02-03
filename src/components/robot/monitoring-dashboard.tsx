@@ -6,6 +6,22 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { 
+  Activity, 
+  Bot, 
+  Clock, 
+  RefreshCw, 
+  CheckCircle, 
+  AlertCircle, 
+  TrendingUp,
+  Zap,
+  Shield,
+  MessageSquare,
+  Command,
+  Cpu,
+  AlertTriangle
+} from 'lucide-react';
 
 interface MonitoringData {
   robots: RobotMonitor[];
@@ -71,7 +87,7 @@ export default function MonitoringDashboard() {
       setLoading(true);
       const response = await fetch(`/api/admin/robot-monitoring?period=${period}`);
       const result = await response.json();
-      
+
       if (result.success) {
         setData(result.data);
       }
@@ -84,7 +100,7 @@ export default function MonitoringDashboard() {
 
   useEffect(() => {
     fetchData();
-    
+
     if (autoRefresh) {
       const interval = setInterval(fetchData, 10000); // 10秒刷新一次
       return () => clearInterval(interval);
@@ -116,16 +132,16 @@ export default function MonitoringDashboard() {
   // 获取状态标签
   const getStatusBadge = (isActive: boolean, status: string) => {
     if (!isActive) {
-      return <Badge variant="secondary">停用</Badge>;
+      return <Badge variant="secondary" className="bg-gray-100 text-gray-600">停用</Badge>;
     }
-    
+
     switch (status) {
       case 'online':
-        return <Badge className="bg-green-500">在线</Badge>;
+        return <Badge className="bg-green-500 hover:bg-green-600">在线</Badge>;
       case 'offline':
-        return <Badge variant="secondary">离线</Badge>;
+        return <Badge variant="secondary" className="bg-gray-100 text-gray-600">离线</Badge>;
       case 'maintenance':
-        return <Badge variant="outline">维护</Badge>;
+        return <Badge variant="outline" className="border-orange-500 text-orange-500">维护</Badge>;
       default:
         return <Badge>{status}</Badge>;
     }
@@ -134,7 +150,10 @@ export default function MonitoringDashboard() {
   if (!data) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="text-muted-foreground">加载中...</div>
+        <div className="text-center">
+          <RefreshCw className="h-12 w-12 animate-spin mx-auto mb-4 text-muted-foreground" />
+          <div className="text-muted-foreground">加载中...</div>
+        </div>
       </div>
     );
   }
@@ -146,8 +165,11 @@ export default function MonitoringDashboard() {
       {/* 顶部控制栏 */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold">监控大屏</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-3xl font-bold flex items-center gap-3">
+            <Activity className="h-8 w-8 text-emerald-500" />
+            监控大屏
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
             实时监控机器人集群状态 • {new Date(timeRange.start).toLocaleString('zh-CN')} ~ {new Date(timeRange.end).toLocaleString('zh-CN')}
           </p>
         </div>
@@ -163,177 +185,368 @@ export default function MonitoringDashboard() {
               <SelectItem value="7d">近7天</SelectItem>
             </SelectContent>
           </Select>
-          <button
+          <Button
             onClick={() => setAutoRefresh(!autoRefresh)}
-            className={`px-4 py-2 rounded-lg border ${autoRefresh ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary'}`}
+            variant={autoRefresh ? 'default' : 'outline'}
+            className="gap-2"
           >
-            {autoRefresh ? '自动刷新中' : '手动刷新'}
-          </button>
+            <RefreshCw className={`h-4 w-4 ${autoRefresh ? 'animate-spin' : ''}`} />
+            {autoRefresh ? '自动刷新' : '手动刷新'}
+          </Button>
         </div>
       </div>
 
-      {/* 统计卡片 */}
+      {/* 统计卡片 - 美观设计 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        {/* 机器人总数 */}
+        <Card className="overflow-hidden border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-2">
-            <CardDescription>机器人总数</CardDescription>
-            <CardTitle className="text-3xl">{stats.totalRobots}</CardTitle>
+            <CardDescription className="text-sm font-medium">机器人总数</CardDescription>
+            <CardTitle className="text-3xl flex items-center gap-2">
+              <Bot className="h-6 w-6 text-blue-500" />
+              {stats.totalRobots}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-sm text-muted-foreground">
-              在线: {stats.activeRobots} / 总数: {stats.totalRobots}
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-1">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span className="text-green-600 font-medium">{stats.activeRobots}</span>
+                <span className="text-muted-foreground">在线</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <AlertCircle className="h-4 w-4 text-red-500" />
+                <span className="text-red-600 font-medium">{stats.totalRobots - stats.activeRobots}</span>
+                <span className="text-muted-foreground">离线</span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        {/* 会话统计 */}
+        <Card className="overflow-hidden border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-2">
-            <CardDescription>会话统计</CardDescription>
-            <CardTitle className="text-3xl">{stats.activeSessions}</CardTitle>
+            <CardDescription className="text-sm font-medium">活跃会话</CardDescription>
+            <CardTitle className="text-3xl flex items-center gap-2">
+              <MessageSquare className="h-6 w-6 text-green-500" />
+              {stats.activeSessions}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-sm text-muted-foreground">
-              活跃: {stats.activeSessions} / 总计: {stats.totalSessions}
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-1">
+                <TrendingUp className="h-4 w-4 text-green-500" />
+                <span className="text-muted-foreground">总计:</span>
+                <span className="font-medium">{stats.totalSessions}</span>
+              </div>
+              <div className="text-muted-foreground">
+                占比: {((stats.activeSessions / stats.totalSessions) * 100).toFixed(1)}%
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+
+        {/* 指令统计 */}
+        <Card className="overflow-hidden border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-2">
-            <CardDescription>指令统计</CardDescription>
-            <CardTitle className="text-3xl">{stats.totalCommands}</CardTitle>
+            <CardDescription className="text-sm font-medium">指令执行</CardDescription>
+            <CardTitle className="text-3xl flex items-center gap-2">
+              <Command className="h-6 w-6 text-purple-500" />
+              {stats.totalCommands}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-sm text-muted-foreground">
-              累计执行 {stats.totalCommands} 条指令
+              累计执行指令数量
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        {/* 整体健康度 */}
+        <Card className="overflow-hidden border-l-4 border-l-emerald-500 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-2">
-            <CardDescription>整体健康度</CardDescription>
-            <CardTitle className="text-3xl">{stats.avgHealthScore.toFixed(1)}</CardTitle>
+            <CardDescription className="text-sm font-medium">整体健康度</CardDescription>
+            <CardTitle className="text-3xl flex items-center gap-2">
+              <Shield className="h-6 w-6 text-emerald-500" />
+              {stats.avgHealthScore.toFixed(1)}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-sm text-muted-foreground">
-              成功率: {stats.avgSuccessRate.toFixed(1)}% • 利用率: {stats.overallUtilization.toFixed(1)}%
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-1">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span className="text-muted-foreground">成功率:</span>
+                <span className="font-medium">{stats.avgSuccessRate.toFixed(1)}%</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Cpu className="h-4 w-4 text-blue-500" />
+                <span className="text-muted-foreground">利用率:</span>
+                <span className="font-medium">{stats.overallUtilization.toFixed(1)}%</span>
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* 机器人列表 */}
+      {/* 性能指标 - 进度条展示 */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="border-l-4 border-l-blue-500">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-blue-500" />
+              整体性能指标
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">平均成功率</span>
+                <span className="font-medium">{stats.avgSuccessRate.toFixed(1)}%</span>
+              </div>
+              <Progress value={stats.avgSuccessRate} className="h-2" />
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">平均健康度</span>
+                <span className="font-medium">{stats.avgHealthScore.toFixed(1)}%</span>
+              </div>
+              <Progress value={stats.avgHealthScore} className="h-2" />
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">整体利用率</span>
+                <span className="font-medium">{stats.overallUtilization.toFixed(1)}%</span>
+              </div>
+              <Progress value={stats.overallUtilization} className="h-2" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-green-500">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Activity className="h-5 w-5 text-green-500" />
+              资源使用情况
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">在线机器人占比</span>
+                <span className="font-medium">{((stats.activeRobots / stats.totalRobots) * 100).toFixed(1)}%</span>
+              </div>
+              <Progress value={(stats.activeRobots / stats.totalRobots) * 100} className="h-2" />
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">活跃会话占比</span>
+                <span className="font-medium">{((stats.activeSessions / stats.totalSessions) * 100).toFixed(1)}%</span>
+              </div>
+              <Progress value={(stats.activeSessions / stats.totalSessions) * 100} className="h-2" />
+            </div>
+            <div className="flex items-center gap-4 text-sm pt-2">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">平均响应时间:</span>
+                <span className="font-medium">
+                  {robots.length > 0 
+                    ? (robots.reduce((sum, r) => sum + r.avg_response_time, 0) / robots.length).toFixed(0)
+                    : 0}ms
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 机器人监控列表 */}
       <Card>
         <CardHeader>
-          <CardTitle>机器人监控</CardTitle>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <Bot className="h-5 w-5 text-blue-500" />
+            机器人监控详情
+          </CardTitle>
           <CardDescription>
-            {robots.length} 个机器人的实时状态
+            {robots.length} 个机器人的实时状态和性能指标
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>机器人</TableHead>
-                <TableHead>分组</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead>健康度</TableHead>
-                <TableHead>成功率</TableHead>
-                <TableHead>负载</TableHead>
-                <TableHead>会话</TableHead>
-                <TableHead>指令</TableHead>
-                <TableHead>响应时间</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {robots.map(robot => (
-                <TableRow key={robot.robot_id}>
-                  <TableCell className="font-medium">
-                    {robot.robot_name}
-                    <div className="text-xs text-muted-foreground">{robot.robot_id}</div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{robot.group_name || '无分组'}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    {getStatusBadge(robot.is_active, robot.robot_status)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${getHealthColor(robot.health_level)}`} />
-                      <span>{robot.health_score.toFixed(0)}%</span>
-                      <Badge variant="outline" className="text-xs">
-                        {getHealthLabel(robot.health_level)}
-                      </Badge>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Progress value={robot.success_rate} className="w-16" />
-                      <span className="text-sm">{robot.success_rate.toFixed(0)}%</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Progress 
-                        value={robot.utilization_rate} 
-                        className="w-16"
-                        color={robot.utilization_rate > 80 ? 'destructive' : 'default'}
-                      />
-                      <span className="text-sm">{robot.utilization_rate.toFixed(0)}%</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {robot.current_sessions}/{robot.max_sessions}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      <div>活跃: {robot.sessionStats.active}</div>
-                      <div className="text-muted-foreground">完成: {robot.sessionStats.completed}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      <div>待处理: {robot.commandStats.pending}</div>
-                      <div className="text-muted-foreground">完成: {robot.commandStats.completed}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      {robot.avg_response_time.toFixed(0)}ms
-                    </div>
-                  </TableCell>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="font-semibold">机器人</TableHead>
+                  <TableHead className="font-semibold">分组</TableHead>
+                  <TableHead className="font-semibold">状态</TableHead>
+                  <TableHead className="font-semibold">健康度</TableHead>
+                  <TableHead className="font-semibold">成功率</TableHead>
+                  <TableHead className="font-semibold">负载</TableHead>
+                  <TableHead className="font-semibold">会话</TableHead>
+                  <TableHead className="font-semibold">指令</TableHead>
+                  <TableHead className="font-semibold">响应时间</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {robots.map(robot => (
+                  <TableRow 
+                    key={robot.robot_id} 
+                    className="hover:bg-muted/50 transition-colors"
+                  >
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <Bot className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <div className="font-semibold">{robot.robot_name}</div>
+                          <div className="text-xs text-muted-foreground">{robot.robot_id}</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="bg-purple-50 border-purple-200 text-purple-700">
+                        {robot.group_name || '无分组'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(robot.is_active, robot.robot_status)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${getHealthColor(robot.health_level)}`} />
+                        <span className="font-medium">{robot.health_score.toFixed(0)}%</span>
+                        <Badge 
+                          variant="outline" 
+                          className="text-xs"
+                        >
+                          {getHealthLabel(robot.health_level)}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Progress 
+                          value={robot.success_rate} 
+                          className="w-20 h-2"
+                        />
+                        <span className="text-sm font-medium">{robot.success_rate.toFixed(0)}%</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Progress 
+                            value={robot.utilization_rate} 
+                            className="w-20 h-2"
+                          />
+                          <span className="text-sm font-medium">{robot.utilization_rate.toFixed(0)}%</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {robot.current_sessions}/{robot.max_sessions}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Zap className="h-3 w-3 text-blue-500" />
+                          <span className="font-medium">活跃: {robot.sessionStats.active}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <CheckCircle className="h-3 w-3 text-green-500" />
+                          <span>完成: {robot.sessionStats.completed}</span>
+                        </div>
+                        {robot.sessionStats.failed > 0 && (
+                          <div className="flex items-center gap-2 text-red-500">
+                            <AlertTriangle className="h-3 w-3" />
+                            <span>失败: {robot.sessionStats.failed}</span>
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Command className="h-3 w-3 text-purple-500" />
+                          <span className="font-medium">待处理: {robot.commandStats.pending}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <RefreshCw className="h-3 w-3 text-blue-500" />
+                          <span>处理中: {robot.commandStats.processing}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <CheckCircle className="h-3 w-3 text-green-500" />
+                          <span>完成: {robot.commandStats.completed}</span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <div className="font-medium">{robot.avg_response_time.toFixed(0)}ms</div>
+                        <div className="text-xs text-muted-foreground">
+                          {robot.avg_response_time < 500 ? (
+                            <span className="text-green-500">快速</span>
+                          ) : robot.avg_response_time < 1000 ? (
+                            <span className="text-yellow-500">一般</span>
+                          ) : (
+                            <span className="text-red-500">较慢</span>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
-      {/* 错误统计 */}
+      {/* 错误统计 - 美观展示 */}
       {robots.some(r => r.topErrors.length > 0) && (
-        <div className="grid gap-4 md:grid-cols-2">
-          {robots.filter(r => r.topErrors.length > 0).map(robot => (
-            <Card key={robot.robot_id}>
-              <CardHeader>
-                <CardTitle className="text-lg">
-                  {robot.robot_name} - 错误统计
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {robot.topErrors.map(error => (
-                    <div key={error.error_type} className="flex justify-between items-center">
-                      <span className="text-sm">{error.error_type}</span>
-                      <Badge variant="destructive">{error.error_count}</Badge>
+        <Card className="border-l-4 border-l-red-500">
+          <CardHeader>
+            <CardTitle className="text-xl flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              错误统计
+            </CardTitle>
+            <CardDescription>
+              需要关注的机器人错误信息
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {robots.filter(r => r.topErrors.length > 0).map(robot => (
+                <Card key={robot.robot_id} className="border-2 border-red-200 hover:border-red-400 transition-colors">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-red-100 rounded-lg">
+                        <AlertTriangle className="h-4 w-4 text-red-600" />
+                      </div>
+                      <CardTitle className="text-base">{robot.robot_name}</CardTitle>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {robot.topErrors.map((error, index) => (
+                        <div 
+                          key={error.error_type} 
+                          className="flex justify-between items-center p-2 bg-red-50 rounded-lg"
+                        >
+                          <span className="text-sm font-medium">{error.error_type}</span>
+                          <Badge variant="destructive" className="bg-red-500">
+                            {error.error_count}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
