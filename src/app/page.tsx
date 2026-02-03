@@ -1614,7 +1614,7 @@ ${callbacks.robotStatus}
                 return (
                   <div
                     key={session.sessionId}
-                    className="flex items-start justify-between p-4 bg-tech-gradient dark:bg-tech-gradient rounded-xl hover:shadow-glow transition-shadow cursor-pointer border border-primary/20 hover:border-primary/40"
+                    className="flex items-start justify-between p-4 bg-tech-gradient dark:bg-tech-gradient rounded-xl hover:shadow-glow transition-shadow cursor-pointer border border-primary/20 hover:border-primary/40 animate-slide-left"
                     onClick={() => handleViewSessionDetail(session)}
                   >
                     <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -1856,7 +1856,7 @@ ${callbacks.robotStatus}
                   return (
                     <div 
                       key={session.sessionId} 
-                      className="flex items-center justify-between p-4 border border-primary/20 rounded-lg hover:border-primary/50 hover:shadow-lg transition-all duration-300 cursor-pointer bg-tech-gradient dark:bg-tech-gradient"
+                      className="flex items-center justify-between p-4 border border-primary/20 rounded-lg hover:border-primary/50 hover:shadow-lg transition-all duration-300 cursor-pointer bg-tech-gradient dark:bg-tech-gradient animate-slide-left"
                       onClick={() => {
                         setSelectedSession(session);
                         setShowSessionDetail(true);
