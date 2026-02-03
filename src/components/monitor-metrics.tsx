@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { 
@@ -16,7 +17,8 @@ import {
   TrendingUp,
   TrendingDown,
   Zap,
-  Clock
+  Clock,
+  RefreshCw
 } from 'lucide-react';
 
 interface MonitorMetricsProps {
@@ -26,30 +28,78 @@ interface MonitorMetricsProps {
 export default function MonitorMetrics({ className }: MonitorMetricsProps) {
   const [metrics, setMetrics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const isMounted = useRef(true);
 
-  const loadMetrics = async () => {
+  const loadMetrics = async (showLoading = false) => {
+    // 如果组件已卸载，不执行加载
+    if (!isMounted.current) return;
+
+    if (showLoading) {
+      setLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
+    
+    setError(null);
+
     try {
-      // 从监控API获取数据
       const res = await fetch('/api/admin/monitor/summary');
       if (res.ok) {
         const data = await res.json();
-        setMetrics(data.data);
+        if (isMounted.current) {
+          setMetrics(data.data);
+        }
+      } else {
+        throw new Error('加载失败');
       }
     } catch (error) {
-      console.error('加载监控指标失败:', error);
+      if (isMounted.current) {
+        console.error('加载监控指标失败:', error);
+        setError('加载失败');
+        // 设置默认数据，避免显示空白
+        setMetrics({
+          system: {
+            callback_processed: 0,
+            callback_error: 0,
+            callback_received: 0
+          },
+          ai: {
+            success: 0,
+            error: 0,
+            intentRecognition: { successRate: 'N/A' },
+            serviceReply: { successRate: 'N/A' },
+            chat: { successRate: 'N/A' },
+            successRate: 'N/A'
+          }
+        });
+      }
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+        setIsRefreshing(false);
+      }
     }
   };
 
   useEffect(() => {
-    loadMetrics();
-    // 每30秒刷新一次
-    const interval = setInterval(loadMetrics, 30000);
-    return () => clearInterval(interval);
+    // 初始加载
+    loadMetrics(true);
+
+    // 每30秒刷新一次（不显示加载状态）
+    const interval = setInterval(() => {
+      loadMetrics(false);
+    }, 30000);
+
+    return () => {
+      isMounted.current = false;
+      clearInterval(interval);
+    };
   }, []);
 
-  if (loading || !metrics) {
+  // 初始加载状态
+  if (loading) {
     return (
       <Card className={className}>
         <CardHeader>
@@ -59,7 +109,8 @@ export default function MonitorMetrics({ className }: MonitorMetricsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-4 text-muted-foreground text-sm">
+          <div className="text-center py-4 text-muted-foreground text-sm flex items-center justify-center gap-2">
+            <RefreshCw className="h-4 w-4 animate-spin" />
             加载中...
           </div>
         </CardContent>
@@ -67,17 +118,30 @@ export default function MonitorMetrics({ className }: MonitorMetricsProps) {
     );
   }
 
-  const systemMetrics = metrics.system || {};
-  const aiMetrics = metrics.ai || {};
+  const systemMetrics = metrics?.system || {};
+  const aiMetrics = metrics?.ai || {};
 
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <Activity className="h-4 w-4 text-blue-500" />
-          监控指标
-        </CardTitle>
-        <CardDescription>实时系统状态和性能指标</CardDescription>
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Activity className="h-4 w-4 text-blue-500" />
+              监控指标
+            </CardTitle>
+            <CardDescription className="mt-1">实时系统状态和性能指标</CardDescription>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => loadMetrics(false)}
+            disabled={isRefreshing}
+            className="h-8 w-8 p-0 ml-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {/* 系统指标 */}
@@ -146,13 +210,29 @@ export default function MonitorMetrics({ className }: MonitorMetricsProps) {
             <span className="text-sm font-medium">系统状态</span>
           </div>
           
-          <div className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-900/20 rounded">
-            <span className="text-sm">系统运行正常</span>
-            <Badge variant="outline" className="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
-              <Activity className="h-3 w-3 mr-1" />
-              在线
-            </Badge>
-          </div>
+          {error ? (
+            <div className="flex items-center justify-between p-2 bg-red-50 dark:bg-red-900/20 rounded">
+              <span className="text-sm text-red-600 dark:text-red-400">{error}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => loadMetrics(false)}
+                disabled={isRefreshing}
+                className="h-6 text-xs"
+              >
+                <RefreshCw className={`h-3 w-3 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+                重试
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-900/20 rounded">
+              <span className="text-sm">系统运行正常</span>
+              <Badge variant="outline" className="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
+                <Activity className="h-3 w-3 mr-1" />
+                在线
+              </Badge>
+            </div>
+          )}
           
           <div className="text-xs text-muted-foreground text-center">
             <Clock className="h-3 w-3 inline mr-1" />
