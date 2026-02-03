@@ -68,6 +68,7 @@ export default function MonitoringTab() {
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdateTime, setLastUpdateTime] = useState<string | null>(null);
+  const [newExecutionIds, setNewExecutionIds] = useState<Set<string>>(new Set());
 
   // 获取系统健康状态
   const fetchHealth = async () => {
@@ -88,7 +89,17 @@ export default function MonitoringTab() {
       const res = await fetch('/api/monitoring/executions?limit=50');
       const data = await res.json();
       if (data.code === 0) {
-        setExecutions(data.data);
+        const newExecutions = data.data;
+        const currentIds = new Set(executions.map(e => e.processing_id));
+        const newIds = new Set(newExecutions.map(e => e.processing_id).filter(id => !currentIds.has(id)));
+        
+        setNewExecutionIds(newIds);
+        setExecutions(newExecutions);
+        
+        // 3秒后移除新消息标记
+        setTimeout(() => {
+          setNewExecutionIds(new Set());
+        }, 3000);
       }
     } catch (error) {
       console.error('获取执行列表失败:', error);
@@ -285,49 +296,55 @@ export default function MonitoringTab() {
             <CardContent>
               <ScrollArea className="h-[600px]">
                 <div className="space-y-2">
-                  {executions.map((execution) => (
-                    <div
-                      key={execution.processing_id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer"
-                      onClick={() => setSelectedExecution(execution)}
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant={
-                            execution.status === 'success' ? 'default' :
-                            execution.status === 'error' ? 'destructive' :
-                            execution.status === 'processing' ? 'secondary' : 'outline'
-                          }>
-                            {execution.status}
-                          </Badge>
-                          <span className="text-sm text-muted-foreground">
-                            {formatTime(execution.created_at || execution.start_time)}
-                          </span>
-                        </div>
-                        <div className="text-sm font-medium">
-                          会话: {execution.session_id}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          用户: {execution.user_id} • 群组: {execution.group_id}
-                        </div>
-                        {execution.robot_name && (
+                  {executions.map((execution, index) => {
+                    const isNew = newExecutionIds.has(execution.processing_id);
+                    return (
+                      <div
+                        key={execution.processing_id}
+                        className={`flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-all duration-300 ${
+                          isNew ? 'animate-slide-down bg-blue-50 dark:bg-blue-950' : ''
+                        }`}
+                        style={{ animationDelay: `${Math.min(index, 5) * 50}ms` }}
+                        onClick={() => setSelectedExecution(execution)}
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant={
+                              execution.status === 'success' ? 'default' :
+                              execution.status === 'error' ? 'destructive' :
+                              execution.status === 'processing' ? 'secondary' : 'outline'
+                            }>
+                              {execution.status}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">
+                              {formatTime(execution.created_at || execution.start_time)}
+                            </span>
+                          </div>
+                          <div className="text-sm font-medium">
+                            会话: {execution.session_id}
+                          </div>
                           <div className="text-xs text-muted-foreground">
-                            机器人: {execution.robot_name}
+                            用户: {execution.user_id} • 群组: {execution.group_id}
                           </div>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-medium">
-                          {formatDuration(execution.processing_time || 0)}
+                          {execution.robot_name && (
+                            <div className="text-xs text-muted-foreground">
+                              机器人: {execution.robot_name}
+                            </div>
+                          )}
                         </div>
-                        {execution.error_message && (
-                          <div className="text-xs text-red-500 mt-1">
-                            {execution.error_message.substring(0, 50)}...
+                        <div className="text-right">
+                          <div className="text-sm font-medium">
+                            {formatDuration(execution.processing_time || 0)}
                           </div>
-                        )}
+                          {execution.error_message && (
+                            <div className="text-xs text-red-500 mt-1">
+                              {execution.error_message.substring(0, 50)}...
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {executions.length === 0 && (
                     <div className="text-center py-12 text-muted-foreground">
                       暂无执行记录
