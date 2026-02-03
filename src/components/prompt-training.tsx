@@ -31,7 +31,7 @@ interface PromptTemplate {
   id: string;
   name: string;
   description: string;
-  category: string;
+  type: string;
   systemPrompt: string;
   userPrompt: string;
   temperature: number;
@@ -90,7 +90,7 @@ export default function PromptTraining() {
   const [templateForm, setTemplateForm] = useState<Partial<PromptTemplate>>({
     name: '',
     description: '',
-    category: 'service',
+    type: 'serviceReply',
     systemPrompt: '',
     userPrompt: '{{input}}',
     temperature: 0.7,
@@ -182,7 +182,7 @@ export default function PromptTraining() {
     setTemplateForm({
       name: `新模板 ${templates.length + 1}`,
       description: '',
-      category: 'service',
+      type: 'serviceReply',
       systemPrompt: '',
       userPrompt: '{{input}}',
       temperature: 0.7,
@@ -384,7 +384,7 @@ export default function PromptTraining() {
                 onClick={() => setSelectedTemplateId(template.id)}
               >
                 <div className="font-medium text-sm truncate">{template.name}</div>
-                <div className="text-xs text-gray-500 truncate">{template.category}</div>
+                <div className="text-xs text-gray-500 truncate">{template.type}</div>
                 <div className="flex items-center gap-2 mt-2">
                   <Button
                     size="sm"
@@ -425,15 +425,15 @@ export default function PromptTraining() {
           <div>
             <Label>分类</Label>
             <Select
-              value={templateForm.category}
-              onValueChange={(value) => setTemplateForm({ ...templateForm, category: value })}
+              value={templateForm.type}
+              onValueChange={(value) => setTemplateForm({ ...templateForm, type: value })}
             >
               <SelectTrigger className="mt-1">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="intent">意图识别</SelectItem>
-                <SelectItem value="service">服务回复</SelectItem>
+                <SelectItem value="intentRecognition">意图识别</SelectItem>
+                <SelectItem value="serviceReply">服务回复</SelectItem>
                 <SelectItem value="chat">闲聊</SelectItem>
                 <SelectItem value="report">报告生成</SelectItem>
                 <SelectItem value="conversion">转化客服</SelectItem>
@@ -640,7 +640,7 @@ export default function PromptTraining() {
                     name: `测试用例 ${testCases.length + 1}`,
                     input: '',
                     expectedOutput: '',
-                    category: templateForm.category || 'service'
+                    category: templateForm.type || 'serviceReply'
                   };
                   setTestCases([...testCases, newTestCase]);
                   setSelectedTestCaseId(newTestCase.id);
