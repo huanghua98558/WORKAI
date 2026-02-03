@@ -136,8 +136,8 @@ const start = async () => {
 
     // 启动指令队列处理器
     console.log('📦 启动指令队列处理器...');
-    robotCommandService.startQueueProcessor('main-worker', 1000); // 每秒处理一次
-    
+    robotCommandService.startQueueProcessor('main-worker', 3000); // 每3秒处理一次（优化后）
+
     console.log(`⏰ 指令队列处理器已启动`);
     
     console.log(`

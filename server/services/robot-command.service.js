@@ -222,11 +222,6 @@ class RobotCommandService {
     try {
       const db = await getDb();
 
-      logger.debug('RobotCommand', '队列查询 - 开始', {
-        workerId,
-        timestamp: now.toISOString()
-      });
-
       // 查找待处理的指令（按优先级和时间排序）
       const queueItems = await db.select()
         .from(robotCommandQueue)
@@ -240,11 +235,7 @@ class RobotCommandService {
       const queryDuration = Date.now() - queryStartTime;
 
       if (queueItems.length === 0) {
-        logger.debug('RobotCommand', '队列查询 - 无待处理指令', {
-          workerId,
-          queryDuration,
-          timestamp: now.toISOString()
-        });
+        // 无待处理指令时不记录日志（减少重复日志输出）
         return null;
       }
 
@@ -751,7 +742,7 @@ class RobotCommandService {
    * @param {string} workerId - 工作进程ID
    * @param {number} interval - 处理间隔（毫秒）
    */
-  async startQueueProcessor(workerId = `worker-${Date.now()}`, interval = 1000) {
+  async startQueueProcessor(workerId = `worker-${Date.now()}`, interval = 3000) {
     if (this.isProcessing) {
       logger.warn('RobotCommand', '队列处理器 - 已在运行，忽略启动请求', { 
         existingWorkerId: workerId,
@@ -773,17 +764,13 @@ class RobotCommandService {
     let successCount = 0;
     let errorCount = 0;
     let lastProcessTime = null;
+    let cycleCount = 0;  // 记录总循环次数
 
     this.processInterval = setInterval(async () => {
       const cycleStartTime = Date.now();
-      
-      try {
-        logger.debug('RobotCommand', '队列处理器 - 开始新的处理周期', {
-          workerId,
-          cycleNumber: processCount + 1,
-          cycleStartTime: new Date(cycleStartTime).toISOString()
-        });
+      cycleCount++;
 
+      try {
         const command = await this.getNextCommand(workerId);
 
         if (command) {
@@ -800,7 +787,7 @@ class RobotCommandService {
           });
 
           const result = await this.executeCommand(command);
-          
+
           if (result.success) {
             successCount++;
             logger.info('RobotCommand', '队列处理器 - 指令处理成功', {
@@ -818,15 +805,11 @@ class RobotCommandService {
           }
 
           lastProcessTime = new Date().toISOString();
-        } else {
-          logger.debug('RobotCommand', '队列处理器 - 无待处理指令', {
-            workerId,
-            cycleNumber: processCount + 1
-          });
         }
+        // 无待处理指令时不记录日志（减少重复日志输出）
 
-        // 每10个周期记录一次统计信息
-        if (processCount % 10 === 0) {
+        // 每30个周期（约90秒）记录一次统计信息
+        if (cycleCount % 30 === 0) {
           logger.info('RobotCommand', '队列处理器 - 统计信息', {
             workerId,
             totalProcessed: processCount,
