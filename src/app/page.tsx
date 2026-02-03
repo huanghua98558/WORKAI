@@ -2359,6 +2359,12 @@ ${callbacks.robotStatus}
 
   return (
     <div className="min-h-screen bg-tech-grid dark:bg-tech-grid">
+      {/* 调试信息 */}
+      {console.log('[页面渲染] showSessionDetail:', showSessionDetail, 'selectedSession:', selectedSession)}
+      {/* 会话详情弹窗状态显示 - 临时调试 */}
+      <div style={{ position: 'fixed', top: 0, left: 0, zIndex: 9999, background: 'red', color: 'white', padding: '5px', fontSize: '12px' }}>
+        Dialog: {showSessionDetail ? 'OPEN' : 'CLOSED'} | Session: {selectedSession?.sessionId || 'none'}
+      </div>
       {/* 科幻风格标题栏 */}
       <header className="border-b border-primary/20 glass sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3">
@@ -2695,12 +2701,10 @@ ${callbacks.robotStatus}
 
       {/* 会话详情弹窗 */}
       <Dialog
-        key={showSessionDetail ? 'open' : 'closed'}
         open={showSessionDetail}
         onOpenChange={(open) => {
           console.log('[Dialog] onOpenChange 触发, open:', open, 'current showSessionDetail:', showSessionDetail);
           setShowSessionDetail(open);
-          console.log('[Dialog] onOpenChange, after setShowSessionDetail');
       }}>
         <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
