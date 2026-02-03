@@ -50,7 +50,8 @@ import {
   User,
   Sparkles,
   LayoutDashboard,
-  UserCheck
+  UserCheck,
+  ChevronLeft
 } from 'lucide-react';
 
 // 导入子组件
@@ -119,145 +120,294 @@ export default function RobotManagement() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* 页面标题 */}
-      <div>
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          <Bot className="h-6 w-6" />
+      <div className="space-y-2">
+        <h2 className="text-3xl font-bold flex items-center gap-3">
+          <div className="p-2 bg-blue-500 rounded-lg">
+            <Bot className="h-6 w-6 text-white" />
+          </div>
           机器人管理中心
         </h2>
-        <p className="text-muted-foreground mt-1">
+        <p className="text-muted-foreground text-lg">
           统一管理机器人、分组、角色、指令和监控
         </p>
       </div>
 
       {/* 统计概览 */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+      <div className="grid gap-6 md:grid-cols-4">
+        <Card className="overflow-hidden border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">总机器人数</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold flex items-center gap-2">
-              <Bot className="h-5 w-5 text-blue-500" />
+            <div className="text-3xl font-bold flex items-center gap-3">
+              <Bot className="h-6 w-6 text-blue-500" />
               {robots.length}
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="overflow-hidden border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">在线</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold flex items-center gap-2 text-green-600">
-              <CheckCircle className="h-5 w-5" />
+            <div className="text-3xl font-bold flex items-center gap-3 text-green-600">
+              <CheckCircle className="h-6 w-6" />
               {robots.filter(r => r.isActive && r.status === 'online').length}
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="overflow-hidden border-l-4 border-l-red-500 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">离线</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold flex items-center gap-2 text-red-600">
-              <XCircle className="h-5 w-5" />
+            <div className="text-3xl font-bold flex items-center gap-3 text-red-600">
+              <XCircle className="h-6 w-6" />
               {robots.filter(r => r.isActive && r.status === 'offline').length}
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="overflow-hidden border-l-4 border-l-orange-500 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">已停用</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold flex items-center gap-2 text-gray-600">
-              <AlertTriangle className="h-5 w-5" />
+            <div className="text-3xl font-bold flex items-center gap-3 text-orange-600">
+              <AlertTriangle className="h-6 w-6" />
               {robots.filter(r => !r.isActive).length}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* 功能标签页 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>功能模块</CardTitle>
-          <CardDescription>
-            选择不同的功能模块来管理机器人相关的各项功能
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
-              <TabsTrigger value="list" className="gap-2">
-                <Bot className="h-4 w-4" />
-                <span>机器人列表</span>
-              </TabsTrigger>
-              <TabsTrigger value="groups" className="gap-2">
-                <Building2 className="h-4 w-4" />
-                <span>分组管理</span>
-              </TabsTrigger>
-              <TabsTrigger value="roles" className="gap-2">
-                <ShieldCheck className="h-4 w-4" />
-                <span>角色管理</span>
-              </TabsTrigger>
-              <TabsTrigger value="commands" className="gap-2">
-                <Sparkles className="h-4 w-4" />
-                <span>指令发送</span>
-              </TabsTrigger>
-              <TabsTrigger value="monitor" className="gap-2">
-                <BarChart3 className="h-4 w-4" />
-                <span>监控大屏</span>
-              </TabsTrigger>
-            </TabsList>
+      {/* 功能模块卡片 - 美观设计 */}
+      <div className="space-y-6">
+        {!activeTab ? (
+          <>
+            <div className="text-center mb-8">
+              <h3 className="text-xl font-semibold mb-2">功能模块</h3>
+              <p className="text-muted-foreground">选择下面的功能模块开始管理</p>
+            </div>
+            
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {/* 机器人列表 */}
+              <Card 
+                className="group cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-300 border-2 hover:border-blue-500"
+                onClick={() => setActiveTab('list')}
+              >
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="p-3 bg-blue-100 rounded-lg group-hover:bg-blue-500 transition-colors">
+                      <Bot className="h-8 w-8 text-blue-600 group-hover:text-white transition-colors" />
+                    </div>
+                    <Badge variant="secondary" className="text-sm">
+                      {robots.length} 个
+                    </Badge>
+                  </div>
+                  <CardTitle className="mt-4 text-xl">机器人列表</CardTitle>
+                  <CardDescription>
+                    查看和管理所有机器人的基本信息、状态和配置
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    {robots.filter(r => r.isActive && r.status === 'online').length} 个在线
+                    <XCircle className="h-4 w-4 text-red-500 ml-2" />
+                    {robots.filter(r => r.isActive && r.status === 'offline').length} 个离线
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 分组管理 */}
+              <Card 
+                className="group cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-300 border-2 hover:border-purple-500"
+                onClick={() => setActiveTab('groups')}
+              >
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="p-3 bg-purple-100 rounded-lg group-hover:bg-purple-500 transition-colors">
+                      <Building2 className="h-8 w-8 text-purple-600 group-hover:text-white transition-colors" />
+                    </div>
+                    <Badge variant="secondary" className="text-sm">管理</Badge>
+                  </div>
+                  <CardTitle className="mt-4 text-xl">分组管理</CardTitle>
+                  <CardDescription>
+                    创建和管理机器人分组，配置路由策略和负载均衡
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant="outline" className="text-xs">客服组</Badge>
+                    <Badge variant="outline" className="text-xs">销售组</Badge>
+                    <Badge variant="outline" className="text-xs">运营组</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 角色管理 */}
+              <Card 
+                className="group cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-300 border-2 hover:border-amber-500"
+                onClick={() => setActiveTab('roles')}
+              >
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="p-3 bg-amber-100 rounded-lg group-hover:bg-amber-500 transition-colors">
+                      <ShieldCheck className="h-8 w-8 text-amber-600 group-hover:text-white transition-colors" />
+                    </div>
+                    <Badge variant="secondary" className="text-sm">权限</Badge>
+                  </div>
+                  <CardTitle className="mt-4 text-xl">角色管理</CardTitle>
+                  <CardDescription>
+                    配置机器人角色、权限和操作范围
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant="outline" className="text-xs">14种权限</Badge>
+                    <Badge variant="outline" className="text-xs">12种操作</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 指令发送 */}
+              <Card 
+                className="group cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-300 border-2 hover:border-pink-500"
+                onClick={() => setActiveTab('commands')}
+              >
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="p-3 bg-pink-100 rounded-lg group-hover:bg-pink-500 transition-colors">
+                      <Sparkles className="h-8 w-8 text-pink-600 group-hover:text-white transition-colors" />
+                    </div>
+                    <Badge variant="secondary" className="text-sm">发送</Badge>
+                  </div>
+                  <CardTitle className="mt-4 text-xl">指令发送</CardTitle>
+                  <CardDescription>
+                    向在线机器人发送指令，实时查看执行状态
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant="outline" className="text-xs">8种类型</Badge>
+                    <Badge variant="outline" className="text-xs">实时状态</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 监控大屏 */}
+              <Card 
+                className="group cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-300 border-2 hover:border-emerald-500"
+                onClick={() => setActiveTab('monitor')}
+              >
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="p-3 bg-emerald-100 rounded-lg group-hover:bg-emerald-500 transition-colors">
+                      <BarChart3 className="h-8 w-8 text-emerald-600 group-hover:text-white transition-colors" />
+                    </div>
+                    <Badge variant="secondary" className="text-sm">监控</Badge>
+                  </div>
+                  <CardTitle className="mt-4 text-xl">监控大屏</CardTitle>
+                  <CardDescription>
+                    实时监控所有机器人状态、健康度和性能指标
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant="outline" className="text-xs">自动刷新</Badge>
+                    <Badge variant="outline" className="text-xs">实时数据</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 返回提示 */}
+              <Card className="border-dashed flex items-center justify-center min-h-[200px] bg-muted/50">
+                <div className="text-center text-muted-foreground">
+                  <Info className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">更多功能即将推出</p>
+                </div>
+              </Card>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* 返回按钮 */}
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setActiveTab('')}
+                className="gap-2"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                返回功能模块
+              </Button>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+
+            {/* 功能标签页 */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
 
             {/* 机器人列表 */}
-            <TabsContent value="list" className="space-y-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-lg font-semibold">机器人列表</h3>
-                  <p className="text-sm text-muted-foreground">管理所有机器人的基本信息和配置</p>
-                </div>
-                <Button onClick={loadRobots} disabled={isLoading}>
-                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                  刷新
-                </Button>
-              </div>
+            <TabsContent value="list" className="space-y-6">
+              <Card className="border-l-4 border-l-blue-500">
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Bot className="h-5 w-5 text-blue-500" />
+                        <CardTitle className="text-xl">机器人列表</CardTitle>
+                      </div>
+                      <CardDescription>
+                        管理所有机器人的基本信息、状态和配置
+                      </CardDescription>
+                    </div>
+                    <Button onClick={loadRobots} disabled={isLoading} variant="outline">
+                      <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                      刷新
+                    </Button>
+                  </div>
+                </CardHeader>
+              </Card>
 
-              {/* 这里可以复用原有的机器人列表组件 */}
               <Alert>
                 <Info className="h-4 w-4" />
                 <AlertTitle>提示</AlertTitle>
                 <AlertDescription>
                   机器人列表功能正在开发中。请使用其他功能模块管理机器人。
-                  当前共有 {robots.length} 个机器人，其中 {robots.filter(r => r.isActive && r.status === 'online').length} 个在线。
+                  当前共有 <Badge variant="secondary" className="mx-1">{robots.length}</Badge> 个机器人，
+                  其中 <Badge variant="outline" className="mx-1 text-green-600">{robots.filter(r => r.isActive && r.status === 'online').length}</Badge> 个在线。
                 </AlertDescription>
               </Alert>
 
-              {/* 简单的机器人列表展示 */}
-              <div className="space-y-2">
+              <div className="grid gap-4">
                 {robots.map(robot => (
-                  <Card key={robot.id}>
-                    <CardContent className="p-4">
+                  <Card key={robot.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-6">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <Bot className="h-8 w-8 text-blue-500" />
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 bg-blue-100 rounded-lg">
+                            <Bot className="h-8 w-8 text-blue-600" />
+                          </div>
                           <div>
-                            <div className="font-semibold">{robot.name}</div>
+                            <div className="font-semibold text-lg">{robot.name}</div>
                             <div className="text-sm text-muted-foreground">{robot.robotId}</div>
                           </div>
-                          <Badge variant={robot.isActive && robot.status === 'online' ? 'default' : 'secondary'}>
+                          <Badge 
+                            variant={robot.isActive && robot.status === 'online' ? 'default' : 'secondary'}
+                            className={robot.isActive && robot.status === 'online' ? 'bg-green-500' : ''}
+                          >
                             {robot.isActive && robot.status === 'online' ? '在线' : '离线'}
                           </Badge>
                         </div>
                         <div className="flex gap-2">
-                          <Button size="sm" variant="outline">
-                            <Edit2 className="h-4 w-4 mr-1" />
+                          <Button size="sm" variant="outline" className="gap-2">
+                            <Edit2 className="h-4 w-4" />
                             编辑
                           </Button>
-                          <Button size="sm" variant="outline">
-                            <Settings className="h-4 w-4 mr-1" />
+                          <Button size="sm" variant="outline" className="gap-2">
+                            <Settings className="h-4 w-4" />
                             配置
                           </Button>
                         </div>
@@ -266,30 +416,79 @@ export default function RobotManagement() {
                   </Card>
                 ))}
                 {robots.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    暂无机器人数据
-                  </div>
+                  <Card>
+                    <CardContent className="py-12">
+                      <div className="text-center text-muted-foreground">
+                        <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>暂无机器人数据</p>
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
               </div>
             </TabsContent>
 
             {/* 分组管理 */}
-            <TabsContent value="groups">
+            <TabsContent value="groups" className="space-y-6">
+              <Card className="border-l-4 border-l-purple-500">
+                <CardHeader>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Building2 className="h-5 w-5 text-purple-500" />
+                    <CardTitle className="text-xl">分组管理</CardTitle>
+                  </div>
+                  <CardDescription>
+                    创建和管理机器人分组，配置路由策略和负载均衡
+                  </CardDescription>
+                </CardHeader>
+              </Card>
               <RobotGroupManager />
             </TabsContent>
 
             {/* 角色管理 */}
-            <TabsContent value="roles">
+            <TabsContent value="roles" className="space-y-6">
+              <Card className="border-l-4 border-l-amber-500">
+                <CardHeader>
+                  <div className="flex items-center gap-2 mb-1">
+                    <ShieldCheck className="h-5 w-5 text-amber-500" />
+                    <CardTitle className="text-xl">角色管理</CardTitle>
+                  </div>
+                  <CardDescription>
+                    配置机器人角色、权限和操作范围
+                  </CardDescription>
+                </CardHeader>
+              </Card>
               <RobotRoleManager />
             </TabsContent>
 
             {/* 指令发送 */}
-            <TabsContent value="commands">
+            <TabsContent value="commands" className="space-y-6">
+              <Card className="border-l-4 border-l-pink-500">
+                <CardHeader>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Sparkles className="h-5 w-5 text-pink-500" />
+                    <CardTitle className="text-xl">指令发送</CardTitle>
+                  </div>
+                  <CardDescription>
+                    向在线机器人发送指令，实时查看执行状态
+                  </CardDescription>
+                </CardHeader>
+              </Card>
               <CommandSender />
             </TabsContent>
 
             {/* 监控大屏 */}
-            <TabsContent value="monitor">
+            <TabsContent value="monitor" className="space-y-6">
+              <Card className="border-l-4 border-l-emerald-500">
+                <CardHeader>
+                  <div className="flex items-center gap-2 mb-1">
+                    <BarChart3 className="h-5 w-5 text-emerald-500" />
+                    <CardTitle className="text-xl">监控大屏</CardTitle>
+                  </div>
+                  <CardDescription>
+                    实时监控所有机器人状态、健康度和性能指标
+                  </CardDescription>
+                </CardHeader>
+              </Card>
               <MonitoringDashboard />
             </TabsContent>
           </Tabs>
