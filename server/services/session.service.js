@@ -123,24 +123,34 @@ class SessionService {
     }
 
     if (session.status === 'human') {
+      // 填充机器人信息
+      await this.enrichSessionWithRobotInfo(session);
       return session;
     }
 
-    return await this.updateSession(sessionId, {
+    const updated = await this.updateSession(sessionId, {
       status: 'human',
       humanOperator: operator,
       humanTakeoverTime: new Date().toISOString()
     });
+
+    // 填充机器人信息
+    await this.enrichSessionWithRobotInfo(updated);
+    return updated;
   }
 
   /**
    * 切换回自动模式
    */
   async switchToAuto(sessionId) {
-    return await this.updateSession(sessionId, {
+    const updated = await this.updateSession(sessionId, {
       status: 'auto',
       humanOperator: null
     });
+
+    // 填充机器人信息
+    await this.enrichSessionWithRobotInfo(updated);
+    return updated;
   }
 
   /**

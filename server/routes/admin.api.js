@@ -377,6 +377,33 @@ const adminApiRoutes = async function (fastify, options) {
   });
 
   /**
+   * 获取单个会话详情
+   */
+  fastify.get('/sessions/:sessionId', async (request, reply) => {
+    const { sessionId } = request.params;
+
+    try {
+      const session = await sessionService.getSession(sessionId);
+      if (!session) {
+        return reply.status(404).send({
+          success: false,
+          error: '会话不存在'
+        });
+      }
+
+      // 填充机器人信息
+      await sessionService.enrichSessionWithRobotInfo(session);
+
+      return { success: true, data: session };
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  /**
    * 切换回自动模式
    */
   fastify.post('/sessions/:sessionId/auto', async (request, reply) => {

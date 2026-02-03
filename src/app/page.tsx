@@ -349,10 +349,22 @@ export default function AdminDashboard() {
   };
 
   // 查看会话详情
-  const handleViewSessionDetail = (session: Session) => {
+  const handleViewSessionDetail = async (session: Session) => {
     setSelectedSession(session);
     setShowSessionDetail(true);
     loadSessionMessages(session.sessionId);
+    // 重新获取最新的会话信息，确保机器人名称和状态正确
+    try {
+      const res = await fetch(`/api/admin/sessions/${session.sessionId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data) {
+          setSelectedSession(data.data);
+        }
+      }
+    } catch (error) {
+      console.error('获取会话信息失败:', error);
+    }
   };
 
   // 搜索和筛选会话
@@ -4953,7 +4965,14 @@ ${callbacks.robotStatus}
                             });
                             if (res.ok) {
                               alert('✅ 已切换回自动模式');
-                              setShowSessionDetail(false);
+                              // 重新加载会话信息
+                              const sessionRes = await fetch(`/api/admin/sessions/${selectedSession.sessionId}`);
+                              if (sessionRes.ok) {
+                                const data = await sessionRes.json();
+                                if (data.success && data.data) {
+                                  setSelectedSession(data.data);
+                                }
+                              }
                               // 重新加载会话列表
                               const sessionsRes = await fetch('/api/admin/sessions/active?limit=20');
                               if (sessionsRes.ok) {
