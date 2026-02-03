@@ -444,13 +444,31 @@ export default function AdminDashboard() {
     return null;
   };
 
+  // 监听 selectedSession 的变化
+  useEffect(() => {
+    console.log('[状态变化] selectedSession 已更新:', selectedSession);
+    if (selectedSession) {
+      console.log('[状态变化] 会话详情已加载，sessionId:', selectedSession.sessionId);
+    }
+  }, [selectedSession]);
+
   // 查看会话详情
   const handleViewSessionDetail = async (session: Session) => {
     console.log('[会话详情] ========== 开始查看会话详情 ==========');
     console.log('[会话详情] 选中的会话:', session);
+    console.log('[会话详情] sessionId:', session.sessionId);
+
     setSelectedSession(session);
+    console.log('[会话详情] 已设置 selectedSession');
+
     setShowSessionDetail(true);
     console.log('[会话详情] 弹窗状态已设置为显示');
+
+    // 验证状态是否已设置
+    setTimeout(() => {
+      console.log('[会话详情] 验证 - selectedSession 是否已设置:', !!selectedSession);
+      console.log('[会话详情] 验证 - showSessionDetail:', showSessionDetail);
+    }, 100);
 
     // 清空旧消息
     setSessionMessages([]);
@@ -1648,7 +1666,11 @@ ${callbacks.robotStatus}
                   <div
                     key={session.sessionId}
                     className="flex items-start justify-between p-4 bg-tech-gradient dark:bg-tech-gradient rounded-xl hover:shadow-glow transition-shadow cursor-pointer border border-primary/20 hover:border-primary/40"
-                    onClick={() => handleViewSessionDetail(session)}
+                    onClick={() => {
+                      console.log('[点击测试] 会话卡片被点击');
+                      alert('点击了会话！sessionId: ' + session.sessionId);
+                      handleViewSessionDetail(session);
+                    }}
                   >
                     <div className="flex items-start gap-3 flex-1 min-w-0">
                       <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg flex-shrink-0 border-2 border-primary/30">
@@ -2641,9 +2663,12 @@ ${callbacks.robotStatus}
 
       {/* 会话详情弹窗 */}
       <Dialog open={showSessionDetail} onOpenChange={(open) => {
+        console.log('[Dialog] onOpenChange 触发:', open);
         setShowSessionDetail(open);
+
         // 关闭时清空消息和选中会话
         if (!open) {
+          console.log('[Dialog] 关闭弹窗，清空状态');
           setSessionMessages([]);
           setSelectedSession(null);
         }
@@ -2659,7 +2684,13 @@ ${callbacks.robotStatus}
             </DialogDescription>
           </DialogHeader>
 
-          {selectedSession && (
+          {!selectedSession ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>未选中会话</p>
+              <p className="text-xs mt-2 text-gray-500">selectedSession: {String(selectedSession)}</p>
+            </div>
+          ) : (
             <div className="space-y-6">
               {/* 会话基本信息卡片 */}
               <Card>
