@@ -4348,7 +4348,7 @@ ${callbacks.robotStatus}
     const [messageLimit, setMessageLimit] = useState<number>(50);
     const lastFetchTime = useRef<number>(0);
 
-    const loadMessages = useCallback(async (limit?: number) => {
+    const loadMessages = async (limit?: number) => {
       // 防抖：1秒内不重复加载
       const now = Date.now();
       if (now - lastFetchTime.current < 1000) {
@@ -4381,19 +4381,14 @@ ${callbacks.robotStatus}
       } finally {
         setIsLoading(false);
       }
-    }, [filterType, selectedRobot, messageLimit]);
+    };
 
     // 初始化加载（只执行一次）
     useEffect(() => {
       console.log('RealtimeIO: 初始化加载');
       loadMessages();
-    }, []); // 移除依赖，只执行一次
-
-    // 监听筛选条件变化，手动触发加载
-    useEffect(() => {
-      console.log(`RealtimeIO: 筛选条件变化，手动触发加载 filter=${filterType}, robot=${selectedRobot}`);
-      loadMessages();
-    }, [filterType, selectedRobot, messageLimit]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
       <div className="space-y-6">
