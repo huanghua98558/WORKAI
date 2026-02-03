@@ -501,8 +501,8 @@ class SessionService {
         console.warn(`[会话服务] 会话 ${session.sessionId} 从 session_messages 未找到机器人信息`);
       }
 
-      // 如果 sessionMessages 中没有机器人信息，或者 robotName 为空，尝试从 robots 表查询
-      if (!session.robotName && session.robotId) {
+      // 无论 sessionMessages 中是否有机器人信息，都尝试从 robots 表查询 company 字段
+      if (session.robotId) {
         console.log(`[会话服务] 会话 ${session.sessionId} 尝试从 robots 表查询 robotId=${session.robotId}`);
 
         const robot = await db.execute(sql`
@@ -514,10 +514,17 @@ class SessionService {
 
         if (robot.rows && robot.rows.length > 0) {
           const robotRow = robot.rows[0];
-          session.robotName = robotRow.nickname || robotRow.name || robotRow.robotId || '未知机器人';
-          session.robotNickname = robotRow.nickname || null;
+          // 如果 sessionMessages 中没有 robotName，才从 robots 表设置
+          if (!session.robotName) {
+            session.robotName = robotRow.nickname || robotRow.name || robotRow.robotId || '未知机器人';
+          }
+          // 如果 sessionMessages 中没有 robotNickname，才从 robots 表设置
+          if (!session.robotNickname) {
+            session.robotNickname = robotRow.nickname || null;
+          }
+          // 始终设置 company 字段
           session.company = robotRow.company || null;
-          console.log(`[会话服务] 会话 ${session.sessionId} 从 robots 表获取机器人信息: name=${robotRow.name}, nickname=${robotRow.nickname}, company=${robotRow.company}, robotName=${session.robotName}, robotNickname=${session.robotNickname}`);
+          console.log(`[会话服务] 会话 ${session.sessionId} 从 robots 表获取机器人信息: name=${robotRow.name}, nickname=${robotRow.nickname}, company=${robotRow.company}, robotName=${session.robotName}, robotNickname=${session.robotNickname}, company=${session.company}`);
         } else {
           console.warn(`[会话服务] 会话 ${session.sessionId} 在 robots 表中未找到 robotId=${session.robotId}`);
         }
