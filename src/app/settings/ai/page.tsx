@@ -17,7 +17,7 @@ import {
   Brain, 
   MessageSquare, 
   Target, 
-  Memory, 
+  MemoryStick, 
   User, 
   History,
   Database,
@@ -224,7 +224,7 @@ export default function AISettingsPage() {
             AI 模型
           </TabsTrigger>
           <TabsTrigger value="memory">
-            <Memory className="h-4 w-4 mr-2" />
+            <MemoryStick className="h-4 w-4 mr-2" />
             长期记忆
           </TabsTrigger>
         </TabsList>
@@ -300,7 +300,7 @@ export default function AISettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Memory className="h-5 w-5 text-indigo-500" />
+                <MemoryStick className="h-5 w-5 text-indigo-500" />
                 长期记忆配置
               </CardTitle>
               <CardDescription>
