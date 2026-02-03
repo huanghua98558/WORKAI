@@ -44,9 +44,10 @@ export async function GET(
 
     const data = await response.json();
     
-    console.log('[API Proxy] GET', path);
-    console.log('[API Proxy] Response status:', response.status);
-    console.log('[API Proxy] Response data:', JSON.stringify(data, null, 2).substring(0, 500));
+    // 只在非200状态码时输出日志，避免频繁输出
+    if (response.status !== 200 && response.status !== 204) {
+      console.warn('[API Proxy] GET', path, '- Status:', response.status);
+    }
     
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
