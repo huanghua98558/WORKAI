@@ -34,6 +34,7 @@ const operationLogsApiRoutes = require('./routes/operation-logs.api');
 const alertConfigApiRoutes = require('./routes/alert-config.api');
 const alertEnhancedApiRoutes = require('./routes/alert-enhanced.api');
 const monitoringApiRoutes = require('./routes/monitoring.api');
+const promptApiRoutes = require('./routes/prompt.api');
 
 const redisClient = require('./lib/redis');
 
@@ -91,6 +92,7 @@ fastify.register(operationLogsApiRoutes, { prefix: '/api' });
 fastify.register(alertConfigApiRoutes, { prefix: '/api' });
 fastify.register(alertEnhancedApiRoutes, { prefix: '/api' });
 fastify.register(monitoringApiRoutes, { prefix: '/api' });
+fastify.register(promptApiRoutes, { prefix: '/api' });
 
 // 健康检查
 fastify.get('/health', async (request, reply) => {

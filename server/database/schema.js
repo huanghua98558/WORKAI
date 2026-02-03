@@ -1,4 +1,4 @@
-const { pgTable, text, varchar, timestamp, boolean, integer, jsonb, index } = require('drizzle-orm/pg-core');
+const { pgTable, text, varchar, timestamp, boolean, integer, jsonb, index, numeric } = require('drizzle-orm/pg-core');
 const { sql } = require('drizzle-orm');
 const { z } = require('zod');
 
@@ -404,6 +404,72 @@ exports.aiIoLogs = pgTable(
 
 // 兼容性导出：确保下划线式和驼峰式命名都可用
 exports.ai_io_logs = exports.aiIoLogs;
+
+// ============================================
+// Prompt 训练相关表
+// ============================================
+
+// Prompt 模板表
+exports.prompt_templates = pgTable(
+  "prompt_templates",
+  {
+    id: varchar("id", { length: 255 }).primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(),
+    type: varchar("type", { length: 50 }).notNull(), // intentRecognition, serviceReply, report
+    description: text("description"),
+    systemPrompt: text("system_prompt").notNull(),
+    variables: jsonb("variables").default("[]"), // 支持的变量列表
+    version: varchar("version", { length: 50 }).default("1.0"),
+    isActive: boolean("is_active").default(true),
+    createdBy: varchar("created_by", { length: 255 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    typeIdx: index("prompt_templates_type_idx").on(table.type),
+    isActiveIdx: index("prompt_templates_is_active_idx").on(table.isActive),
+    createdAtIdx: index("prompt_templates_created_at_idx").on(table.createdAt),
+  })
+);
+
+// Prompt 模板表（驼峰式导出）
+exports.promptTemplates = exports.prompt_templates;
+
+// Prompt 测试记录表
+exports.prompt_tests = pgTable(
+  "prompt_tests",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    templateId: varchar("template_id", { length: 255 }).references(() => prompt_templates.id, { onDelete: "set null" }),
+    testName: varchar("test_name", { length: 255 }),
+    inputMessage: text("input_message").notNull(),
+    variables: jsonb("variables").default("{}"),
+    aiOutput: text("ai_output"),
+    expectedOutput: text("expected_output"),
+    actualIntent: varchar("actual_intent", { length: 50 }), // 实际识别的意图
+    expectedIntent: varchar("expected_intent", { length: 50 }), // 期望识别的意图
+    isCorrect: boolean("is_correct"),
+    rating: integer("rating"), // 用户评分 1-5
+    feedback: text("feedback"),
+    modelId: varchar("model_id", { length: 255 }),
+    temperature: numeric("temperature", { precision: 5, scale: 2 }),
+    requestDuration: integer("request_duration"),
+    status: varchar("status", { length: 50 }).default("success"), // success, error
+    errorMessage: text("error_message"),
+    createdBy: varchar("created_by", { length: 255 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    templateIdIdx: index("prompt_tests_template_id_idx").on(table.templateId),
+    createdAtIdx: index("prompt_tests_created_at_idx").on(table.createdAt),
+    statusIdx: index("prompt_tests_status_idx").on(table.status),
+    isCorrectIdx: index("prompt_tests_is_correct_idx").on(table.isCorrect),
+  })
+);
+
+// Prompt 测试记录表（驼峰式导出）
+exports.promptTests = exports.prompt_tests;
+
 
 // 运营日志表
 exports.operationLogs = pgTable(
@@ -1019,3 +1085,69 @@ exports.ai_io_logs = pgTable(
 
 // 兼容性导出：确保下划线式和驼峰式命名都可用
 exports.ai_io_logs = exports.aiIoLogs;
+
+// ============================================
+// Prompt 训练相关表
+// ============================================
+
+// Prompt 模板表
+exports.prompt_templates = pgTable(
+  "prompt_templates",
+  {
+    id: varchar("id", { length: 255 }).primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(),
+    type: varchar("type", { length: 50 }).notNull(), // intentRecognition, serviceReply, report
+    description: text("description"),
+    systemPrompt: text("system_prompt").notNull(),
+    variables: jsonb("variables").default("[]"), // 支持的变量列表
+    version: varchar("version", { length: 50 }).default("1.0"),
+    isActive: boolean("is_active").default(true),
+    createdBy: varchar("created_by", { length: 255 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    typeIdx: index("prompt_templates_type_idx").on(table.type),
+    isActiveIdx: index("prompt_templates_is_active_idx").on(table.isActive),
+    createdAtIdx: index("prompt_templates_created_at_idx").on(table.createdAt),
+  })
+);
+
+// Prompt 模板表（驼峰式导出）
+exports.promptTemplates = exports.prompt_templates;
+
+// Prompt 测试记录表
+exports.prompt_tests = pgTable(
+  "prompt_tests",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    templateId: varchar("template_id", { length: 255 }).references(() => prompt_templates.id, { onDelete: "set null" }),
+    testName: varchar("test_name", { length: 255 }),
+    inputMessage: text("input_message").notNull(),
+    variables: jsonb("variables").default("{}"),
+    aiOutput: text("ai_output"),
+    expectedOutput: text("expected_output"),
+    actualIntent: varchar("actual_intent", { length: 50 }), // 实际识别的意图
+    expectedIntent: varchar("expected_intent", { length: 50 }), // 期望识别的意图
+    isCorrect: boolean("is_correct"),
+    rating: integer("rating"), // 用户评分 1-5
+    feedback: text("feedback"),
+    modelId: varchar("model_id", { length: 255 }),
+    temperature: numeric("temperature", { precision: 5, scale: 2 }),
+    requestDuration: integer("request_duration"),
+    status: varchar("status", { length: 50 }).default("success"), // success, error
+    errorMessage: text("error_message"),
+    createdBy: varchar("created_by", { length: 255 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    templateIdIdx: index("prompt_tests_template_id_idx").on(table.templateId),
+    createdAtIdx: index("prompt_tests_created_at_idx").on(table.createdAt),
+    statusIdx: index("prompt_tests_status_idx").on(table.status),
+    isCorrectIdx: index("prompt_tests_is_correct_idx").on(table.isCorrect),
+  })
+);
+
+// Prompt 测试记录表（驼峰式导出）
+exports.promptTests = exports.prompt_tests;
+
