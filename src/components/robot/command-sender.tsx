@@ -229,7 +229,17 @@ export default function CommandSender() {
   const getDefaultPayload = (type: string) => {
     switch (type) {
       case 'send_message':
-        return JSON.stringify({ to: '', content: '', msgType: 'text' }, null, 2);
+        return JSON.stringify({
+          socketType: 2,
+          list: [
+            {
+              type: 203,
+              titleList: ["目标群组或好友名称"],
+              receivedContent: "要发送的消息内容",
+              atList: [] // @的人，如: ["张三", "李四"]
+            }
+          ]
+        }, null, 2);
       case 'forward_message':
         return JSON.stringify({ msgId: '', to: [] }, null, 2);
       case 'create_room':
