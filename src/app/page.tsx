@@ -1437,42 +1437,51 @@ ${callbacks.robotStatus}
   // 仪表盘组件
   const OverviewTab = () => (
     <div className="space-y-6">
-      {/* 系统状态横幅 */}
+      {/* 科幻风格系统状态横幅 */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="bg-gradient-to-r from-green-500 to-emerald-600 border-none text-white">
-          <CardHeader className="pb-3">
+        <Card className="bg-gradient-to-r from-green-500/90 to-emerald-600/90 border-none text-white relative overflow-hidden">
+          <div className="absolute inset-0 bg-tech-grid opacity-10"></div>
+          <CardHeader className="pb-3 relative z-10">
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5" />
+              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                <CheckCircle className="h-5 w-5" />
+              </div>
               <CardTitle className="text-base">系统状态</CardTitle>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="relative z-10">
             <div className="text-2xl font-bold">正常运行</div>
             <p className="text-sm text-white/80 mt-1">所有服务运行正常</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-r from-blue-500 to-indigo-600 border-none text-white">
-          <CardHeader className="pb-3">
+        <Card className="bg-gradient-to-r from-blue-500/90 to-indigo-600/90 border-none text-white relative overflow-hidden">
+          <div className="absolute inset-0 bg-tech-grid opacity-10"></div>
+          <CardHeader className="pb-3 relative z-10">
             <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
+              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                <Clock className="h-5 w-5" />
+              </div>
               <CardTitle className="text-base">运行时间</CardTitle>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="relative z-10">
             <div className="text-2xl font-bold">{serverUptime}</div>
             <p className="text-sm text-white/80 mt-1">系统持续运行中</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-r from-purple-500 to-pink-600 border-none text-white">
-          <CardHeader className="pb-3">
+        <Card className="bg-gradient-to-r from-purple-500/90 to-pink-600/90 border-none text-white relative overflow-hidden">
+          <div className="absolute inset-0 bg-tech-grid opacity-10"></div>
+          <CardHeader className="pb-3 relative z-10">
             <div className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
+              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                <MessageSquare className="h-5 w-5" />
+              </div>
               <CardTitle className="text-base">今日消息</CardTitle>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="relative z-10">
             <div className="text-2xl font-bold">{monitorData?.system?.callback_received || 0}</div>
             <p className="text-sm text-white/80 mt-1">今日累计接收消息</p>
           </CardContent>
@@ -1504,61 +1513,61 @@ ${callbacks.robotStatus}
         </div>
       </div>
 
-      {/* 核心指标卡片 */}
+      {/* 科幻风格核心指标卡片 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">回调消息</CardTitle>
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-              <MessageCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <div className="p-2 bg-blue-500/10 rounded-lg animate-pulse-glow border border-blue-500/30">
+              <MessageCircle className="h-4 w-4 text-blue-500" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{monitorData?.system?.callback_received || 0}</div>
+            <div className="text-2xl font-bold font-mono">{monitorData?.system?.callback_received || 0}</div>
             <p className="text-xs text-muted-foreground mt-1">
               今日累计
               {monitorData?.system?.callback_received && monitorData?.system?.callback_received > 0 && (
-                <span className="ml-1">+{monitorData?.system?.callback_received}</span>
+                <span className="ml-1 text-primary">+{monitorData?.system?.callback_received}</span>
               )}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">处理成功率</CardTitle>
-            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-              <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <div className="p-2 bg-green-500/10 rounded-lg border border-green-500/30">
+              <TrendingUp className="h-4 w-4 text-green-500" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{monitorData?.summary.successRate || '0%'}</div>
+            <div className="text-2xl font-bold font-mono">{monitorData?.summary.successRate || '0%'}</div>
             <p className="text-xs text-muted-foreground mt-1">回调处理成功率</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">AI 成功率</CardTitle>
-            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-              <Bot className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            <div className="p-2 bg-purple-500/10 rounded-lg animate-pulse-glow border border-purple-500/30">
+              <Bot className="h-4 w-4 text-purple-500" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{monitorData?.summary.aiSuccessRate || '0%'}</div>
+            <div className="text-2xl font-bold font-mono">{monitorData?.summary.aiSuccessRate || '0%'}</div>
             <p className="text-xs text-muted-foreground mt-1">AI 响应成功率</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">告警数量</CardTitle>
-            <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-              <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+            <div className="p-2 bg-orange-500/10 rounded-lg animate-pulse-glow border border-orange-500/30">
+              <AlertTriangle className="h-4 w-4 text-orange-500" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{alertData?.total || 0}</div>
+            <div className="text-2xl font-bold font-mono">{alertData?.total || 0}</div>
             <p className="text-xs text-muted-foreground mt-1">近 7 天告警</p>
           </CardContent>
         </Card>
@@ -1567,21 +1576,23 @@ ${callbacks.robotStatus}
       {/* 会话列表和快速操作 */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* 最近活跃会话 - 占2列 */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
+        <Card className="lg:col-span-2 sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
+          <CardHeader className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-b border-primary/20">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="flex items-center gap-2">
-                <CardTitle className="text-lg flex items-center gap-2">
+                <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/30">
                   <Users className="h-5 w-5 text-blue-500" />
+                </div>
+                <CardTitle className="text-lg flex items-center gap-2">
                   最近活跃会话
                 </CardTitle>
-                <Badge variant="secondary">{sessions.length} 个</Badge>
-                <Badge variant={showSessionDetail ? "secondary" : "outline"} className="gap-1">
-                  <RefreshCw className={`h-3 w-3 ${!showSessionDetail && 'animate-spin'}`} />
-                  {showSessionDetail ? '已暂停' : '刷新中'}
+                <Badge variant="outline" className="border-primary/30">{sessions.length} 个</Badge>
+                <Badge variant={showSessionDetail ? "outline" : "outline"} className="gap-1 border-primary/30">
+                  <RefreshCw className={`h-3 w-3 ${!showSessionDetail && 'animate-spin'} text-primary`} />
+                  <span className="text-primary">{showSessionDetail ? '已暂停' : '刷新中'}</span>
                 </Badge>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setActiveTab('sessions')}>
+              <Button variant="outline" size="sm" onClick={() => setActiveTab('sessions')} className="border-primary/30 hover:border-primary/50">
                 查看全部 <ExternalLink className="h-3 w-3 ml-1" />
               </Button>
             </div>
@@ -1590,7 +1601,9 @@ ${callbacks.robotStatus}
             <div className="space-y-2">
               {sessions.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
-                  <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <div className="p-4 bg-primary/5 rounded-full inline-block mb-3 border border-primary/10 animate-pulse-glow">
+                    <Users className="h-12 w-12 text-primary/50" />
+                  </div>
                   <p>暂无活跃会话</p>
                 </div>
               ) : sessions.slice(0, 5).map((session) => {
@@ -1601,24 +1614,24 @@ ${callbacks.robotStatus}
                 return (
                   <div
                     key={session.sessionId}
-                    className="flex items-start justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl hover:shadow-md transition-shadow cursor-pointer border border-transparent hover:border-gray-200 dark:hover:border-gray-700"
+                    className="flex items-start justify-between p-4 bg-tech-gradient dark:bg-tech-gradient rounded-xl hover:shadow-glow transition-shadow cursor-pointer border border-primary/20 hover:border-primary/40 animate-slide-left"
                     onClick={() => handleViewSessionDetail(session)}
                   >
                     <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg flex-shrink-0">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg flex-shrink-0 border-2 border-primary/30 animate-pulse-glow">
                         {userName?.charAt(0) || 'U'}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <p className="text-sm font-semibold truncate">{userName || '未知用户'}</p>
-                          <span className="text-xs text-muted-foreground flex items-center gap-1 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 rounded">
+                          <span className="text-xs text-primary/70 flex items-center gap-1 px-2 py-0.5 bg-primary/5 rounded border border-primary/10">
                             <Bot className="h-3 w-3" />
                             {robotName}
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground truncate">{groupName || '未知群组'}</p>
                         {session.company && (
-                          <p className="text-xs text-blue-600 dark:text-blue-400 truncate mt-1">
+                          <p className="text-xs text-blue-500 truncate mt-1 font-medium">
                             <Building2 className="h-3 w-3 inline mr-1" />
                             {session.company}
                             {session.robotNickname && ` (${session.robotNickname})`}
@@ -1636,8 +1649,8 @@ ${callbacks.robotStatus}
                     </div>
                     <div className="flex flex-col items-end gap-2 ml-3 flex-shrink-0">
                       <Badge
-                        variant={session.status === 'auto' ? 'default' : 'secondary'}
-                        className="gap-1"
+                        variant={session.status === 'auto' ? 'outline' : 'outline'}
+                        className={`gap-1 ${session.status === 'auto' ? 'border-blue-500/50 text-blue-500' : 'border-orange-500/50 text-orange-500'}`}
                       >
                         {session.status === 'auto' ? (
                           <>
@@ -1665,21 +1678,23 @@ ${callbacks.robotStatus}
         {/* 快速操作和系统信息 - 占1列 */}
         <div className="space-y-6">
           {/* 机器人状态 */}
-          <Card>
-            <CardHeader>
+          <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
+            <CardHeader className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-b border-primary/20">
               <CardTitle className="text-base flex items-center gap-2">
-                <Bot className="h-4 w-4 text-blue-500" />
+                <div className="p-1.5 bg-blue-500/10 rounded-lg animate-pulse-glow border border-blue-500/30">
+                  <Bot className="h-4 w-4 text-blue-500" />
+                </div>
                 机器人状态
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-green-500/5 border border-green-500/20 rounded-lg">
                 <span className="text-sm text-muted-foreground">在线机器人</span>
-                <Badge variant="default" className="bg-green-500">
+                <Badge variant="outline" className="border-green-500/50 text-green-500">
                   {onlineRobots.length} / {robots.length}
                 </Badge>
               </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-primary/5 border border-primary/10 rounded-lg">
                 <span className="text-sm text-muted-foreground">总机器人数</span>
                 <span className="font-medium">{robots.length}</span>
               </div>
@@ -1727,7 +1742,9 @@ ${callbacks.robotStatus}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h3 className="text-2xl font-bold flex items-center gap-2">
-              <Users className="h-6 w-6 text-green-500" />
+              <div className="p-2 bg-green-500/10 rounded-lg border border-green-500/30">
+                <Users className="h-6 w-6 text-green-500" />
+              </div>
               会话管理
             </h3>
             <p className="text-muted-foreground mt-1">
@@ -1755,76 +1772,76 @@ ${callbacks.robotStatus}
           </div>
         </div>
 
-        {/* 统计卡片 */}
+        {/* 科幻风格统计卡片 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">总会话数</CardTitle>
-              <Users className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+          <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-slate-500/10 to-slate-600/10 border-b border-primary/20">
+              <CardTitle className="text-sm font-medium text-foreground">总会话数</CardTitle>
+              <Users className="h-4 w-4 text-primary animate-pulse-glow" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.total}</div>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              <div className="text-2xl font-bold text-primary">{stats.total}</div>
+              <p className="text-xs text-muted-foreground mt-1">
                 活跃会话
               </p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">自动模式</CardTitle>
-              <Bot className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-b border-primary/20">
+              <CardTitle className="text-sm font-medium text-foreground">自动模式</CardTitle>
+              <Bot className="h-4 w-4 text-blue-500 animate-pulse-glow" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.auto}</div>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              <div className="text-2xl font-bold text-blue-500">{stats.auto}</div>
+              <p className="text-xs text-muted-foreground mt-1">
                 AI 自动回复
               </p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">人工模式</CardTitle>
-              <UserCheck className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-orange-500/10 to-red-500/10 border-b border-primary/20">
+              <CardTitle className="text-sm font-medium text-foreground">人工模式</CardTitle>
+              <UserCheck className="h-4 w-4 text-orange-500 animate-pulse-glow" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.human}</div>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              <div className="text-2xl font-bold text-orange-500">{stats.human}</div>
+              <p className="text-xs text-muted-foreground mt-1">
                 人工接管
               </p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">总消息数</CardTitle>
-              <MessageSquare className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+          <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-b border-primary/20">
+              <CardTitle className="text-sm font-medium text-foreground">总消息数</CardTitle>
+              <MessageSquare className="h-4 w-4 text-purple-500 animate-pulse-glow" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.totalMessages}</div>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              <div className="text-2xl font-bold text-purple-500">{stats.totalMessages}</div>
+              <p className="text-xs text-muted-foreground mt-1">
                 消息总量
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* 最近活跃会话 */}
+        {/* 科幻风格最近活跃会话 */}
         {sessions.length > 0 && (
-          <Card className="border-2 border-green-200 dark:border-green-900">
-            <CardHeader>
+          <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
+            <CardHeader className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-b border-primary/20">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-green-500" />
+                <CardTitle className="text-base flex items-center gap-2 text-foreground">
+                  <TrendingUp className="h-4 w-4 text-green-500 animate-pulse-glow-cyan" />
                   最近活跃会话
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  <Badge variant={showSessionDetail ? "secondary" : "outline"} className="gap-1">
+                  <Badge variant="outline" className="gap-1 border-primary/30">
                     <RefreshCw className={`h-3 w-3 ${!showSessionDetail && 'animate-spin'}`} />
                     {showSessionDetail ? '已暂停' : '刷新中'}
                   </Badge>
-                  <Badge variant="outline" className="gap-1">
+                  <Badge variant="outline" className="gap-1 border-primary/30">
                     {sessions.length} 个会话
                   </Badge>
                 </div>
@@ -1839,14 +1856,14 @@ ${callbacks.robotStatus}
                   return (
                     <div 
                       key={session.sessionId} 
-                      className="flex items-center justify-between p-4 border rounded-lg hover:shadow-md transition-all cursor-pointer bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950"
+                      className="flex items-center justify-between p-4 border border-primary/20 rounded-lg hover:border-primary/50 hover:shadow-lg transition-all duration-300 cursor-pointer bg-tech-gradient dark:bg-tech-gradient animate-slide-left"
                       onClick={() => {
                         setSelectedSession(session);
                         setShowSessionDetail(true);
                       }}
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0 animate-pulse-glow border-2 border-primary/30">
                           {userName?.charAt(0) || 'U'}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1875,8 +1892,8 @@ ${callbacks.robotStatus}
                       </div>
                       <div className="flex flex-col items-end gap-1 ml-3 flex-shrink-0">
                         <Badge 
-                          variant={session.status === 'auto' ? 'default' : 'secondary'}
-                          className="gap-1 text-xs"
+                          variant={session.status === 'auto' ? 'outline' : 'outline'}
+                          className={`gap-1 text-xs border ${session.status === 'auto' ? 'border-blue-500/50 text-blue-500' : 'border-orange-500/50 text-orange-500'}`}
                         >
                           {session.status === 'auto' ? (
                             <Bot className="h-3 w-3" />
