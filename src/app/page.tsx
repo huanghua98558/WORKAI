@@ -1719,6 +1719,13 @@ ${callbacks.robotStatus}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{userName || '未知用户'}</p>
                           <p className="text-xs text-muted-foreground truncate">{groupName || '未知群组'}</p>
+                          {session.robotName && (
+                            <p className="text-xs text-blue-600 dark:text-blue-400 truncate">
+                              <Bot className="h-3 w-3 inline mr-1" />
+                              {session.robotName}
+                              {session.robotNickname && ` (${session.robotNickname})`}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1 ml-3 flex-shrink-0">
@@ -1884,6 +1891,13 @@ ${callbacks.robotStatus}
                             <User className="h-3 w-3" />
                             人工回复: {session.humanReplyCount}
                           </span>
+                          {session.robotName && (
+                            <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                              <Bot className="h-3 w-3" />
+                              机器人: {session.robotName}
+                              {session.robotNickname && ` (${session.robotNickname})`}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
