@@ -181,6 +181,28 @@ const start = async () => {
 
 start();
 
+// 全局错误处理 - 防止未捕获的异常导致服务崩溃
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', {
+    message: error.message,
+    stack: error.stack,
+    errorName: error.name,
+    errorCode: error.code,
+    timestamp: new Date().toISOString()
+  });
+  // 不退出进程，记录日志后继续运行
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection:', {
+    reason: reason instanceof Error ? reason.message : String(reason),
+    stack: reason instanceof Error ? reason.stack : undefined,
+    promise: String(promise),
+    timestamp: new Date().toISOString()
+  });
+  // 不退出进程，记录日志后继续运行
+});
+
 // 优雅关闭
 process.on('SIGTERM', async () => {
   await fastify.close();

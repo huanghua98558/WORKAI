@@ -201,14 +201,15 @@ const worktoolCallbackRoutes = async function (fastify, options) {
       });
 
       // 立即返回响应，异步处理消息
-      setImmediate(async () => {
-        console.log('✅ setImmediate 回调被触发', {
-          requestId,
-          robotId,
-          timestamp: new Date().toISOString()
-        });
-        
+      // 使用 async/await 包装 setImmediate 以确保 Promise 正确处理
+      (async () => {
         try {
+          console.log('✅ 异步处理回调被触发', {
+            requestId,
+            robotId,
+            timestamp: new Date().toISOString()
+          });
+          
           console.log('📝 开始调用 handleMessageAsync', {
             requestId,
             robotId,
@@ -231,13 +232,31 @@ const worktoolCallbackRoutes = async function (fastify, options) {
             errorCode: error.code,
             errorType: error.constructor?.name
           });
-          await monitorService.recordSystemMetric('callback_error', 1, {
-            type: 'message',
-            robotId,
-            error: error.message,
-            errorStack: error.stack
-          });
+          
+          // 记录错误指标，但不抛出异常以防止进程崩溃
+          try {
+            await monitorService.recordSystemMetric('callback_error', 1, {
+              type: 'message',
+              robotId,
+              error: error.message,
+              errorStack: error.stack
+            });
+          } catch (monitorError) {
+            console.error('❌ 记录监控指标失败:', {
+              error: monitorError.message,
+              originalError: error.message
+            });
+          }
         }
+      })().catch(err => {
+        // 最外层捕获，防止任何未处理的 Promise rejection
+        console.error('❌ 未处理的异步错误（最外层捕获）:', {
+          requestId,
+          robotId,
+          error: err.message,
+          stack: err.stack,
+          timestamp: new Date().toISOString()
+        });
       });
 
       // 记录成功
@@ -514,7 +533,24 @@ const worktoolCallbackRoutes = async function (fastify, options) {
         errorType: error.constructor.name,
         timestamp: new Date().toISOString()
       });
-      throw error;
+      
+      // 记录错误指标，但不抛出异常以防止进程崩溃
+      try {
+        await monitorService.recordSystemMetric('callback_processing_error', 1, {
+          type: 'message',
+          robotId: robot?.robotId,
+          error: error.message,
+          errorStack: error.stack
+        });
+      } catch (monitorError) {
+        console.error('❌ 记录监控指标失败:', {
+          error: monitorError.message,
+          originalError: error.message
+        });
+      }
+      
+      // 不抛出异常，只记录日志
+      console.log('[回调处理] 错误已记录，继续处理其他消息');
     }
   }
 

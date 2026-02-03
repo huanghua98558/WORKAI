@@ -40,7 +40,10 @@ export async function POST(
       groupName: body.groupName
     });
 
-    // 转发请求到后端
+    // 转发请求到后端，增加超时设置
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
+
     const response = await fetch(backendUrl.toString(), {
       method: 'POST',
       headers: {
@@ -48,7 +51,10 @@ export async function POST(
         'x-signature': request.headers.get('x-signature') || '',
       },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     // 获取后端响应
     const data = await response.json();
@@ -68,9 +74,23 @@ export async function POST(
       },
     });
   } catch (error) {
+    // 处理不同类型的错误
+    let errorMessage = 'Internal server error';
+    let statusCode = 500;
+
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        errorMessage = 'Request timeout';
+        statusCode = 504;
+      } else {
+        errorMessage = error.message;
+      }
+    }
+
     console.error('❌ 回调代理错误:', {
       path,
       robotId: searchParams.get('robotId'),
+      errorMessage,
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       timestamp: new Date().toISOString()
@@ -79,11 +99,11 @@ export async function POST(
     return NextResponse.json(
       {
         code: -1,
-        message: 'Internal server error',
+        message: errorMessage,
         data: null
       },
       {
-        status: 500,
+        status: statusCode,
         headers: {
           'Content-Type': 'application/json',
         },
