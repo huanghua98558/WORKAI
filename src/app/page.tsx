@@ -179,6 +179,10 @@ interface Session {
     userName?: string;
     groupName?: string;
   };
+  lastMessage?: string; // 最新消息内容
+  isFromUser?: boolean; // 最新消息是否来自用户
+  isFromBot?: boolean; // 最新消息是否来自机器人
+  isHuman?: boolean; // 最新消息是否人工回复
   status: 'auto' | 'human';
   lastActiveTime: string;
   messageCount: number;
@@ -1884,6 +1888,18 @@ ${callbacks.robotStatus}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{userName || '未知用户'}</p>
                           <p className="text-xs text-muted-foreground truncate">{groupName || '未知群组'}</p>
+                          {session.lastMessage && (
+                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 truncate">
+                              {session.isFromUser ? (
+                                <><User className="h-3 w-3 inline mr-1" />用户: </>
+                              ) : session.isHuman ? (
+                                <><UserCheck className="h-3 w-3 inline mr-1 text-orange-500" />人工: </>
+                              ) : (
+                                <><Bot className="h-3 w-3 inline mr-1 text-blue-500" />AI: </>
+                              )}
+                              {session.lastMessage}
+                            </p>
+                          )}
                           {session.company && (
                             <p className="text-xs text-blue-600 dark:text-blue-400 truncate">
                               <Building2 className="h-3 w-3 inline mr-1" />
@@ -2043,6 +2059,18 @@ ${callbacks.robotStatus}
                         <p className="text-xs text-muted-foreground mt-1 truncate">
                           {session.groupName}
                         </p>
+                        {session.lastMessage && (
+                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 truncate">
+                            {session.isFromUser ? (
+                              <><User className="h-3 w-3 inline mr-1" />用户: </>
+                            ) : session.isHuman ? (
+                              <><UserCheck className="h-3 w-3 inline mr-1 text-orange-500" />人工: </>
+                            ) : (
+                              <><Bot className="h-3 w-3 inline mr-1 text-blue-500" />AI: </>
+                            )}
+                            {session.lastMessage}
+                          </p>
+                        )}
                         <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
                           <span className="flex items-center gap-1">
                             <MessageSquare className="h-3 w-3" />

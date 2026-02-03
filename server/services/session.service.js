@@ -413,6 +413,10 @@ class SessionService {
           robot_id as "robotId",
           robot_name as "robotName",
           robot_nickname as "robotNickname",
+          content as "lastMessage",
+          is_from_user as "isFromUser",
+          is_from_bot as "isFromBot",
+          is_human as "isHuman",
           created_at as "lastActiveTime",
           COUNT(*) OVER (PARTITION BY session_id) as "messageCount",
           SUM(CASE WHEN is_from_user = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "userMessages",
@@ -436,6 +440,10 @@ class SessionService {
             robotId: row.robotId,
             robotName: row.robotName || '未知机器人',
             robotNickname: row.robotNickname || null,
+            lastMessage: row.lastMessage || null, // 最新消息内容
+            isFromUser: row.isFromUser || false, // 是否来自用户
+            isFromBot: row.isFromBot || false, // 是否来自机器人
+            isHuman: row.isHuman || false, // 是否人工回复
             lastActiveTime: row.lastActiveTime,
             messageCount: parseInt(row.messageCount),
             userMessages: parseInt(row.userMessages),

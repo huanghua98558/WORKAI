@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Activity, MessageSquare, Bot, AlertCircle, CheckCircle, Clock, RefreshCw } from 'lucide-react';
+import { Activity, MessageSquare, Bot, AlertCircle, CheckCircle, Clock, RefreshCw, User } from 'lucide-react';
 
 interface Execution {
   processing_id: string;
@@ -380,24 +380,35 @@ export default function MonitoringTab() {
                               机器人: {execution.robot_name}
                             </div>
                           )}
-                          {/* 尝试显示消息内容 */}
-                          {execution.steps && execution.steps.user_message && execution.steps.user_message.content && (
-                            <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 truncate">
-                              用户消息: {execution.steps.user_message.content}
-                            </div>
-                          )}
-                          {execution.steps && execution.steps.ai_response && execution.steps.ai_response.response && (
-                            <div className="text-xs text-green-600 dark:text-green-400 mt-1 truncate">
-                              AI回复: {execution.steps.ai_response.response}
-                            </div>
-                          )}
+                          {/* 消息内容预览 */}
+                          <div className="mt-2 space-y-1">
+                            {execution.steps && execution.steps.user_message && execution.steps.user_message.content && (
+                              <div className="flex items-start gap-2">
+                                <User className="h-3 w-3 text-blue-500 mt-0.5 flex-shrink-0" />
+                                <div className="text-xs text-blue-600 dark:text-blue-400 truncate flex-1">
+                                  {execution.steps.user_message.content}
+                                </div>
+                              </div>
+                            )}
+                            {execution.steps && execution.steps.ai_response && execution.steps.ai_response.response && (
+                              <div className="flex items-start gap-2">
+                                <Bot className="h-3 w-3 text-green-500 mt-0.5 flex-shrink-0" />
+                                <div className="text-xs text-green-600 dark:text-green-400 truncate flex-1">
+                                  {execution.steps.ai_response.response}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <div className="text-right">
                           <div className="text-sm font-medium">
                             {formatDuration(execution.processing_time || 0)}
                           </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {execution.start_time ? formatTime(execution.start_time) : ''}
+                          </div>
                           {execution.error_message && (
-                            <div className="text-xs text-red-500 mt-1">
+                            <div className="text-xs text-red-500 mt-1 truncate max-w-[150px]">
                               {execution.error_message.substring(0, 50)}...
                             </div>
                           )}
