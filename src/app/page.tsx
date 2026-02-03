@@ -1602,6 +1602,82 @@ ${callbacks.robotStatus}
           </Card>
         </div>
 
+        {/* 最近活跃会话 */}
+        {sessions.length > 0 && (
+          <Card className="border-2 border-green-200 dark:border-green-900">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-green-500" />
+                  最近活跃会话
+                </CardTitle>
+                <Badge variant="outline" className="gap-1">
+                  {sessions.length} 个会话
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {sessions.slice(0, 6).map((session) => {
+                  const userName = session.userName || session.userInfo?.userName;
+                  const groupName = session.groupName || session.userInfo?.groupName;
+                  
+                  return (
+                    <div 
+                      key={session.sessionId} 
+                      className="flex items-center justify-between p-4 border rounded-lg hover:shadow-md transition-all cursor-pointer bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950"
+                      onClick={() => {
+                        setSelectedSession(session);
+                        setShowSessionDetail(true);
+                      }}
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+                          {userName?.charAt(0) || 'U'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{userName || '未知用户'}</p>
+                          <p className="text-xs text-muted-foreground truncate">{groupName || '未知群组'}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 ml-3 flex-shrink-0">
+                        <Badge 
+                          variant={session.status === 'auto' ? 'default' : 'secondary'}
+                          className="gap-1 text-xs"
+                        >
+                          {session.status === 'auto' ? (
+                            <Bot className="h-3 w-3" />
+                          ) : (
+                            <Users className="h-3 w-3" />
+                          )}
+                          {session.status === 'auto' ? '自动' : '人工'}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {formatTime(session.lastActiveTime)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-4 flex justify-center">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    const sessionList = document.getElementById('full-session-list');
+                    if (sessionList) {
+                      sessionList.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }}
+                >
+                  查看完整会话列表 <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* 搜索和筛选 */}
         <Card>
           <CardContent className="pt-6">
@@ -1647,7 +1723,7 @@ ${callbacks.robotStatus}
         </Card>
 
         {/* 会话列表 */}
-        <Card>
+        <Card id="full-session-list">
           <CardHeader>
             <CardTitle className="text-base">
               会话列表 ({filteredSessions.length}/{sessions.length})
@@ -1827,6 +1903,7 @@ ${callbacks.robotStatus}
           <TabsList>
             <TabsTrigger value="monitor">系统监控</TabsTrigger>
             <TabsTrigger value="alerts">告警配置</TabsTrigger>
+            <TabsTrigger value="alert-enhanced">告警增强</TabsTrigger>
           </TabsList>
 
           {/* 系统监控 */}
@@ -1956,6 +2033,11 @@ ${callbacks.robotStatus}
           {/* 告警配置 */}
           <TabsContent value="alerts">
             <AlertConfigTab />
+          </TabsContent>
+
+          {/* 告警增强 */}
+          <TabsContent value="alert-enhanced">
+            <EnhancedAlertManagement />
           </TabsContent>
         </Tabs>
       </div>
@@ -4484,56 +4566,6 @@ ${callbacks.robotStatus}
           </CardContent>
         </Card>
       )}
-      
-      {/* 最近活跃会话 */}
-      {sessions.length > 0 && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                最近活跃会话
-              </CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => setActiveTab('sessions')}>
-                查看全部 <ExternalLink className="h-3 w-3 ml-1" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {sessions.slice(0, 5).map((session) => {
-                const userName = session.userName || session.userInfo?.userName;
-                const groupName = session.groupName || session.userInfo?.groupName;
-                
-                return (
-                  <div key={session.sessionId} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                        {userName?.charAt(0) || 'U'}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{userName || '未知用户'}</p>
-                        <p className="text-xs text-muted-foreground">{groupName || '未知群组'}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge 
-                        variant={session.status === 'auto' ? 'default' : 'secondary'}
-                        className="gap-1"
-                      >
-                        {session.status === 'auto' ? '自动' : '人工'}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {formatTime(session.lastActiveTime)}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 
@@ -4633,10 +4665,6 @@ ${callbacks.robotStatus}
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">系统设置</span>
             </TabsTrigger>
-            <TabsTrigger value="alert-enhanced" className="gap-2 py-2">
-              <Sparkles className="h-4 w-4" />
-              <span className="hidden sm:inline">告警增强</span>
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
@@ -4678,140 +4706,155 @@ ${callbacks.robotStatus}
           <TabsContent value="settings" className="space-y-6">
             <SettingsTab aiConfig={aiConfig} isLoadingAiConfig={isLoadingAiConfig} />
           </TabsContent>
-          <TabsContent value="alert-enhanced" className="space-y-6">
-            <EnhancedAlertManagement />
-          </TabsContent>
         </Tabs>
       </main>
 
       {/* 精美页脚 */}
-      <footer className="mt-auto border-t bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-        <div className="container mx-auto px-4 py-8">
-          <div className="grid gap-8 md:grid-cols-4">
+      <footer className="mt-auto border-t bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950">
+        <div className="container mx-auto px-4 py-12">
+          {/* 主要内容区 */}
+          <div className="grid gap-8 lg:gap-12 md:grid-cols-4">
             {/* 品牌信息 */}
-            <div className="md:col-span-2">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl">
-                  <div className="w-8 h-8 flex items-center justify-center">
-                    <span className="text-xl">🐟</span>
-                  </div>
+            <div className="md:col-span-2 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg shadow-blue-500/20">
+                  <Bot className="h-7 w-7 text-white" />
                 </div>
                 <div>
-                  <h4 className="text-lg font-bold text-gray-900 dark:text-white">小黄鱼视频号</h4>
-                  <p className="text-sm text-gray-500">专业号商</p>
+                  <h4 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    WorkTool AI
+                  </h4>
+                  <p className="text-sm text-muted-foreground">企业微信社群智能运营平台</p>
                 </div>
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                专注于视频号生态服务，为企业提供全方位的数字化解决方案。
-                助力企业快速搭建私域流量池，实现商业价值最大化。
+              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                专注于企业微信群智能化运营，提供意图识别、自动回复、告警监控等全方位解决方案。
+                助力企业高效管理社群，提升用户体验，实现数字化转型。
               </p>
-              <div className="flex gap-3">
-                <Badge variant="outline" className="gap-1">
-                  <CheckCircle className="h-3 w-3" />
-                  专业认证
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary" className="gap-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                  <Zap className="h-3 w-3" />
+                  高效智能
                 </Badge>
-                <Badge variant="outline" className="gap-1">
+                <Badge variant="secondary" className="gap-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                   <ShieldCheck className="h-3 w-3" />
                   安全可靠
                 </Badge>
-                <Badge variant="outline" className="gap-1">
-                  <Zap className="h-3 w-3" />
-                  高效服务
+                <Badge variant="secondary" className="gap-1 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                  <Activity className="h-3 w-3" />
+                  实时监控
                 </Badge>
               </div>
             </div>
 
-            {/* 快速链接 */}
+            {/* 功能导航 */}
             <div>
-              <h5 className="font-semibold mb-4 text-gray-900 dark:text-white">快速链接</h5>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <Button variant="ghost" className="h-auto p-0 text-left" onClick={() => setActiveTab('dashboard')}>
-                    仪表盘
-                  </Button>
-                </li>
-                <li>
-                  <Button variant="ghost" className="h-auto p-0 text-left" onClick={() => setActiveTab('callbacks')}>
-                    回调中心
-                  </Button>
-                </li>
-                <li>
-                  <Button variant="ghost" className="h-auto p-0 text-left" onClick={() => setActiveTab('sessions')}>
-                    会话管理
-                  </Button>
-                </li>
-                <li>
-                  <Button variant="ghost" className="h-auto p-0 text-left" onClick={() => setActiveTab('users')}>
-                    用户管理
-                  </Button>
-                </li>
-                <li>
-                  <Button variant="ghost" className="h-auto p-0 text-left text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200" onClick={() => setShowDebugDialog(true)}>
-                    <TestTube className="h-3 w-3 mr-1 inline" />
-                    调试功能
-                  </Button>
-                </li>
-              </ul>
+              <h5 className="font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+                <LayoutDashboard className="h-4 w-4 text-blue-500" />
+                功能导航
+              </h5>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="ghost" className="h-auto p-0 text-left justify-start text-sm" onClick={() => setActiveTab('dashboard')}>
+                  仪表盘
+                </Button>
+                <Button variant="ghost" className="h-auto p-0 text-left justify-start text-sm" onClick={() => setActiveTab('sessions')}>
+                  会话管理
+                </Button>
+                <Button variant="ghost" className="h-auto p-0 text-left justify-start text-sm" onClick={() => setActiveTab('robots')}>
+                  机器人管理
+                </Button>
+                <Button variant="ghost" className="h-auto p-0 text-left justify-start text-sm" onClick={() => setActiveTab('monitor')}>
+                  监控告警
+                </Button>
+                <Button variant="ghost" className="h-auto p-0 text-left justify-start text-sm" onClick={() => setActiveTab('realtime')}>
+                  实时IO
+                </Button>
+                <Button variant="ghost" className="h-auto p-0 text-left justify-start text-sm" onClick={() => setActiveTab('reports')}>
+                  报告中心
+                </Button>
+                <Button variant="ghost" className="h-auto p-0 text-left justify-start text-sm" onClick={() => setActiveTab('callbacks')}>
+                  回调中心
+                </Button>
+                <Button variant="ghost" className="h-auto p-0 text-left justify-start text-sm" onClick={() => setActiveTab('qa')}>
+                  问答库
+                </Button>
+              </div>
             </div>
 
-            {/* 联系方式 */}
-            <div>
-              <h5 className="font-semibold mb-3 text-gray-900 dark:text-white">联系我们</h5>
-              <div className="flex flex-row gap-3">
-                <Card className="flex-1 min-w-[120px] max-w-[140px] border border-blue-100 dark:border-blue-900/50 hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                        <MessageCircle className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">手机</div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">13337289759</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+            {/* 系统信息 */}
+            <div className="space-y-4">
+              <h5 className="font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+                <Server className="h-4 w-4 text-purple-500" />
+                系统信息
+              </h5>
+              
+              {/* 系统状态 */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">连接状态</span>
+                  <Badge variant={connectionStatus === 'connected' ? 'default' : 'destructive'} className="gap-1">
+                    {connectionStatus === 'connected' ? (
+                      <>
+                        <CheckCircle className="h-3 w-3" />
+                        运行中
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-3 w-3" />
+                        未连接
+                      </>
+                    )}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">在线机器人</span>
+                  <span className="font-medium">{onlineRobots.length} 个</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">活跃会话</span>
+                  <span className="font-medium">{sessions.length} 个</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">服务器运行时间</span>
+                  <span className="font-medium text-xs">{serverUptime}</span>
+                </div>
+              </div>
 
-                <Card className="flex-1 min-w-[120px] max-w-[140px] border border-green-100 dark:border-green-900/50 hover:border-green-300 dark:hover:border-green-700 transition-colors">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                        <MessageCircle className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">微信</div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">xhy12040523</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="flex-1 min-w-[120px] max-w-[140px] border border-purple-100 dark:border-purple-900/50 hover:border-purple-300 dark:hover:border-purple-700 transition-colors">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                        <Globe className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">QQ</div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">1823985558</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+              {/* 调试入口 */}
+              <div className="pt-3 border-t">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowDebugDialog(true)}
+                  className="w-full gap-2"
+                >
+                  <TestTube className="h-4 w-4" />
+                  调试功能
+                </Button>
               </div>
             </div>
           </div>
 
-          {/* 底部版权 */}
-          <div className="border-t mt-6 pt-4 flex flex-col md:flex-row justify-between items-center gap-3">
-            <p className="text-xs text-gray-500">
-              © 2026 小黄鱼视频号专业号商. All rights reserved.
-            </p>
-            <div className="flex items-center gap-4 text-sm text-gray-500">
-              <Button variant="ghost" className="h-auto p-0 text-xs">隐私政策</Button>
-              <Button variant="ghost" className="h-auto p-0 text-xs">服务条款</Button>
-              <Button variant="ghost" className="h-auto p-0 text-xs">帮助中心</Button>
+          {/* 底部版权栏 */}
+          <div className="mt-12 pt-6 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <p className="text-xs text-muted-foreground">
+                © 2026 WorkTool AI. 企业微信社群智能运营平台. All rights reserved.
+              </p>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <HardDrive className="h-3 w-3" />
+                  Powered by Next.js
+                </span>
+                <span className="flex items-center gap-1">
+                  <Cpu className="h-3 w-3" />
+                  Fastify Backend
+                </span>
+                <span className="flex items-center gap-1">
+                  <Database className="h-3 w-3" />
+                  PostgreSQL
+                </span>
+              </div>
             </div>
           </div>
         </div>
