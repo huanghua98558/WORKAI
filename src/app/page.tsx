@@ -295,6 +295,13 @@ export default function AdminDashboard() {
         fetch('/api/proxy/health') // 获取服务器运行时间
       ]);
 
+      // 检查连接状态（每次加载数据时都检查）
+      if (uptimeRes.ok) {
+        setConnectionStatus('connected');
+      } else {
+        setConnectionStatus('disconnected');
+      }
+
       if (callbacksRes.ok) {
         const data = await callbacksRes.json();
         setCallbacks(data.data);
@@ -331,7 +338,9 @@ export default function AdminDashboard() {
         }
       }
     } catch (error) {
-      // 加载数据失败
+      // 加载数据失败时，设置连接状态为未连接
+      setConnectionStatus('disconnected');
+      console.error('加载数据失败:', error);
     } finally {
       setIsLoading(false);
       setLastUpdateTime(new Date());
