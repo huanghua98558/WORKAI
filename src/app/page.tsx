@@ -4431,7 +4431,7 @@ ${callbacks.robotStatus}
             <Button
               variant="outline"
               size="sm"
-              onClick={loadMessages}
+              onClick={() => loadMessages()}
               disabled={isLoading}
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
