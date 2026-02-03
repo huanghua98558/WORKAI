@@ -4713,7 +4713,7 @@ ${callbacks.robotStatus}
       <footer className="mt-auto border-t bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950">
         <div className="container mx-auto px-4 py-12">
           {/* 主要内容区 */}
-          <div className="grid gap-8 lg:gap-12 md:grid-cols-4">
+          <div className="grid gap-8 lg:gap-12 md:grid-cols-3">
             {/* 品牌信息 */}
             <div className="md:col-span-2 space-y-4">
               <div className="flex items-center gap-3">
@@ -4727,7 +4727,7 @@ ${callbacks.robotStatus}
                   <p className="text-sm text-muted-foreground">企业微信社群智能运营平台</p>
                 </div>
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed max-w-lg">
                 专注于企业微信群智能化运营，提供意图识别、自动回复、告警监控等全方位解决方案。
                 助力企业高效管理社群，提升用户体验，实现数字化转型。
               </p>
@@ -4747,90 +4747,58 @@ ${callbacks.robotStatus}
               </div>
             </div>
 
-            {/* 功能导航 */}
-            <div>
-              <h5 className="font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-                <LayoutDashboard className="h-4 w-4 text-blue-500" />
-                功能导航
-              </h5>
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="ghost" className="h-auto p-0 text-left justify-start text-sm" onClick={() => setActiveTab('dashboard')}>
-                  仪表盘
-                </Button>
-                <Button variant="ghost" className="h-auto p-0 text-left justify-start text-sm" onClick={() => setActiveTab('sessions')}>
-                  会话管理
-                </Button>
-                <Button variant="ghost" className="h-auto p-0 text-left justify-start text-sm" onClick={() => setActiveTab('robots')}>
-                  机器人管理
-                </Button>
-                <Button variant="ghost" className="h-auto p-0 text-left justify-start text-sm" onClick={() => setActiveTab('monitor')}>
-                  监控告警
-                </Button>
-                <Button variant="ghost" className="h-auto p-0 text-left justify-start text-sm" onClick={() => setActiveTab('realtime')}>
-                  实时IO
-                </Button>
-                <Button variant="ghost" className="h-auto p-0 text-left justify-start text-sm" onClick={() => setActiveTab('reports')}>
-                  报告中心
-                </Button>
-                <Button variant="ghost" className="h-auto p-0 text-left justify-start text-sm" onClick={() => setActiveTab('callbacks')}>
-                  回调中心
-                </Button>
-                <Button variant="ghost" className="h-auto p-0 text-left justify-start text-sm" onClick={() => setActiveTab('qa')}>
-                  问答库
-                </Button>
-              </div>
-            </div>
-
-            {/* 系统信息 */}
+            {/* 联系方式 */}
             <div className="space-y-4">
               <h5 className="font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-                <Server className="h-4 w-4 text-purple-500" />
-                系统信息
+                <Mail className="h-4 w-4 text-blue-500" />
+                联系我们
               </h5>
               
-              {/* 系统状态 */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">连接状态</span>
-                  <Badge variant={connectionStatus === 'connected' ? 'default' : 'destructive'} className="gap-1">
-                    {connectionStatus === 'connected' ? (
-                      <>
-                        <CheckCircle className="h-3 w-3" />
-                        运行中
-                      </>
-                    ) : (
-                      <>
-                        <XCircle className="h-3 w-3" />
-                        未连接
-                      </>
-                    )}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">在线机器人</span>
-                  <span className="font-medium">{onlineRobots.length} 个</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">活跃会话</span>
-                  <span className="font-medium">{sessions.length} 个</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">服务器运行时间</span>
-                  <span className="font-medium text-xs">{serverUptime}</span>
-                </div>
-              </div>
+                {/* 手机 */}
+                <Card className="border border-blue-100 dark:border-blue-900/50 hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                        <MessageCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">手机号码</div>
+                        <div className="text-base font-mono text-gray-900 dark:text-gray-100">13337289759</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-              {/* 调试入口 */}
-              <div className="pt-3 border-t">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setShowDebugDialog(true)}
-                  className="w-full gap-2"
-                >
-                  <TestTube className="h-4 w-4" />
-                  调试功能
-                </Button>
+                {/* 微信 */}
+                <Card className="border border-green-100 dark:border-green-900/50 hover:border-green-300 dark:hover:border-green-700 transition-colors">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                        <MessageCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">微信号</div>
+                        <div className="text-base font-mono text-gray-900 dark:text-gray-100">xhy12040523</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* QQ */}
+                <Card className="border border-purple-100 dark:border-purple-900/50 hover:border-purple-300 dark:hover:border-purple-700 transition-colors">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                        <Globe className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">QQ号</div>
+                        <div className="text-base font-mono text-gray-900 dark:text-gray-100">1823985558</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </div>
           </div>
