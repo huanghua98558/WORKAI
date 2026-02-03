@@ -5,6 +5,7 @@
 
 const axios = require('axios');
 const robotService = require('./robot.service');
+const logger = require('./system-logger.service');
 
 class WorkToolService {
   /**
@@ -15,17 +16,53 @@ class WorkToolService {
    * @param {string[]} atList - @的人（可选）
    */
   async sendTextMessage(robotId, toName, content, atList = []) {
+    const sendId = `send-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const startTime = Date.now();
+
     try {
+      logger.info('WorkTool', '开始发送文本消息', {
+        sendId,
+        robotId,
+        toName,
+        contentLength: content.length,
+        contentPreview: content.substring(0, 100),
+        atList,
+        timestamp: new Date().toISOString()
+      });
+
+      console.log(`[WorkTool] 开始发送消息:`, {
+        sendId,
+        robotId,
+        toName,
+        contentLength: content.length
+      });
+
       // 获取机器人配置
       const robot = await robotService.getRobotByRobotId(robotId);
 
       if (!robot) {
+        logger.warn('WorkTool', '发送消息失败：机器人不存在', {
+          sendId,
+          robotId
+        });
         throw new Error(`机器人不存在: ${robotId}`);
       }
 
       if (!robot.isActive) {
+        logger.warn('WorkTool', '发送消息失败：机器人未启用', {
+          sendId,
+          robotId,
+          robotName: robot.name
+        });
         throw new Error(`机器人未启用: ${robotId}`);
       }
+
+      logger.info('WorkTool', '机器人验证通过', {
+        sendId,
+        robotId,
+        robotName: robot.name,
+        apiBaseUrl: robot.apiBaseUrl
+      });
 
       // 构建请求体
       const requestBody = {
@@ -40,9 +77,27 @@ class WorkToolService {
         ]
       };
 
+      logger.info('WorkTool', '构建请求体', {
+        sendId,
+        requestBody: JSON.stringify(requestBody)
+      });
+
       // 从 apiBaseUrl 提取基础地址
       const baseUrl = robot.apiBaseUrl.replace(/\/wework\/?$/, '').replace(/\/$/, '');
       const apiUrl = `${baseUrl}/wework/sendRawMessage`;
+
+      logger.info('WorkTool', '调用 WorkTool API', {
+        sendId,
+        apiUrl,
+        robotId,
+        method: 'POST'
+      });
+
+      console.log(`[WorkTool] 调用 API:`, {
+        sendId,
+        apiUrl,
+        robotId
+      });
 
       // 发送请求
       const response = await axios.post(apiUrl, requestBody, {
@@ -55,34 +110,117 @@ class WorkToolService {
         timeout: 10000
       });
 
+      const processingTime = Date.now() - startTime;
+
+      logger.info('WorkTool', '收到 API 响应', {
+        sendId,
+        statusCode: response.status,
+        responseData: JSON.stringify(response.data),
+        processingTime
+      });
+
+      console.log(`[WorkTool] API 响应:`, {
+        sendId,
+        statusCode: response.status,
+        responseData: response.data,
+        processingTime
+      });
+
       if (response.data && response.data.code === 0) {
+        logger.info('WorkTool', '发送消息成功', {
+          sendId,
+          robotId,
+          robotName: robot.name,
+          toName,
+          processingTime,
+          responseData: response.data
+        });
+
+        console.log(`[WorkTool] 发送成功:`, {
+          sendId,
+          robotId,
+          toName,
+          processingTime
+        });
+
         return {
           success: true,
           message: '发送成功',
-          data: response.data.data
+          data: response.data.data,
+          sendId,
+          processingTime
         };
       } else {
+        logger.warn('WorkTool', '发送消息失败：API 返回非成功状态', {
+          sendId,
+          robotId,
+          robotName: robot.name,
+          toName,
+          apiCode: response.data?.code,
+          apiMessage: response.data?.message,
+          responseData: JSON.stringify(response.data),
+          processingTime
+        });
+
+        console.log(`[WorkTool] 发送失败:`, {
+          sendId,
+          robotId,
+          toName,
+          apiCode: response.data?.code,
+          apiMessage: response.data?.message
+        });
+
         return {
           success: false,
           message: response.data?.message || '发送失败',
-          code: response.data?.code
+          code: response.data?.code,
+          sendId,
+          processingTime
         };
       }
     } catch (error) {
+      const processingTime = Date.now() - startTime;
+
       console.error('发送 WorkTool 消息失败:', error);
 
+      logger.error('WorkTool', '发送消息异常', {
+        sendId,
+        robotId,
+        toName,
+        error: error.message,
+        stack: error.stack,
+        errorType: error.constructor.name,
+        processingTime,
+        timestamp: new Date().toISOString()
+      });
+
       if (error.response) {
+        logger.error('WorkTool', 'API 请求错误响应', {
+          sendId,
+          robotId,
+          status: error.response.status,
+          statusText: error.response.statusText,
+          responseData: JSON.stringify(error.response.data),
+          processingTime
+        });
+
         return {
           success: false,
           message: error.response.data?.message || error.message,
-          code: error.response.data?.code || error.response.status
+          code: error.response.data?.code || error.response.status,
+          sendId,
+          processingTime,
+          errorType: 'http_error'
         };
       }
 
       return {
         success: false,
         message: error.message,
-        error: error.code
+        error: error.code,
+        sendId,
+        processingTime,
+        errorType: 'network_error'
       };
     }
   }

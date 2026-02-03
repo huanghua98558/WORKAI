@@ -413,10 +413,15 @@ class MessageProcessingService {
     const { intent } = intentResult;
     const autoReplyConfig = config.get('autoReply');
 
-    // 判断接收方类型
+    // 判断接收方类型和目标
     const toType = messageContext.roomType === '2' || messageContext.roomType === '4'
       ? 'single'
       : 'group'; // 2=外部联系人 4=内部联系人 为单聊
+
+    // 根据消息类型确定接收方
+    const recipient = toType === 'single'
+      ? messageContext.fromName  // 私聊：发送给发送者本人
+      : messageContext.groupName; // 群聊：发送到群
 
     let reply;
     let actionReason;
@@ -426,6 +431,9 @@ class MessageProcessingService {
       intent,
       robotId: robot.robotId,
       toType,
+      recipient,
+      fromName: messageContext.fromName,
+      groupName: messageContext.groupName,
       processingId
     });
 
@@ -566,9 +574,12 @@ class MessageProcessingService {
     // 发送回复
     logger.info('MessageProcessing', 'generateReply步骤: 开始发送回复', {
       toType,
-      target: messageContext.groupName,
+      recipient,
+      fromName: messageContext.fromName,
+      groupName: messageContext.groupName,
       robotId: robot.robotId,
       replyLength: reply.length,
+      replyContent: reply.substring(0, 200),
       processingId
     });
 
@@ -577,9 +588,17 @@ class MessageProcessingService {
       startTime: Date.now()
     });
 
+    console.log(`[消息处理] 准备发送回复:`, {
+      robotId: robot.robotId,
+      robotName: robot.name,
+      toType,
+      recipient,
+      replyLength: reply.length
+    });
+
     const sendResult = await worktoolService.sendTextMessage(
       robot.robotId,
-      messageContext.groupName,
+      recipient,
       reply
     );
 
@@ -593,7 +612,18 @@ class MessageProcessingService {
       sendResult,
       robotId: robot.robotId,
       robotName: robot.name,
+      toType,
+      recipient,
+      success: sendResult.success,
+      message: sendResult.message,
       processingId
+    });
+
+    console.log(`[消息处理] 回复发送结果:`, {
+      success: sendResult.success,
+      message: sendResult.message,
+      robotId: robot.robotId,
+      recipient
     });
 
     // 保存机器人回复到数据库
@@ -632,7 +662,9 @@ class MessageProcessingService {
       reply,
       reason: actionReason,
       intent: intentResult,
-      sendResult
+      sendResult,
+      toType,
+      recipient
     };
   }
 
