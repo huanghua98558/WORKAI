@@ -29,6 +29,10 @@ import RobotManagement from '@/components/robot-management';
 import AlertConfigTab from '@/components/alert-config-tab';
 import EnhancedAlertManagement from '@/components/enhanced-alert-management';
 import SystemLogs from '@/components/system-logs';
+import RobotGroupManager from '@/components/robot/robot-group-manager';
+import RobotRoleManager from '@/components/robot/robot-role-manager';
+import CommandSender from '@/components/robot/command-sender';
+import MonitoringDashboard from '@/components/robot/monitoring-dashboard';
 import { 
   BarChart3, 
   MessageSquare,
@@ -4737,7 +4741,7 @@ ${callbacks.robotStatus}
       {/* 主内容 */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-11 lg:w-auto lg:inline-grid h-auto p-1 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+          <TabsList className="grid w-full grid-cols-15 lg:w-auto lg:inline-grid h-auto p-1 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
             <TabsTrigger value="dashboard" className="gap-2 py-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">仪表盘</span>
@@ -4749,6 +4753,22 @@ ${callbacks.robotStatus}
             <TabsTrigger value="robots" className="gap-2 py-2">
               <Bot className="h-4 w-4" />
               <span className="hidden sm:inline">机器人管理</span>
+            </TabsTrigger>
+            <TabsTrigger value="robot-groups" className="gap-2 py-2">
+              <Building2 className="h-4 w-4" />
+              <span className="hidden sm:inline">分组管理</span>
+            </TabsTrigger>
+            <TabsTrigger value="robot-roles" className="gap-2 py-2">
+              <ShieldCheck className="h-4 w-4" />
+              <span className="hidden sm:inline">角色管理</span>
+            </TabsTrigger>
+            <TabsTrigger value="command-sender" className="gap-2 py-2">
+              <Sparkles className="h-4 w-4" />
+              <span className="hidden sm:inline">指令发送</span>
+            </TabsTrigger>
+            <TabsTrigger value="monitoring-dashboard" className="gap-2 py-2">
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">监控大屏</span>
             </TabsTrigger>
             <TabsTrigger value="monitor" className="gap-2 py-2">
               <Activity className="h-4 w-4" />
@@ -4794,6 +4814,22 @@ ${callbacks.robotStatus}
 
           <TabsContent value="robots" className="space-y-6">
             <RobotManagement />
+          </TabsContent>
+
+          <TabsContent value="robot-groups" className="space-y-6">
+            <RobotGroupManager />
+          </TabsContent>
+
+          <TabsContent value="robot-roles" className="space-y-6">
+            <RobotRoleManager />
+          </TabsContent>
+
+          <TabsContent value="command-sender" className="space-y-6">
+            <CommandSender />
+          </TabsContent>
+
+          <TabsContent value="monitoring-dashboard" className="space-y-6">
+            <MonitoringDashboard />
           </TabsContent>
 
           <TabsContent value="qa" className="space-y-6">

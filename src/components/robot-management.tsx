@@ -46,7 +46,8 @@ import {
   Building2,
   Calendar,
   MessageCircle,
-  User
+  User,
+  Sparkles
 } from 'lucide-react';
 
 interface Robot {
@@ -636,6 +637,33 @@ export default function RobotManagement() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 新功能提示 */}
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle>新功能推荐</AlertTitle>
+        <AlertDescription>
+          系统现已支持分组管理和角色管理，可以帮助您更好地组织和管理多个机器人。
+          <div className="flex gap-2 mt-2">
+            <Button variant="outline" size="sm" onClick={() => router.push('/#robot-groups')}>
+              <Building2 className="h-4 w-4 mr-2" />
+              分组管理
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => router.push('/#robot-roles')}>
+              <ShieldCheck className="h-4 w-4 mr-2" />
+              角色管理
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => router.push('/#command-sender')}>
+              <Sparkles className="h-4 w-4 mr-2" />
+              指令发送
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => router.push('/#monitoring-dashboard')}>
+              <BarChart3 className="h-4 w-4 mr-2" />
+              监控大屏
+            </Button>
+          </div>
+        </AlertDescription>
+      </Alert>
 
       {/* 性能指标 */}
       <Card>
