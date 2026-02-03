@@ -33,7 +33,8 @@ import {
   ExternalLink,
   PlayCircle,
   History,
-  Link2
+  Link2,
+  Copy
 } from 'lucide-react';
 
 // 导入子组件
@@ -273,6 +274,20 @@ export default function RobotManagement() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // 复制地址到剪贴板
+  const handleCopyUrl = (url: string, label: string) => {
+    if (!url || url === '未配置') {
+      alert('地址未配置，无法复制');
+      return;
+    }
+    navigator.clipboard.writeText(url).then(() => {
+      alert(`${label}已复制到剪贴板`);
+    }).catch((error) => {
+      console.error('复制失败:', error);
+      alert('复制失败，请手动复制');
+    });
   };
 
   const handleSaveEdit = async () => {
@@ -1353,8 +1368,17 @@ export default function RobotManagement() {
                           <Button
                             size="sm"
                             variant="outline"
+                            onClick={() => handleCopyUrl(selectedRobot[endpoint.key as keyof Robot] as string, endpoint.label)}
+                            title="复制地址"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
                             onClick={() => handleTestEndpoint(endpoint.type)}
                             disabled={testingEndpoint === endpoint.type}
+                            title="测试接口"
                           >
                             {testingEndpoint === endpoint.type ? (
                               <RefreshCw className="w-4 h-4 animate-spin" />
@@ -1391,11 +1415,21 @@ export default function RobotManagement() {
                         { key: 'onlineCallbackUrl', label: '机器人上线回调' },
                         { key: 'offlineCallbackUrl', label: '机器人下线回调' }
                       ].map(endpoint => (
-                        <div key={endpoint.key} className="p-2 border rounded-lg bg-secondary/30">
-                          <div className="text-sm font-medium">{endpoint.label}</div>
-                          <div className="text-xs text-muted-foreground break-all">
-                            {selectedRobot[endpoint.key as keyof Robot] as string || '未配置'}
+                        <div key={endpoint.key} className="flex items-center gap-2 p-2 border rounded-lg bg-secondary/30">
+                          <div className="flex-1">
+                            <div className="text-sm font-medium">{endpoint.label}</div>
+                            <div className="text-xs text-muted-foreground break-all">
+                              {selectedRobot[endpoint.key as keyof Robot] as string || '未配置'}
+                            </div>
                           </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleCopyUrl(selectedRobot[endpoint.key as keyof Robot] as string, endpoint.label)}
+                            title="复制地址"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
                         </div>
                       ))}
                     </CollapsibleContent>
