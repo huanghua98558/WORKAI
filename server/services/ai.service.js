@@ -187,12 +187,30 @@ class AIService {
     const messageId = context.messageId || `msg_${Date.now()}`;
     const robotId = context.robotId || null;
     const robotName = context.robotName || null;
+    const userName = context.userName || context.userId || '未知用户';
+    const groupName = context.groupName || context.groupId || '未知群组';
 
     let clientConfig;
     let messages;
 
     try {
       clientConfig = this.getClient('intentRecognition');
+
+      // 构建用户信息，方便AI长期记忆
+      const userInfo = {
+        userName: userName,
+        groupName: groupName,
+        userId: context.userId || userName,
+        groupId: context.groupId || groupName,
+        robotName: robotName || '智能助手'
+      };
+
+      // 构建历史对话（最近5条）
+      const historySummary = context.history && context.history.length > 0 
+        ? context.history.slice(-5).map((msg, idx) => 
+            `[${idx + 1}] ${msg.role === 'user' ? userName : robotName || '助手'}: ${msg.content}`
+          ).join('\n')
+        : '无历史对话';
 
       messages = [
         {
@@ -201,7 +219,7 @@ class AIService {
         },
         {
           role: 'user',
-          content: `消息内容：${message}\n\n上下文信息：${JSON.stringify(context)}`
+          content: `用户：${userName}\n群组：${groupName}\n\n当前消息：${message}\n\n最近对话：\n${historySummary}\n\n请识别这条消息的意图。`
         }
       ];
 
@@ -286,12 +304,24 @@ class AIService {
     const messageId = context.messageId || null;
     const robotId = context.robotId || null;
     const robotName = context.robotName || null;
+    const userName = context.userName || context.userId || '未知用户';
+    const groupName = context.groupName || context.groupId || '未知群组';
 
     let clientConfig;
     let messages;
 
     try {
       clientConfig = this.getClient('serviceReply');
+
+      // 构建知识库信息（如果有）
+      const knowledgeInfo = knowledgeBase ? `\n\n知识库参考：\n${knowledgeBase}` : '';
+
+      // 构建历史对话（最近5条）
+      const historySummary = context.history && context.history.length > 0 
+        ? context.history.slice(-5).map((msg, idx) => 
+            `[${idx + 1}] ${msg.role === 'user' ? userName : robotName || '助手'}: ${msg.content}`
+          ).join('\n')
+        : '无历史对话';
 
       messages = [
         {
@@ -300,7 +330,7 @@ class AIService {
         },
         {
           role: 'user',
-          content: `用户问题：${userMessage}\n意图：${intent}`
+          content: `用户：${userName}\n群组：${groupName}\n\n当前问题：${userMessage}\n意图类型：${intent}${knowledgeInfo}\n\n最近对话：\n${historySummary}\n\n请生成合适的回复。`
         }
       ];
 
@@ -389,12 +419,26 @@ class AIService {
     const messageId = context.messageId || null;
     const robotId = context.robotId || null;
     const robotName = context.robotName || null;
+    const userName = context.userName || context.userId || '未知用户';
+    const groupName = context.groupName || context.groupId || '未知群组';
 
     let clientConfig;
     let messages;
 
     try {
       clientConfig = this.getClient('conversion');
+
+      // 构建历史对话（最近5条）
+      const historySummary = context.history && context.history.length > 0 
+        ? context.history.slice(-5).map((msg, idx) => 
+            `[${idx + 1}] ${msg.role === 'user' ? userName : robotName || '助手'}: ${msg.content}`
+          ).join('\n')
+        : '无历史对话';
+
+      // 构建用户画像信息（如果有）
+      const userProfile = context.userProfile 
+        ? `\n\n用户画像：\n${JSON.stringify(context.userProfile)}` 
+        : '';
 
       messages = [
         {
@@ -403,7 +447,7 @@ class AIService {
         },
         {
           role: 'user',
-          content: `用户消息：${userMessage}\n意图：${intent}\n\n上下文信息：${JSON.stringify(context)}`
+          content: `用户：${userName}\n群组：${groupName}\n\n当前消息：${userMessage}\n意图类型：${intent}${userProfile}\n\n最近对话：\n${historySummary}\n\n请生成引导转化的回复。`
         }
       ];
 
