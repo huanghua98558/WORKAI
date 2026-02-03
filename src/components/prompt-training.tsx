@@ -532,7 +532,7 @@ export default function PromptTraining() {
           <div>
             <Label>模板名称</Label>
             <Input
-              value={templateForm.name}
+              value={templateForm.name ?? ''}
               onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
               placeholder="模板名称"
               className="mt-1"
@@ -542,7 +542,7 @@ export default function PromptTraining() {
           <div>
             <Label>分类</Label>
             <Select
-              value={templateForm.type}
+              value={templateForm.type ?? 'serviceReply'}
               onValueChange={(value) => setTemplateForm({ ...templateForm, type: value })}
             >
               <SelectTrigger className="mt-1">
@@ -565,7 +565,7 @@ export default function PromptTraining() {
               min="0"
               max="1"
               step="0.1"
-              value={templateForm.temperature}
+              value={templateForm.temperature ?? 0.7}
               onChange={(e) => setTemplateForm({ ...templateForm, temperature: parseFloat(e.target.value) })}
               className="w-full mt-1"
             />
@@ -692,7 +692,7 @@ export default function PromptTraining() {
           <div className="border-t p-3 bg-white">
             <div className="flex gap-2">
               <Input
-                value={userInput}
+                value={userInput ?? ''}
                 onChange={(e) => setUserInput(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                 placeholder="输入测试内容..."
