@@ -245,6 +245,32 @@ export default function RobotManagement() {
     setApiLogs([]);
   };
 
+  // 同步机器人信息
+  const handleCheckStatus = async (robot: Robot) => {
+    try {
+      const res = await fetch(`/api/proxy/admin/robots/${robot.id}/check-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+
+      const result = await res.json();
+
+      if (res.ok && result.code === 0) {
+        // 刷新机器人列表以显示最新信息
+        await loadRobots();
+        alert('机器人信息同步成功！');
+      } else {
+        alert('机器人信息同步失败：' + (result.message || '未知错误'));
+      }
+    } catch (error: any) {
+      console.error('同步机器人信息失败:', error);
+      alert('同步机器人信息失败：' + error.message);
+    }
+  };
+
   // 重新生成地址
   const handleRegenerateUrls = async () => {
     if (!selectedRobot) return;
@@ -756,6 +782,14 @@ export default function RobotManagement() {
                         >
                           <Link2 className="h-4 w-4 mr-2" />
                           回调
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleCheckStatus(robot)}
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          同步信息
                         </Button>
                       </div>
                     </div>
