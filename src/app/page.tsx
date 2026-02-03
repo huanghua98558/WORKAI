@@ -1902,15 +1902,10 @@ ${callbacks.robotStatus}
     const [monitorSubTab, setMonitorSubTab] = useState('monitor');
     const [alertHistory, setAlertHistory] = useState<any[]>([]);
     const [circuitBreakerStatus, setCircuitBreakerStatus] = useState<boolean>(false);
+    const [isLoading, setIsLoading] = useState(false);
 
-    // 使用 useRef 持久化数据，避免子Tab切换导致数据丢失
-    const alertHistoryRef = useRef<any[]>([]);
-    const circuitBreakerStatusRef = useRef<boolean>(false);
-
-    // 使用 useRef 保存 loadAlertData 函数，避免依赖项变化导致重复调用
-    const loadAlertDataRef = useRef<any>(null);
-
-    loadAlertDataRef.current = async () => {
+    const loadAlertData = async () => {
+      setIsLoading(true);
       try {
         const [alertsRes, circuitRes] = await Promise.all([
           fetch('/api/admin/alerts/history?limit=20'),
@@ -1919,34 +1914,24 @@ ${callbacks.robotStatus}
 
         if (alertsRes.ok) {
           const data = await alertsRes.json();
-          const newAlertHistory = data.data || [];
-          setAlertHistory(newAlertHistory);
-          alertHistoryRef.current = newAlertHistory;
+          setAlertHistory(data.data || []);
         }
 
         if (circuitRes.ok) {
           const data = await circuitRes.json();
-          const newStatus = data.data.isOpen;
-          setCircuitBreakerStatus(newStatus);
-          circuitBreakerStatusRef.current = newStatus;
+          setCircuitBreakerStatus(data.data.isOpen);
         }
       } catch (error) {
-
+        console.error('加载告警数据失败:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    // 只在组件挂载时加载一次
+    // 只在组件首次挂载时加载一次
     useEffect(() => {
       console.log('MonitorTab: 组件挂载');
-      // 如果 ref 中有数据，恢复显示
-      if (alertHistoryRef.current.length > 0) {
-        console.log(`MonitorTab: 恢复 ${alertHistoryRef.current.length} 条告警历史`);
-        setAlertHistory(alertHistoryRef.current);
-        setCircuitBreakerStatus(circuitBreakerStatusRef.current);
-      } else {
-        console.log('MonitorTab: 首次加载数据');
-        loadAlertDataRef.current();
-      }
+      loadAlertData();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -1956,7 +1941,7 @@ ${callbacks.robotStatus}
           const res = await fetch('/api/admin/circuit-breaker/reset', { method: 'POST' });
           if (res.ok) {
             alert('✅ 熔断器已重置');
-            loadAlertDataRef.current();
+            loadAlertData();
           }
         } catch (error) {
           alert('❌ 重置失败');
@@ -1977,9 +1962,9 @@ ${callbacks.robotStatus}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button 
-              onClick={() => loadAlertDataRef.current()} 
-              variant="outline" 
+            <Button
+              onClick={() => loadAlertData()}
+              variant="outline"
               size="sm"
               disabled={isLoading}
             >
@@ -2087,8 +2072,8 @@ ${callbacks.robotStatus}
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {alertHistory.map((alert, index) => (
-                      <div key={index} className="flex items-start gap-4 p-4 border rounded-lg">
+                    {alertHistory.map((alert) => (
+                      <div key={alert.id || alert.timestamp} className="flex items-start gap-4 p-4 border rounded-lg">
                         <div className={`p-2 rounded-lg ${
                           alert.level === 'critical' ? 'bg-red-100 dark:bg-red-900' :
                           alert.level === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900' :
@@ -4365,8 +4350,6 @@ ${callbacks.robotStatus}
     const [selectedRobot, setSelectedRobot] = useState<string>('');
     const [messageLimit, setMessageLimit] = useState<number>(50);
     const lastFetchTime = useRef<number>(0);
-    const [isMounted, setIsMounted] = useState(false);
-    const messagesRef = useRef<any[]>([]); // 使用 ref 持久化消息
 
     const loadMessages = async (limit?: number) => {
       // 防抖：1秒内不重复加载
@@ -4394,9 +4377,7 @@ ${callbacks.robotStatus}
         if (res.ok) {
           const data = await res.json();
           console.log(`RealtimeIO: 加载完成，共 ${data.data?.length || 0} 条消息`);
-          const newMessages = data.data || [];
-          setMessages(newMessages);
-          messagesRef.current = newMessages;
+          setMessages(data.data || []);
         }
       } catch (error) {
         console.error('加载消息失败:', error);
@@ -4405,18 +4386,10 @@ ${callbacks.robotStatus}
       }
     };
 
-    // 组件挂载时加载一次，并且使用 ref 保持数据
+    // 只在组件首次挂载时加载一次
     useEffect(() => {
       console.log('RealtimeIO: 组件挂载');
-      // 如果 ref 中有数据，恢复显示
-      if (messagesRef.current.length > 0) {
-        console.log(`RealtimeIO: 恢复 ${messagesRef.current.length} 条消息`);
-        setMessages(messagesRef.current);
-      } else {
-        console.log('RealtimeIO: 首次加载数据');
-        loadMessages();
-      }
-      setIsMounted(true);
+      loadMessages();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -5126,9 +5099,9 @@ ${callbacks.robotStatus}
                     </div>
                   ) : (
                     <div className="space-y-4 max-h-[500px] overflow-y-auto">
-                      {sessionMessages.map((msg: any, index: number) => (
+                      {sessionMessages.map((msg: any) => (
                         <div
-                          key={index}
+                          key={msg.id || msg.timestamp || Math.random()}
                           className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'}`}
                         >
                           <div className={`max-w-[80%] ${

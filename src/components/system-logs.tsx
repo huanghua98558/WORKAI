@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -79,10 +79,6 @@ export default function SystemLogs() {
   const [showBackendLogDialog, setShowBackendLogDialog] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // 使用 ref 持久化数据
-  const logsRef = useRef<SystemLog[]>([]);
-  const statsRef = useRef<any>({});
-
   const loadLogs = async () => {
     try {
       setIsLoading(true);
@@ -98,12 +94,8 @@ export default function SystemLogs() {
       const res = await fetch(`/api/system-logs?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        const newLogs = data.data || [];
-        const newStats = data.stats || {};
-        setLogs(newLogs);
-        setStats(newStats);
-        logsRef.current = newLogs;
-        statsRef.current = newStats;
+        setLogs(data.data || []);
+        setStats(data.stats || {});
       }
     } catch (error) {
       console.error('加载系统日志失败:', error);
@@ -112,17 +104,10 @@ export default function SystemLogs() {
     }
   };
 
-  // 组件挂载时恢复数据或加载新数据
+  // 只在组件首次挂载时加载一次
   useEffect(() => {
     console.log('SystemLogs: 组件挂载');
-    if (logsRef.current.length > 0) {
-      console.log('SystemLogs: 恢复缓存数据');
-      setLogs(logsRef.current);
-      setStats(statsRef.current);
-    } else {
-      console.log('SystemLogs: 首次加载数据');
-      loadLogs();
-    }
+    loadLogs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

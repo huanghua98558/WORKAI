@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -201,10 +201,6 @@ export default function EnhancedAlertManagement() {
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [editedGroup, setEditedGroup] = useState<Partial<AlertGroup>>({});
 
-  // 使用 ref 持久化数据
-  const groupsRef = useRef<AlertGroup[]>([]);
-  const analyticsRef = useRef<AnalyticsData | null>(null);
-
   // 加载数据
   const loadData = async () => {
     setLoading(true);
@@ -218,8 +214,6 @@ export default function EnhancedAlertManagement() {
         ]);
         setGroups(groupsData);
         setAnalytics(analyticsData);
-        groupsRef.current = groupsData;
-        analyticsRef.current = analyticsData;
         if (groupsData.length === 0 && !analyticsData) {
           setApiError('告警增强功能暂不可用，相关API接口尚未实现');
         }
@@ -228,8 +222,6 @@ export default function EnhancedAlertManagement() {
         // 设置空数据，避免显示错误
         setGroups([]);
         setAnalytics(null);
-        groupsRef.current = [];
-        analyticsRef.current = null;
         setApiError('告警增强功能暂不可用，相关API接口尚未实现');
       }
     } catch (error) {
@@ -240,17 +232,10 @@ export default function EnhancedAlertManagement() {
     }
   };
 
-  // 组件挂载时恢复数据或加载新数据
+  // 只在组件首次挂载时加载一次
   useEffect(() => {
     console.log('EnhancedAlertManagement: 组件挂载');
-    if (groupsRef.current.length > 0 || analyticsRef.current) {
-      console.log('EnhancedAlertManagement: 恢复缓存数据');
-      setGroups(groupsRef.current);
-      setAnalytics(analyticsRef.current);
-    } else {
-      console.log('EnhancedAlertManagement: 首次加载数据');
-      loadData();
-    }
+    loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
