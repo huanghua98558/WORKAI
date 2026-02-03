@@ -58,6 +58,7 @@ export default function CommandSender() {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [selectedRobot, setSelectedRobot] = useState<string>('');
+  const [selectedRobotDisplay, setSelectedRobotDisplay] = useState<string>('');
   const [commandType, setCommandType] = useState<string>('send_message');
   const [priority, setPriority] = useState<number>(5);
   const [commandPayload, setCommandPayload] = useState<string>('{}');
@@ -70,6 +71,7 @@ export default function CommandSender() {
       const result = await response.json();
       
       if (result.code === 0) {
+        console.log('加载到的机器人数据:', result.data);
         setRobots(result.data);
       } else {
         toast.error(result.message || '加载机器人列表失败');
@@ -289,36 +291,59 @@ export default function CommandSender() {
             <form onSubmit={handleSendCommand} className="space-y-4">
               <div>
                 <Label htmlFor="robot">机器人</Label>
-                <Select value={selectedRobot} onValueChange={setSelectedRobot} disabled={loading}>
+                <Select value={selectedRobot} onValueChange={(value) => {
+                  setSelectedRobot(value);
+                  const robot = robots.find(r => r.robotId === value);
+                  setSelectedRobotDisplay(robot?.name || robot?.nickname || '');
+                }} disabled={loading}>
                   <SelectTrigger id="robot">
                     <SelectValue placeholder="选择机器人" />
                   </SelectTrigger>
                   <SelectContent>
-                    {robots.filter(r => r.isActive).map(robot => (
-                      <SelectItem key={robot.robotId} value={robot.robotId}>
-                        <div className="flex items-center gap-2">
-                          <span>{robot.name || robot.nickname}</span>
-                          {getStatusBadge(robot.status)}
-                          {robot.company && <span className="text-muted-foreground">({robot.company})</span>}
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {loading ? (
+                      <div className="flex items-center justify-center p-4">
+                        <span className="text-sm text-muted-foreground">加载中...</span>
+                      </div>
+                    ) : robots.filter(r => r.isActive).length === 0 ? (
+                      <div className="flex items-center justify-center p-4">
+                        <span className="text-sm text-muted-foreground">暂无可用的机器人</span>
+                      </div>
+                    ) : (
+                      robots.filter(r => r.isActive).map(robot => (
+                        <SelectItem key={robot.robotId} value={robot.robotId} className="py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1">
+                              <div className="font-semibold text-base">
+                                {robot.name || robot.nickname || '未命名机器人'}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                ID: {robot.robotId}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {getStatusBadge(robot.status)}
+                            </div>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
-                {selectedRobot && (
+                {selectedRobot && selectedRobotDisplay && (
                   <div className="mt-2 p-2 bg-muted rounded text-sm">
-                    {(() => {
-                      const robot = robots.find(r => r.robotId === selectedRobot);
-                      if (!robot) return null;
-                      return (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">已选择:</span>
-                          <span>{robot.name || robot.nickname}</span>
-                          {getStatusBadge(robot.status)}
-                          <span className="text-muted-foreground">| {robot.company || '无企业'}</span>
-                        </div>
-                      );
-                    })()}
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">已选择:</span>
+                      <span>{selectedRobotDisplay}</span>
+                      {(() => {
+                        const robot = robots.find(r => r.robotId === selectedRobot);
+                        return robot ? (
+                          <>
+                            {getStatusBadge(robot.status)}
+                            <span className="text-muted-foreground">| {robot.company || '无企业'}</span>
+                          </>
+                        ) : null;
+                      })()}
+                    </div>
                   </div>
                 )}
               </div>
