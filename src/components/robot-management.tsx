@@ -47,8 +47,16 @@ import {
   Calendar,
   MessageCircle,
   User,
-  Sparkles
+  Sparkles,
+  LayoutDashboard,
+  UserCheck
 } from 'lucide-react';
+
+// 导入新的组件
+import RobotGroupManager from '@/components/robot/robot-group-manager';
+import RobotRoleManager from '@/components/robot/robot-role-manager';
+import CommandSender from '@/components/robot/command-sender';
+import MonitoringDashboard from '@/components/robot/monitoring-dashboard';
 
 interface Robot {
   id: string;
@@ -88,6 +96,7 @@ export default function RobotManagement() {
   const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRobot, setEditingRobot] = useState<Robot | null>(null);
+  const [activeSubTab, setActiveSubTab] = useState('list'); // 新增子标签页状态
   const [formData, setFormData] = useState<RobotFormData>({
     name: '',
     robotId: '',
