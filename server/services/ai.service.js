@@ -190,6 +190,13 @@ class AIService {
     const userName = context.userName || context.userId || '未知用户';
     const groupName = context.groupName || context.groupId || '未知群组';
 
+    // 获取长期记忆配置
+    const memoryConfig = config.get('ai.memory') || {
+      enabled: true,
+      maxContextMessages: 20,
+      rememberUserHistory: true
+    };
+
     let clientConfig;
     let messages;
 
@@ -205,12 +212,25 @@ class AIService {
         robotName: robotName || '智能助手'
       };
 
-      // 构建历史对话（最近5条）
-      const historySummary = context.history && context.history.length > 0 
-        ? context.history.slice(-5).map((msg, idx) => 
-            `[${idx + 1}] ${msg.role === 'user' ? userName : robotName || '助手'}: ${msg.content}`
-          ).join('\n')
-        : '无历史对话';
+      // 根据配置决定是否包含历史对话
+      let historySummary = '无历史对话';
+      if (memoryConfig.enabled && memoryConfig.rememberUserHistory && context.history && context.history.length > 0) {
+        const maxMessages = memoryConfig.maxContextMessages || 20;
+        historySummary = context.history.slice(-maxMessages).map((msg, idx) => 
+          `[${idx + 1}] ${msg.role === 'user' ? userName : robotName || '助手'}: ${msg.content}`
+        ).join('\n');
+      }
+
+      // 根据配置构建用户消息内容
+      let userContent = '';
+      if (memoryConfig.enabled) {
+        userContent = `用户：${userName}\n群组：${groupName}\n\n`;
+      }
+      userContent += `当前消息：${message}\n\n`;
+      if (memoryConfig.enabled && memoryConfig.rememberUserHistory) {
+        userContent += `最近对话：\n${historySummary}\n\n`;
+      }
+      userContent += `请识别这条消息的意图。`;
 
       messages = [
         {
@@ -219,7 +239,7 @@ class AIService {
         },
         {
           role: 'user',
-          content: `用户：${userName}\n群组：${groupName}\n\n当前消息：${message}\n\n最近对话：\n${historySummary}\n\n请识别这条消息的意图。`
+          content: userContent
         }
       ];
 
@@ -307,6 +327,13 @@ class AIService {
     const userName = context.userName || context.userId || '未知用户';
     const groupName = context.groupName || context.groupId || '未知群组';
 
+    // 获取长期记忆配置
+    const memoryConfig = config.get('ai.memory') || {
+      enabled: true,
+      maxContextMessages: 20,
+      rememberUserHistory: true
+    };
+
     let clientConfig;
     let messages;
 
@@ -316,12 +343,25 @@ class AIService {
       // 构建知识库信息（如果有）
       const knowledgeInfo = knowledgeBase ? `\n\n知识库参考：\n${knowledgeBase}` : '';
 
-      // 构建历史对话（最近5条）
-      const historySummary = context.history && context.history.length > 0 
-        ? context.history.slice(-5).map((msg, idx) => 
-            `[${idx + 1}] ${msg.role === 'user' ? userName : robotName || '助手'}: ${msg.content}`
-          ).join('\n')
-        : '无历史对话';
+      // 根据配置决定是否包含历史对话
+      let historySummary = '无历史对话';
+      if (memoryConfig.enabled && memoryConfig.rememberUserHistory && context.history && context.history.length > 0) {
+        const maxMessages = memoryConfig.maxContextMessages || 20;
+        historySummary = context.history.slice(-maxMessages).map((msg, idx) => 
+          `[${idx + 1}] ${msg.role === 'user' ? userName : robotName || '助手'}: ${msg.content}`
+        ).join('\n');
+      }
+
+      // 根据配置构建用户消息内容
+      let userContent = '';
+      if (memoryConfig.enabled) {
+        userContent = `用户：${userName}\n群组：${groupName}\n\n`;
+      }
+      userContent += `当前问题：${userMessage}\n意图类型：${intent}${knowledgeInfo}\n\n`;
+      if (memoryConfig.enabled && memoryConfig.rememberUserHistory) {
+        userContent += `最近对话：\n${historySummary}\n\n`;
+      }
+      userContent += `请生成合适的回复。`;
 
       messages = [
         {
@@ -330,7 +370,7 @@ class AIService {
         },
         {
           role: 'user',
-          content: `用户：${userName}\n群组：${groupName}\n\n当前问题：${userMessage}\n意图类型：${intent}${knowledgeInfo}\n\n最近对话：\n${historySummary}\n\n请生成合适的回复。`
+          content: userContent
         }
       ];
 
@@ -422,23 +462,45 @@ class AIService {
     const userName = context.userName || context.userId || '未知用户';
     const groupName = context.groupName || context.groupId || '未知群组';
 
+    // 获取长期记忆配置
+    const memoryConfig = config.get('ai.memory') || {
+      enabled: true,
+      maxContextMessages: 20,
+      rememberUserHistory: true,
+      userProfileEnabled: true
+    };
+
     let clientConfig;
     let messages;
 
     try {
       clientConfig = this.getClient('conversion');
 
-      // 构建历史对话（最近5条）
-      const historySummary = context.history && context.history.length > 0 
-        ? context.history.slice(-5).map((msg, idx) => 
-            `[${idx + 1}] ${msg.role === 'user' ? userName : robotName || '助手'}: ${msg.content}`
-          ).join('\n')
-        : '无历史对话';
+      // 根据配置决定是否包含历史对话
+      let historySummary = '无历史对话';
+      if (memoryConfig.enabled && memoryConfig.rememberUserHistory && context.history && context.history.length > 0) {
+        const maxMessages = memoryConfig.maxContextMessages || 20;
+        historySummary = context.history.slice(-maxMessages).map((msg, idx) => 
+          `[${idx + 1}] ${msg.role === 'user' ? userName : robotName || '助手'}: ${msg.content}`
+        ).join('\n');
+      }
 
-      // 构建用户画像信息（如果有）
-      const userProfile = context.userProfile 
-        ? `\n\n用户画像：\n${JSON.stringify(context.userProfile)}` 
-        : '';
+      // 根据配置决定是否包含用户画像
+      let userProfile = '';
+      if (memoryConfig.enabled && memoryConfig.userProfileEnabled && context.userProfile) {
+        userProfile = `\n\n用户画像：\n${JSON.stringify(context.userProfile)}`;
+      }
+
+      // 根据配置构建用户消息内容
+      let userContent = '';
+      if (memoryConfig.enabled) {
+        userContent = `用户：${userName}\n群组：${groupName}\n\n`;
+      }
+      userContent += `当前消息：${userMessage}\n意图类型：${intent}${userProfile}\n\n`;
+      if (memoryConfig.enabled && memoryConfig.rememberUserHistory) {
+        userContent += `最近对话：\n${historySummary}\n\n`;
+      }
+      userContent += `请生成引导转化的回复。`;
 
       messages = [
         {
@@ -447,7 +509,7 @@ class AIService {
         },
         {
           role: 'user',
-          content: `用户：${userName}\n群组：${groupName}\n\n当前消息：${userMessage}\n意图类型：${intent}${userProfile}\n\n最近对话：\n${historySummary}\n\n请生成引导转化的回复。`
+          content: userContent
         }
       ];
 
