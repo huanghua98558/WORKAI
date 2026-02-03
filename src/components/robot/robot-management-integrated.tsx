@@ -114,6 +114,12 @@ export default function RobotManagement() {
     }
   };
 
+  // 刷新机器人列表（先检查状态，然后加载列表）
+  const handleRefresh = async () => {
+    await checkAllRobotsStatus();
+    await loadRobots();
+  };
+
   // 加载机器人列表
   const loadRobots = async () => {
     setIsLoading(true);
@@ -405,7 +411,7 @@ export default function RobotManagement() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={loadRobots} disabled={isLoading}>
+          <Button variant="outline" onClick={handleRefresh} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             刷新
           </Button>
