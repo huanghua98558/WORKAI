@@ -29,6 +29,7 @@ import RobotManagement from '@/components/robot/robot-management-integrated';
 import AlertConfigTab from '@/components/alert-config-tab';
 import EnhancedAlertManagement from '@/components/enhanced-alert-management';
 import SystemLogs from '@/components/system-logs';
+import PromptTraining from '@/components/prompt-training';
 import { 
   BarChart3, 
   MessageSquare,
@@ -4876,7 +4877,7 @@ ${callbacks.robotStatus}
       {/* 主内容 */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-11 lg:w-auto lg:inline-grid h-auto p-1 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+          <TabsList className="grid w-full grid-cols-12 lg:w-auto lg:inline-grid h-auto p-1 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
             <TabsTrigger value="dashboard" className="gap-2 py-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">仪表盘</span>
@@ -4900,6 +4901,10 @@ ${callbacks.robotStatus}
             <TabsTrigger value="reports" className="gap-2 py-2">
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">报告中心</span>
+            </TabsTrigger>
+            <TabsTrigger value="prompt-training" className="gap-2 py-2">
+              <TestTube className="h-4 w-4" />
+              <span className="hidden sm:inline">AI 训练</span>
             </TabsTrigger>
             <TabsTrigger value="callbacks" className="gap-2 py-2 hidden">
               <Link2 className="h-4 w-4" />
@@ -4962,6 +4967,10 @@ ${callbacks.robotStatus}
 
           <TabsContent value="reports" className="space-y-6">
             <ReportsTab />
+          </TabsContent>
+
+          <TabsContent value="prompt-training" className="space-y-6">
+            <PromptTraining />
           </TabsContent>
 
           <TabsContent value="users" className="space-y-6">
