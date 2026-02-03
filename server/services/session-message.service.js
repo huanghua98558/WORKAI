@@ -25,6 +25,9 @@ class SessionMessageService {
         throw new Error('消息内容不能为空');
       }
 
+      // 获取机器人名称：优先使用 nickname，其次 name，最后使用 robotId
+      const robotName = robot?.nickname || robot?.name || robot?.robotId || '未知机器人';
+
       const message = {
         sessionId: sessionId,
         messageId: messageId || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
@@ -37,7 +40,7 @@ class SessionMessageService {
         isFromBot: false,
         isHuman: false,
         robotId: robot?.robotId || null,
-        robotName: robot?.nickname || robot?.name || null,
+        robotName: robotName,
         timestamp: messageContext.timestamp || new Date(),
       };
 
@@ -73,13 +76,13 @@ class SessionMessageService {
         contentLength: message.content.length
       });
 
-      console.log(`[会话消息] 保存用户消息: sessionId=${sessionId}, robot=${robot?.nickname || robot?.name || '未知'}, content="${messageContext.content.substring(0, 50)}..."`);
+      console.log(`[会话消息] 保存用户消息: sessionId=${sessionId}, robot=${robotName}, content="${messageContext.content.substring(0, 50)}..."`);
     } catch (error) {
       logger.error('SessionMessage', '保存用户消息失败', {
         sessionId,
         messageId,
         robotId: robot?.robotId,
-        robotName: robot?.nickname || robot?.name,
+        robotName: robot?.nickname || robot?.name || robot?.robotId,
         error: error.message,
         stack: error.stack,
         messageContext: {
@@ -98,7 +101,7 @@ class SessionMessageService {
         messageId,
         robotId: robot?.robotId,
         robotIdLength: robot?.robotId?.length,
-        robotName: robot?.nickname || robot?.name,
+        robotName: robot?.nickname || robot?.name || robot?.robotId,
         error: error.message,
         stack: error.stack
       });
@@ -113,6 +116,9 @@ class SessionMessageService {
   async saveBotMessage(sessionId, content, messageContext, intent, robot) {
     const db = await getDb();
 
+    // 获取机器人名称：优先使用 nickname，其次 name，最后使用 robotId
+    const robotName = robot?.nickname || robot?.name || robot?.robotId || '未知机器人';
+
     const message = {
       sessionId: sessionId,
       messageId: `bot_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
@@ -126,12 +132,12 @@ class SessionMessageService {
       isHuman: false,
       intent: intent,
       robotId: robot?.robotId || null,
-      robotName: robot?.nickname || robot?.name || null,
+      robotName: robotName,
       timestamp: new Date(),
     };
 
     await db.insert(sessionMessages).values(message);
-    console.log(`[会话消息] 保存机器人回复: sessionId=${sessionId}, robot=${robot?.nickname || robot?.name || '未知'}, intent=${intent}, content="${content.substring(0, 50)}..."`);
+    console.log(`[会话消息] 保存机器人回复: sessionId=${sessionId}, robot=${robotName}, intent=${intent}, content="${content.substring(0, 50)}..."`);
   }
 
   /**
@@ -139,6 +145,9 @@ class SessionMessageService {
    */
   async saveHumanMessage(sessionId, content, messageContext, operator, robot) {
     const db = await getDb();
+
+    // 获取机器人名称：优先使用 nickname，其次 name，最后使用 robotId
+    const robotName = robot?.nickname || robot?.name || robot?.robotId || '未知机器人';
 
     const message = {
       sessionId: sessionId,
@@ -152,13 +161,13 @@ class SessionMessageService {
       isFromBot: false,
       isHuman: true,
       robotId: robot?.robotId || null,
-      robotName: robot?.nickname || robot?.name || null,
+      robotName: robotName,
       extraData: { operator },
       timestamp: new Date(),
     };
 
     await db.insert(sessionMessages).values(message);
-    console.log(`[会话消息] 保存人工回复: sessionId=${sessionId}, robot=${robot?.nickname || robot?.name || '未知'}, operator=${operator}`);
+    console.log(`[会话消息] 保存人工回复: sessionId=${sessionId}, robot=${robotName}, operator=${operator}`);
   }
 
   /**

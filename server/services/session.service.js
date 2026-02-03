@@ -448,11 +448,12 @@ class SessionService {
     try {
       const { getDb } = require('coze-coding-dev-sdk');
       const { sql } = require('drizzle-orm');
-      const { sessionMessages } = require('../database/schema');
+      const { sessionMessages, robots } = require('../database/schema');
       const db = await getDb();
 
-      // 查询该会话最近的机器人消息，获取 robotId 和 robotName
-      // 使用 OR 条件来查询有 robotId 或 robotName 的消息
+      console.log(`[会话服务] 开始 enrichSessionWithRobotInfo for session ${session.sessionId}`);
+
+      // 首先尝试从 sessionMessages 表获取机器人信息
       const robotMessage = await db.execute(sql`
         SELECT robot_id as "robotId", robot_name as "robotName"
         FROM session_messages
@@ -466,9 +467,35 @@ class SessionService {
       if (robotMessage.rows && robotMessage.rows.length > 0) {
         session.robotId = robotMessage.rows[0].robotId;
         session.robotName = robotMessage.rows[0].robotName;
-        console.log(`[会话服务] 会话 ${session.sessionId} 机器人信息: robotId=${session.robotId}, robotName=${session.robotName}`);
+        console.log(`[会话服务] 会话 ${session.sessionId} 从 session_messages 获取机器人信息: robotId=${session.robotId}, robotName=${session.robotName}`);
       } else {
-        console.warn(`[会话服务] 会话 ${session.sessionId} 未找到机器人信息`);
+        console.warn(`[会话服务] 会话 ${session.sessionId} 从 session_messages 未找到机器人信息`);
+      }
+
+      // 如果 sessionMessages 中没有机器人信息，或者 robotName 为空，尝试从 robots 表查询
+      if (!session.robotName && session.robotId) {
+        console.log(`[会话服务] 会话 ${session.sessionId} 尝试从 robots 表查询 robotId=${session.robotId}`);
+        
+        const robot = await db.execute(sql`
+          SELECT robot_id as "robotId", name, nickname
+          FROM robots
+          WHERE robot_id = ${session.robotId}
+          LIMIT 1
+        `);
+
+        if (robot.rows && robot.rows.length > 0) {
+          const robotRow = robot.rows[0];
+          session.robotName = robotRow.nickname || robotRow.name || robotRow.robotId || '未知机器人';
+          console.log(`[会话服务] 会话 ${session.sessionId} 从 robots 表获取机器人信息: name=${robotRow.name}, nickname=${robotRow.nickname}, robotName=${session.robotName}`);
+        } else {
+          console.warn(`[会话服务] 会话 ${session.sessionId} 在 robots 表中未找到 robotId=${session.robotId}`);
+        }
+      }
+
+      // 如果还是没有 robotName，使用 robotId 作为 fallback
+      if (!session.robotName && session.robotId) {
+        session.robotName = session.robotId;
+        console.log(`[会话服务] 会话 ${session.sessionId} 使用 robotId 作为 robotName: ${session.robotName}`);
       }
 
       // 填充用户信息
@@ -480,6 +507,7 @@ class SessionService {
       }
     } catch (error) {
       console.error(`[会话服务] 获取会话 ${session.sessionId} 机器人信息失败:`, error);
+      console.error(`[会话服务] 错误堆栈:`, error.stack);
     }
   }
 

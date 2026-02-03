@@ -22,16 +22,41 @@ class MessageProcessingService {
     const startTime = Date.now();
     const messageContent = messageData.spoken || messageData.content || '';
 
+    // 验证机器人信息
+    if (!robot || !robot.robotId) {
+      logger.error('MessageProcessing', '机器人信息无效', {
+        robot,
+        messageData: {
+          fromName: messageData.fromName,
+          groupName: messageData.groupName,
+          content: messageContent.substring(0, 100)
+        }
+      });
+
+      throw new Error('机器人信息无效：缺少 robotId');
+    }
+
+    // 获取机器人显示名称（优先使用 nickname，其次 name，最后 robotId）
+    const robotDisplayName = robot.nickname || robot.name || robot.robotId;
+
     logger.info('MessageProcessing', '===== 开始处理消息 =====', {
       robotId: robot.robotId,
       robotName: robot.name,
+      robotNickname: robot.nickname,
+      robotDisplayName: robotDisplayName,
       userId: messageData.fromName,
       groupId: messageData.groupName,
       content: messageContent.substring(0, 100),
       timestamp: new Date(startTime).toISOString()
     });
 
-    console.log(`[消息处理] 开始处理消息，startTime: ${startTime}, ISO: ${new Date(startTime).toISOString()}`);
+    console.log(`[消息处理] 开始处理消息`, {
+      robotId: robot.robotId,
+      robotDisplayName,
+      userId: messageData.fromName,
+      groupId: messageData.groupName,
+      content: messageContent.substring(0, 50)
+    });
 
     const processingId = executionTrackerService.startProcessing({
       robotId: robot.robotId,
