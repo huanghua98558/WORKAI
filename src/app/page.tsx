@@ -4347,8 +4347,6 @@ ${callbacks.robotStatus}
     const [filterType, setFilterType] = useState<'all' | 'user' | 'bot'>('all');
     const [selectedRobot, setSelectedRobot] = useState<string>('');
     const [messageLimit, setMessageLimit] = useState<number>(50);
-    const [showLogDownloadDialog, setShowLogDownloadDialog] = useState(false);
-    const [isDownloading, setIsDownloading] = useState(false);
     const lastFetchTime = useRef<number>(0);
 
     const loadMessages = useCallback(async (limit?: number) => {
@@ -4386,52 +4384,6 @@ ${callbacks.robotStatus}
       }
     }, [filterType, selectedRobot, messageLimit]);
 
-    // 下载后台日志
-    const downloadLog = async (logType: string, lines?: number) => {
-      try {
-        setIsDownloading(true);
-        const params = new URLSearchParams();
-        if (lines) {
-          params.append('lines', lines.toString());
-        }
-
-        const url = `/api/admin/logs/${logType}?${params.toString()}`;
-        console.log(`下载日志: ${url}`);
-
-        const response = await fetch(url);
-
-        if (!response.ok) {
-          throw new Error('下载失败');
-        }
-
-        // 获取文件名
-        const contentDisposition = response.headers.get('Content-Disposition');
-        let filename = `${logType}_log.txt`;
-        if (contentDisposition) {
-          const match = contentDisposition.match(/filename="?([^"]+)"?/);
-          if (match) {
-            filename = match[1];
-          }
-        }
-
-        // 获取内容并下载
-        const blob = await response.blob();
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = filename;
-        link.click();
-        window.URL.revokeObjectURL(downloadUrl);
-
-        console.log('日志下载成功');
-      } catch (error) {
-        console.error('下载日志失败:', error);
-        alert('下载日志失败，请稍后重试');
-      } finally {
-        setIsDownloading(false);
-      }
-    };
-
     // 初始化加载（只执行一次）
     useEffect(() => {
       console.log('RealtimeIO: 初始化加载');
@@ -4455,13 +4407,19 @@ ${callbacks.robotStatus}
         console.log('RealtimeIO: 清除自动刷新定时器');
         clearInterval(interval);
       };
-    }, [autoRefresh, loadMessages]);
+    }, [autoRefresh]); // 移除 loadMessages 依赖，避免函数重创建导致定时器重置
 
-    // 监听筛选条件变化，手动触发加载
+    // 监听筛选条件变化，手动触发加载（但避免与自动刷新冲突）
     useEffect(() => {
-      console.log(`RealtimeIO: 筛选条件变化 filter=${filterType}, robot=${selectedRobot}`);
+      // 如果自动刷新已开启，不手动触发加载，等待下一次自动刷新
+      if (autoRefresh) {
+        console.log(`RealtimeIO: 筛选条件变化，但自动刷新已开启，等待下一次自动刷新 filter=${filterType}, robot=${selectedRobot}`);
+        return;
+      }
+
+      console.log(`RealtimeIO: 筛选条件变化，手动触发加载 filter=${filterType}, robot=${selectedRobot}`);
       loadMessages();
-    }, [filterType, selectedRobot, messageLimit]);
+    }, [filterType, selectedRobot, messageLimit, autoRefresh]);
 
     return (
       <div className="space-y-6">
@@ -4484,14 +4442,6 @@ ${callbacks.robotStatus}
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               刷新
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowLogDownloadDialog(true)}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              下载日志
             </Button>
           </div>
         </div>
@@ -4625,116 +4575,6 @@ ${callbacks.robotStatus}
             )}
           </CardContent>
         </Card>
-
-        {/* 下载日志对话框 */}
-        <Dialog open={showLogDownloadDialog} onOpenChange={setShowLogDownloadDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>下载后台日志</DialogTitle>
-              <DialogDescription>
-                下载后台系统的完整运行日志，用于问题调试和分析
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertTitle>日志说明</AlertTitle>
-                <AlertDescription>
-                  <ul className="list-disc list-inside text-sm mt-2 space-y-1">
-                    <li><strong>app.log</strong>：主流程日志，包含所有关键步骤和错误信息</li>
-                    <li><strong>dev.log</strong>：开发调试日志，包含详细的调试信息</li>
-                    <li><strong>console.log</strong>：浏览器控制台日志（前端）</li>
-                  </ul>
-                </AlertDescription>
-              </Alert>
-
-              <div className="space-y-2">
-                <Label>日志类型</Label>
-                <div className="grid grid-cols-1 gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => downloadLog('app.log')}
-                    disabled={isDownloading}
-                    className="justify-start"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    <div className="text-left">
-                      <div className="font-medium">app.log</div>
-                      <div className="text-xs text-muted-foreground">主流程日志（包含关键错误）</div>
-                    </div>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => downloadLog('dev.log')}
-                    disabled={isDownloading}
-                    className="justify-start"
-                  >
-                    <Code className="h-4 w-4 mr-2" />
-                    <div className="text-left">
-                      <div className="font-medium">dev.log</div>
-                      <div className="text-xs text-muted-foreground">开发调试日志</div>
-                    </div>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => downloadLog('console.log')}
-                    disabled={isDownloading}
-                    className="justify-start"
-                  >
-                    <Terminal className="h-4 w-4 mr-2" />
-                    <div className="text-left">
-                      <div className="font-medium">console.log</div>
-                      <div className="text-xs text-muted-foreground">浏览器控制台日志</div>
-                    </div>
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>快速下载 app.log（推荐）</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => downloadLog('app.log', 100)}
-                    disabled={isDownloading}
-                  >
-                    最近 100 行
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => downloadLog('app.log', 500)}
-                    disabled={isDownloading}
-                  >
-                    最近 500 行
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => downloadLog('app.log', 1000)}
-                    disabled={isDownloading}
-                  >
-                    最近 1000 行
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => downloadLog('app.log')}
-                    disabled={isDownloading}
-                  >
-                    完整文件
-                  </Button>
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowLogDownloadDialog(false)}>
-                取消
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     );
   };

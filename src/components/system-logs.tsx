@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Table,
   TableBody,
@@ -32,6 +33,9 @@ import {
   ChevronUp,
   MoreHorizontal,
   Download,
+  FileText,
+  Code,
+  Terminal,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -73,6 +77,8 @@ export default function SystemLogs() {
   const [stats, setStats] = useState<any>({});
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteDays, setDeleteDays] = useState(30);
+  const [showBackendLogDialog, setShowBackendLogDialog] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const loadLogs = async () => {
     try {
@@ -154,7 +160,7 @@ export default function SystemLogs() {
         ];
 
         // 按时间排序（从旧到新）
-        const sortedLogs = [...allLogs].sort((a, b) => 
+        const sortedLogs = [...allLogs].sort((a, b) =>
           new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         );
 
@@ -202,6 +208,51 @@ export default function SystemLogs() {
     } catch (error) {
       console.error('下载日志失败:', error);
       alert('❌ 下载失败，请检查网络连接');
+    }
+  };
+
+  const handleDownloadBackendLog = async (logType: string, lines?: number) => {
+    try {
+      setIsDownloading(true);
+      const params = new URLSearchParams();
+      if (lines) {
+        params.append('lines', lines.toString());
+      }
+
+      const url = `/api/admin/logs/${logType}?${params.toString()}`;
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error('下载失败');
+      }
+
+      // 获取内容并下载
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+
+      // 从响应头获取文件名或生成默认文件名
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `${logType.replace('.log', '')}_log.txt`;
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match) {
+          filename = match[1];
+        }
+      }
+
+      link.download = filename;
+      link.click();
+      window.URL.revokeObjectURL(downloadUrl);
+
+      console.log('后台日志下载成功');
+    } catch (error) {
+      console.error('下载后台日志失败:', error);
+      alert('下载后台日志失败，请稍后重试');
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -279,6 +330,14 @@ export default function SystemLogs() {
           >
             <Download className="h-4 w-4 mr-2" />
             下载日志
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowBackendLogDialog(true)}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            完整日志
           </Button>
           <Button
             variant="outline"
@@ -551,6 +610,116 @@ export default function SystemLogs() {
             </Button>
             <Button variant="destructive" onClick={handleDeleteOldLogs}>
               确认清理
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 完整日志（后台日志）下载对话框 */}
+      <Dialog open={showBackendLogDialog} onOpenChange={setShowBackendLogDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>下载完整日志</DialogTitle>
+            <DialogDescription>
+              下载后台系统的完整运行日志，用于问题调试和分析
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertTitle>日志说明</AlertTitle>
+              <AlertDescription>
+                <ul className="list-disc list-inside text-sm mt-2 space-y-1">
+                  <li><strong>app.log</strong>：主流程日志，包含所有关键步骤和错误信息</li>
+                  <li><strong>dev.log</strong>：开发调试日志，包含详细的调试信息</li>
+                  <li><strong>console.log</strong>：浏览器控制台日志（前端）</li>
+                </ul>
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-2">
+              <Label>日志类型</Label>
+              <div className="grid grid-cols-1 gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => handleDownloadBackendLog('app.log')}
+                  disabled={isDownloading}
+                  className="justify-start"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  <div className="text-left">
+                    <div className="font-medium">app.log</div>
+                    <div className="text-xs text-muted-foreground">主流程日志（包含关键错误）</div>
+                  </div>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleDownloadBackendLog('dev.log')}
+                  disabled={isDownloading}
+                  className="justify-start"
+                >
+                  <Code className="h-4 w-4 mr-2" />
+                  <div className="text-left">
+                    <div className="font-medium">dev.log</div>
+                    <div className="text-xs text-muted-foreground">开发调试日志</div>
+                  </div>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleDownloadBackendLog('console.log')}
+                  disabled={isDownloading}
+                  className="justify-start"
+                >
+                  <Terminal className="h-4 w-4 mr-2" />
+                  <div className="text-left">
+                    <div className="font-medium">console.log</div>
+                    <div className="text-xs text-muted-foreground">浏览器控制台日志</div>
+                  </div>
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>快速下载 app.log（推荐）</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleDownloadBackendLog('app.log', 100)}
+                  disabled={isDownloading}
+                >
+                  最近 100 行
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleDownloadBackendLog('app.log', 500)}
+                  disabled={isDownloading}
+                >
+                  最近 500 行
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleDownloadBackendLog('app.log', 1000)}
+                  disabled={isDownloading}
+                >
+                  最近 1000 行
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleDownloadBackendLog('app.log')}
+                  disabled={isDownloading}
+                >
+                  完整文件
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBackendLogDialog(false)}>
+              取消
             </Button>
           </DialogFooter>
         </DialogContent>
