@@ -10,3 +10,4 @@ deps = ["git"] # -> apt install git
 build = ["bash","./scripts/build.sh"]
 run = ["bash","./scripts/start.sh"]
 deps = ["git"] # -> apt install git
+environment = ["BACKEND_HOST=localhost", "BACKEND_PORT=5001"]
