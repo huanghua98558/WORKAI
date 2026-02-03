@@ -159,6 +159,37 @@ const start = async () => {
     robotCommandService.startQueueProcessor('main-worker', 3000); // 每3秒处理一次（优化后）
 
     console.log(`⏰ 指令队列处理器已启动`);
+
+    // 启动日志自动清理任务
+    if (process.env.LOG_AUTO_CLEANUP === 'true') {
+      console.log('🧹 启动日志自动清理任务...');
+      const retentionDays = parseInt(process.env.LOG_RETENTION_DAYS || '30');
+      console.log(`⏰ 日志保留天数: ${retentionDays} 天`);
+
+      const logCleanupTask = async () => {
+        try {
+          const now = new Date();
+          const hour = now.getHours();
+          const minutes = now.getMinutes();
+
+          // 每天凌晨3点执行清理（时间窗口：3:00-3:05）
+          if (hour === 3 && minutes < 5) {
+            const systemLogger = require('./services/system-logger.service');
+            console.log(`[${new Date().toLocaleString('zh-CN')}] 开始清理 ${retentionDays} 天前的系统日志...`);
+            const deletedCount = await systemLogger.cleanup(retentionDays);
+            console.log(`✅ 系统日志清理完成: 删除 ${deletedCount} 条记录`);
+          }
+        } catch (error) {
+          console.error('❌ 日志自动清理失败:', error.message);
+        }
+      };
+
+      // 每小时检查一次
+      const cleanupCheckInterval = setInterval(logCleanupTask, 60 * 60 * 1000);
+      console.log(`⏰ 日志自动清理已配置为每天凌晨3点执行`);
+    } else {
+      console.log('🧹 日志自动清理未启用（LOG_AUTO_CLEANUP=false）');
+    }
     
     console.log(`
 ╔═══════════════════════════════════════════════════════╗
@@ -171,6 +202,7 @@ const start = async () => {
 ║   🔐 回调签名校验: ${process.env.ENABLE_SIGNATURE_CHECK ? '✅ 已启用' : '⚠️  已禁用'}
 ║   🔄 回调幂等处理: ✅ 已启用
 ║   🧯 全局熔断开关: ${process.env.GLOBAL_CIRCUIT_BREAKER === 'true' ? '❌ 已熔断' : '✅ 正常'}
+║   🧹 日志自动清理: ${process.env.LOG_AUTO_CLEANUP === 'true' ? '✅ 已启用（保留 ' + (process.env.LOG_RETENTION_DAYS || '30') + ' 天）' : '⚠️  已禁用'}
 ╚═══════════════════════════════════════════════════════╝
     `);
   } catch (err) {
