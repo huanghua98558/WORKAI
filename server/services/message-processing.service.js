@@ -365,6 +365,59 @@ class MessageProcessingService {
    * 根据意图决策
    */
   async makeDecision(intentResult, session, messageContext, processingId, robot) {
+    // ========== 检查是否为转化客服模式 ==========
+    if (robot && robot.conversionMode) {
+      logger.info('MessageProcessing', '检测到转化客服模式，使用转化AI回复', {
+        robotId: robot.robotId,
+        sessionId: session.sessionId
+      });
+
+      try {
+        const conversionReply = await this.generateReplyWithPrompt(
+          intentResult,
+          session,
+          messageContext,
+          processingId,
+          robot,
+          'conversion'  // 使用转化客服提示词
+        );
+
+        if (conversionReply.success) {
+          // 更新会话
+          await sessionService.updateSession(session.sessionId, {
+            aiReplyCount: (session.aiReplyCount || 0) + 1,
+            replyCount: (session.replyCount || 0) + 1,
+            lastIntent: 'conversion',
+            lastActiveTime: new Date().toISOString()
+          });
+
+          return {
+            action: 'conversion_reply',
+            reply: conversionReply.reply,
+            reason: '转化客服模式，使用转化AI回复',
+            sessionStatus: 'auto'
+          };
+        } else {
+          logger.error('MessageProcessing', '转化AI回复生成失败', {
+            error: conversionReply.error
+          });
+          throw new Error(conversionReply.error || '转化AI回复失败');
+        }
+      } catch (error) {
+        logger.error('MessageProcessing', '转化客服模式处理失败', {
+          error: error.message,
+          stack: error.stack
+        });
+        // 降级处理：返回错误，不发送回复
+        return {
+          action: 'none',
+          reason: '转化AI回复失败',
+          error: error.message
+        };
+      }
+    }
+
+    // ========== 常规处理流程 ==========
     const { intent, needReply, needHuman, confidence } = intentResult;
     const autoReplyConfig = config.get('autoReply');
 
@@ -779,6 +832,28 @@ class MessageProcessingService {
 
     // 根据提示词类型选择不同的提示词
     const prompts = {
+      conversion: `你是一个专业的转化客服专员，擅长通过对话引导用户完成转化目标。
+
+核心目标：
+- 引导用户购买产品/服务
+- 引导用户填写表单/注册账号
+- 引导用户参加活动/预约
+- 引导用户咨询详情
+
+回复策略：
+1. 先了解用户需求和痛点
+2. 针对性地介绍产品/服务的价值
+3. 用利益点而非功能点打动用户
+4. 适时提出行动号召（CTA）
+5. 语气热情、专业、有说服力
+6. 适度使用表情符号增加亲和力
+7. 控制在 300 字以内，保持简洁有力
+
+注意事项：
+- 不要过于强势或推销感太强
+- 关注用户反馈，灵活调整策略
+- 建立信任，避免引起反感`,
+
       risk: `你是一个社群客服机器人。检测到用户发送了风险内容，需要：
 1. 严肃提醒用户注意言辞
 2. 说明社群规则
@@ -795,19 +870,37 @@ class MessageProcessingService {
     const systemPrompt = prompts[promptType] || prompts.risk;
 
     try {
-      // 使用AI模型生成回复（带有特定的系统提示词）
-      reply = await aiService.generateServiceReply(
-        messageContext.content,
-        intentResult.intent,
-        systemPrompt,
-        {
-          sessionId: session.sessionId,
-          messageId: messageContext.messageId,
-          robotId: robot.robotId,
-          robotName: robot.name
-        }
-      );
-      actionReason = `${promptType === 'risk' ? '风险内容' : '垃圾信息'}提示回复`;
+      // 根据提示词类型选择不同的AI服务方法
+      if (promptType === 'conversion') {
+        // 转化客服模式：使用专门的转化AI
+        reply = await aiService.generateConversionReply(
+          messageContext.content,
+          intentResult.intent,
+          {
+            sessionId: session.sessionId,
+            messageId: messageContext.messageId,
+            robotId: robot.robotId,
+            robotName: robot.name,
+            userName: messageContext.fromName,
+            groupName: messageContext.groupName
+          }
+        );
+        actionReason = '转化客服模式，使用转化AI回复';
+      } else {
+        // 其他模式：使用标准服务回复
+        reply = await aiService.generateServiceReply(
+          messageContext.content,
+          intentResult.intent,
+          systemPrompt,
+          {
+            sessionId: session.sessionId,
+            messageId: messageContext.messageId,
+            robotId: robot.robotId,
+            robotName: robot.name
+          }
+        );
+        actionReason = `${promptType === 'risk' ? '风险内容' : '垃圾信息'}提示回复`;
+      }
 
       logger.info('MessageProcessing', 'generateReplyWithPrompt步骤: 回复生成完成', {
         replyLength: reply.length,
