@@ -80,15 +80,33 @@ class MessageProcessingService {
 
       // 步骤2: 获取或创建会话
       logger.info('MessageProcessing', '步骤2: 获取或创建会话', { processingId });
-      const session = await sessionService.getOrCreateSession(
-        messageContext.fromName,
-        messageContext.groupName,
-        {
-          userName: messageContext.fromName,
-          groupName: messageContext.groupName,
-          roomType: messageContext.roomType
-        }
-      );
+      let session;
+      try {
+        session = await sessionService.getOrCreateSession(
+          messageContext.fromName,
+          messageContext.groupName,
+          {
+            userName: messageContext.fromName,
+            groupName: messageContext.groupName,
+            roomType: messageContext.roomType
+          }
+        );
+      } catch (error) {
+        console.error('[消息处理] 会话创建失败:', {
+          error: error.message,
+          stack: error.stack,
+          fromName: messageContext.fromName,
+          groupName: messageContext.groupName
+        });
+
+        // 创建临时会话对象（降级处理）
+        session = {
+          sessionId: `temp_${Date.now()}`,
+          context: [],
+          messageCount: 0,
+          isNew: true
+        };
+      }
 
       logger.info('MessageProcessing', '步骤2完成: 会话获取成功', {
         sessionId: session.sessionId,
@@ -163,7 +181,32 @@ class MessageProcessingService {
           robotId: robot.robotId,
           robotName: robot.name
         }
-      );
+      ).catch(error => {
+        // 捕获并详细记录 AI 意图识别错误
+        console.error('[消息处理] AI 意图识别失败:', {
+          error: error.message,
+          stack: error.stack,
+          sessionId: session.sessionId,
+          messageId: messageData.messageId,
+          content: messageContext.content.substring(0, 100)
+        });
+
+        logger.error('MessageProcessing', 'AI 意图识别失败', {
+          error: error.message,
+          stack: error.stack,
+          sessionId: session.sessionId,
+          messageId: messageData.messageId
+        });
+
+        // 返回降级处理结果
+        return {
+          intent: 'chat',
+          needReply: true,
+          needHuman: false,
+          confidence: 0.5,
+          reason: 'AI 调用失败，降级处理'
+        };
+      });
 
       executionTrackerService.updateStep(processingId, 'intent_recognition', {
         status: 'completed',

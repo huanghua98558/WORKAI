@@ -989,3 +989,92 @@ exports.robotCommandQueue = pgTable(
     robotIdIdx: index("robot_command_queue_robot_id_idx").on(table.robotId),
   })
 );
+
+// 会话表
+exports.sessions = pgTable(
+  "sessions",
+  {
+    id: varchar("id", { length: 255 }).primaryKey(),
+    sessionId: varchar("session_id", { length: 255 }).notNull().unique(),
+    userId: varchar("user_id", { length: 255 }),
+    groupId: varchar("group_id", { length: 255 }),
+    userName: varchar("user_name", { length: 255 }),
+    groupName: varchar("group_name", { length: 255 }),
+    roomType: integer("room_type"),
+    status: varchar("status", { length: 50 }).default("auto"),
+    context: jsonb("context").default("[]"),
+    messageCount: integer("message_count").default(0),
+    lastIntent: varchar("last_intent", { length: 100 }),
+    intentConfidence: integer("intent_confidence"),
+    lastProcessedAt: timestamp("last_processed_at", { withTimezone: true }),
+    lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    robotId: varchar("robot_id", { length: 255 }),
+    robotName: varchar("robot_name", { length: 255 }),
+  },
+  (table) => ({
+    sessionIdIdx: index("sessions_session_id_idx").on(table.sessionId).unique(),
+    userIdIdx: index("sessions_user_id_idx").on(table.userId),
+    groupIdIdx: index("sessions_group_id_idx").on(table.groupId),
+    statusIdx: index("sessions_status_idx").on(table.status),
+    lastProcessedAtIdx: index("sessions_last_processed_at_idx").on(table.lastProcessedAt),
+  })
+);
+
+// 执行追踪表
+exports.execution_tracking = pgTable(
+  "execution_tracking",
+  {
+    id: varchar("id", { length: 255 }).primaryKey(),
+    processingId: varchar("processing_id", { length: 255 }).notNull().unique(),
+    robotId: varchar("robot_id", { length: 255 }),
+    robotName: varchar("robot_name", { length: 255 }),
+    messageId: varchar("message_id", { length: 255 }),
+    sessionId: varchar("session_id", { length: 255 }),
+    userId: varchar("user_id", { length: 255 }),
+    groupId: varchar("group_id", { length: 255 }),
+    status: varchar("status", { length: 50 }).default("processing"),
+    steps: jsonb("steps").default("{}"),
+    errorMessage: text("error_message"),
+    errorStack: text("error_stack"),
+    startTime: timestamp("start_time", { withTimezone: true }),
+    endTime: timestamp("end_time", { withTimezone: true }),
+    processingTime: integer("processing_time"),
+    decision: jsonb("decision").default("{}"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    processingIdIdx: index("execution_tracking_processing_id_idx").on(table.processingId).unique(),
+    sessionIdIdx: index("execution_tracking_session_id_idx").on(table.sessionId),
+    statusIdx: index("execution_tracking_status_idx").on(table.status),
+    createdAtIdx: index("execution_tracking_created_at_idx").on(table.createdAt),
+  })
+);
+
+// AI 输入输出日志表
+exports.ai_io_logs = pgTable(
+  "ai_io_logs",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    sessionId: varchar("session_id", { length: 255 }),
+    messageId: varchar("message_id", { length: 255 }),
+    robotId: varchar("robot_id", { length: 255 }),
+    robotName: varchar("robot_name", { length: 255 }),
+    operationType: varchar("operation_type", { length: 100 }),
+    aiInput: text("ai_input"),
+    aiOutput: text("ai_output"),
+    modelId: varchar("model_id", { length: 255 }),
+    temperature: integer("temperature"),
+    requestDuration: integer("request_duration"),
+    status: varchar("status", { length: 50 }),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    sessionIdIdx: index("ai_io_logs_session_id_idx").on(table.sessionId),
+    messageIdIdx: index("ai_io_logs_message_id_idx").on(table.messageId),
+    operationTypeIdx: index("ai_io_logs_operation_type_idx").on(table.operationType),
+    createdAtIdx: index("ai_io_logs_created_at_idx").on(table.createdAt),
+  })
+);
