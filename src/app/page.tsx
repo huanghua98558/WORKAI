@@ -210,6 +210,7 @@ export default function AdminDashboard() {
   const [isSearchingSessions, setIsSearchingSessions] = useState(false);
   const [showRobotDetail, setShowRobotDetail] = useState(false);
   const [selectedRobot, setSelectedRobot] = useState<Robot | null>(null);
+  const [robotInfoMap, setRobotInfoMap] = useState<Record<string, { name: string; loaded: boolean }>>({});
 
   // 初始化加载（只执行一次）
   useEffect(() => {
@@ -343,11 +344,53 @@ export default function AdminDashboard() {
     }
   };
 
+  // 获取机器人信息（企微昵称）
+  const loadRobotInfo = async (robotId: string): Promise<string | null> => {
+    // 如果已经加载过，直接返回缓存的名称
+    if (robotInfoMap[robotId]?.loaded) {
+      return robotInfoMap[robotId].name;
+    }
+
+    try {
+      const res = await fetch(`/api/proxy/robot/info?robotId=${encodeURIComponent(robotId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.code === 200 && data.data?.name) {
+          // 缓存机器人名称
+          setRobotInfoMap(prev => ({
+            ...prev,
+            [robotId]: { name: data.data.name, loaded: true }
+          }));
+          return data.data.name;
+        }
+      }
+    } catch (error) {
+      console.error('获取机器人信息失败:', error);
+    }
+    
+    // 缓存加载失败状态
+    setRobotInfoMap(prev => ({
+      ...prev,
+      [robotId]: { name: '', loaded: true }
+    }));
+    return null;
+  };
+
   // 查看会话详情
   const handleViewSessionDetail = async (session: Session) => {
     setSelectedSession(session);
     setShowSessionDetail(true);
     loadSessionMessages(session.sessionId);
+    
+    // 加载机器人信息
+    if (session.robotId) {
+      const robotName = await loadRobotInfo(session.robotId);
+      if (robotName) {
+        // 更新选中的会话，添加机器人名称
+        setSelectedSession(prev => prev ? { ...prev, robotName } : null);
+      }
+    }
+    
     // 重新获取最新的会话信息，确保机器人名称和状态正确
     try {
       const res = await fetch(`/api/admin/sessions/${session.sessionId}`);
@@ -355,6 +398,10 @@ export default function AdminDashboard() {
         const data = await res.json();
         if (data.success && data.data) {
           setSelectedSession(data.data);
+          // 如果返回的数据没有机器人名称，使用我们获取的
+          if (!data.data.robotName && session.robotId && robotInfoMap[session.robotId]?.name) {
+            setSelectedSession(prev => prev ? { ...prev, robotName: robotInfoMap[session.robotId].name } : null);
+          }
         }
       }
     } catch (error) {
@@ -5116,7 +5163,7 @@ ${callbacks.robotStatus}
                                 ) : (
                                   <>
                                     <Bot className="h-4 w-4 inline mr-1.5 text-blue-600 dark:text-blue-400" />
-                                    {msg.robotName || 'AI'}
+                                    {msg.robotName || (msg.robotId && robotInfoMap[msg.robotId]?.name) || 'AI'}
                                   </>
                                 )}
                               </span>
