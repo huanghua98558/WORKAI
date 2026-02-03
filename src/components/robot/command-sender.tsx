@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -98,6 +98,10 @@ export default function CommandSender() {
     limit: 50
   });
   
+  // 使用 ref 保存最新的筛选条件，避免闭包陷阱
+  const historyFilterRef = useRef(historyFilter);
+  historyFilterRef.current = historyFilter;
+  
   // 表单字段状态
   const [formData, setFormData] = useState({
     // 群发消息
@@ -171,14 +175,17 @@ export default function CommandSender() {
   };
 
   // 加载消息历史
-  const fetchMessageHistory = async () => {
+  const fetchMessageHistory = useCallback(async (showLoading = false) => {
     try {
-      setHistoryLoading(true);
+      if (showLoading) {
+        setHistoryLoading(true);
+      }
       const params = new URLSearchParams();
-      if (historyFilter.robotId && historyFilter.robotId !== 'all') params.append('robotId', historyFilter.robotId);
-      if (historyFilter.commandType && historyFilter.commandType !== 'all') params.append('commandType', historyFilter.commandType);
-      if (historyFilter.status && historyFilter.status !== 'all') params.append('status', historyFilter.status);
-      params.append('limit', String(historyFilter.limit));
+      const filter = historyFilterRef.current;
+      if (filter.robotId && filter.robotId !== 'all') params.append('robotId', filter.robotId);
+      if (filter.commandType && filter.commandType !== 'all') params.append('commandType', filter.commandType);
+      if (filter.status && filter.status !== 'all') params.append('status', filter.status);
+      params.append('limit', String(filter.limit));
       
       const response = await fetch(`/api/admin/message-history?${params.toString()}`);
       const result = await response.json();
@@ -194,31 +201,33 @@ export default function CommandSender() {
       console.error('加载消息历史失败:', error);
       toast.error('加载消息历史失败');
     } finally {
-      setHistoryLoading(false);
+      if (showLoading) {
+        setHistoryLoading(false);
+      }
     }
-  };
+  }, []);
 
   // 初始化加载数据（只执行一次）
   useEffect(() => {
     fetchRobots();
     fetchCommands();
-    fetchMessageHistory();
-  }, []);
+    fetchMessageHistory(true); // 初始化时显示加载状态
+  }, [fetchMessageHistory]);
 
-  // 定时刷新（只执行一次，持续运行）
+  // 定时刷新（只执行一次，持续运行）- 不显示加载状态，避免闪烁
   useEffect(() => {
     const commandsInterval = setInterval(fetchCommands, 5000);
-    const historyInterval = setInterval(fetchMessageHistory, 5000);
+    const historyInterval = setInterval(() => fetchMessageHistory(false), 5000);
     return () => {
       clearInterval(commandsInterval);
       clearInterval(historyInterval);
     };
-  }, []);
+  }, [fetchMessageHistory]);
 
-  // 当筛选条件变化时，重新加载消息历史
+  // 当筛选条件变化时，重新加载消息历史 - 显示加载状态
   useEffect(() => {
-    fetchMessageHistory();
-  }, [historyFilter]);
+    fetchMessageHistory(true);
+  }, [historyFilter, fetchMessageHistory]);
 
   // 构建指令 payload
   const buildPayload = () => {
