@@ -215,7 +215,6 @@ export default function AdminDashboard() {
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [sessionMessages, setSessionMessages] = useState<any[]>([]);
   const [isLoadingSessionMessages, setIsLoadingSessionMessages] = useState(false);
-  const loadingSessionIdRef = useRef<string | null>(null); // 使用ref来跟踪正在加载的会话ID
   const [sessionSearchQuery, setSessionSearchQuery] = useState('');
   const [sessionStatusFilter, setSessionStatusFilter] = useState<'all' | 'auto' | 'human'>('all');
   const [isSearchingSessions, setIsSearchingSessions] = useState(false);
@@ -251,7 +250,7 @@ export default function AdminDashboard() {
     const interval = setInterval(() => {
       loadData();
       loadRobots();
-    }, 10000); // 每 10 秒刷新一次，降低日志输出频率
+    }, 10000); // 每 10 秒刷新一次
 
     return () => clearInterval(interval);
   }, [showSessionDetail, activeTab]);
@@ -372,79 +371,22 @@ export default function AdminDashboard() {
 
   // 加载会话消息
   const loadSessionMessages = async (sessionId: string) => {
-    console.log('[会话消息] ========== 开始加载会话消息 ==========');
-    console.log('[会话消息] sessionId:', sessionId);
-
-    // 如果已经在加载这个会话的消息，直接返回
-    if (loadingSessionIdRef.current === sessionId) {
-      console.log('[会话消息] 正在加载中，跳过重复请求');
-      return;
-    }
-
-    // 更新正在加载的会话ID
-    loadingSessionIdRef.current = sessionId;
     setIsLoadingSessionMessages(true);
-    setSessionMessages([]); // 清空旧消息
-
     try {
       const res = await fetch(`/api/admin/sessions/${sessionId}/messages`);
-      console.log('[会话消息] 请求状态:', res.status, res.ok);
-
       if (res.ok) {
         const data = await res.json();
-        console.log('[会话消息] 原始响应数据:', data);
-
-        if (data.success) {
-          const messages = data.data || [];
-          console.log('[会话消息] 消息数量:', messages.length);
-          console.log('[会话消息] 消息列表:', messages);
-
-          // 只有当正在加载的会话ID匹配时才更新消息
-          if (loadingSessionIdRef.current === sessionId) {
-            setSessionMessages(messages);
-          }
-
-          // 验证消息是否已设置
-          setTimeout(() => {
-            console.log('[会话消息] 验证：当前 sessionMessages 状态:', messages.length, '条消息');
-          }, 100);
-        } else {
-          console.error('[会话消息] API返回失败:', data);
-          if (loadingSessionIdRef.current === sessionId) {
-            setSessionMessages([]);
-          }
-        }
+        setSessionMessages(data.data || []);
       } else {
-        console.error('[会话消息] 请求失败，状态码:', res.status);
-        if (loadingSessionIdRef.current === sessionId) {
-          setSessionMessages([]);
-        }
-      }
-    } catch (error) {
-      console.error('[会话消息] 加载会话消息失败:', error);
-      if (loadingSessionIdRef.current === sessionId) {
         setSessionMessages([]);
       }
+    } catch (error) {
+      console.error('加载会话消息失败:', error);
+      setSessionMessages([]);
     } finally {
-      // 只有当正在加载的会话ID匹配时才重置加载状态
-      if (loadingSessionIdRef.current === sessionId) {
-        setIsLoadingSessionMessages(false);
-        loadingSessionIdRef.current = null;
-      }
-      console.log('[会话消息] ========== 加载完成 ==========');
+      setIsLoadingSessionMessages(false);
     }
   };
-
-  // 监听 Dialog 关闭，清理状态
-  useEffect(() => {
-    if (!showSessionDetail) {
-      console.log('[Dialog] 弹窗已关闭，清理状态');
-      setSessionMessages([]);
-      setSelectedSession(null);
-      setIsLoadingSessionMessages(false);
-      loadingSessionIdRef.current = null;
-    }
-  }, [showSessionDetail]);
 
   // 获取机器人信息（企微昵称）
   const loadRobotInfo = async (robotId: string): Promise<string | null> => {
@@ -478,46 +420,21 @@ export default function AdminDashboard() {
     return null;
   };
 
-  // 监听 selectedSession 的变化
-  useEffect(() => {
-    console.log('[状态变化] selectedSession 已更新:', selectedSession);
-    if (selectedSession) {
-      console.log('[状态变化] 会话详情已加载，sessionId:', selectedSession.sessionId);
-    }
-  }, [selectedSession]);
-
   // 查看会话详情
   const handleViewSessionDetail = async (session: Session) => {
-    console.log('[会话详情] ========== 开始查看会话详情 ==========');
-    console.log('[会话详情] 选中的会话:', session);
-    console.log('[会话详情] sessionId:', session.sessionId);
-
-    // 先清空旧消息
-    setSessionMessages([]);
-
-    // 设置选中的会话
     setSelectedSession(session);
-    console.log('[会话详情] 已设置 selectedSession');
-
-    // 打开弹窗
     setShowSessionDetail(true);
-    console.log('[会话详情] 弹窗状态已设置为显示');
-
-    // 使用 setTimeout 确保 selectedSession 状态已更新后再加载消息
-    setTimeout(() => {
-      console.log('[会话详情] 开始加载消息...');
-      loadSessionMessages(session.sessionId);
-    }, 50);
-
+    loadSessionMessages(session.sessionId);
+    
     // 加载机器人信息
     if (session.robotId) {
-      loadRobotInfo(session.robotId).then(robotName => {
-        if (robotName) {
-          setSelectedSession(prev => prev ? { ...prev, robotName } : null);
-        }
-      });
+      const robotName = await loadRobotInfo(session.robotId);
+      if (robotName) {
+        // 更新选中的会话，添加机器人名称
+        setSelectedSession(prev => prev ? { ...prev, robotName } : null);
+      }
     }
-
+    
     // 重新获取最新的会话信息，确保机器人名称和状态正确
     try {
       const res = await fetch(`/api/admin/sessions/${session.sessionId}`);
@@ -1698,11 +1615,7 @@ ${callbacks.robotStatus}
                   <div
                     key={session.sessionId}
                     className="flex items-start justify-between p-4 bg-tech-gradient dark:bg-tech-gradient rounded-xl hover:shadow-glow transition-shadow cursor-pointer border border-primary/20 hover:border-primary/40"
-                    onClick={() => {
-                      console.log('[点击测试] 会话卡片被点击');
-                      alert('点击了会话！sessionId: ' + session.sessionId);
-                      handleViewSessionDetail(session);
-                    }}
+                    onClick={() => handleViewSessionDetail(session)}
                   >
                     <div className="flex items-start gap-3 flex-1 min-w-0">
                       <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg flex-shrink-0 border-2 border-primary/30">
@@ -1835,7 +1748,7 @@ ${callbacks.robotStatus}
               会话管理
             </h3>
             <p className="text-muted-foreground mt-1">
-              查看和管理活跃的用户会话（显示近7天内活跃的会话，每个会话显示1条最新消息）
+              查看和管理活跃的用户会话
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -2359,24 +2272,6 @@ ${callbacks.robotStatus}
 
   return (
     <div className="min-h-screen bg-tech-grid dark:bg-tech-grid">
-      {/* 测试按钮 - 临时调试 */}
-      <button 
-        onClick={() => alert('测试按钮被点击了！')}
-        style={{
-          position: 'fixed',
-          top: '50px',
-          left: '10px',
-          zIndex: 10000,
-          background: 'red',
-          color: 'white',
-          padding: '10px',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer'
-        }}
-      >
-        测试按钮
-      </button>
       {/* 科幻风格标题栏 */}
       <header className="border-b border-primary/20 glass sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3">
@@ -2442,7 +2337,7 @@ ${callbacks.robotStatus}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           {/* 科幻风格标签栏 */}
-          <TabsList className="w-auto h-auto p-1.5 glass border border-primary/20 gap-1 flex flex-wrap">
+          <TabsList className="grid w-full grid-cols-12 lg:w-auto lg:inline-grid h-auto p-1.5 glass border border-primary/20 gap-1">
             <TabsTrigger 
               value="dashboard" 
               className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
@@ -2538,12 +2433,7 @@ ${callbacks.robotStatus}
           </TabsContent>
 
           <TabsContent value="robots" className="space-y-6">
-            {/* 临时禁用RobotManagement组件 */}
-            {false && <RobotManagement />}
-            <div className="text-center py-12 text-muted-foreground">
-              <Bot className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>机器人管理功能正在维护中</p>
-            </div>
+            <RobotManagement />
           </TabsContent>
 
           <TabsContent value="qa" className="space-y-6">
@@ -2589,30 +2479,15 @@ ${callbacks.robotStatus}
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
-            {/* 临时禁用SettingsTab组件 */}
-            {false && <SettingsTab aiConfig={aiConfig} isLoadingAiConfig={isLoadingAiConfig} />}
-            <div className="text-center py-12 text-muted-foreground">
-              <Settings className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>系统设置功能正在维护中</p>
-            </div>
+            <SettingsTab aiConfig={aiConfig} isLoadingAiConfig={isLoadingAiConfig} />
           </TabsContent>
 
           <TabsContent value="system-logs" className="space-y-6">
-            {/* 临时禁用SystemLogs组件 */}
-            {false && <SystemLogs />}
-            <div className="text-center py-12 text-muted-foreground">
-              <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>系统日志功能正在维护中</p>
-            </div>
+            <SystemLogs />
           </TabsContent>
 
           <TabsContent value="monitoring" className="space-y-6">
-            {/* 临时禁用MonitoringTab组件 */}
-            {false && <MonitoringTab />}
-            <div className="text-center py-12 text-muted-foreground">
-              <Activity className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>监控功能正在维护中</p>
-            </div>
+            <MonitoringTab />
           </TabsContent>
         </Tabs>
       </main>
@@ -2731,13 +2606,8 @@ ${callbacks.robotStatus}
         </div>
       </footer>
 
-      {/* 会话详情弹窗 - 临时禁用 */}
-      {false && <Dialog
-        open={showSessionDetail}
-        onOpenChange={(open) => {
-          console.log('[Dialog] onOpenChange 触发, open:', open, 'current showSessionDetail:', showSessionDetail);
-          setShowSessionDetail(open);
-      }}>
+      {/* 会话详情弹窗 */}
+      <Dialog open={showSessionDetail} onOpenChange={setShowSessionDetail}>
         <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
@@ -2749,13 +2619,7 @@ ${callbacks.robotStatus}
             </DialogDescription>
           </DialogHeader>
 
-          {!selectedSession || !selectedSession.sessionId ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>未选中会话</p>
-              <p className="text-xs mt-2 text-gray-500">selectedSession: {String(!!selectedSession)}, sessionId: {String(selectedSession?.sessionId)}</p>
-            </div>
-          ) : (
+          {selectedSession && (
             <div className="space-y-6">
               {/* 会话基本信息卡片 */}
               <Card>
@@ -3100,9 +2964,10 @@ ${callbacks.robotStatus}
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>}
-      {/* 机器人详情对话框 - 临时禁用 */}
-      {false && <Dialog open={showRobotDetail} onOpenChange={setShowRobotDetail}>
+      </Dialog>
+
+      {/* 机器人详情对话框 */}
+      <Dialog open={showRobotDetail} onOpenChange={setShowRobotDetail}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -3236,7 +3101,7 @@ ${callbacks.robotStatus}
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>}
+      </Dialog>
     </div>
   );
 }

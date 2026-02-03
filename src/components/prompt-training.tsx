@@ -677,7 +677,7 @@ export default function PromptTraining() {
                   <div className="flex justify-start">
                     <div className="bg-white border rounded-lg px-4 py-2 shadow-sm">
                       <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <RefreshCw size={14} />
+                        <RefreshCw size={14} className="animate-spin" />
                         AI 正在思考...
                       </div>
                     </div>
