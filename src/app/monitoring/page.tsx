@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Activity, MessageSquare, Bot, AlertCircle, CheckCircle, Clock, RefreshCw } from 'lucide-react';
+import { Activity, MessageSquare, Bot, AlertCircle, CheckCircle, Clock, RefreshCw, ArrowLeft } from 'lucide-react';
 
 interface Execution {
   processing_id: string;
@@ -173,11 +173,22 @@ export default function MonitoringPage() {
     <div className="container mx-auto p-6 space-y-6">
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">实时监控中心</h1>
-          <p className="text-muted-foreground mt-1">
-            实时查看消息处理流程、AI对话和系统状态
-          </p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => window.location.href = '/'}
+            className="gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            返回
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">实时监控中心</h1>
+            <p className="text-muted-foreground mt-1">
+              实时查看消息处理流程、AI对话和系统状态
+            </p>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button

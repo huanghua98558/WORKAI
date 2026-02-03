@@ -22,14 +22,14 @@ async function monitoringRoutes(fastify, options) {
         whereConditions.push(eq(execution_tracking.status, status));
       }
       if (robotId) {
-        whereConditions.push(eq(execution_tracking.robot_id, robotId));
+        whereConditions.push(eq(execution_tracking.robotId, robotId));
       }
 
       const results = await db
         .select()
         .from(execution_tracking)
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-        .orderBy(desc(execution_tracking.created_at))
+        .orderBy(desc(execution_tracking.createdAt))
         .limit(parseInt(limit));
 
       return reply.send({
@@ -56,7 +56,7 @@ async function monitoringRoutes(fastify, options) {
       const result = await db
         .select()
         .from(execution_tracking)
-        .where(eq(execution_tracking.processing_id, processingId))
+        .where(eq(execution_tracking.processingId, processingId))
         .limit(1);
 
       if (result.length === 0) {
@@ -70,8 +70,8 @@ async function monitoringRoutes(fastify, options) {
       const aiLogs = await db
         .select()
         .from(ai_io_logs)
-        .where(eq(ai_io_logs.message_id, result[0].message_id))
-        .orderBy(desc(ai_io_logs.created_at))
+        .where(eq(ai_io_logs.messageId, result[0].messageId))
+        .orderBy(desc(ai_io_logs.createdAt))
         .limit(10);
 
       // 获取相关的会话消息
@@ -111,20 +111,20 @@ async function monitoringRoutes(fastify, options) {
 
       let whereConditions = [];
       if (operationType) {
-        whereConditions.push(eq(ai_io_logs.operation_type, operationType));
+        whereConditions.push(eq(ai_io_logs.operationType, operationType));
       }
       if (sessionId) {
-        whereConditions.push(eq(ai_io_logs.session_id, sessionId));
+        whereConditions.push(eq(ai_io_logs.sessionId, sessionId));
       }
       if (robotId) {
-        whereConditions.push(eq(ai_io_logs.robot_id, robotId));
+        whereConditions.push(eq(ai_io_logs.robotId, robotId));
       }
 
       const results = await db
         .select()
         .from(ai_io_logs)
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-        .orderBy(desc(ai_io_logs.created_at))
+        .orderBy(desc(ai_io_logs.createdAt))
         .limit(parseInt(limit));
 
       return reply.send({
@@ -248,7 +248,7 @@ async function monitoringRoutes(fastify, options) {
       const recentExecutions = await db
         .select()
         .from(execution_tracking)
-        .where(gte(execution_tracking.created_at, oneHourAgo));
+        .where(gte(execution_tracking.createdAt, oneHourAgo));
 
       const successCount = recentExecutions.filter(e => e.status === 'success').length;
       const errorCount = recentExecutions.filter(e => e.status === 'error').length;
@@ -258,7 +258,7 @@ async function monitoringRoutes(fastify, options) {
       const recentAiCalls = await db
         .select()
         .from(ai_io_logs)
-        .where(gte(ai_io_logs.created_at, oneHourAgo));
+        .where(gte(ai_io_logs.createdAt, oneHourAgo));
 
       const aiSuccessCount = recentAiCalls.filter(a => a.status === 'success').length;
       const aiErrorCount = recentAiCalls.filter(a => a.status === 'error').length;
@@ -269,7 +269,7 @@ async function monitoringRoutes(fastify, options) {
         .from(sessions)
         .where(and(
           eq(sessions.status, 'auto'),
-          gte(sessions.last_message_at, oneHourAgo)
+          gte(sessions.lastMessageAt, oneHourAgo)
         ));
 
       return reply.send({

@@ -366,6 +366,9 @@ exports.sessionMessages = pgTable(
   })
 );
 
+// 会话消息记录表（下划线式导出，用于兼容）
+exports.session_messages = exports.sessionMessages;
+
 // AI IO 日志表
 exports.aiIoLogs = pgTable(
   "ai_io_logs",
@@ -398,6 +401,9 @@ exports.aiIoLogs = pgTable(
     createdAtIdx: index("ai_io_logs_created_at_idx").on(table.createdAt),
   })
 );
+
+// 兼容性导出：确保下划线式和驼峰式命名都可用
+exports.ai_io_logs = exports.aiIoLogs;
 
 // 运营日志表
 exports.operationLogs = pgTable(
@@ -616,77 +622,6 @@ exports.callbackHistory = pgTable(
     callbackTypeIdx: index("callback_history_callback_type_idx").on(table.callbackType),
     errorCodeIdx: index("callback_history_error_code_idx").on(table.errorCode),
     createdAtIdx: index("callback_history_created_at_idx").on(table.createdAt),
-  })
-);
-
-// 会话消息记录表
-exports.sessionMessages = pgTable(
-  "session_messages",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    sessionId: varchar("session_id", { length: 255 }).notNull(), // 会话ID
-    messageId: varchar("message_id", { length: 255 }), // 消息ID
-    userId: varchar("user_id", { length: 255 }), // 用户ID
-    groupId: varchar("group_id", { length: 255 }), // 群组ID
-    userName: varchar("user_name", { length: 255 }), // 用户名
-    groupName: varchar("group_name", { length: 255 }), // 群组名
-    robotId: varchar("robot_id", { length: 64 }), // 机器人ID
-    robotName: varchar("robot_name", { length: 255 }), // 机器人名称
-    content: text("content").notNull(), // 消息内容
-    isFromUser: boolean("is_from_user").notNull().default(false), // 是否来自用户
-    isFromBot: boolean("is_from_bot").notNull().default(false), // 是否来自机器人
-    isHuman: boolean("is_human").notNull().default(false), // 是否人工回复
-    intent: varchar("intent", { length: 50 }), // 意图识别结果
-    confidence: integer("confidence"), // 意图识别置信度（0-100）
-    timestamp: timestamp("timestamp", { withTimezone: true }).notNull(), // 消息时间戳
-    extraData: jsonb("extra_data"), // 额外数据（JSON格式）
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (table) => ({
-    sessionIdIdx: index("session_messages_session_id_idx").on(table.sessionId),
-    userIdIdx: index("session_messages_user_id_idx").on(table.userId),
-    groupIdIdx: index("session_messages_group_id_idx").on(table.groupId),
-    robotIdIdx: index("session_messages_robot_id_idx").on(table.robotId),
-    timestampIdx: index("session_messages_timestamp_idx").on(table.timestamp),
-    intentIdx: index("session_messages_intent_idx").on(table.intent),
-  })
-);
-
-// AI IO 日志表
-exports.aiIoLogs = pgTable(
-  "ai_io_logs",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    sessionId: varchar("session_id", { length: 255 }), // 关联的会话ID
-    messageId: varchar("message_id", { length: 255 }), // 关联的消息ID
-    robotId: varchar("robot_id", { length: 64 }), // 机器人ID
-    robotName: varchar("robot_name", { length: 255 }), // 机器人名称
-    operationType: varchar("operation_type", { length: 50 }).notNull(), // 操作类型: intent_recognition, service_reply, chat_reply, report
-    aiInput: text("ai_input").notNull(), // 发送给 AI 的输入（prompt）
-    aiOutput: text("ai_output"), // AI 返回的输出
-    modelId: varchar("model_id", { length: 255 }), // 使用的 AI 模型 ID
-    temperature: varchar("temperature", { length: 10 }), // 温度参数
-    requestDuration: integer("request_duration"), // 请求耗时（毫秒）
-    status: varchar("status", { length: 20 }).notNull(), // 状态: success, error, timeout
-    errorMessage: text("error_message"), // 错误信息
-    extraData: jsonb("extra_data"), // 额外数据（JSON格式）
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (table) => ({
-    sessionIdIdx: index("ai_io_logs_session_id_idx").on(table.sessionId),
-    messageIdIdx: index("ai_io_logs_message_id_idx").on(table.messageId),
-    robotIdIdx: index("ai_io_logs_robot_id_idx").on(table.robotId),
-    operationTypeIdx: index("ai_io_logs_operation_type_idx").on(table.operationType),
-    statusIdx: index("ai_io_logs_status_idx").on(table.status),
-    createdAtIdx: index("ai_io_logs_created_at_idx").on(table.createdAt),
   })
 );
 
@@ -1052,6 +987,9 @@ exports.execution_tracking = pgTable(
   })
 );
 
+// 执行追踪表（驼峰式导出，用于兼容）
+exports.executionTracking = exports.execution_tracking;
+
 // AI 输入输出日志表
 exports.ai_io_logs = pgTable(
   "ai_io_logs",
@@ -1078,3 +1016,6 @@ exports.ai_io_logs = pgTable(
     createdAtIdx: index("ai_io_logs_created_at_idx").on(table.createdAt),
   })
 );
+
+// 兼容性导出：确保下划线式和驼峰式命名都可用
+exports.ai_io_logs = exports.aiIoLogs;
