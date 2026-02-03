@@ -48,8 +48,10 @@ export default function MonitorMetrics({ className }: MonitorMetricsProps) {
       const res = await fetch('/api/admin/monitor/summary');
       if (res.ok) {
         const data = await res.json();
-        if (isMounted.current) {
+        if (isMounted.current && data.success && data.data) {
           setMetrics(data.data);
+        } else {
+          throw new Error('数据格式错误');
         }
       } else {
         throw new Error('加载失败');
@@ -63,15 +65,21 @@ export default function MonitorMetrics({ className }: MonitorMetricsProps) {
           system: {
             callback_processed: 0,
             callback_error: 0,
-            callback_received: 0
+            callback_received: 0,
+            ai_requests: 0,
+            ai_errors: 0
           },
           ai: {
-            success: 0,
-            error: 0,
             intentRecognition: { successRate: 'N/A' },
             serviceReply: { successRate: 'N/A' },
             chat: { successRate: 'N/A' },
+            report: { successRate: 'N/A' },
             successRate: 'N/A'
+          },
+          summary: {
+            totalCallbacks: 0,
+            successRate: 'N/A',
+            aiSuccessRate: 'N/A'
           }
         });
       }
@@ -120,6 +128,37 @@ export default function MonitorMetrics({ className }: MonitorMetricsProps) {
 
   const systemMetrics = metrics?.system || {};
   const aiMetrics = metrics?.ai || {};
+  const summaryMetrics = metrics?.summary || {};
+
+  // 格式化成功率为百分比
+  const formatSuccessRate = (rate: number | string): string => {
+    if (typeof rate === 'number') {
+      return rate.toFixed(2) + '%';
+    }
+    if (typeof rate === 'string') {
+      // 如果已经是百分比格式，直接返回
+      if (rate.includes('%')) {
+        return rate;
+      }
+      // 如果是数字字符串，转换为百分比
+      const num = parseFloat(rate);
+      if (!isNaN(num)) {
+        return num.toFixed(2) + '%';
+      }
+    }
+    return 'N/A';
+  };
+
+  // 计算 AI 总成功率（从各个模块的总成功数和总数）
+  const aiTotalSuccess = (aiMetrics.intentRecognition?.success || 0) +
+                        (aiMetrics.serviceReply?.success || 0) +
+                        (aiMetrics.chat?.success || 0) +
+                        (aiMetrics.report?.success || 0);
+  const aiTotalFailure = (aiMetrics.intentRecognition?.failure || 0) +
+                        (aiMetrics.serviceReply?.failure || 0) +
+                        (aiMetrics.chat?.failure || 0) +
+                        (aiMetrics.report?.failure || 0);
+  const aiTotalRequests = aiTotalSuccess + aiTotalFailure;
 
   return (
     <Card className={className}>
@@ -161,8 +200,9 @@ export default function MonitorMetrics({ className }: MonitorMetricsProps) {
             />
             <MetricItem
               label="AI 调用"
-              value={aiMetrics.success || 0}
-              trend={aiMetrics.error || 0}
+              value={aiTotalSuccess}
+              trend={aiTotalFailure}
+              total={aiTotalRequests}
               icon={<Bot className="h-3 w-3" />}
             />
           </div>
@@ -179,25 +219,25 @@ export default function MonitorMetrics({ className }: MonitorMetricsProps) {
             <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded">
               <div className="text-xs text-muted-foreground">意图识别</div>
               <div className="text-sm font-bold text-green-600 dark:text-green-400">
-                {aiMetrics.intentRecognition?.successRate || 'N/A'}
+                {formatSuccessRate(aiMetrics.intentRecognition?.successRate || 'N/A')}
               </div>
             </div>
             <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
               <div className="text-xs text-muted-foreground">服务回复</div>
               <div className="text-sm font-bold text-blue-600 dark:text-blue-400">
-                {aiMetrics.serviceReply?.successRate || 'N/A'}
+                {formatSuccessRate(aiMetrics.serviceReply?.successRate || 'N/A')}
               </div>
             </div>
             <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded">
               <div className="text-xs text-muted-foreground">闲聊</div>
               <div className="text-sm font-bold text-purple-600 dark:text-purple-400">
-                {aiMetrics.chat?.successRate || 'N/A'}
+                {formatSuccessRate(aiMetrics.chat?.successRate || 'N/A')}
               </div>
             </div>
             <div className="p-2 bg-orange-50 dark:bg-orange-900/20 rounded">
               <div className="text-xs text-muted-foreground">整体</div>
               <div className="text-sm font-bold text-orange-600 dark:text-orange-400">
-                {aiMetrics.successRate || 'N/A'}
+                {formatSuccessRate(summaryMetrics.aiSuccessRate || 'N/A')}
               </div>
             </div>
           </div>
