@@ -21,7 +21,8 @@ class MessageProcessingService {
   async processMessage(messageData, robot) {
     const startTime = Date.now();
     const messageContent = messageData.spoken || messageData.content || '';
-    logger.info('MessageProcessing', '开始处理消息', {
+
+    logger.info('MessageProcessing', '===== 开始处理消息 =====', {
       robotId: robot.robotId,
       robotName: robot.name,
       userId: messageData.fromName,
@@ -29,26 +30,31 @@ class MessageProcessingService {
       content: messageContent.substring(0, 100),
       timestamp: new Date(startTime).toISOString()
     });
-    
+
     console.log(`[消息处理] 开始处理消息，startTime: ${startTime}, ISO: ${new Date(startTime).toISOString()}`);
+
     const processingId = executionTrackerService.startProcessing({
       robotId: robot.robotId,
       messageData,
       startTime
     });
 
+    logger.debug('MessageProcessing', '步骤1: 开始执行', { processingId });
+
     try {
-      // 1. 解析消息内容
+      // 步骤1: 解析消息内容
+      logger.info('MessageProcessing', '步骤1: 解析消息内容', { processingId });
       const messageContext = this.parseMessage(messageData);
-      
-      logger.debug('MessageProcessing', '解析消息上下文', {
+
+      logger.debug('MessageProcessing', '步骤1完成: 消息上下文解析成功', {
         contentLength: messageContext.content.length,
         fromName: messageContext.fromName,
         groupName: messageContext.groupName,
         atMe: messageContext.atMe
       });
-      
-      // 2. 获取或创建会话
+
+      // 步骤2: 获取或创建会话
+      logger.info('MessageProcessing', '步骤2: 获取或创建会话', { processingId });
       const session = await sessionService.getOrCreateSession(
         messageContext.fromName,
         messageContext.groupName,
@@ -59,20 +65,27 @@ class MessageProcessingService {
         }
       );
 
-      logger.debug('MessageProcessing', '获取会话', {
+      logger.info('MessageProcessing', '步骤2完成: 会话获取成功', {
         sessionId: session.sessionId,
         isNew: session.isNew,
         messageCount: session.messageCount
       });
 
-      // 3. 添加消息到上下文
+      // 步骤3: 添加消息到上下文
+      logger.info('MessageProcessing', '步骤3: 添加消息到上下文', { processingId });
       await sessionService.addContext(session.sessionId, {
         content: messageContext.content,
         from_type: messageContext.atMe ? 'user' : 'other',
         timestamp: messageData.timestamp || new Date().toISOString()
       });
 
-      // 3.5 保存用户消息到数据库
+      logger.debug('MessageProcessing', '步骤3完成: 消息已添加到上下文', {
+        sessionId: session.sessionId,
+        contextLength: session.context.length
+      });
+
+      // 步骤4: 保存用户消息到数据库
+      logger.info('MessageProcessing', '步骤4: 保存用户消息到数据库', { processingId });
       await sessionMessageService.saveUserMessage(
         session.sessionId,
         {
@@ -86,13 +99,14 @@ class MessageProcessingService {
         robot
       );
 
-      logger.info('MessageProcessing', '保存用户消息到数据库', {
+      logger.info('MessageProcessing', '步骤4完成: 用户消息保存成功', {
         sessionId: session.sessionId,
         messageId: messageData.messageId,
         contentLength: messageContext.content.length
       });
 
-      // 4. AI 意图识别
+      // 步骤5: AI 意图识别
+      logger.info('MessageProcessing', '步骤5: AI 意图识别开始', { processingId });
       executionTrackerService.updateStep(processingId, 'intent_recognition', {
         status: 'processing',
         startTime: Date.now()
@@ -119,7 +133,7 @@ class MessageProcessingService {
         result: intentResult
       });
 
-      logger.info('MessageProcessing', '意图识别完成', {
+      logger.info('MessageProcessing', '步骤5完成: 意图识别成功', {
         intent: intentResult.intent,
         confidence: intentResult.confidence,
         needReply: intentResult.needReply,
@@ -128,7 +142,8 @@ class MessageProcessingService {
 
       console.log(`[消息处理] 意图识别结果:`, intentResult);
 
-      // 4.5 触发告警（如果需要）
+      // 步骤6: 触发告警（如果需要）
+      logger.info('MessageProcessing', '步骤6: 触发告警检查', { processingId });
       executionTrackerService.updateStep(processingId, 'alert_trigger', {
         status: 'processing',
         startTime: Date.now()
@@ -148,12 +163,16 @@ class MessageProcessingService {
       });
 
       if (alertResult) {
-        logger.info('MessageProcessing', '告警已触发', {
+        logger.info('MessageProcessing', '步骤6完成: 告警已触发', {
           alertId: alertResult.id,
           alertLevel: alertResult.alertLevel,
           intentType: intentResult.intent,
         });
         console.log(`[消息处理] 告警已触发: ${alertResult.alertLevel} - ${intentResult.intent}`);
+      } else {
+        logger.debug('MessageProcessing', '步骤6完成: 无需触发告警', {
+          intentType: intentResult.intent
+        });
       }
 
       executionTrackerService.updateStep(processingId, 'alert_trigger', {
@@ -162,7 +181,8 @@ class MessageProcessingService {
         result: alertResult
       });
 
-      // 5. 根据意图决策
+      // 步骤7: 根据意图决策
+      logger.info('MessageProcessing', '步骤7: 开始决策逻辑', { processingId });
       const decision = await this.makeDecision(
         intentResult,
         session,
@@ -171,22 +191,34 @@ class MessageProcessingService {
         robot  // 传递 robot 参数
       );
 
-      // 6. 更新会话信息
+      logger.info('MessageProcessing', '步骤7完成: 决策完成', {
+        action: decision.action,
+        reason: decision.reason
+      });
+
+      // 步骤8: 更新会话信息
+      logger.info('MessageProcessing', '步骤8: 更新会话信息', { processingId });
       await sessionService.updateSession(session.sessionId, {
         lastIntent: intentResult.intent,
         intentConfidence: intentResult.confidence,
         lastProcessedAt: new Date().toISOString()
       });
 
-      // 7. 完成处理
+      logger.debug('MessageProcessing', '步骤8完成: 会话信息更新成功', {
+        sessionId: session.sessionId,
+        lastIntent: intentResult.intent
+      });
+
+      // 步骤9: 完成处理
       const processingTime = Date.now() - startTime;
       console.log(`[消息处理] 计算处理时间: endTime=${Date.now()}, startTime=${startTime}, processingTime=${processingTime}ms`);
-      
-      logger.info('MessageProcessing', '消息处理完成', {
+
+      logger.info('MessageProcessing', '===== 消息处理完成 =====', {
         processingId,
         action: decision.action,
         processingTime,
-        sessionId: session.sessionId
+        sessionId: session.sessionId,
+        totalSteps: 9
       });
       
       executionTrackerService.completeProcessing(processingId, {
@@ -200,18 +232,26 @@ class MessageProcessingService {
 
     } catch (error) {
       console.error('[消息处理] 处理失败:', error);
-      
-      logger.error('MessageProcessing', '消息处理失败', {
+      console.error('[消息处理] 错误堆栈:', error.stack);
+
+      logger.error('MessageProcessing', '===== 消息处理失败 =====', {
         error: error.message,
         stack: error.stack,
         processingId,
         robotId: robot.robotId,
-        userId: messageData.fromName
+        robotName: robot.name,
+        userId: messageData.fromName,
+        groupId: messageData.groupName,
+        messageContent: messageContent.substring(0, 200),
+        errorType: error.constructor.name,
+        errorCode: error.code,
+        timestamp: new Date().toISOString()
       });
-      
+
       executionTrackerService.completeProcessing(processingId, {
         status: 'error',
         error: error.message,
+        errorStack: error.stack,
         processingTime: Date.now() - startTime
       });
 
@@ -354,20 +394,21 @@ class MessageProcessingService {
   async generateReply(intentResult, session, messageContext, processingId, robot) {
     const { intent } = intentResult;
     const autoReplyConfig = config.get('autoReply');
-    
+
     // 判断接收方类型
-    const toType = messageContext.roomType === '2' || messageContext.roomType === '4' 
-      ? 'single' 
+    const toType = messageContext.roomType === '2' || messageContext.roomType === '4'
+      ? 'single'
       : 'group'; // 2=外部联系人 4=内部联系人 为单聊
 
     let reply;
     let actionReason;
 
-    logger.info('MessageProcessing', '开始生成回复', {
+    logger.info('MessageProcessing', 'generateReply步骤: 开始生成回复', {
       sessionId: session.sessionId,
       intent,
       robotId: robot.robotId,
-      toType
+      toType,
+      processingId
     });
 
     executionTrackerService.updateStep(processingId, 'reply_generation', {
@@ -378,10 +419,11 @@ class MessageProcessingService {
     // 根据意图类型选择不同的AI模型
     if (intent === 'service' || intent === 'help' || intent === 'welcome') {
       // 服务问题：使用回复AI模型
-      logger.info('MessageProcessing', '使用服务回复模型', {
-        intent
+      logger.info('MessageProcessing', 'generateReply步骤: 使用服务回复模型', {
+        intent,
+        processingId
       });
-      
+
       reply = await aiService.generateServiceReply(
         messageContext.content,
         intent,
@@ -394,17 +436,27 @@ class MessageProcessingService {
         }
       );
       actionReason = '服务问题自动回复';
+
+      logger.info('MessageProcessing', 'generateReply步骤: 服务回复生成完成', {
+        replyLength: reply.length,
+        processingId
+      });
     } else if (intent === 'chat') {
       // 闲聊：根据配置决定
       const chatMode = autoReplyConfig.chatMode || 'ai';
-      
+
+      logger.info('MessageProcessing', 'generateReply步骤: 闲聊模式', {
+        chatMode,
+        processingId
+      });
+
       if (chatMode === 'none') {
         executionTrackerService.updateStep(processingId, 'reply_generation', {
           status: 'completed',
           result: { action: 'none', reason: '闲聊不回复' }
         });
 
-        logger.info('MessageProcessing', '闲聊不回复');
+        logger.info('MessageProcessing', 'generateReply步骤: 闲聊不回复');
 
         return {
           action: 'none',
@@ -415,14 +467,17 @@ class MessageProcessingService {
         const fixedReply = autoReplyConfig.chatFixedReply || '';
         reply = fixedReply;
         actionReason = '闲聊固定话术';
-        
-        logger.info('MessageProcessing', '使用闲聊固定话术', {
-          replyLength: reply.length
+
+        logger.info('MessageProcessing', 'generateReply步骤: 使用闲聊固定话术', {
+          replyLength: reply.length,
+          processingId
         });
       } else {
         // AI 自然陪聊：使用闲聊AI模型
-        logger.info('MessageProcessing', '使用闲聊AI模型');
-        
+        logger.info('MessageProcessing', 'generateReply步骤: 使用闲聊AI模型', {
+          processingId
+        });
+
         reply = await aiService.generateChatReply(messageContext.content, {
           sessionId: session.sessionId,
           messageId: messageContext.messageId,
@@ -430,9 +485,19 @@ class MessageProcessingService {
           robotName: robot.name
         });
         actionReason = '闲聊 AI 陪聊';
+
+        logger.info('MessageProcessing', 'generateReply步骤: 闲聊回复生成完成', {
+          replyLength: reply.length,
+          processingId
+        });
       }
     } else {
       // 其他意图：使用回复AI模型
+      logger.info('MessageProcessing', 'generateReply步骤: 使用通用回复模型', {
+        intent,
+        processingId
+      });
+
       reply = await aiService.generateServiceReply(
         messageContext.content,
         intent,
@@ -445,6 +510,11 @@ class MessageProcessingService {
         }
       );
       actionReason = '通用自动回复';
+
+      logger.info('MessageProcessing', 'generateReply步骤: 通用回复生成完成', {
+        replyLength: reply.length,
+        processingId
+      });
     }
 
     executionTrackerService.updateStep(processingId, 'reply_generation', {
@@ -453,27 +523,40 @@ class MessageProcessingService {
       result: { reply }
     });
 
-    logger.info('MessageProcessing', '回复生成完成', {
+    logger.info('MessageProcessing', 'generateReply步骤: 回复生成完成', {
       replyLength: reply.length,
-      replyPreview: reply.substring(0, 100)
+      replyPreview: reply.substring(0, 100),
+      processingId
     });
 
     // 更新会话统计
+    logger.info('MessageProcessing', 'generateReply步骤: 更新会话统计', {
+      sessionId: session.sessionId,
+      processingId
+    });
     await sessionService.updateSession(session.sessionId, {
       aiReplyCount: session.aiReplyCount + 1,
       replyCount: session.replyCount + 1
     });
 
+    logger.debug('MessageProcessing', 'generateReply步骤: 会话统计更新完成', {
+      aiReplyCount: session.aiReplyCount + 1,
+      replyCount: session.replyCount + 1,
+      processingId
+    });
+
     // 发送回复
+    logger.info('MessageProcessing', 'generateReply步骤: 开始发送回复', {
+      toType,
+      target: messageContext.groupName,
+      robotId: robot.robotId,
+      replyLength: reply.length,
+      processingId
+    });
+
     executionTrackerService.updateStep(processingId, 'send_reply', {
       status: 'processing',
       startTime: Date.now()
-    });
-
-    logger.info('MessageProcessing', '发送回复', {
-      toType,
-      target: messageContext.groupName,
-      robotId: robot.robotId
     });
 
     const sendResult = await worktoolService.sendTextMessage(
@@ -488,13 +571,18 @@ class MessageProcessingService {
       result: sendResult
     });
 
-    logger.info('MessageProcessing', '回复发送完成', {
+    logger.info('MessageProcessing', 'generateReply步骤: 回复发送完成', {
       sendResult,
       robotId: robot.robotId,
-      robotName: robot.name
+      robotName: robot.name,
+      processingId
     });
 
     // 保存机器人回复到数据库
+    logger.info('MessageProcessing', 'generateReply步骤: 保存机器人回复到数据库', {
+      sessionId: session.sessionId,
+      processingId
+    });
     await sessionMessageService.saveBotMessage(
       session.sessionId,
       reply,
@@ -507,6 +595,19 @@ class MessageProcessingService {
       intent,
       robot
     );
+
+    logger.info('MessageProcessing', 'generateReply步骤: 机器人回复保存成功', {
+      sessionId: session.sessionId,
+      intent,
+      processingId
+    });
+
+    logger.info('MessageProcessing', 'generateReply步骤: ===== 生成回复流程完成 =====', {
+      action: 'auto_reply',
+      actionReason,
+      replyLength: reply.length,
+      processingId
+    });
 
     return {
       action: 'auto_reply',

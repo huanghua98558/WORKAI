@@ -4625,6 +4625,116 @@ ${callbacks.robotStatus}
             )}
           </CardContent>
         </Card>
+
+        {/* 下载日志对话框 */}
+        <Dialog open={showLogDownloadDialog} onOpenChange={setShowLogDownloadDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>下载后台日志</DialogTitle>
+              <DialogDescription>
+                下载后台系统的完整运行日志，用于问题调试和分析
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>日志说明</AlertTitle>
+                <AlertDescription>
+                  <ul className="list-disc list-inside text-sm mt-2 space-y-1">
+                    <li><strong>app.log</strong>：主流程日志，包含所有关键步骤和错误信息</li>
+                    <li><strong>dev.log</strong>：开发调试日志，包含详细的调试信息</li>
+                    <li><strong>console.log</strong>：浏览器控制台日志（前端）</li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-2">
+                <Label>日志类型</Label>
+                <div className="grid grid-cols-1 gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => downloadLog('app.log')}
+                    disabled={isDownloading}
+                    className="justify-start"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    <div className="text-left">
+                      <div className="font-medium">app.log</div>
+                      <div className="text-xs text-muted-foreground">主流程日志（包含关键错误）</div>
+                    </div>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => downloadLog('dev.log')}
+                    disabled={isDownloading}
+                    className="justify-start"
+                  >
+                    <Code className="h-4 w-4 mr-2" />
+                    <div className="text-left">
+                      <div className="font-medium">dev.log</div>
+                      <div className="text-xs text-muted-foreground">开发调试日志</div>
+                    </div>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => downloadLog('console.log')}
+                    disabled={isDownloading}
+                    className="justify-start"
+                  >
+                    <Terminal className="h-4 w-4 mr-2" />
+                    <div className="text-left">
+                      <div className="font-medium">console.log</div>
+                      <div className="text-xs text-muted-foreground">浏览器控制台日志</div>
+                    </div>
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>快速下载 app.log（推荐）</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => downloadLog('app.log', 100)}
+                    disabled={isDownloading}
+                  >
+                    最近 100 行
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => downloadLog('app.log', 500)}
+                    disabled={isDownloading}
+                  >
+                    最近 500 行
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => downloadLog('app.log', 1000)}
+                    disabled={isDownloading}
+                  >
+                    最近 1000 行
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => downloadLog('app.log')}
+                    disabled={isDownloading}
+                  >
+                    完整文件
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowLogDownloadDialog(false)}>
+                取消
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   };
