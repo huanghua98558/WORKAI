@@ -864,7 +864,7 @@ function AlertRuleForm({ rule, intents, onSave, onCancel }: any) {
           rows={6}
         />
         <p className="text-xs text-muted-foreground mt-1">
-          可用变量: {userName}, {groupName}, {messageContent}, {intent}, {intentType}, {alertLevel}, {timestamp}
+          可用变量: {'{userName}'}, {'{groupName}'}, {'{messageContent}'}, {'{intent}'}, {'{intentType}'}, {'{alertLevel}'}, {'{timestamp}'}
         </p>
       </div>
       <div className="flex items-center gap-2">
@@ -893,6 +893,46 @@ function AlertRuleForm({ rule, intents, onSave, onCancel }: any) {
 function NotificationMethodList({ ruleId, ruleName, onTest, onClose }: any) {
   const [methods, setMethods] = useState<any[]>([]);
   const [showAddDialog, setShowAddDialog] = useState(false);
+
+  // 获取通知方式图标
+  const getNotificationIcon = (methodType: string) => {
+    switch (methodType) {
+      case 'robot':
+        return <MessageSquare className="h-4 w-4" />;
+      case 'email':
+        return <Mail className="h-4 w-4" />;
+      case 'sms':
+        return <Phone className="h-4 w-4" />;
+      case 'wechat':
+        return <Send className="h-4 w-4" />;
+      case 'dingtalk':
+        return <Bell className="h-4 w-4" />;
+      case 'feishu':
+        return <Info className="h-4 w-4" />;
+      default:
+        return <Bell className="h-4 w-4" />;
+    }
+  };
+
+  // 获取通知方式名称
+  const getNotificationTypeName = (methodType: string) => {
+    switch (methodType) {
+      case 'robot':
+        return '机器人';
+      case 'email':
+        return '邮件';
+      case 'sms':
+        return '短信';
+      case 'wechat':
+        return '微信';
+      case 'dingtalk':
+        return '钉钉';
+      case 'feishu':
+        return '飞书';
+      default:
+        return '未知';
+    }
+  };
 
   const loadMethods = async () => {
     try {
