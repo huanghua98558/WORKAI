@@ -36,6 +36,8 @@ export default function MonitorMetrics({ className }: MonitorMetricsProps) {
     // 如果组件已卸载，不执行加载
     if (!isMounted.current) return;
 
+    console.log('🔄 开始加载监控指标...');
+
     if (showLoading) {
       setLoading(true);
     } else {
@@ -44,21 +46,40 @@ export default function MonitorMetrics({ className }: MonitorMetricsProps) {
     
     setError(null);
 
+    // 添加超时机制（5秒）
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('请求超时')), 5000);
+    });
+
     try {
-      const res = await fetch('/api/admin/monitor/summary');
-      if (res.ok) {
-        const data = await res.json();
-        if (isMounted.current && data.success && data.data) {
-          setMetrics(data.data);
-        } else {
-          throw new Error('数据格式错误');
-        }
-      } else {
+      console.log('📡 请求 API: /api/admin/monitor/summary');
+      
+      const res = await Promise.race([
+        fetch('/api/admin/monitor/summary'),
+        timeoutPromise
+      ]) as Response;
+      
+      console.log('📥 响应状态:', res.status, res.ok);
+      
+      if (!res.ok) {
+        console.error('❌ HTTP 错误:', res.status, res.statusText);
         throw new Error('加载失败');
       }
+
+      const data = await res.json();
+      console.log('📊 响应数据:', data);
+      
+      if (isMounted.current && data.success && data.data) {
+        console.log('✅ 数据加载成功');
+        setMetrics(data.data);
+      } else {
+        console.error('❌ 数据格式错误:', data);
+        throw new Error('数据格式错误');
+      }
     } catch (error) {
+      console.error('❌ 加载监控指标失败:', error);
+      
       if (isMounted.current) {
-        console.error('加载监控指标失败:', error);
         setError('加载失败');
         // 设置默认数据，避免显示空白
         setMetrics({
@@ -85,6 +106,7 @@ export default function MonitorMetrics({ className }: MonitorMetricsProps) {
       }
     } finally {
       if (isMounted.current) {
+        console.log('🏁 加载完成，loading = false');
         setLoading(false);
         setIsRefreshing(false);
       }
@@ -121,6 +143,11 @@ export default function MonitorMetrics({ className }: MonitorMetricsProps) {
             <RefreshCw className="h-4 w-4 animate-spin" />
             加载中...
           </div>
+          {error && (
+            <div className="mt-2 text-center text-xs text-red-500">
+              {error}
+            </div>
+          )}
         </CardContent>
       </Card>
     );
