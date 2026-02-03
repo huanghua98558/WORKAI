@@ -341,7 +341,11 @@ export default function CommandSender() {
                         return robot ? (
                           <>
                             {getStatusBadge(robot.status)}
-                            <span className="text-muted-foreground">| {robot.company || '无企业'}</span>
+                            <span className="text-muted-foreground">
+                              | {robot.company && robot.nickname 
+                                ? `${robot.company} - ${robot.nickname}`
+                                : robot.company || robot.nickname || ''}
+                            </span>
                           </>
                         ) : null;
                       })()}
