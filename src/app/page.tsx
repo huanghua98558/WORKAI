@@ -4935,8 +4935,9 @@ ${callbacks.robotStatus}
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">机器人</p>
                       <p className="font-medium">
-                        {selectedSession.robotName ||
+                        {selectedSession.robotName || 
                           sessionMessages.find(m => m.robotName && m.robotName.trim() !== '')?.robotName ||
+                          robots.find(r => r.robotId === selectedSession.robotId)?.name ||
                           '未知机器人'}
                       </p>
                     </div>
@@ -5121,7 +5122,7 @@ ${callbacks.robotStatus}
                                 ) : (
                                   <>
                                     <Bot className="h-3 w-3 inline mr-1" />
-                                    {msg.robotName || 'AI'}
+                                    {msg.robotName || selectedSession.robotName || robots.find(r => r.robotId === selectedSession.robotId)?.name || 'AI'}
                                   </>
                                 )}
                               </span>
