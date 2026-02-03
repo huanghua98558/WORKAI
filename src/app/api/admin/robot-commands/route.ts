@@ -230,6 +230,24 @@ export async function POST(request: NextRequest) {
 
     const result = await execSQL(query, params);
 
+    // 同时创建队列记录（让后端处理器能够找到指令）
+    const queueId = `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const queueQuery = `
+      INSERT INTO robot_command_queue (
+        id, command_id, robot_id, priority, status, scheduled_for, created_at
+      )
+      VALUES ($1, $2, $3, $4, 'pending', NOW(), NOW())
+      RETURNING *
+    `;
+    await execSQL(queueQuery, [
+      queueId,
+      commandId,
+      robotId,
+      priority || 5
+    ]);
+
+    console.log(`[创建指令] 指令 ${commandId} 已创建并加入队列`);
+
     // 字段映射：将数据库字段名转换为前端期望的字段名
     const mappedData = {
       commandId: result.rows[0].id,

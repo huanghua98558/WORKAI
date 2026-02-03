@@ -5,8 +5,13 @@
 
 require('dotenv').config();
 
-// 强制使用内存模式
-process.env.USE_MEMORY_MODE = 'true';
+// 根据环境变量选择模式（默认使用数据库模式）
+// 如果需要内存模式，可以设置 USE_MEMORY_MODE=true
+if (process.env.USE_MEMORY_MODE !== 'true') {
+  console.log('📊 运行模式: 数据库模式 (PostgreSQL)');
+} else {
+  console.log('📊 运行模式: 内存模式 (仅用于测试)');
+}
 
 // 记录服务器启动时间
 const SERVER_START_TIME = Date.now();
