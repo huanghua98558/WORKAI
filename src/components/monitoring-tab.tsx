@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -106,28 +106,28 @@ export default function MonitoringTab() {
         
         // 使用 ref 获取当前数据，避免依赖项导致循环
         const currentExecutions = executionsRef.current;
-        const currentIds = new Set(currentExecutions.map(e => e.processing_id));
-        const newIds = new Set(newExecutions.map(e => e.processing_id));
+        const currentIds = new Set(currentExecutions.map((e: Execution) => e.processing_id));
+        const newIds = new Set(newExecutions.map((e: Execution) => e.processing_id));
         
         // 如果数据没有变化，不更新状态，避免重新渲染
         if (currentIds.size === newIds.size && 
-            Array.from(currentIds).every(id => newIds.has(id))) {
+            Array.from(currentIds).every((id: string) => newIds.has(id))) {
           return;
         }
         
         // 只标记新增的消息
-        const addedIds = new Set(newExecutions.map(e => e.processing_id).filter(id => !currentIds.has(id)));
+        const addedIds = new Set(newExecutions.map((e: Execution) => e.processing_id).filter((id: string) => !currentIds.has(id)));
         
         // 只标记最新的 3 条消息为新消息，避免大量动画同时播放
         const newIdArray = Array.from(addedIds);
-        const limitedNewIds = new Set(newIdArray.slice(0, 3));
+        const limitedNewIds: Set<string> = new Set(newIdArray.slice(0, 3) as string[]);
         
         setNewExecutionIds(limitedNewIds);
         setExecutions(newExecutions);
         
         // 3秒后移除新消息标记
         setTimeout(() => {
-          setNewExecutionIds(new Set());
+          setNewExecutionIds(new Set<string>());
         }, 3000);
       }
     } catch (error) {
@@ -145,8 +145,8 @@ export default function MonitoringTab() {
         
         // 使用 ref 获取当前数据，避免依赖项导致循环
         const currentLogs = aiLogsRef.current;
-        const currentIds = new Set(currentLogs.map(l => l.id));
-        const newIds = new Set(newLogs.map(l => l.id));
+        const currentIds = new Set(currentLogs.map((l: AiLog) => l.id));
+        const newIds = new Set(newLogs.map((l: AiLog) => l.id));
         
         // 如果数据没有变化，不更新状态，避免重新渲染
         if (currentIds.size === newIds.size && 
