@@ -144,11 +144,11 @@ export default function RobotRoleManager() {
   const handleEdit = (role: RobotRole) => {
     setEditingRole(role);
     setFormData({
-      name: role.name,
+      name: role.name || '',
       description: role.description || '',
-      priority: role.priority,
-      permissions: role.permissions || [],
-      allowed_operations: role.allowed_operations || [],
+      priority: role.priority || 10,
+      permissions: Array.isArray(role.permissions) ? role.permissions : [],
+      allowed_operations: Array.isArray(role.allowed_operations) ? role.allowed_operations : [],
       rate_limits: role.rate_limits ? JSON.stringify(role.rate_limits, null, 2) : JSON.stringify({ per_minute: 60, per_hour: 1000 }, null, 2)
     });
     setIsDialogOpen(true);
@@ -177,9 +177,9 @@ export default function RobotRoleManager() {
   const togglePermission = (permission: string) => {
     setFormData(prev => ({
       ...prev,
-      permissions: prev.permissions.includes(permission)
+      permissions: Array.isArray(prev.permissions) && prev.permissions.includes(permission)
         ? prev.permissions.filter(p => p !== permission)
-        : [...prev.permissions, permission]
+        : [...(Array.isArray(prev.permissions) ? prev.permissions : []), permission]
     }));
   };
 
@@ -187,9 +187,9 @@ export default function RobotRoleManager() {
   const toggleOperation = (operation: string) => {
     setFormData(prev => ({
       ...prev,
-      allowed_operations: prev.allowed_operations.includes(operation)
+      allowed_operations: Array.isArray(prev.allowed_operations) && prev.allowed_operations.includes(operation)
         ? prev.allowed_operations.filter(o => o !== operation)
-        : [...prev.allowed_operations, operation]
+        : [...(Array.isArray(prev.allowed_operations) ? prev.allowed_operations : []), operation]
     }));
   };
 
@@ -250,12 +250,12 @@ export default function RobotRoleManager() {
               </div>
 
               <div>
-                <Label>权限配置 ({formData.permissions.length} 项)</Label>
+                <Label>权限配置 ({formData.permissions?.length || 0} 项)</Label>
                 <div className="mt-2 grid grid-cols-2 gap-2 p-4 border rounded-lg max-h-48 overflow-y-auto">
                   {AVAILABLE_PERMISSIONS.map(permission => (
                     <label key={permission} className="flex items-center gap-2 cursor-pointer">
                       <Checkbox
-                        checked={formData.permissions.includes(permission)}
+                        checked={Array.isArray(formData.permissions) && formData.permissions.includes(permission)}
                         onCheckedChange={() => togglePermission(permission)}
                       />
                       <span className="text-sm">{permission}</span>
@@ -265,12 +265,12 @@ export default function RobotRoleManager() {
               </div>
 
               <div>
-                <Label>允许的操作 ({formData.allowed_operations.length} 项)</Label>
+                <Label>允许的操作 ({formData.allowed_operations?.length || 0} 项)</Label>
                 <div className="mt-2 grid grid-cols-2 gap-2 p-4 border rounded-lg max-h-48 overflow-y-auto">
                   {AVAILABLE_OPERATIONS.map(operation => (
                     <label key={operation} className="flex items-center gap-2 cursor-pointer">
                       <Checkbox
-                        checked={formData.allowed_operations.includes(operation)}
+                        checked={Array.isArray(formData.allowed_operations) && formData.allowed_operations.includes(operation)}
                         onCheckedChange={() => toggleOperation(operation)}
                       />
                       <span className="text-sm">{operation}</span>
