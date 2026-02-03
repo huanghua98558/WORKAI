@@ -100,6 +100,9 @@ export default function RobotManagement() {
   const [apiLogs, setApiLogs] = useState<any[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   
+  // 新增：回调对话框状态
+  const [showCallbackDialog, setShowCallbackDialog] = useState(false);
+  
   // 表单状态
   const [editFormData, setEditFormData] = useState({
     name: '',
@@ -230,6 +233,14 @@ export default function RobotManagement() {
     setShowTestDialog(true);
     setTestResult(null);
     setTestError(null);
+  };
+
+  const handleCallback = (robot: Robot) => {
+    setSelectedRobot(robot);
+    setShowCallbackDialog(true);
+    // 重置测试结果
+    setTestResults({});
+    setApiLogs([]);
   };
 
   const handleSaveEdit = async () => {
@@ -690,6 +701,14 @@ export default function RobotManagement() {
                         >
                           <TestTube className="h-4 w-4 mr-2" />
                           测试
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleCallback(robot)}
+                        >
+                          <Link2 className="h-4 w-4 mr-2" />
+                          回调
                         </Button>
                       </div>
                     </div>
@@ -1210,8 +1229,50 @@ export default function RobotManagement() {
                   />
                 </div>
 
-                {/* API 地址配置折叠面板 */}
-                <div className="space-y-4 border-t pt-4 mt-4">
+                {/* 保存反馈 */}
+                {saveSuccess && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                    ✓ 保存成功
+                  </div>
+                )}
+                {saveError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    ✗ {saveError}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+            <div className="flex justify-end gap-2 p-6 pt-0">
+              <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+                取消
+              </Button>
+              <Button onClick={handleSaveEdit} disabled={isSaving}>
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    保存中...
+                  </>
+                ) : (
+                  '保存'
+                )}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* 回调与通讯地址对话框 */}
+      {showCallbackDialog && selectedRobot && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle>回调与通讯地址 - {selectedRobot.name}</CardTitle>
+              <CardDescription>查看和管理机器人的回调地址与通讯地址</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* 通讯地址折叠面板 */}
+                <div className="space-y-4">
                   <Collapsible open={apiEndpointsOpen} onOpenChange={setApiEndpointsOpen}>
                     <CollapsibleTrigger asChild>
                       <Button variant="outline" className="w-full justify-between">
@@ -1268,6 +1329,7 @@ export default function RobotManagement() {
                     </CollapsibleContent>
                   </Collapsible>
 
+                  {/* 回调地址折叠面板 */}
                   <Collapsible open={callbackEndpointsOpen} onOpenChange={setCallbackEndpointsOpen}>
                     <CollapsibleTrigger asChild>
                       <Button variant="outline" className="w-full justify-between">
@@ -1296,6 +1358,7 @@ export default function RobotManagement() {
                     </CollapsibleContent>
                   </Collapsible>
 
+                  {/* 接口调用日志折叠面板 */}
                   <Collapsible open={logsOpen} onOpenChange={setLogsOpen}>
                     <CollapsibleTrigger asChild>
                       <Button variant="outline" className="w-full justify-between">
@@ -1336,33 +1399,11 @@ export default function RobotManagement() {
                     </CollapsibleContent>
                   </Collapsible>
                 </div>
-
-                {/* 保存反馈 */}
-                {saveSuccess && (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-                    ✓ 保存成功
-                  </div>
-                )}
-                {saveError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                    ✗ {saveError}
-                  </div>
-                )}
               </div>
             </CardContent>
             <div className="flex justify-end gap-2 p-6 pt-0">
-              <Button variant="outline" onClick={() => setShowEditDialog(false)}>
-                取消
-              </Button>
-              <Button onClick={handleSaveEdit} disabled={isSaving}>
-                {isSaving ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    保存中...
-                  </>
-                ) : (
-                  '保存'
-                )}
+              <Button variant="outline" onClick={() => setShowCallbackDialog(false)}>
+                关闭
               </Button>
             </div>
           </Card>

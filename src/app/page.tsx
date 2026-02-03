@@ -4785,7 +4785,7 @@ ${callbacks.robotStatus}
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">报告中心</span>
             </TabsTrigger>
-            <TabsTrigger value="callbacks" className="gap-2 py-2">
+            <TabsTrigger value="callbacks" className="gap-2 py-2 hidden">
               <Link2 className="h-4 w-4" />
               <span className="hidden sm:inline">回调中心</span>
             </TabsTrigger>
@@ -4811,7 +4811,7 @@ ${callbacks.robotStatus}
             <DashboardTab />
           </TabsContent>
 
-          <TabsContent value="callbacks" className="space-y-6">
+          <TabsContent value="callbacks" className="space-y-6 hidden">
             <CallbackCenter />
           </TabsContent>
 
