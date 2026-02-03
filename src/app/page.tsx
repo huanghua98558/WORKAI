@@ -373,9 +373,10 @@ export default function AdminDashboard() {
         ? `/api/admin/sessions/${session.sessionId}/takeover`
         : `/api/admin/sessions/${session.sessionId}/auto`;
 
-      const body = session.status === 'auto'
-        ? JSON.stringify({ operator: 'admin' })
-        : undefined;
+      const body = JSON.stringify(session.status === 'auto'
+        ? { operator: 'admin' }
+        : {}
+      );
 
       const res = await fetch(url, {
         method: 'POST',
@@ -5024,7 +5025,9 @@ ${callbacks.robotStatus}
                         onClick={async () => {
                           try {
                             const res = await fetch(`/api/admin/sessions/${selectedSession.sessionId}/auto`, {
-                              method: 'POST'
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({})
                             });
                             if (res.ok) {
                               alert('✅ 已切换回自动模式');

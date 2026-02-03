@@ -117,17 +117,78 @@ class SessionService {
    * 人工接管
    */
   async takeOverByHuman(sessionId, operator) {
-    const session = await this.getSession(sessionId);
+    console.log(`[会话服务] 开始人工接管: sessionId=${sessionId}, operator=${operator}`);
+    let session = await this.getSession(sessionId);
+
+    // 如果 Redis 中没有会话数据，从数据库中创建一个
     if (!session) {
-      throw new Error('会话不存在');
+      console.log(`[会话服务] Redis 中没有会话，从数据库查询: sessionId=${sessionId}`);
+      const { getDb } = require('coze-coding-dev-sdk');
+      const { sql } = require('drizzle-orm');
+      const { sessionMessages } = require('../database/schema');
+      const db = await getDb();
+
+      // 查询该会话的最新信息
+      const result = await db.execute(sql`
+        SELECT DISTINCT ON (session_id)
+          session_id as "sessionId",
+          COALESCE(user_name, user_id) as "userName",
+          COALESCE(group_name, group_id) as "groupName",
+          robot_id as "robotId",
+          robot_name as "robotName",
+          created_at as "lastActiveTime",
+          COUNT(*) OVER (PARTITION BY session_id) as "messageCount",
+          SUM(CASE WHEN is_from_user = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "userMessages",
+          SUM(CASE WHEN is_from_bot = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "aiReplyCount",
+          SUM(CASE WHEN is_human = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "humanReplyCount",
+          MAX(intent) OVER (PARTITION BY session_id) as "lastIntent"
+        FROM session_messages
+        WHERE session_id = ${sessionId}
+        ORDER BY session_id, created_at DESC
+        LIMIT 1
+      `);
+
+      if (result.rows && result.rows.length > 0) {
+        const row = result.rows[0];
+        session = {
+          sessionId: row.sessionId,
+          userName: row.userName || '未知用户',
+          groupName: row.groupName || '未知群组',
+          robotId: row.robotId,
+          robotName: row.robotName || '未知机器人',
+          lastActiveTime: row.lastActiveTime,
+          messageCount: parseInt(row.messageCount) || 0,
+          userMessages: parseInt(row.userMessages) || 0,
+          aiReplyCount: parseInt(row.aiReplyCount) || 0,
+          humanReplyCount: parseInt(row.humanReplyCount) || 0,
+          replyCount: (parseInt(row.aiReplyCount) || 0) + (parseInt(row.humanReplyCount) || 0),
+          lastIntent: row.lastIntent,
+          status: 'auto', // 默认为自动模式
+          startTime: row.lastActiveTime,
+          context: [] // 初始化空上下文
+        };
+
+        console.log(`[会话服务] 从数据库创建会话: sessionId=${sessionId}, status=${session.status}`);
+
+        // 将会话保存到 Redis
+        await redisClient.getClient().then(client => {
+          const key = `${this.sessionPrefix}${sessionId}`;
+          return client.setex(key, this.sessionTTL, JSON.stringify(session));
+        });
+      } else {
+        console.log(`[会话服务] 数据库中也找不到会话: sessionId=${sessionId}`);
+        throw new Error('会话不存在');
+      }
     }
 
     if (session.status === 'human') {
+      console.log(`[会话服务] 会话已经是人工模式: sessionId=${sessionId}`);
       // 填充机器人信息
       await this.enrichSessionWithRobotInfo(session);
       return session;
     }
 
+    console.log(`[会话服务] 切换到人工模式: sessionId=${sessionId}`);
     const updated = await this.updateSession(sessionId, {
       status: 'human',
       humanOperator: operator,
@@ -136,6 +197,7 @@ class SessionService {
 
     // 填充机器人信息
     await this.enrichSessionWithRobotInfo(updated);
+    console.log(`[会话服务] 人工接管完成: sessionId=${sessionId}, newStatus=${updated.status}`);
     return updated;
   }
 
@@ -143,6 +205,71 @@ class SessionService {
    * 切换回自动模式
    */
   async switchToAuto(sessionId) {
+    console.log(`[会话服务] 开始切换到自动模式: sessionId=${sessionId}`);
+    let session = await this.getSession(sessionId);
+
+    // 如果 Redis 中没有会话数据，从数据库中创建一个
+    if (!session) {
+      console.log(`[会话服务] Redis 中没有会话，从数据库查询: sessionId=${sessionId}`);
+      const { getDb } = require('coze-coding-dev-sdk');
+      const { sql } = require('drizzle-orm');
+      const { sessionMessages } = require('../database/schema');
+      const db = await getDb();
+
+      // 查询该会话的最新信息
+      const result = await db.execute(sql`
+        SELECT DISTINCT ON (session_id)
+          session_id as "sessionId",
+          COALESCE(user_name, user_id) as "userName",
+          COALESCE(group_name, group_id) as "groupName",
+          robot_id as "robotId",
+          robot_name as "robotName",
+          created_at as "lastActiveTime",
+          COUNT(*) OVER (PARTITION BY session_id) as "messageCount",
+          SUM(CASE WHEN is_from_user = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "userMessages",
+          SUM(CASE WHEN is_from_bot = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "aiReplyCount",
+          SUM(CASE WHEN is_human = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "humanReplyCount",
+          MAX(intent) OVER (PARTITION BY session_id) as "lastIntent"
+        FROM session_messages
+        WHERE session_id = ${sessionId}
+        ORDER BY session_id, created_at DESC
+        LIMIT 1
+      `);
+
+      if (result.rows && result.rows.length > 0) {
+        const row = result.rows[0];
+        session = {
+          sessionId: row.sessionId,
+          userName: row.userName || '未知用户',
+          groupName: row.groupName || '未知群组',
+          robotId: row.robotId,
+          robotName: row.robotName || '未知机器人',
+          lastActiveTime: row.lastActiveTime,
+          messageCount: parseInt(row.messageCount) || 0,
+          userMessages: parseInt(row.userMessages) || 0,
+          aiReplyCount: parseInt(row.aiReplyCount) || 0,
+          humanReplyCount: parseInt(row.humanReplyCount) || 0,
+          replyCount: (parseInt(row.aiReplyCount) || 0) + (parseInt(row.humanReplyCount) || 0),
+          lastIntent: row.lastIntent,
+          status: 'auto', // 默认为自动模式
+          startTime: row.lastActiveTime,
+          context: [] // 初始化空上下文
+        };
+
+        console.log(`[会话服务] 从数据库创建会话: sessionId=${sessionId}, status=${session.status}`);
+
+        // 将会话保存到 Redis
+        await redisClient.getClient().then(client => {
+          const key = `${this.sessionPrefix}${sessionId}`;
+          return client.setex(key, this.sessionTTL, JSON.stringify(session));
+        });
+      } else {
+        console.log(`[会话服务] 数据库中也找不到会话: sessionId=${sessionId}`);
+        throw new Error('会话不存在');
+      }
+    }
+
+    console.log(`[会话服务] 切换到自动模式: sessionId=${sessionId}`);
     const updated = await this.updateSession(sessionId, {
       status: 'auto',
       humanOperator: null
@@ -150,6 +277,7 @@ class SessionService {
 
     // 填充机器人信息
     await this.enrichSessionWithRobotInfo(updated);
+    console.log(`[会话服务] 自动模式切换完成: sessionId=${sessionId}, newStatus=${updated.status}`);
     return updated;
   }
 
