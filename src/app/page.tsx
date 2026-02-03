@@ -168,6 +168,7 @@ interface Session {
   groupName?: string;
   robotId?: string;
   robotName?: string;
+  robotNickname?: string;
   userInfo?: {
     userName?: string;
     groupName?: string;
@@ -4980,6 +4981,7 @@ ${callbacks.robotStatus}
                       <p className="text-xs text-muted-foreground mb-1">机器人</p>
                       <p className="font-medium">
                         {selectedSession.robotName || '未知机器人'}
+                        {selectedSession.robotNickname && ` (${selectedSession.robotNickname})`}
                       </p>
                     </div>
                     <div>

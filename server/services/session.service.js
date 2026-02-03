@@ -415,6 +415,7 @@ class SessionService {
           COALESCE(group_name, group_id) as "groupName",
           robot_id as "robotId",
           robot_name as "robotName",
+          robot_nickname as "robotNickname",
           created_at as "lastActiveTime",
           COUNT(*) OVER (PARTITION BY session_id) as "messageCount",
           SUM(CASE WHEN is_from_user = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "userMessages",
@@ -482,7 +483,7 @@ class SessionService {
 
       // 首先尝试从 sessionMessages 表获取机器人信息
       const robotMessage = await db.execute(sql`
-        SELECT robot_id as "robotId", robot_name as "robotName"
+        SELECT robot_id as "robotId", robot_name as "robotName", robot_nickname as "robotNickname"
         FROM session_messages
         WHERE session_id = ${session.sessionId}
           AND (robot_id IS NOT NULL OR robot_name IS NOT NULL)
@@ -494,7 +495,8 @@ class SessionService {
       if (robotMessage.rows && robotMessage.rows.length > 0) {
         session.robotId = robotMessage.rows[0].robotId;
         session.robotName = robotMessage.rows[0].robotName;
-        console.log(`[会话服务] 会话 ${session.sessionId} 从 session_messages 获取机器人信息: robotId=${session.robotId}, robotName=${session.robotName}`);
+        session.robotNickname = robotMessage.rows[0].robotNickname;
+        console.log(`[会话服务] 会话 ${session.sessionId} 从 session_messages 获取机器人信息: robotId=${session.robotId}, robotName=${session.robotName}, robotNickname=${session.robotNickname}`);
       } else {
         console.warn(`[会话服务] 会话 ${session.sessionId} 从 session_messages 未找到机器人信息`);
       }
@@ -513,7 +515,8 @@ class SessionService {
         if (robot.rows && robot.rows.length > 0) {
           const robotRow = robot.rows[0];
           session.robotName = robotRow.nickname || robotRow.name || robotRow.robotId || '未知机器人';
-          console.log(`[会话服务] 会话 ${session.sessionId} 从 robots 表获取机器人信息: name=${robotRow.name}, nickname=${robotRow.nickname}, robotName=${session.robotName}`);
+          session.robotNickname = robotRow.nickname || null;
+          console.log(`[会话服务] 会话 ${session.sessionId} 从 robots 表获取机器人信息: name=${robotRow.name}, nickname=${robotRow.nickname}, robotName=${session.robotName}, robotNickname=${session.robotNickname}`);
         } else {
           console.warn(`[会话服务] 会话 ${session.sessionId} 在 robots 表中未找到 robotId=${session.robotId}`);
         }
