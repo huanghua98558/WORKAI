@@ -16,25 +16,33 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < count; i++) {
       const isUser = i % 2 === 0;
       const id = 'test_live_' + Date.now() + '_' + i;
-      
+      const sessionId = 'session_live_' + Date.now();
+      const messageId = 'msg_live_' + Date.now() + '_' + i;
+      const userId = '实时用户' + (i + 1);
+      const groupId = '实时测试群';
+      const userName = '实时用户' + (i + 1);
+      const groupName = '实时测试群';
+      const content = isUser 
+        ? `这是实时测试消息 #${i + 1}，验证逐条显示效果`
+        : `您好！这是第 ${i + 1} 条AI回复，验证流式动画`;
+      const timestamp = new Date(now.getTime() + i * 500).toISOString();
+
       const message = {
         id: id,
         type: isUser ? 'user' : 'bot',
-        sessionId: 'session_live_' + Date.now(),
-        messageId: 'msg_live_' + Date.now() + '_' + i,
-        userId: '实时用户' + (i + 1),
-        groupId: '实时测试群',
-        userName: '实时用户' + (i + 1),
-        groupName: '实时测试群',
+        sessionId: sessionId,
+        messageId: messageId,
+        userId: userId,
+        groupId: groupId,
+        userName: userName,
+        groupName: groupName,
         robotId: 'test-robot-001',
         robotName: '测试机器人',
-        content: isUser 
-          ? `这是实时测试消息 #${i + 1}，验证逐条显示效果`
-          : `您好！这是第 ${i + 1} 条AI回复，验证流式动画`,
+        content: content,
         intent: 'chat',
         confidence: 90,
-        timestamp: new Date(now.getTime() + i * 500).toISOString(),
-        createdAt: new Date(now.getTime() + i * 500).toISOString(),
+        timestamp: timestamp,
+        createdAt: timestamp,
       };
 
       messages.push(message);
