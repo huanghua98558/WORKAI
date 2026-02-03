@@ -305,6 +305,43 @@ export default function RobotManagement() {
     return new Date(dateStr).toLocaleString('zh-CN');
   };
 
+  const getRunningTime = (createdAt: string) => {
+    const now = new Date();
+    const created = new Date(createdAt);
+    const diff = now.getTime() - created.getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (days > 0) {
+      return `${days}天 ${hours}小时`;
+    } else if (hours > 0) {
+      return `${hours}小时 ${minutes}分钟`;
+    } else {
+      return `${minutes}分钟`;
+    }
+  };
+
+  const getRemainingTime = (expiresAt?: string) => {
+    if (!expiresAt) return '永久';
+    const now = new Date();
+    const expires = new Date(expiresAt);
+    const diff = expires.getTime() - now.getTime();
+    
+    if (diff <= 0) return '已过期';
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    
+    if (days > 365) {
+      return '永久';
+    } else if (days > 0) {
+      return `${days}天`;
+    } else {
+      return `${hours}小时`;
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* 页面标题 */}
@@ -516,15 +553,21 @@ export default function RobotManagement() {
                         <div className="font-medium">{formatDate(robot.createdAt)}</div>
                       </div>
                       
-                      {robot.lastCheckAt && (
-                        <div>
-                          <div className="text-muted-foreground mb-1 flex items-center gap-2">
-                            <Activity className="h-3 w-3" />
-                            最后检查
-                          </div>
-                          <div className="font-medium">{formatDate(robot.lastCheckAt)}</div>
+                      <div>
+                        <div className="text-muted-foreground mb-1 flex items-center gap-2">
+                          <Activity className="h-3 w-3" />
+                          已运行时间
                         </div>
-                      )}
+                        <div className="font-medium">{getRunningTime(robot.createdAt)}</div>
+                      </div>
+                      
+                      <div>
+                        <div className="text-muted-foreground mb-1 flex items-center gap-2">
+                          <Clock className="h-3 w-3" />
+                          剩余时间
+                        </div>
+                        <div className="font-medium">{getRemainingTime(robot.expiresAt)}</div>
+                      </div>
                       
                       {robot.messageCallbackEnabled !== undefined && (
                         <div>
