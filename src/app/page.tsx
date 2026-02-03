@@ -371,17 +371,35 @@ export default function AdminDashboard() {
 
   // 加载会话消息
   const loadSessionMessages = async (sessionId: string) => {
+    console.log('[会话详情] 开始加载消息', { sessionId });
     setIsLoadingSessionMessages(true);
     try {
       const res = await fetch(`/api/admin/sessions/${sessionId}/messages`);
+      console.log('[会话详情] API 响应', {
+        status: res.status,
+        statusText: res.statusText,
+        ok: res.ok
+      });
+
       if (res.ok) {
         const data = await res.json();
+        console.log('[会话详情] 消息数据', {
+          success: data.success,
+          dataLength: data.data?.length,
+          data: data.data
+        });
         setSessionMessages(data.data || []);
       } else {
+        console.error('[会话详情] API 返回错误状态', res.status);
+        const errorData = await res.json().catch(() => ({}));
+        console.error('[会话详情] 错误数据', errorData);
         setSessionMessages([]);
       }
     } catch (error) {
-      console.error('加载会话消息失败:', error);
+      console.error('[会话详情] 加载会话消息失败:', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       setSessionMessages([]);
     } finally {
       setIsLoadingSessionMessages(false);
@@ -422,34 +440,68 @@ export default function AdminDashboard() {
 
   // 查看会话详情
   const handleViewSessionDetail = async (session: Session) => {
+    console.log('[会话详情] 查看会话详情', {
+      sessionId: session.sessionId,
+      userName: session.userName,
+      groupName: session.groupName
+    });
+
+    if (!session.sessionId) {
+      console.error('[会话详情] sessionId 为空', session);
+      alert('会话 ID 为空，无法查看详情');
+      return;
+    }
+
     setSelectedSession(session);
     setShowSessionDetail(true);
     loadSessionMessages(session.sessionId);
-    
+
     // 加载机器人信息
     if (session.robotId) {
+      console.log('[会话详情] 开始加载机器人信息', { robotId: session.robotId });
       const robotName = await loadRobotInfo(session.robotId);
+      console.log('[会话详情] 机器人信息加载完成', { robotName });
       if (robotName) {
         // 更新选中的会话，添加机器人名称
         setSelectedSession(prev => prev ? { ...prev, robotName } : null);
       }
     }
-    
+
     // 重新获取最新的会话信息，确保机器人名称和状态正确
     try {
+      console.log('[会话详情] 重新获取会话信息', { sessionId: session.sessionId });
       const res = await fetch(`/api/admin/sessions/${session.sessionId}`);
+      console.log('[会话详情] 会话信息响应', {
+        status: res.status,
+        ok: res.ok
+      });
+
       if (res.ok) {
         const data = await res.json();
+        console.log('[会话详情] 会话信息数据', {
+          success: data.success,
+          hasData: !!data.data,
+          sessionId: data.data?.sessionId
+        });
+
         if (data.success && data.data) {
           setSelectedSession(data.data);
           // 如果返回的数据没有机器人名称，使用我们获取的
           if (!data.data.robotName && session.robotId && robotInfoMap[session.robotId]?.name) {
+            console.log('[会话详情] 使用缓存的机器人名称', {
+              robotId: session.robotId,
+              robotName: robotInfoMap[session.robotId as string].name
+            });
             setSelectedSession(prev => prev ? { ...prev, robotName: robotInfoMap[session.robotId as string].name } : null);
           }
         }
+      } else {
+        console.error('[会话详情] 获取会话信息失败', { status: res.status });
       }
     } catch (error) {
-      console.error('获取会话信息失败:', error);
+      console.error('[会话详情] 获取会话信息异常:', {
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   };
 
