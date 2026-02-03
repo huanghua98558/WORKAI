@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     const result = await execSQL(query, params);
 
     // 计算汇总统计
-    const statsQuery = `
+    let statsQuery = `
       SELECT 
         COUNT(*) as total_robots,
         COUNT(*) FILTER (WHERE is_available = true) as available_robots,

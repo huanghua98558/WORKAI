@@ -221,7 +221,7 @@ export async function DELETE(
     }
 
     // 删除机器人
-    await execSQL('BEGIN');
+    await execSQL('BEGIN', []);
 
     try {
       // 删除指令队列
@@ -242,14 +242,14 @@ export async function DELETE(
       // 删除机器人
       await execSQL(`DELETE FROM robots WHERE robot_id = $1`, [robotId]);
 
-      await execSQL('COMMIT');
+      await execSQL('COMMIT', []);
 
       return NextResponse.json({
         success: true,
         message: '删除机器人成功'
       });
     } catch (error) {
-      await execSQL('ROLLBACK');
+      await execSQL('ROLLBACK', []);
       throw error;
     }
   } catch (error) {

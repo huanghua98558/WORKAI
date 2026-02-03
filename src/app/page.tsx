@@ -400,7 +400,7 @@ export default function AdminDashboard() {
           setSelectedSession(data.data);
           // 如果返回的数据没有机器人名称，使用我们获取的
           if (!data.data.robotName && session.robotId && robotInfoMap[session.robotId]?.name) {
-            setSelectedSession(prev => prev ? { ...prev, robotName: robotInfoMap[session.robotId].name } : null);
+            setSelectedSession(prev => prev ? { ...prev, robotName: robotInfoMap[session.robotId as string].name } : null);
           }
         }
       }
