@@ -200,7 +200,7 @@ export default function RealtimeIOTab() {
             <MessageCircle className="h-6 w-6 text-purple-500" />
             实时IO查看
           </h3>
-          <p className="text-muted-foreground mt-1">查看 AI 输入输出实时记录</p>
+          <p className="text-muted-foreground mt-1">查看 AI 输入输出实时记录（显示所有最新消息，不按会话分组）</p>
         </div>
         <div className="flex items-center gap-2">
           <Button

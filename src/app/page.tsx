@@ -250,7 +250,7 @@ export default function AdminDashboard() {
     const interval = setInterval(() => {
       loadData();
       loadRobots();
-    }, 10000); // 每 10 秒刷新一次
+    }, 3000); // 每 3 秒刷新一次（与实时消息保持同步）
 
     return () => clearInterval(interval);
   }, [showSessionDetail, activeTab]);
@@ -1748,7 +1748,7 @@ ${callbacks.robotStatus}
               会话管理
             </h3>
             <p className="text-muted-foreground mt-1">
-              查看和管理活跃的用户会话
+              查看和管理活跃的用户会话（显示近7天内活跃的会话，每个会话显示1条最新消息）
             </p>
           </div>
           <div className="flex items-center gap-2">
