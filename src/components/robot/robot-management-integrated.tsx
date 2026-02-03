@@ -524,13 +524,14 @@ export default function RobotManagement() {
                         </div>
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
-                            <h3 className="text-lg font-semibold">{robot.name}</h3>
+                            <h3 className="text-lg font-semibold">{robot.name || robot.nickname || '未命名机器人'}</h3>
                             {getStatusBadge(robot.isActive, robot.status)}
-                            {robot.nickname && (
-                              <Badge variant="outline" className="text-xs">{robot.nickname}</Badge>
-                            )}
                           </div>
-                          <div className="text-sm text-muted-foreground">{robot.robotId}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {robot.company && robot.nickname 
+                              ? `${robot.company} - ${robot.nickname}` 
+                              : robot.company || robot.nickname || ''}
+                          </div>
                         </div>
                       </div>
                       <div className="flex gap-2">
