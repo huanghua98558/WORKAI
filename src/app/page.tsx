@@ -1903,9 +1903,13 @@ ${callbacks.robotStatus}
     const [alertHistory, setAlertHistory] = useState<any[]>([]);
     const [circuitBreakerStatus, setCircuitBreakerStatus] = useState<boolean>(false);
 
+    // 使用 useRef 持久化数据，避免子Tab切换导致数据丢失
+    const alertHistoryRef = useRef<any[]>([]);
+    const circuitBreakerStatusRef = useRef<boolean>(false);
+
     // 使用 useRef 保存 loadAlertData 函数，避免依赖项变化导致重复调用
     const loadAlertDataRef = useRef<any>(null);
-    
+
     loadAlertDataRef.current = async () => {
       try {
         const [alertsRes, circuitRes] = await Promise.all([
@@ -1915,21 +1919,35 @@ ${callbacks.robotStatus}
 
         if (alertsRes.ok) {
           const data = await alertsRes.json();
-          setAlertHistory(data.data || []);
+          const newAlertHistory = data.data || [];
+          setAlertHistory(newAlertHistory);
+          alertHistoryRef.current = newAlertHistory;
         }
 
         if (circuitRes.ok) {
           const data = await circuitRes.json();
-          setCircuitBreakerStatus(data.data.isOpen);
+          const newStatus = data.data.isOpen;
+          setCircuitBreakerStatus(newStatus);
+          circuitBreakerStatusRef.current = newStatus;
         }
       } catch (error) {
-        
+
       }
     };
 
     // 只在组件挂载时加载一次
     useEffect(() => {
-      loadAlertDataRef.current();
+      console.log('MonitorTab: 组件挂载');
+      // 如果 ref 中有数据，恢复显示
+      if (alertHistoryRef.current.length > 0) {
+        console.log(`MonitorTab: 恢复 ${alertHistoryRef.current.length} 条告警历史`);
+        setAlertHistory(alertHistoryRef.current);
+        setCircuitBreakerStatus(circuitBreakerStatusRef.current);
+      } else {
+        console.log('MonitorTab: 首次加载数据');
+        loadAlertDataRef.current();
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const resetCircuitBreaker = async () => {
@@ -4348,6 +4366,7 @@ ${callbacks.robotStatus}
     const [messageLimit, setMessageLimit] = useState<number>(50);
     const lastFetchTime = useRef<number>(0);
     const [isMounted, setIsMounted] = useState(false);
+    const messagesRef = useRef<any[]>([]); // 使用 ref 持久化消息
 
     const loadMessages = async (limit?: number) => {
       // 防抖：1秒内不重复加载
@@ -4375,7 +4394,9 @@ ${callbacks.robotStatus}
         if (res.ok) {
           const data = await res.json();
           console.log(`RealtimeIO: 加载完成，共 ${data.data?.length || 0} 条消息`);
-          setMessages(data.data || []);
+          const newMessages = data.data || [];
+          setMessages(newMessages);
+          messagesRef.current = newMessages;
         }
       } catch (error) {
         console.error('加载消息失败:', error);
@@ -4384,11 +4405,18 @@ ${callbacks.robotStatus}
       }
     };
 
-    // 只在组件首次挂载时加载一次，且需要手动触发
+    // 组件挂载时加载一次，并且使用 ref 保持数据
     useEffect(() => {
-      if (!isMounted) {
-        setIsMounted(true);
+      console.log('RealtimeIO: 组件挂载');
+      // 如果 ref 中有数据，恢复显示
+      if (messagesRef.current.length > 0) {
+        console.log(`RealtimeIO: 恢复 ${messagesRef.current.length} 条消息`);
+        setMessages(messagesRef.current);
+      } else {
+        console.log('RealtimeIO: 首次加载数据');
+        loadMessages();
       }
+      setIsMounted(true);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 

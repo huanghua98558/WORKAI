@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -198,6 +198,10 @@ export default function EnhancedAlertManagement() {
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [editedGroup, setEditedGroup] = useState<Partial<AlertGroup>>({});
 
+  // 使用 ref 持久化数据
+  const groupsRef = useRef<AlertGroup[]>([]);
+  const analyticsRef = useRef<AnalyticsData | null>(null);
+
   // 加载数据
   const loadData = async () => {
     setLoading(true);
@@ -208,6 +212,8 @@ export default function EnhancedAlertManagement() {
       ]);
       setGroups(groupsData);
       setAnalytics(analyticsData);
+      groupsRef.current = groupsData;
+      analyticsRef.current = analyticsData;
     } catch (error) {
       console.error('加载数据失败:', error);
     } finally {
@@ -215,10 +221,19 @@ export default function EnhancedAlertManagement() {
     }
   };
 
-  // 移除自动加载，仅手动刷新
-  // useEffect(() => {
-  //   loadData();
-  // }, []);
+  // 组件挂载时恢复数据或加载新数据
+  useEffect(() => {
+    console.log('EnhancedAlertManagement: 组件挂载');
+    if (groupsRef.current.length > 0 || analyticsRef.current) {
+      console.log('EnhancedAlertManagement: 恢复缓存数据');
+      setGroups(groupsRef.current);
+      setAnalytics(analyticsRef.current);
+    } else {
+      console.log('EnhancedAlertManagement: 首次加载数据');
+      loadData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 编辑分组
   const handleEditGroup = (group: AlertGroup) => {
