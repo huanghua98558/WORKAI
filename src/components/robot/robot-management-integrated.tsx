@@ -69,6 +69,19 @@ export default function RobotManagement() {
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
   const [testError, setTestError] = useState<string | null>(null);
+  
+  // 表单状态
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    description: '',
+  });
+  const [configFormData, setConfigFormData] = useState({
+    apiBaseUrl: '',
+    isActive: true,
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // 加载机器人列表
   const loadRobots = async () => {
@@ -111,12 +124,24 @@ export default function RobotManagement() {
 
   const handleEdit = (robot: Robot) => {
     setSelectedRobot(robot);
+    setEditFormData({
+      name: robot.name,
+      description: robot.description || '',
+    });
     setShowEditDialog(true);
+    setSaveSuccess(false);
+    setSaveError(null);
   };
 
   const handleConfig = (robot: Robot) => {
     setSelectedRobot(robot);
+    setConfigFormData({
+      apiBaseUrl: robot.apiBaseUrl,
+      isActive: robot.isActive,
+    });
     setShowConfigDialog(true);
+    setSaveSuccess(false);
+    setSaveError(null);
   };
 
   const handleTest = (robot: Robot) => {
@@ -124,6 +149,70 @@ export default function RobotManagement() {
     setShowTestDialog(true);
     setTestResult(null);
     setTestError(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedRobot) return;
+
+    setIsSaving(true);
+    setSaveSuccess(false);
+    setSaveError(null);
+
+    try {
+      const res = await fetch(`/api/proxy/admin/robots/${selectedRobot.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editFormData),
+      });
+
+      const result = await res.json();
+
+      if (res.ok) {
+        setSaveSuccess(true);
+        // 刷新机器人列表
+        await loadRobots();
+      } else {
+        setSaveError(result.message || '保存失败');
+      }
+    } catch (error: any) {
+      setSaveError(error.message || '网络错误，保存失败');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveConfig = async () => {
+    if (!selectedRobot) return;
+
+    setIsSaving(true);
+    setSaveSuccess(false);
+    setSaveError(null);
+
+    try {
+      const res = await fetch(`/api/proxy/admin/robots/${selectedRobot.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(configFormData),
+      });
+
+      const result = await res.json();
+
+      if (res.ok) {
+        setSaveSuccess(true);
+        // 刷新机器人列表
+        await loadRobots();
+      } else {
+        setSaveError(result.message || '保存失败');
+      }
+    } catch (error: any) {
+      setSaveError(error.message || '网络错误，保存失败');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const executeTest = async () => {
@@ -466,23 +555,55 @@ export default function RobotManagement() {
             <CardContent>
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">机器人名称</label>
-                  <div className="mt-1 p-2 border rounded">{selectedRobot.name}</div>
+                  <label className="text-sm font-medium mb-1 block">机器人ID</label>
+                  <div className="p-2 border rounded bg-muted text-sm">{selectedRobot.robotId}</div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">描述</label>
-                  <div className="mt-1 p-2 border rounded min-h-[80px]">
-                    {selectedRobot.description || '暂无描述'}
-                  </div>
+                  <label className="text-sm font-medium mb-1 block">机器人名称 <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={editFormData.name}
+                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="请输入机器人名称"
+                  />
                 </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">描述</label>
+                  <textarea
+                    value={editFormData.description}
+                    onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                    className="w-full p-2 border rounded min-h-[120px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="请输入机器人描述"
+                  />
+                </div>
+
+                {/* 保存反馈 */}
+                {saveSuccess && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                    ✓ 保存成功
+                  </div>
+                )}
+                {saveError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    ✗ {saveError}
+                  </div>
+                )}
               </div>
             </CardContent>
             <div className="flex justify-end gap-2 p-6 pt-0">
               <Button variant="outline" onClick={() => setShowEditDialog(false)}>
                 取消
               </Button>
-              <Button onClick={() => setShowEditDialog(false)}>
-                保存
+              <Button onClick={handleSaveEdit} disabled={isSaving || !editFormData.name.trim()}>
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    保存中...
+                  </>
+                ) : (
+                  '保存'
+                )}
               </Button>
             </div>
           </Card>
@@ -500,25 +621,56 @@ export default function RobotManagement() {
             <CardContent>
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">机器人ID</label>
-                  <div className="mt-1 p-2 border rounded">{selectedRobot.robotId}</div>
+                  <label className="text-sm font-medium mb-1 block">机器人ID</label>
+                  <div className="p-2 border rounded bg-muted text-sm">{selectedRobot.robotId}</div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">API Base URL</label>
-                  <div className="mt-1 p-2 border rounded">{selectedRobot.apiBaseUrl}</div>
+                  <label className="text-sm font-medium mb-1 block">API Base URL <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={configFormData.apiBaseUrl}
+                    onChange={(e) => setConfigFormData({ ...configFormData, apiBaseUrl: e.target.value })}
+                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="https://api.example.com"
+                  />
                 </div>
                 <div className="flex items-center gap-2">
-                  <input type="checkbox" id="isActive" checked={selectedRobot.isActive} />
+                  <input
+                    type="checkbox"
+                    id="isActive"
+                    checked={configFormData.isActive}
+                    onChange={(e) => setConfigFormData({ ...configFormData, isActive: e.target.checked })}
+                    className="w-4 h-4"
+                  />
                   <label htmlFor="isActive" className="text-sm">启用机器人</label>
                 </div>
+
+                {/* 保存反馈 */}
+                {saveSuccess && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                    ✓ 保存成功
+                  </div>
+                )}
+                {saveError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    ✗ {saveError}
+                  </div>
+                )}
               </div>
             </CardContent>
             <div className="flex justify-end gap-2 p-6 pt-0">
               <Button variant="outline" onClick={() => setShowConfigDialog(false)}>
                 取消
               </Button>
-              <Button onClick={() => setShowConfigDialog(false)}>
-                保存配置
+              <Button onClick={handleSaveConfig} disabled={isSaving || !configFormData.apiBaseUrl.trim()}>
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    保存中...
+                  </>
+                ) : (
+                  '保存配置'
+                )}
               </Button>
             </div>
           </Card>
