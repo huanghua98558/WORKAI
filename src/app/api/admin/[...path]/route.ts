@@ -43,12 +43,20 @@ export async function GET(
     });
 
     const data = await response.json();
-    
-    // 只在非200状态码时输出日志，避免频繁输出
-    if (response.status !== 200 && response.status !== 204) {
-      console.warn('[API Proxy] GET', path, '- Status:', response.status);
+
+    // 在开发环境下输出详细日志
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[API Proxy] GET', path, '- Status:', response.status);
+      if (response.status === 200) {
+        console.log('[API Proxy] Response data:', data);
+      }
+    } else {
+      // 生产环境只在非200状态码时输出警告日志
+      if (response.status !== 200 && response.status !== 204) {
+        console.warn('[API Proxy] GET', path, '- Status:', response.status);
+      }
     }
-    
+
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
     return NextResponse.json(

@@ -371,20 +371,26 @@ export default function AdminDashboard() {
 
   // 加载会话消息
   const loadSessionMessages = async (sessionId: string) => {
+    console.log('[会话消息] 开始加载会话消息:', sessionId);
     setIsLoadingSessionMessages(true);
     try {
       const res = await fetch(`/api/admin/sessions/${sessionId}/messages`);
+      console.log('[会话消息] 请求状态:', res.status, res.ok);
       if (res.ok) {
         const data = await res.json();
+        console.log('[会话消息] 响应数据:', data);
+        console.log('[会话消息] 消息数量:', data.data?.length || 0);
         setSessionMessages(data.data || []);
       } else {
+        console.error('[会话消息] 请求失败，状态码:', res.status);
         setSessionMessages([]);
       }
     } catch (error) {
-      console.error('加载会话消息失败:', error);
+      console.error('[会话消息] 加载会话消息失败:', error);
       setSessionMessages([]);
     } finally {
       setIsLoadingSessionMessages(false);
+      console.log('[会话消息] 加载完成，isLoading:', false);
     }
   };
 
@@ -422,8 +428,10 @@ export default function AdminDashboard() {
 
   // 查看会话详情
   const handleViewSessionDetail = async (session: Session) => {
+    console.log('[会话详情] 开始查看会话详情:', session.sessionId);
     setSelectedSession(session);
     setShowSessionDetail(true);
+    console.log('[会话详情] 开始加载消息...');
     loadSessionMessages(session.sessionId);
     
     // 加载机器人信息
