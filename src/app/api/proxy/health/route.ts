@@ -1,20 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import http from 'http';
 
-const BACKEND_HOST = process.env.BACKEND_HOST || 'localhost';
-const BACKEND_PORT = process.env.BACKEND_PORT || '5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
+
+// 从 BACKEND_URL 解析主机和端口
+let backendHost = 'localhost';
+let backendPort = 5001;
+
+try {
+  const backendUrl = new URL(BACKEND_URL);
+  backendHost = backendUrl.hostname;
+  backendPort = parseInt(backendUrl.port || '5001', 10);
+} catch (e) {
+  console.warn('[API Proxy Health] Failed to parse BACKEND_URL, using defaults');
+}
 
 export async function GET(request: NextRequest) {
+  console.log('[API Proxy Health] Request received');
+  console.log('[API Proxy Health] Backend config:', {
+    BACKEND_URL: BACKEND_URL,
+    parsedHost: backendHost,
+    parsedPort: backendPort,
+    fullUrl: `${BACKEND_URL}/health`
+  });
+
   try {
     const options = {
-      hostname: BACKEND_HOST,
-      port: parseInt(BACKEND_PORT, 10),
+      hostname: backendHost,
+      port: backendPort,
       path: '/health',
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
     };
+
+    console.log('[API Proxy Health] Creating HTTP request with options:', options);
 
     return new Promise<NextResponse>((resolve) => {
       const req = http.request(options, (res) => {
@@ -43,13 +64,24 @@ export async function GET(request: NextRequest) {
 
       req.on('error', (error) => {
         console.error('[API Proxy] Backend connection error:', {
-          host: BACKEND_HOST,
-          port: BACKEND_PORT,
-          error: error.message
+          BACKEND_URL: BACKEND_URL,
+          host: backendHost,
+          port: backendPort,
+          error: error.message,
+          errorStack: error.stack
         });
         resolve(
           NextResponse.json(
-            { code: -1, message: `无法连接到后端服务: ${error.message}` },
+            { 
+              code: -1, 
+              message: `无法连接到后端服务: ${error.message}`,
+              debug: {
+                backendUrl: BACKEND_URL,
+                host: backendHost,
+                port: backendPort,
+                timestamp: new Date().toISOString()
+              }
+            },
             { status: 500 }
           )
         );
