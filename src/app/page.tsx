@@ -4346,12 +4346,13 @@ ${callbacks.robotStatus}
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [filterType, setFilterType] = useState<'all' | 'user' | 'bot'>('all');
     const [selectedRobot, setSelectedRobot] = useState<string>('');
+    const [messageLimit, setMessageLimit] = useState<number>(50);
 
-    const loadMessages = useCallback(async () => {
+    const loadMessages = useCallback(async (limit?: number) => {
       try {
         setIsLoading(true);
         const params = new URLSearchParams();
-        params.append('limit', '50');
+        params.append('limit', (limit || messageLimit).toString());
         if (filterType !== 'all') {
           params.append('type', filterType);
         }
@@ -4369,21 +4370,38 @@ ${callbacks.robotStatus}
       } finally {
         setIsLoading(false);
       }
-    }, [filterType, selectedRobot]);
+    }, [filterType, selectedRobot, messageLimit]);
 
+    // 初始化加载
     useEffect(() => {
       loadMessages();
-    }, [loadMessages]);
+    }, [filterType, selectedRobot, messageLimit]);
 
+    // 自动刷新（不依赖 loadMessages）
     useEffect(() => {
       if (!autoRefresh) return;
 
       const interval = setInterval(() => {
-        loadMessages();
+        // 直接调用 API，避免依赖 loadMessages 导致的循环
+        setIsLoading(true);
+        const params = new URLSearchParams();
+        params.append('limit', messageLimit.toString());
+        if (filterType !== 'all') {
+          params.append('type', filterType);
+        }
+        if (selectedRobot) {
+          params.append('robotId', selectedRobot);
+        }
+
+        fetch(`/api/ai-io?${params.toString()}`)
+          .then(res => res.json())
+          .then(data => setMessages(data.data || []))
+          .catch(error => console.error('加载消息失败:', error))
+          .finally(() => setIsLoading(false));
       }, 5000); // 每5秒刷新一次
 
       return () => clearInterval(interval);
-    }, [autoRefresh, loadMessages]);
+    }, [autoRefresh, messageLimit, filterType, selectedRobot]);
 
     return (
       <div className="space-y-6">
@@ -4453,21 +4471,33 @@ ${callbacks.robotStatus}
 
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
                 <CardTitle>消息列表</CardTitle>
-                <CardDescription>最近 50 条消息记录</CardDescription>
+                <CardDescription>最近 {messageLimit} 条消息记录</CardDescription>
               </div>
-              <div className="flex gap-2">
-                <select
-                  className="px-3 py-2 border rounded-md text-sm"
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value as any)}
-                >
-                  <option value="all">全部</option>
-                  <option value="user">用户消息</option>
-                  <option value="bot">机器人回复</option>
-                </select>
+              <div className="flex gap-2 flex-wrap">
+                <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部</SelectItem>
+                    <SelectItem value="user">用户消息</SelectItem>
+                    <SelectItem value="bot">机器人回复</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={messageLimit.toString()} onValueChange={(value) => setMessageLimit(parseInt(value))}>
+                  <SelectTrigger className="w-[100px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="50">50条</SelectItem>
+                    <SelectItem value="100">100条</SelectItem>
+                    <SelectItem value="200">200条</SelectItem>
+                    <SelectItem value="500">500条</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </CardHeader>
