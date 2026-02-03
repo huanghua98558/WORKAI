@@ -32,7 +32,8 @@ import {
   ChevronRight,
   ExternalLink,
   PlayCircle,
-  History
+  History,
+  Link2
 } from 'lucide-react';
 
 // 导入子组件
