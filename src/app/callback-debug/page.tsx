@@ -268,7 +268,7 @@ export default function CallbackDebugPage() {
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             <p>1. 在 WorkTool 后台配置回调地址，格式如下：</p>
             <code className="block p-2 bg-slate-100 rounded text-xs">
-              https://n2hsd37kxc.coze.site/api/worktool/callback/message?robotId={你的机器人ID}
+              {'https://n2hsd37kxc.coze.site/api/worktool/callback/message?robotId={你的机器人ID}'}
             </code>
             <p className="mt-4">2. 在本页面输入机器人 ID 和测试消息</p>
             <p>3. 点击"发送测试消息"按钮模拟 WorkTool 回调</p>
