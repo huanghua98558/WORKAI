@@ -254,7 +254,7 @@ export default function RealtimeIOTab() {
 
       {/* 待显示消息提示 */}
       {pendingNewMessages.length > 0 && (
-        <Alert variant="default" className="border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/20 animate-pulse-glow">
+        <Alert variant="default" className="border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/20">
           <Activity className="h-4 w-4 text-purple-600 dark:text-purple-400" />
           <AlertDescription className="text-purple-700 dark:text-purple-300">
             <span className="font-bold">{pendingNewMessages.length}</span> 条新消息正在显示中...
@@ -351,7 +351,7 @@ export default function RealtimeIOTab() {
                         : 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-900'
                     } ${
                       isNew 
-                        ? 'scale-105 shadow-2xl border-2 animate-slide-left animate-pulse-glow' +
+                        ? 'scale-105 shadow-2xl border-2 animate-slide-left' +
                           (msg.direction === 'in' 
                             ? ' bg-gradient-to-r from-blue-100 to-blue-50 dark:from-blue-900/50 dark:to-blue-950/30 border-blue-400 dark:border-blue-600' 
                             : ' bg-gradient-to-r from-green-100 to-green-50 dark:from-green-900/50 dark:to-green-950/30 border-green-400 dark:border-green-600'

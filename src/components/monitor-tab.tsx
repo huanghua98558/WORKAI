@@ -59,7 +59,7 @@ export default function MonitorTab() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h3 className="text-2xl font-bold flex items-center gap-2">
-            <div className="p-2 bg-red-500/10 rounded-lg animate-pulse-glow border border-red-500/30">
+            <div className="p-2 bg-red-500/10 rounded-lg border border-red-500/30">
               <Activity className="h-6 w-6 text-red-500" />
             </div>
             监控与告警
@@ -76,7 +76,7 @@ export default function MonitorTab() {
       <Card className={`sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300 ${circuitBreakerStatus ? 'border-red-500/50' : ''}`}>
         <CardHeader className={`bg-gradient-to-r ${circuitBreakerStatus ? 'from-red-500/10 to-orange-500/10' : 'from-green-500/10 to-emerald-500/10'} border-b border-primary/20`}>
           <div className="flex items-center gap-2">
-            <div className={`p-1.5 ${circuitBreakerStatus ? 'bg-red-500/10 border-red-500/30' : 'bg-green-500/10 border-green-500/30'} rounded-lg animate-pulse-glow border`}>
+            <div className={`p-1.5 ${circuitBreakerStatus ? 'bg-red-500/10 border-red-500/30' : 'bg-green-500/10 border-green-500/30'} rounded-lg border`}>
               <AlertOctagon className={`h-4 w-4 ${circuitBreakerStatus ? 'text-red-500' : 'text-green-500'}`} />
             </div>
             <CardTitle className="text-base">熔断器状态</CardTitle>
@@ -138,7 +138,7 @@ export default function MonitorTab() {
           <CardHeader className="pb-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-b border-primary/20">
             <CardDescription>告警趋势</CardDescription>
             <CardTitle className="text-3xl flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-purple-500 animate-pulse-glow" />
+              <TrendingUp className="h-5 w-5 text-purple-500" />
               <span className="font-mono">{alertHistory.length > 0 ? '上升' : '平稳'}</span>
             </CardTitle>
           </CardHeader>

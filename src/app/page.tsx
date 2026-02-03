@@ -1037,7 +1037,7 @@ ${callbacks.robotStatus}
           <CardHeader className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-b border-primary/20">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-500/10 rounded-lg animate-pulse-glow">
+                <div className="p-2 bg-blue-500/10 rounded-lg">
                   <MessageCircle className="h-5 w-5 text-blue-500" />
                 </div>
                 <div>
@@ -1121,7 +1121,7 @@ ${callbacks.robotStatus}
           <CardHeader className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-b border-primary/20">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-500/10 rounded-lg animate-pulse-glow-cyan">
+                <div className="p-2 bg-green-500/10 rounded-lg">
                   <Activity className="h-5 w-5 text-green-500" />
                 </div>
                 <div>
@@ -1205,7 +1205,7 @@ ${callbacks.robotStatus}
           <CardHeader className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-b border-primary/20">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-500/10 rounded-lg animate-pulse-glow-purple">
+                <div className="p-2 bg-purple-500/10 rounded-lg">
                   <QrCodeIcon className="h-5 w-5 text-purple-500" />
                 </div>
                 <div>
@@ -1289,7 +1289,7 @@ ${callbacks.robotStatus}
           <CardHeader className="bg-gradient-to-r from-orange-500/10 to-red-500/10 border-b border-primary/20">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-500/10 rounded-lg animate-pulse-glow">
+                <div className="p-2 bg-orange-500/10 rounded-lg">
                   <ShieldCheck className="h-5 w-5 text-orange-500" />
                 </div>
                 <div>
@@ -1518,7 +1518,7 @@ ${callbacks.robotStatus}
         <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">回调消息</CardTitle>
-            <div className="p-2 bg-blue-500/10 rounded-lg animate-pulse-glow border border-blue-500/30">
+            <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/30">
               <MessageCircle className="h-4 w-4 text-blue-500" />
             </div>
           </CardHeader>
@@ -1549,7 +1549,7 @@ ${callbacks.robotStatus}
         <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">AI 成功率</CardTitle>
-            <div className="p-2 bg-purple-500/10 rounded-lg animate-pulse-glow border border-purple-500/30">
+            <div className="p-2 bg-purple-500/10 rounded-lg border border-purple-500/30">
               <Bot className="h-4 w-4 text-purple-500" />
             </div>
           </CardHeader>
@@ -1562,7 +1562,7 @@ ${callbacks.robotStatus}
         <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">告警数量</CardTitle>
-            <div className="p-2 bg-orange-500/10 rounded-lg animate-pulse-glow border border-orange-500/30">
+            <div className="p-2 bg-orange-500/10 rounded-lg border border-orange-500/30">
               <AlertTriangle className="h-4 w-4 text-orange-500" />
             </div>
           </CardHeader>
@@ -1601,7 +1601,7 @@ ${callbacks.robotStatus}
             <div className="space-y-2">
               {sessions.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
-                  <div className="p-4 bg-primary/5 rounded-full inline-block mb-3 border border-primary/10 animate-pulse-glow">
+                  <div className="p-4 bg-primary/5 rounded-full inline-block mb-3 border border-primary/10">
                     <Users className="h-12 w-12 text-primary/50" />
                   </div>
                   <p>暂无活跃会话</p>
@@ -1618,7 +1618,7 @@ ${callbacks.robotStatus}
                     onClick={() => handleViewSessionDetail(session)}
                   >
                     <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg flex-shrink-0 border-2 border-primary/30 animate-pulse-glow">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg flex-shrink-0 border-2 border-primary/30">
                         {userName?.charAt(0) || 'U'}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1681,7 +1681,7 @@ ${callbacks.robotStatus}
           <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
             <CardHeader className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-b border-primary/20">
               <CardTitle className="text-base flex items-center gap-2">
-                <div className="p-1.5 bg-blue-500/10 rounded-lg animate-pulse-glow border border-blue-500/30">
+                <div className="p-1.5 bg-blue-500/10 rounded-lg border border-blue-500/30">
                   <Bot className="h-4 w-4 text-blue-500" />
                 </div>
                 机器人状态
@@ -1777,7 +1777,7 @@ ${callbacks.robotStatus}
           <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-slate-500/10 to-slate-600/10 border-b border-primary/20">
               <CardTitle className="text-sm font-medium text-foreground">总会话数</CardTitle>
-              <Users className="h-4 w-4 text-primary animate-pulse-glow" />
+              <Users className="h-4 w-4 text-primary">
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-primary">{stats.total}</div>
@@ -1790,7 +1790,7 @@ ${callbacks.robotStatus}
           <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-b border-primary/20">
               <CardTitle className="text-sm font-medium text-foreground">自动模式</CardTitle>
-              <Bot className="h-4 w-4 text-blue-500 animate-pulse-glow" />
+              <Bot className="h-4 w-4 text-blue-500">
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-500">{stats.auto}</div>
@@ -1803,7 +1803,7 @@ ${callbacks.robotStatus}
           <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-orange-500/10 to-red-500/10 border-b border-primary/20">
               <CardTitle className="text-sm font-medium text-foreground">人工模式</CardTitle>
-              <UserCheck className="h-4 w-4 text-orange-500 animate-pulse-glow" />
+              <UserCheck className="h-4 w-4 text-orange-500">
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-500">{stats.human}</div>
@@ -1816,7 +1816,7 @@ ${callbacks.robotStatus}
           <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-b border-primary/20">
               <CardTitle className="text-sm font-medium text-foreground">总消息数</CardTitle>
-              <MessageSquare className="h-4 w-4 text-purple-500 animate-pulse-glow" />
+              <MessageSquare className="h-4 w-4 text-purple-500">
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-purple-500">{stats.totalMessages}</div>
@@ -1833,7 +1833,7 @@ ${callbacks.robotStatus}
             <CardHeader className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-b border-primary/20">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2 text-foreground">
-                  <TrendingUp className="h-4 w-4 text-green-500 animate-pulse-glow-cyan" />
+                  <TrendingUp className="h-4 w-4 text-green-500" />
                   最近活跃会话
                 </CardTitle>
                 <div className="flex items-center gap-2">
@@ -1863,7 +1863,7 @@ ${callbacks.robotStatus}
                       }}
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0 animate-pulse-glow border-2 border-primary/30">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0 border-2 border-primary/30">
                           {userName?.charAt(0) || 'U'}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -2280,7 +2280,7 @@ ${callbacks.robotStatus}
             <div className="flex items-center gap-4">
               <div className="relative group">
                 {/* 发光背景 */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl animate-pulse-glow blur-sm"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl blur-sm"></div>
                 {/* Logo 图标 */}
                 <div className="relative p-2.5 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl animate-float">
                   <Bot className="h-6 w-6 text-white" />

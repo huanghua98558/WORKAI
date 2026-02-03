@@ -566,7 +566,7 @@ export default function RobotManagement() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
-            <div className="p-2 bg-blue-500/10 rounded-lg animate-pulse-glow border border-blue-500/30">
+            <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/30">
               <Bot className="h-6 w-6 text-blue-500" />
             </div>
             机器人管理
@@ -696,7 +696,7 @@ export default function RobotManagement() {
       <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
         <CardHeader className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-b border-primary/20">
           <CardTitle className="text-base flex items-center gap-2">
-            <div className="p-1.5 bg-purple-500/10 rounded-lg animate-pulse-glow border border-purple-500/30">
+            <div className="p-1.5 bg-purple-500/10 rounded-lg border border-purple-500/30">
               <BarChart3 className="h-4 w-4 text-purple-500" />
             </div>
             性能指标
