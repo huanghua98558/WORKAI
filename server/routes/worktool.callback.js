@@ -144,16 +144,51 @@ const worktoolCallbackRoutes = async function (fastify, options) {
         robotId
       });
 
+      console.log('[回调处理] 开始异步处理消息', {
+        requestId,
+        robotId,
+        callbackData: {
+          spoken: callbackData.spoken,
+          receivedName: callbackData.receivedName,
+          groupName: callbackData.groupName
+        }
+      });
+
       // 立即返回响应，异步处理消息
       setImmediate(async () => {
+        console.log('[回调处理] setImmediate 回调被触发', {
+          requestId,
+          robotId,
+          timestamp: new Date().toISOString()
+        });
+        
         try {
+          console.log('[回调处理] 开始调用 handleMessageAsync', {
+            requestId,
+            robotId,
+            callbackDataKeys: Object.keys(callbackData)
+          });
+          
           await handleMessageAsync(callbackData, requestId, robot);
+          
+          console.log('[回调处理] handleMessageAsync 执行完成', {
+            requestId,
+            robotId
+          });
         } catch (error) {
-          console.error('异步处理消息失败:', error);
+          console.error('[回调处理] 异步处理消息失败:', {
+            requestId,
+            robotId,
+            error: error.message,
+            stack: error.stack,
+            errorName: error.name,
+            errorCode: error.code
+          });
           await monitorService.recordSystemMetric('callback_error', 1, {
             type: 'message',
             robotId,
-            error: error.message
+            error: error.message,
+            errorStack: error.stack
           });
         }
       });
@@ -310,53 +345,117 @@ const worktoolCallbackRoutes = async function (fastify, options) {
    * 异步处理消息
    */
   async function handleMessageAsync(callbackData, requestId, robot) {
-    // 幂等性检查
-    const idempotencyKey = `callback:message:${robot.robotId}_${callbackData.spoken}_${callbackData.receivedName}_${requestId}`;
-    const isAllowed = await idempotencyChecker.check(idempotencyKey);
+    console.log('[回调处理] ===== handleMessageAsync 开始 =====', {
+      requestId,
+      robotId: robot?.robotId,
+      robotName: robot?.name,
+      callbackData: {
+        spoken: callbackData.spoken,
+        receivedName: callbackData.receivedName,
+        groupName: callbackData.groupName,
+        atMe: callbackData.atMe
+      }
+    });
 
-    if (!isAllowed) {
-      console.log('重复回调，已处理:', callbackData);
-      return;
+    try {
+      // 幂等性检查
+      const idempotencyKey = `callback:message:${robot.robotId}_${callbackData.spoken}_${callbackData.receivedName}_${requestId}`;
+      console.log('[回调处理] 幂等性检查', {
+        idempotencyKey,
+        spoken: callbackData.spoken,
+        receivedName: callbackData.receivedName
+      });
+      
+      const isAllowed = await idempotencyChecker.check(idempotencyKey);
+      console.log('[回调处理] 幂等性检查结果', {
+        isAllowed,
+        idempotencyKey
+      });
+
+      if (!isAllowed) {
+        console.log('[回调处理] 重复回调，已处理', {
+          callbackData,
+          idempotencyKey
+        });
+        return;
+      }
+
+      // 映射 WorkTool 参数到内部格式
+      const message = {
+        messageId: requestId,
+        spoken: callbackData.spoken,
+        rawSpoken: callbackData.rawSpoken,
+        fromName: callbackData.receivedName,
+        groupName: callbackData.groupName,
+        groupRemark: callbackData.groupRemark,
+        roomType: callbackData.roomType,
+        atMe: callbackData.atMe,
+        textType: callbackData.textType,
+        fileBase64: callbackData.fileBase64,
+        timestamp: new Date().toISOString()
+      };
+
+      console.log('[回调处理] 映射后的消息对象', {
+        messageId: message.messageId,
+        spoken: message.spoken,
+        fromName: message.fromName,
+        groupName: message.groupName,
+        timestamp: message.timestamp
+      });
+
+      // 使用新的消息处理服务
+      console.log('[回调处理] 准备调用 messageProcessingService.processMessage', {
+        robotId: robot.robotId,
+        messageId: message.messageId
+      });
+      
+      const decision = await messageProcessingService.processMessage(message, robot);
+      
+      console.log('[回调处理] processMessage 执行完成', {
+        decision,
+        action: decision?.action,
+        reply: decision?.reply ? decision.reply.substring(0, 100) : ''
+      });
+
+      // 记录决策结果
+      await monitorService.recordSystemMetric('callback_processed', 1, {
+        type: 'message',
+        robotId: robot.robotId,
+        action: decision.action
+      });
+
+      // 记录数据到报告服务
+      await reportService.recordRecord({
+        groupName: callbackData.groupName || '',
+        userName: callbackData.receivedName,
+        userId: callbackData.receivedName,
+        groupId: callbackData.groupName,
+        questionContent: callbackData.spoken,
+        intent: decision.intent?.intent || '',
+        confidence: decision.intent?.confidence || 0,
+        action: decision.action,
+        response: decision.reply,
+        createdAt: new Date()
+      });
+
+      console.log('[回调处理] ===== handleMessageAsync 完成 =====', {
+        requestId,
+        robotId: robot.robotId,
+        action: decision.action
+      });
+    } catch (error) {
+      console.error('[回调处理] ===== handleMessageAsync 失败 =====', {
+        requestId,
+        robotId: robot?.robotId,
+        error: error.message,
+        errorName: error.name,
+        errorCode: error.code,
+        errorStack: error.stack,
+        errorType: error.constructor.name,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
     }
-
-    // 映射 WorkTool 参数到内部格式
-    const message = {
-      messageId: requestId,
-      spoken: callbackData.spoken,
-      rawSpoken: callbackData.rawSpoken,
-      fromName: callbackData.receivedName,
-      groupName: callbackData.groupName,
-      groupRemark: callbackData.groupRemark,
-      roomType: callbackData.roomType,
-      atMe: callbackData.atMe,
-      textType: callbackData.textType,
-      fileBase64: callbackData.fileBase64,
-      timestamp: new Date().toISOString()
-    };
-
-    // 使用新的消息处理服务
-    const decision = await messageProcessingService.processMessage(message, robot);
-
-    // 记录决策结果
-    await monitorService.recordSystemMetric('callback_processed', 1, {
-      type: 'message',
-      robotId: robot.robotId,
-      action: decision.action
-    });
-
-    // 记录数据到报告服务
-    await reportService.recordRecord({
-      groupName: callbackData.groupName || '',
-      userName: callbackData.receivedName,
-      userId: callbackData.receivedName,
-      groupId: callbackData.groupName,
-      questionContent: callbackData.spoken,
-      intent: decision.intent?.intent || '',
-      confidence: decision.intent?.confidence || 0,
-      action: decision.action,
-      response: decision.reply,
-      createdAt: new Date()
-    });
   }
 
   /**

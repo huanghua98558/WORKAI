@@ -333,96 +333,99 @@ class MessageProcessingService {
       sessionId: session.sessionId
     });
 
-    // 1. 风险内容：转人工
+    // 1. 风险内容：先风险回复再转人工警告
     if (intent === 'risk' || needHuman) {
-      executionTrackerService.updateStep(processingId, 'decision', {
-        status: 'completed',
-        result: {
-          action: 'human_takeover',
-          reason: '检测到风险内容，转人工处理'
-        }
+      logger.warn('MessageProcessing', '检测到风险内容，先生成风险回复再转人工', {
+        sessionId: session.sessionId,
+        intent
       });
+
+      // 先生成风险回复
+      const riskReplyResult = await this.generateReplyWithPrompt(
+        intentResult,
+        session,
+        messageContext,
+        processingId,
+        robot,
+        'risk' // 使用风险回复提示词
+      );
 
       // 更新会话状态为人工处理
       await sessionService.updateSession(session.sessionId, {
         status: 'human',
-        humanReason: `风险内容: ${intent}`,
+        humanReason: `风险内容: ${intent}，已发送风险回复并转人工`,
         humanTime: new Date().toISOString()
       });
 
-      logger.warn('MessageProcessing', '会话转人工处理', {
+      logger.warn('MessageProcessing', '风险内容已回复，会话转人工处理', {
         sessionId: session.sessionId,
         reason: `风险内容: ${intent}`
       });
 
       return {
-        action: 'human_takeover',
-        reason: '检测到风险内容，转人工处理',
+        action: 'risk_reply_then_human',
+        reason: '检测到风险内容，先发送风险回复再转人工处理',
         intent: intentResult,
-        sessionStatus: 'human'
+        sessionStatus: 'human',
+        replySent: riskReplyResult.success
       };
     }
 
-    // 2. 垃圾信息：不回复
+    // 2. 垃圾信息：生成回复（带有社群规矩的回复）
     if (intent === 'spam') {
-      executionTrackerService.updateStep(processingId, 'decision', {
-        status: 'completed',
-        result: {
-          action: 'none',
-          reason: '垃圾信息，不回复'
-        }
-      });
-
-      logger.info('MessageProcessing', '检测到垃圾信息，跳过回复', {
+      logger.info('MessageProcessing', '检测到垃圾信息，生成社群规矩回复', {
         sessionId: session.sessionId
       });
 
+      const spamReplyResult = await this.generateReplyWithPrompt(
+        intentResult,
+        session,
+        messageContext,
+        processingId,
+        robot,
+        'spam' // 使用垃圾信息提示词
+      );
+
+      return {
+        action: 'spam_reply',
+        reason: '垃圾信息，发送社群规矩回复',
+        intent: intentResult,
+        replySent: spamReplyResult.success
+      };
+    }
+
+    // 3. 管理指令：社群不存在管理指令
+    if (intent === 'admin') {
+      logger.info('MessageProcessing', '检测到管理指令，但社群不支持此功能', {
+        sessionId: session.sessionId
+      });
+
+      // 可以选择不回复或发送提示
       return {
         action: 'none',
-        reason: '垃圾信息，不回复',
+        reason: '管理指令，社群不支持此功能',
         intent: intentResult
       };
     }
 
-    // 3. 管理指令：特殊处理（保留给系统管理）
-    if (intent === 'admin') {
-      executionTrackerService.updateStep(processingId, 'decision', {
-        status: 'completed',
-        result: {
-          action: 'admin_command',
-          reason: '管理指令'
-        }
-      });
-
-      logger.info('MessageProcessing', '管理指令', {
-        sessionId: session.sessionId
-      });
-
-      return {
-        action: 'admin_command',
-        reason: '管理指令',
-        intent: intentResult
-      };
-    }
-
-    // 4. 不需要回复
+    // 4. 不需要回复（其他拥有企业身份的人回复了才不用回复，说明人工介入了）
     if (!needReply) {
       executionTrackerService.updateStep(processingId, 'decision', {
         status: 'completed',
         result: {
           action: 'none',
-          reason: '不需要回复'
+          reason: '不需要回复（已有人工介入）'
         }
       });
 
-      logger.info('MessageProcessing', '不需要回复', {
+      logger.info('MessageProcessing', '不需要回复（人工已介入）', {
         sessionId: session.sessionId,
         confidence
       });
 
       return {
         action: 'none',
-        reason: '不需要回复',
+        reason: '不需要回复（已有人工介入）',
         intent: intentResult
       };
     }
@@ -691,6 +694,168 @@ class MessageProcessingService {
       toType,
       recipient
     };
+  }
+
+  /**
+   * 根据提示词类型生成回复（用于风险内容、垃圾信息等特殊场景）
+   */
+  async generateReplyWithPrompt(intentResult, session, messageContext, processingId, robot, promptType) {
+    const autoReplyConfig = config.get('autoReply');
+
+    // 判断接收方类型和目标
+    const toType = messageContext.roomType === '2' || messageContext.roomType === '4'
+      ? 'single'
+      : 'group'; // 2=外部联系人 4=内部联系人 为单聊
+
+    const recipient = toType === 'single'
+      ? messageContext.fromName
+      : messageContext.groupName;
+
+    let reply;
+    let actionReason;
+
+    logger.info('MessageProcessing', 'generateReplyWithPrompt步骤: 开始生成带提示词的回复', {
+      sessionId: session.sessionId,
+      intent: intentResult.intent,
+      promptType,
+      robotId: robot.robotId,
+      toType,
+      recipient,
+      processingId
+    });
+
+    executionTrackerService.updateStep(processingId, 'reply_generation', {
+      status: 'processing',
+      startTime: Date.now()
+    });
+
+    // 根据提示词类型选择不同的提示词
+    const prompts = {
+      risk: `你是一个社群客服机器人。检测到用户发送了风险内容，需要：
+1. 严肃提醒用户注意言辞
+2. 说明社群规则
+3. 告知已将此情况转交人工处理
+请用专业、礼貌但坚定的语气回复。`,
+      
+      spam: `你是一个社群客服机器人。检测到用户发送了垃圾信息或广告，需要：
+1. 温和提醒用户遵守社群规则
+2. 简要说明社群的核心价值
+3. 引导用户进行有意义的交流
+请用友好、引导性的语气回复。`
+    };
+
+    const systemPrompt = prompts[promptType] || prompts.risk;
+
+    try {
+      // 使用AI模型生成回复（带有特定的系统提示词）
+      reply = await aiService.generateServiceReply(
+        messageContext.content,
+        intentResult.intent,
+        systemPrompt,
+        {
+          sessionId: session.sessionId,
+          messageId: messageContext.messageId,
+          robotId: robot.robotId,
+          robotName: robot.name
+        }
+      );
+      actionReason = `${promptType === 'risk' ? '风险内容' : '垃圾信息'}提示回复`;
+
+      logger.info('MessageProcessing', 'generateReplyWithPrompt步骤: 回复生成完成', {
+        replyLength: reply.length,
+        promptType,
+        processingId
+      });
+
+      executionTrackerService.updateStep(processingId, 'reply_generation', {
+        status: 'completed',
+        endTime: Date.now(),
+        result: { reply }
+      });
+
+      // 更新会话统计
+      await sessionService.updateSession(session.sessionId, {
+        aiReplyCount: session.aiReplyCount + 1,
+        replyCount: session.replyCount + 1
+      });
+
+      // 发送回复
+      logger.info('MessageProcessing', 'generateReplyWithPrompt步骤: 开始发送回复', {
+        toType,
+        recipient,
+        robotId: robot.robotId,
+        replyLength: reply.length,
+        processingId
+      });
+
+      executionTrackerService.updateStep(processingId, 'send_reply', {
+        status: 'processing',
+        startTime: Date.now()
+      });
+
+      const sendResult = await worktoolService.sendTextMessage(
+        robot.robotId,
+        recipient,
+        reply
+      );
+
+      executionTrackerService.updateStep(processingId, 'send_reply', {
+        status: 'completed',
+        endTime: Date.now(),
+        result: sendResult
+      });
+
+      logger.info('MessageProcessing', 'generateReplyWithPrompt步骤: 回复发送完成', {
+        sendResult,
+        success: sendResult.success,
+        processingId
+      });
+
+      // 保存机器人回复到数据库
+      await sessionMessageService.saveBotMessage(
+        session.sessionId,
+        reply,
+        {
+          userId: messageContext.fromName,
+          groupId: messageContext.groupName,
+          userName: messageContext.fromName,
+          groupName: messageContext.groupName,
+        },
+        intentResult.intent,
+        robot
+      );
+
+      logger.info('MessageProcessing', 'generateReplyWithPrompt步骤: ===== 完成 =====', {
+        action: 'auto_reply',
+        actionReason,
+        success: true,
+        processingId
+      });
+
+      return {
+        action: 'auto_reply',
+        reply,
+        reason: actionReason,
+        intent: intentResult,
+        sendResult,
+        success: true
+      };
+
+    } catch (error) {
+      logger.error('MessageProcessing', 'generateReplyWithPrompt步骤: 生成或发送回复失败', {
+        error: error.message,
+        stack: error.stack,
+        promptType,
+        processingId
+      });
+
+      return {
+        action: 'none',
+        reason: `生成${promptType === 'risk' ? '风险' : '垃圾信息'}回复失败: ${error.message}`,
+        intent: intentResult,
+        success: false
+      };
+    }
   }
 
   /**
