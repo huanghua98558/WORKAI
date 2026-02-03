@@ -26,20 +26,40 @@ class RobotCommandService {
     const { robotId, commandType, commandPayload, priority = 5, maxRetries = 3 } = commandData;
 
     try {
-      logger.info('RobotCommand', '创建指令', {
+      logger.info('RobotCommand', '创建指令 - 开始', {
+        requestId: commandData.requestId || 'N/A',
         robotId,
         commandType,
-        priority
+        priority,
+        maxRetries,
+        commandDataSize: JSON.stringify(commandPayload).length
       });
 
       // 验证机器人是否存在且启用
       const robot = await robotService.getRobotByRobotId(robotId);
       if (!robot) {
+        logger.error('RobotCommand', '创建指令失败 - 机器人不存在', {
+          robotId,
+          commandType
+        });
         throw new Error(`机器人不存在: ${robotId}`);
       }
       if (!robot.isActive) {
+        logger.error('RobotCommand', '创建指令失败 - 机器人未启用', {
+          robotId,
+          robotName: robot.name,
+          commandType
+        });
         throw new Error(`机器人未启用: ${robotId}`);
       }
+
+      logger.info('RobotCommand', '创建指令 - 机器人验证通过', {
+        robotId,
+        robotName: robot.name,
+        robotStatus: robot.status,
+        company: robot.company || 'N/A',
+        nickname: robot.nickname || 'N/A'
+      });
 
       // 生成指令ID
       const commandId = uuidv4();
@@ -62,6 +82,11 @@ class RobotCommandService {
         updatedAt: now
       }).returning();
 
+      logger.info('RobotCommand', '创建指令 - 数据库记录已创建', {
+        commandId,
+        timestamp: now.toISOString()
+      });
+
       // 添加到队列
       await this.addToQueue({
         id: uuidv4(),
@@ -72,11 +97,14 @@ class RobotCommandService {
         scheduledFor: now
       });
 
-      logger.info('RobotCommand', '指令创建成功', {
+      logger.info('RobotCommand', '创建指令 - 队列添加成功', {
         commandId,
         robotId,
         commandType,
-        priority
+        priority,
+        maxRetries,
+        scheduledFor: now.toISOString(),
+        createdAt: now.toISOString()
       });
 
       return command[0];
@@ -189,9 +217,15 @@ class RobotCommandService {
    */
   async getNextCommand(workerId) {
     const now = new Date();
+    const queryStartTime = Date.now();
 
     try {
       const db = await getDb();
+
+      logger.debug('RobotCommand', '队列查询 - 开始', {
+        workerId,
+        timestamp: now.toISOString()
+      });
 
       // 查找待处理的指令（按优先级和时间排序）
       const queueItems = await db.select()
@@ -203,13 +237,31 @@ class RobotCommandService {
         .orderBy(asc(robotCommandQueue.priority), asc(robotCommandQueue.scheduledFor))
         .limit(1);
 
+      const queryDuration = Date.now() - queryStartTime;
+
       if (queueItems.length === 0) {
+        logger.debug('RobotCommand', '队列查询 - 无待处理指令', {
+          workerId,
+          queryDuration,
+          timestamp: now.toISOString()
+        });
         return null;
       }
 
       const queueItem = queueItems[0];
 
+      logger.info('RobotCommand', '队列查询 - 找到待处理指令', {
+        workerId,
+        queueItemId: queueItem.id,
+        commandId: queueItem.commandId,
+        priority: queueItem.priority,
+        scheduledFor: queueItem.scheduledFor.toISOString(),
+        retryCount: queueItem.retryCount,
+        queryDuration
+      });
+
       // 锁定队列项
+      const lockStartTime = Date.now();
       await db.update(robotCommandQueue)
         .set({
           status: 'locked',
@@ -217,6 +269,8 @@ class RobotCommandService {
           lockedBy: workerId
         })
         .where(eq(robotCommandQueue.id, queueItem.id));
+      
+      const lockDuration = Date.now() - lockStartTime;
 
       // 获取指令详情
       const commands = await db.select()
@@ -224,11 +278,33 @@ class RobotCommandService {
         .where(eq(robotCommands.id, queueItem.commandId))
         .limit(1);
 
-      return commands[0] || null;
+      const result = commands[0] || null;
+
+      if (result) {
+        logger.info('RobotCommand', '队列查询 - 成功获取指令', {
+          workerId,
+          commandId: result.id,
+          commandType: result.commandType,
+          robotId: result.robotId,
+          priority: result.priority,
+          retryCount: result.retryCount,
+          createdAt: result.createdAt,
+          lockDuration,
+          totalDuration: Date.now() - queryStartTime
+        });
+      }
+
+      return result;
     } catch (error) {
-      logger.error('RobotCommand', '获取队列指令失败', {
-        error: error.message,
-        workerId
+      logger.error('RobotCommand', '队列查询 - 失败', {
+        workerId,
+        error: {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        },
+        queryDuration: Date.now() - queryStartTime,
+        timestamp: now.toISOString()
       });
       return null;
     }
@@ -240,46 +316,100 @@ class RobotCommandService {
    * @returns {Promise<Object>} 执行结果
    */
   async executeCommand(command) {
-    const { id, robotId, commandType, commandData } = command;
+    const { id, robotId, commandType, commandData, priority, retryCount } = command;
+    const startTime = Date.now();
 
     try {
-      logger.info('RobotCommand', '开始执行指令', {
+      logger.info('RobotCommand', '指令执行 - 开始', {
         commandId: id,
         robotId,
-        commandType
+        commandType,
+        priority,
+        retryCount,
+        commandData: JSON.stringify(commandData),
+        startTime: new Date(startTime).toISOString()
       });
 
       // 更新状态为处理中
       await this.updateCommandStatus(id, 'processing');
 
+      const executionStartTime = Date.now();
+      logger.info('RobotCommand', '指令执行 - 状态已更新为 processing', {
+        commandId: id,
+        executionStartTime: new Date(executionStartTime).toISOString()
+      });
+
       let result;
       
       // 根据指令类型执行不同的操作
+      logger.info('RobotCommand', '指令执行 - 开始执行具体操作', {
+        commandId: id,
+        commandType,
+        operationDetails: {
+          type: commandType,
+          dataKeys: Object.keys(commandData),
+          dataSize: JSON.stringify(commandData).length
+        }
+      });
+
       switch (commandType) {
         case 'send_message':
           // 发送消息
           const { list } = commandData;
           if (list && list.length > 0) {
             const msg = list[0];
+            logger.info('RobotCommand', '指令执行 - 准备发送消息', {
+              commandId: id,
+              toName: msg.titleList[0],
+              contentLength: msg.receivedContent?.length || 0,
+              atList: msg.atList || []
+            });
+            
             result = await worktoolService.sendTextMessage(
               robotId,
               msg.titleList[0],
               msg.receivedContent,
               msg.atList || []
             );
+            
+            logger.info('RobotCommand', '指令执行 - 消息发送完成', {
+              commandId: id,
+              workToolResult: result
+            });
           } else {
+            logger.error('RobotCommand', '指令执行失败 - 消息数据格式错误', {
+              commandId: id,
+              commandData
+            });
             throw new Error('消息数据格式错误');
           }
           break;
 
         case 'batch_send_message':
           // 批量发送消息
+          logger.info('RobotCommand', '指令执行 - 准备批量发送消息', {
+            commandId: id,
+            messageCount: commandData.list?.length || 0
+          });
+          
           result = await worktoolService.sendBatchMessages(robotId, commandData.list);
+          
+          logger.info('RobotCommand', '指令执行 - 批量消息发送完成', {
+            commandId: id,
+            workToolResult: result
+          });
           break;
 
         default:
+          logger.error('RobotCommand', '指令执行失败 - 不支持的指令类型', {
+            commandId: id,
+            commandType
+          });
           throw new Error(`不支持的指令类型: ${commandType}`);
       }
+
+      const executionEndTime = Date.now();
+      const totalExecutionTime = executionEndTime - startTime;
 
       if (result && result.success) {
         // 执行成功
@@ -288,30 +418,60 @@ class RobotCommandService {
           errorMessage: null
         });
 
-        logger.info('RobotCommand', '指令执行成功', {
+        logger.info('RobotCommand', '指令执行 - 成功', {
           commandId: id,
           robotId,
-          result
+          commandType,
+          executionTime: totalExecutionTime,
+          processingTime: result.processingTime || 'N/A',
+          result: {
+            success: result.success,
+            message: result.message,
+            sendId: result.sendId,
+            processingTime: result.processingTime
+          },
+          timestamp: new Date().toISOString()
         });
 
-        return { success: true, commandId: id, result };
+        return { success: true, commandId: id, result, executionTime: totalExecutionTime };
       } else {
         // 执行失败
-        await this.handleCommandFailure(id, result?.message || '执行失败');
+        const failureReason = result?.message || '执行失败';
+        logger.error('RobotCommand', '指令执行 - 失败（WorkTool返回失败）', {
+          commandId: id,
+          robotId,
+          commandType,
+          executionTime: totalExecutionTime,
+          failureReason,
+          result,
+          timestamp: new Date().toISOString()
+        });
 
-        return { success: false, commandId: id, error: result?.message };
+        await this.handleCommandFailure(id, failureReason);
+
+        return { success: false, commandId: id, error: failureReason, executionTime: totalExecutionTime };
       }
     } catch (error) {
-      logger.error('RobotCommand', '指令执行异常', {
+      const executionEndTime = Date.now();
+      const totalExecutionTime = executionEndTime - startTime;
+
+      logger.error('RobotCommand', '指令执行 - 异常', {
         commandId: id,
         robotId,
-        error: error.message,
-        stack: error.stack
+        commandType,
+        executionTime: totalExecutionTime,
+        error: {
+          name: error.name,
+          message: error.message,
+          code: error.code,
+          stack: error.stack
+        },
+        timestamp: new Date().toISOString()
       });
 
       await this.handleCommandFailure(id, error.message);
 
-      return { success: false, commandId: id, error: error.message };
+      return { success: false, commandId: id, error: error.message, executionTime: totalExecutionTime };
     }
   }
 
@@ -320,21 +480,62 @@ class RobotCommandService {
    * @param {string} commandId - 指令ID
    * @param {string} errorMessage - 错误消息
    */
+  /**
+   * 处理指令失败
+   * @param {string} commandId - 指令ID
+   * @param {string} errorMessage - 错误消息
+   */
   async handleCommandFailure(commandId, errorMessage) {
+    const startTime = Date.now();
+    
+    logger.warn('RobotCommand', '指令失败处理 - 开始', {
+      commandId,
+      errorMessage,
+      startTime: new Date(startTime).toISOString()
+    });
+
     const command = await this.getCommandById(commandId);
     
     if (!command) {
-      logger.error('RobotCommand', '指令不存在', { commandId });
+      logger.error('RobotCommand', '指令失败处理 - 指令不存在', { 
+        commandId,
+        errorMessage 
+      });
       return;
     }
 
-    const { retryCount, maxRetries, priority } = command;
+    const { retryCount, maxRetries, priority, commandType, robotId } = command;
     const newRetryCount = retryCount + 1;
+
+    logger.info('RobotCommand', '指令失败处理 - 计算重试策略', {
+      commandId,
+      commandType,
+      robotId,
+      currentRetryCount: retryCount,
+      newRetryCount,
+      maxRetries,
+      canRetry: newRetryCount < maxRetries,
+      errorMessage,
+      failureTimestamp: new Date().toISOString()
+    });
 
     if (newRetryCount < maxRetries) {
       // 还可以重试
       const delay = Math.pow(2, newRetryCount) * 1000; // 指数退避
       const scheduledFor = new Date(Date.now() + delay);
+
+      logger.info('RobotCommand', '指令失败处理 - 安排重试', {
+        commandId,
+        commandType,
+        robotId,
+        retryCount: newRetryCount,
+        maxRetries,
+        delay,
+        delayFormula: `2^${newRetryCount} * 1000ms`,
+        scheduledFor: scheduledFor.toISOString(),
+        timeUntilRetry: delay + 'ms',
+        errorMessage
+      });
 
       await this.updateCommandStatus(commandId, 'pending', {
         retryCount: newRetryCount,
@@ -353,24 +554,37 @@ class RobotCommandService {
         })
         .where(eq(robotCommandQueue.commandId, commandId));
 
-      logger.info('RobotCommand', '指令将重试', {
+      logger.info('RobotCommand', '指令失败处理 - 重试已安排', {
         commandId,
         retryCount: newRetryCount,
         maxRetries,
-        scheduledFor
+        scheduledFor: scheduledFor.toISOString(),
+        processingTime: Date.now() - startTime
       });
     } else {
       // 超过最大重试次数，标记为失败
+      logger.error('RobotCommand', '指令失败处理 - 超过最大重试次数', {
+        commandId,
+        commandType,
+        robotId,
+        retryCount: newRetryCount,
+        maxRetries,
+        priority,
+        finalErrorMessage: errorMessage,
+        createdAt: command.createdAt,
+        executionAttempts: newRetryCount,
+        finalFailureTimestamp: new Date().toISOString(),
+        totalTimeSinceCreation: Date.now() - new Date(command.createdAt).getTime()
+      });
+
       await this.updateCommandStatus(commandId, 'failed', {
         retryCount: newRetryCount,
         errorMessage
       });
 
-      logger.error('RobotCommand', '指令失败（超过重试次数）', {
+      logger.info('RobotCommand', '指令失败处理 - 已标记为最终失败', {
         commandId,
-        retryCount: newRetryCount,
-        maxRetries,
-        errorMessage
+        processingTime: Date.now() - startTime
       });
     }
   }
@@ -381,15 +595,39 @@ class RobotCommandService {
    * @returns {Promise<Object>} 结果
    */
   async retryCommand(commandId) {
+    const startTime = Date.now();
+
+    logger.info('RobotCommand', '指令重试 - 请求开始', {
+      commandId,
+      requestTime: new Date(startTime).toISOString()
+    });
+
     const command = await this.getCommandById(commandId);
 
     if (!command) {
+      logger.error('RobotCommand', '指令重试 - 指令不存在', { 
+        commandId 
+      });
       throw new Error('指令不存在');
     }
 
     if (command.status !== 'failed') {
+      logger.error('RobotCommand', '指令重试 - 指令状态不允许重试', {
+        commandId,
+        currentStatus: command.status,
+        requiredStatus: 'failed'
+      });
       throw new Error('只能重试失败的指令');
     }
+
+    logger.info('RobotCommand', '指令重试 - 重置指令状态', {
+      commandId,
+      previousStatus: command.status,
+      previousRetryCount: command.retryCount,
+      previousError: command.errorMessage,
+      commandType: command.commandType,
+      robotId: command.robotId
+    });
 
     // 重置状态和重试次数
     const now = new Date();
@@ -413,11 +651,17 @@ class RobotCommandService {
       })
       .where(eq(robotCommandQueue.commandId, commandId));
 
-    logger.info('RobotCommand', '指令已重置为待处理', {
-      commandId
+    const processingTime = Date.now() - startTime;
+
+    logger.info('RobotCommand', '指令重试 - 完成', {
+      commandId,
+      newStatus: 'pending',
+      newRetryCount: 0,
+      scheduledFor: now.toISOString(),
+      processingTime
     });
 
-    return { success: true, commandId };
+    return { success: true, commandId, processingTime };
   }
 
   /**
@@ -425,27 +669,118 @@ class RobotCommandService {
    * @param {string} workerId - 工作进程ID
    * @param {number} interval - 处理间隔（毫秒）
    */
+  /**
+   * 启动队列处理器
+   * @param {string} workerId - 工作进程ID
+   * @param {number} interval - 处理间隔（毫秒）
+   */
   async startQueueProcessor(workerId = `worker-${Date.now()}`, interval = 1000) {
     if (this.isProcessing) {
-      logger.warn('RobotCommand', '队列处理器已在运行', { workerId });
+      logger.warn('RobotCommand', '队列处理器 - 已在运行，忽略启动请求', { 
+        existingWorkerId: workerId,
+        interval 
+      });
       return;
     }
 
     this.isProcessing = true;
-    logger.info('RobotCommand', '启动队列处理器', { workerId, interval });
+    const startTime = Date.now();
+    
+    logger.info('RobotCommand', '队列处理器 - 启动中', { 
+      workerId, 
+      interval,
+      startTime: new Date(startTime).toISOString()
+    });
+
+    let processCount = 0;
+    let successCount = 0;
+    let errorCount = 0;
+    let lastProcessTime = null;
 
     this.processInterval = setInterval(async () => {
+      const cycleStartTime = Date.now();
+      
       try {
+        logger.debug('RobotCommand', '队列处理器 - 开始新的处理周期', {
+          workerId,
+          cycleNumber: processCount + 1,
+          cycleStartTime: new Date(cycleStartTime).toISOString()
+        });
+
         const command = await this.getNextCommand(workerId);
 
         if (command) {
-          await this.executeCommand(command);
+          processCount++;
+          logger.info('RobotCommand', '队列处理器 - 获取到指令', {
+            workerId,
+            cycleNumber: processCount,
+            commandId: command.id,
+            commandType: command.commandType,
+            robotId: command.robotId,
+            priority: command.priority,
+            retryCount: command.retryCount,
+            createdAt: command.createdAt
+          });
+
+          const result = await this.executeCommand(command);
+          
+          if (result.success) {
+            successCount++;
+            logger.info('RobotCommand', '队列处理器 - 指令处理成功', {
+              workerId,
+              commandId: command.id,
+              executionTime: result.executionTime || 'N/A'
+            });
+          } else {
+            errorCount++;
+            logger.error('RobotCommand', '队列处理器 - 指令处理失败', {
+              workerId,
+              commandId: command.id,
+              error: result.error
+            });
+          }
+
+          lastProcessTime = new Date().toISOString();
+        } else {
+          logger.debug('RobotCommand', '队列处理器 - 无待处理指令', {
+            workerId,
+            cycleNumber: processCount + 1
+          });
+        }
+
+        // 每10个周期记录一次统计信息
+        if (processCount % 10 === 0) {
+          logger.info('RobotCommand', '队列处理器 - 统计信息', {
+            workerId,
+            totalProcessed: processCount,
+            successCount,
+            errorCount,
+            successRate: processCount > 0 ? ((successCount / processCount) * 100).toFixed(2) + '%' : '0%',
+            lastProcessTime,
+            uptime: ((Date.now() - startTime) / 1000).toFixed(2) + 's'
+          });
         }
       } catch (error) {
-        logger.error('RobotCommand', '队列处理器错误', {
-          error: error.message,
-          workerId
+        errorCount++;
+        logger.error('RobotCommand', '队列处理器 - 处理周期异常', {
+          workerId,
+          cycleNumber: processCount + 1,
+          error: {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+          },
+          timestamp: new Date().toISOString()
         });
+      } finally {
+        const cycleDuration = Date.now() - cycleStartTime;
+        if (cycleDuration > 5000) {
+          logger.warn('RobotCommand', '队列处理器 - 处理周期耗时过长', {
+            workerId,
+            cycleDuration,
+            cycleNumber: processCount + 1
+          });
+        }
       }
     }, interval);
   }
