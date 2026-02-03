@@ -102,17 +102,40 @@ const worktoolCallbackRoutes = async function (fastify, options) {
    * - message: 对本次接口调用的信息描述
    */
   fastify.post('/message', {
-    preHandler: [verifySignatureMiddleware, circuitBreakerMiddleware]
+    preHandler: [circuitBreakerMiddleware]  // 移除签名验证，改为可选验证
   }, async (request, reply) => {
     const startTime = Date.now();
     const requestId = generateRequestId();
     const callbackData = request.body;
     const { robotId } = request.query;
 
+    // 详细的请求日志
+    console.log('===== 消息回调请求 =====', {
+      requestId,
+      robotId,
+      timestamp: new Date().toISOString(),
+      headers: {
+        'content-type': request.headers['content-type'],
+        'x-signature': request.headers['x-signature'] ? '***' : 'missing',
+        'user-agent': request.headers['user-agent']
+      },
+      callbackData: {
+        spoken: callbackData.spoken,
+        rawSpoken: callbackData.rawSpoken,
+        receivedName: callbackData.receivedName,
+        groupName: callbackData.groupName,
+        roomType: callbackData.roomType,
+        atMe: callbackData.atMe,
+        textType: callbackData.textType,
+        hasFileBase64: !!callbackData.fileBase64,
+        fileBase64Length: callbackData.fileBase64 ? callbackData.fileBase64.length : 0
+      }
+    });
+
     try {
       // 验证 robotId
       if (!robotId) {
-        console.error('缺少 robotId 参数');
+        console.error('❌ 缺少 robotId 参数');
         const responseTime = Date.now() - startTime;
         await recordCallbackHistory('', '11', requestId, 400, '缺少 robotId 参数', { responseTime });
         return reply.status(400).send(errorResponse(400, '缺少 robotId 参数'));
@@ -121,17 +144,36 @@ const worktoolCallbackRoutes = async function (fastify, options) {
       // 查询机器人配置
       const robot = await robotService.getRobotByRobotId(robotId);
       if (!robot) {
-        console.error('机器人不存在:', robotId);
+        console.error(`❌ 机器人不存在: ${robotId}`);
         const responseTime = Date.now() - startTime;
         await recordCallbackHistory(robotId, '11', requestId, 404, `机器人不存在: ${robotId}`, { responseTime });
         return reply.status(404).send(errorResponse(404, `机器人不存在: ${robotId}`));
       }
 
       if (!robot.isActive) {
-        console.error('机器人未启用:', robotId);
+        console.error(`❌ 机器人未启用: ${robotId}`);
         const responseTime = Date.now() - startTime;
         await recordCallbackHistory(robotId, '11', requestId, 403, `机器人未启用: ${robotId}`, { responseTime });
         return reply.status(403).send(errorResponse(403, `机器人未启用: ${robotId}`));
+      }
+
+      console.log(`✅ 机器人验证通过: ${robot.name} (${robotId})`);
+
+      // 可选的签名验证（仅当配置了密钥时才验证）
+      const secret = config.get('callback.signatureSecret');
+      if (secret) {
+        const signature = request.headers['x-signature'];
+        const { verifySignature } = require('../lib/utils');
+        
+        if (!verifySignature(callbackData, signature, secret)) {
+          console.error('❌ 签名验证失败');
+          const responseTime = Date.now() - startTime;
+          await recordCallbackHistory(robotId, '11', requestId, 403, '签名验证失败', { responseTime });
+          return reply.status(403).send(errorResponse(403, '签名验证失败'));
+        }
+        console.log('✅ 签名验证通过');
+      } else {
+        console.log('⚠️  签名验证未配置，跳过验证');
       }
 
       // 记录审计日志
@@ -147,11 +189,12 @@ const worktoolCallbackRoutes = async function (fastify, options) {
         robotId
       });
 
-      console.log('[回调处理] 开始异步处理消息', {
+      console.log('✅ 开始异步处理消息', {
         requestId,
         robotId,
-        callbackData: {
-          spoken: callbackData.spoken,
+        robotName: robot.name,
+        messagePreview: {
+          spoken: callbackData.spoken?.substring(0, 50),
           receivedName: callbackData.receivedName,
           groupName: callbackData.groupName
         }
@@ -159,14 +202,14 @@ const worktoolCallbackRoutes = async function (fastify, options) {
 
       // 立即返回响应，异步处理消息
       setImmediate(async () => {
-        console.log('[回调处理] setImmediate 回调被触发', {
+        console.log('✅ setImmediate 回调被触发', {
           requestId,
           robotId,
           timestamp: new Date().toISOString()
         });
         
         try {
-          console.log('[回调处理] 开始调用 handleMessageAsync', {
+          console.log('📝 开始调用 handleMessageAsync', {
             requestId,
             robotId,
             callbackDataKeys: Object.keys(callbackData)
@@ -174,18 +217,19 @@ const worktoolCallbackRoutes = async function (fastify, options) {
           
           await handleMessageAsync(callbackData, requestId, robot);
           
-          console.log('[回调处理] handleMessageAsync 执行完成', {
+          console.log('✅ handleMessageAsync 执行完成', {
             requestId,
             robotId
           });
         } catch (error) {
-          console.error('[回调处理] 异步处理消息失败:', {
+          console.error('❌ 异步处理消息失败:', {
             requestId,
             robotId,
             error: error.message,
             stack: error.stack,
             errorName: error.name,
-            errorCode: error.code
+            errorCode: error.code,
+            errorType: error.constructor?.name
           });
           await monitorService.recordSystemMetric('callback_error', 1, {
             type: 'message',
@@ -200,11 +244,24 @@ const worktoolCallbackRoutes = async function (fastify, options) {
       const responseTime = Date.now() - startTime;
       await recordCallbackHistory(robotId, '11', requestId, 0, '', { responseTime });
 
+      console.log(`✅ 回调响应已发送 (耗时: ${responseTime}ms)`, {
+        requestId,
+        robotId
+      });
+
       // 立即返回成功响应（确保3秒内响应）
       reply.send(successResponse({}, 'success'));
 
     } catch (error) {
-      console.error('处理消息回调失败:', error);
+      console.error('❌ 处理消息回调失败:', {
+        requestId,
+        robotId,
+        error: error.message,
+        stack: error.stack,
+        errorName: error.name,
+        errorCode: error.code,
+        errorType: error.constructor?.name
+      });
       const responseTime = Date.now() - startTime;
       await recordCallbackHistory(robotId, '11', requestId, 500, error.message, { responseTime });
       
