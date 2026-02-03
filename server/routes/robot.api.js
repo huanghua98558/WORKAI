@@ -135,11 +135,33 @@ const robotApiRoutes = async function (fastify, options) {
       const { id } = request.params;
       const data = request.body;
 
-      // 验证配置
-      if (data.robotId || data.apiBaseUrl) {
+      // 获取原始机器人数据
+      const originalRobot = await robotService.getRobotById(id);
+      if (!originalRobot) {
+        return reply.status(404).send({
+          code: -1,
+          message: '机器人不存在'
+        });
+      }
+
+      // 验证配置 - 只对真正改变了的字段进行验证
+      const fieldsToValidate = [];
+      
+      // 检查 robotId 是否改变
+      if (data.robotId !== undefined && data.robotId !== originalRobot.robotId) {
+        fieldsToValidate.push('robotId');
+      }
+      
+      // 检查 apiBaseUrl 是否改变
+      if (data.apiBaseUrl !== undefined && data.apiBaseUrl !== originalRobot.apiBaseUrl) {
+        fieldsToValidate.push('apiBaseUrl');
+      }
+
+      // 如果有字段改变了，则进行验证
+      if (fieldsToValidate.length > 0) {
         const validation = await robotService.validateRobotConfig(
-          data.robotId,
-          data.apiBaseUrl
+          data.robotId !== undefined ? data.robotId : originalRobot.robotId,
+          data.apiBaseUrl !== undefined ? data.apiBaseUrl : originalRobot.apiBaseUrl
         );
         if (!validation.valid) {
           return reply.status(400).send({
@@ -151,7 +173,7 @@ const robotApiRoutes = async function (fastify, options) {
       }
 
       // 检查 robotId 是否已被其他机器人使用
-      if (data.robotId) {
+      if (data.robotId && data.robotId !== originalRobot.robotId) {
         const existingRobot = await robotService.getRobotByRobotId(data.robotId);
         if (existingRobot && existingRobot.id !== id) {
           return reply.status(400).send({
