@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -69,6 +69,19 @@ export default function MonitoringTab() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdateTime, setLastUpdateTime] = useState<string | null>(null);
   const [newExecutionIds, setNewExecutionIds] = useState<Set<string>>(new Set());
+  
+  // 使用 ref 存储当前数据，避免循环依赖
+  const executionsRef = useRef<Execution[]>([]);
+  const aiLogsRef = useRef<AiLog[]>([]);
+  
+  // 同步 state 到 ref
+  useEffect(() => {
+    executionsRef.current = executions;
+  }, [executions]);
+  
+  useEffect(() => {
+    aiLogsRef.current = aiLogs;
+  }, [aiLogs]);
 
   // 获取系统健康状态
   const fetchHealth = async () => {
@@ -84,17 +97,29 @@ export default function MonitoringTab() {
   };
 
   // 获取执行列表
-  const fetchExecutions = async () => {
+  const fetchExecutions = useCallback(async () => {
     try {
       const res = await fetch('/api/monitoring/executions?limit=50');
       const data = await res.json();
       if (data.code === 0) {
-        const newExecutions = data.data;
-        const currentIds = new Set(executions.map(e => e.processing_id));
-        const newIds = new Set(newExecutions.map(e => e.processing_id).filter(id => !currentIds.has(id)));
+        const newExecutions = data.data || [];
+        
+        // 使用 ref 获取当前数据，避免依赖项导致循环
+        const currentExecutions = executionsRef.current;
+        const currentIds = new Set(currentExecutions.map(e => e.processing_id));
+        const newIds = new Set(newExecutions.map(e => e.processing_id));
+        
+        // 如果数据没有变化，不更新状态，避免重新渲染
+        if (currentIds.size === newIds.size && 
+            Array.from(currentIds).every(id => newIds.has(id))) {
+          return;
+        }
+        
+        // 只标记新增的消息
+        const addedIds = new Set(newExecutions.map(e => e.processing_id).filter(id => !currentIds.has(id)));
         
         // 只标记最新的 3 条消息为新消息，避免大量动画同时播放
-        const newIdArray = Array.from(newIds);
+        const newIdArray = Array.from(addedIds);
         const limitedNewIds = new Set(newIdArray.slice(0, 3));
         
         setNewExecutionIds(limitedNewIds);
@@ -108,20 +133,33 @@ export default function MonitoringTab() {
     } catch (error) {
       console.error('获取执行列表失败:', error);
     }
-  };
+  }, []);
 
   // 获取AI日志
-  const fetchAiLogs = async () => {
+  const fetchAiLogs = useCallback(async () => {
     try {
       const res = await fetch('/api/monitoring/ai-logs?limit=50');
       const data = await res.json();
       if (data.code === 0) {
-        setAiLogs(data.data);
+        const newLogs = data.data || [];
+        
+        // 使用 ref 获取当前数据，避免依赖项导致循环
+        const currentLogs = aiLogsRef.current;
+        const currentIds = new Set(currentLogs.map(l => l.id));
+        const newIds = new Set(newLogs.map(l => l.id));
+        
+        // 如果数据没有变化，不更新状态，避免重新渲染
+        if (currentIds.size === newIds.size && 
+            Array.from(currentIds).every(id => newIds.has(id))) {
+          return;
+        }
+        
+        setAiLogs(newLogs);
       }
     } catch (error) {
       console.error('获取AI日志失败:', error);
     }
-  };
+  }, []);
 
   // 初始加载和自动刷新
   useEffect(() => {
@@ -313,12 +351,9 @@ export default function MonitoringTab() {
                         key={execution.processing_id}
                         className={`flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer ${
                           isNew 
-                            ? 'animate-slide-down bg-blue-50 dark:bg-blue-950' 
+                            ? 'bg-blue-50 dark:bg-blue-950' 
                             : ''
                         }`}
-                        style={{
-                          animationDelay: isNew ? `${Math.min(index, 2) * 100}ms` : undefined
-                        }}
                         onClick={() => setSelectedExecution(execution)}
                       >
                         <div className="flex-1">
