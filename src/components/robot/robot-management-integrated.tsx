@@ -66,6 +66,7 @@ export default function RobotManagement() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showConfigDialog, setShowConfigDialog] = useState(false);
   const [showTestDialog, setShowTestDialog] = useState(false);
+  const [showAddDialog, setShowAddDialog] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
   const [testError, setTestError] = useState<string | null>(null);
@@ -77,6 +78,14 @@ export default function RobotManagement() {
   });
   const [configFormData, setConfigFormData] = useState({
     apiBaseUrl: '',
+    isActive: true,
+  });
+  const [addFormData, setAddFormData] = useState({
+    name: '',
+    robotId: '',
+    apiBaseUrl: '',
+    description: '',
+    company: '',
     isActive: true,
   });
   const [isSaving, setIsSaving] = useState(false);
@@ -241,6 +250,54 @@ export default function RobotManagement() {
     }
   };
 
+  const handleAdd = () => {
+    setShowAddDialog(true);
+    setAddFormData({
+      name: '',
+      robotId: '',
+      apiBaseUrl: '',
+      description: '',
+      company: '',
+      isActive: true,
+    });
+    setSaveSuccess(false);
+    setSaveError(null);
+  };
+
+  const handleSaveAdd = async () => {
+    setIsSaving(true);
+    setSaveSuccess(false);
+    setSaveError(null);
+
+    try {
+      const res = await fetch('/api/proxy/admin/robots', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(addFormData),
+      });
+
+      const result = await res.json();
+
+      if (res.ok) {
+        setSaveSuccess(true);
+        // 刷新机器人列表
+        await loadRobots();
+        // 延迟关闭对话框
+        setTimeout(() => {
+          setShowAddDialog(false);
+        }, 1500);
+      } else {
+        setSaveError(result.message || '添加失败');
+      }
+    } catch (error: any) {
+      setSaveError(error.message || '网络错误，添加失败');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleString('zh-CN');
@@ -266,7 +323,7 @@ export default function RobotManagement() {
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             刷新
           </Button>
-          <Button>
+          <Button onClick={handleAdd}>
             <Plus className="h-4 w-4 mr-2" />
             添加机器人
           </Button>
@@ -543,6 +600,111 @@ export default function RobotManagement() {
           <MonitoringDashboard />
         </TabsContent>
       </Tabs>
+
+      {/* 添加机器人对话框 */}
+      {showAddDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl mx-4">
+            <CardHeader>
+              <CardTitle>添加机器人</CardTitle>
+              <CardDescription>添加新的机器人到系统</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">机器人名称 <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={addFormData.name}
+                    onChange={(e) => setAddFormData({ ...addFormData, name: e.target.value })}
+                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="请输入机器人名称"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">机器人ID <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={addFormData.robotId}
+                    onChange={(e) => setAddFormData({ ...addFormData, robotId: e.target.value })}
+                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="请输入机器人ID"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">API Base URL <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={addFormData.apiBaseUrl}
+                    onChange={(e) => setAddFormData({ ...addFormData, apiBaseUrl: e.target.value })}
+                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="https://api.example.com"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">企业名称</label>
+                  <input
+                    type="text"
+                    value={addFormData.company}
+                    onChange={(e) => setAddFormData({ ...addFormData, company: e.target.value })}
+                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="请输入企业名称（可选）"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">描述</label>
+                  <textarea
+                    value={addFormData.description}
+                    onChange={(e) => setAddFormData({ ...addFormData, description: e.target.value })}
+                    className="w-full p-2 border rounded min-h-[120px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="请输入机器人描述（可选）"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="addIsActive"
+                    checked={addFormData.isActive}
+                    onChange={(e) => setAddFormData({ ...addFormData, isActive: e.target.checked })}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="addIsActive" className="text-sm">启用机器人</label>
+                </div>
+
+                {/* 保存反馈 */}
+                {saveSuccess && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                    ✓ 添加成功，即将关闭...
+                  </div>
+                )}
+                {saveError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    ✗ {saveError}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+            <div className="flex justify-end gap-2 p-6 pt-0">
+              <Button variant="outline" onClick={() => setShowAddDialog(false)} disabled={isSaving}>
+                取消
+              </Button>
+              <Button 
+                onClick={handleSaveAdd} 
+                disabled={isSaving || !addFormData.name.trim() || !addFormData.robotId.trim() || !addFormData.apiBaseUrl.trim()}
+              >
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    添加中...
+                  </>
+                ) : (
+                  '添加'
+                )}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* 编辑对话框 */}
       {showEditDialog && selectedRobot && (
