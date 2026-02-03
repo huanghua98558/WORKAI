@@ -438,6 +438,7 @@ class SessionService {
             groupName: row.groupName || '未知群组',
             robotId: row.robotId,
             robotName: row.robotName || '未知机器人',
+            robotNickname: row.robotNickname || null,
             lastActiveTime: row.lastActiveTime,
             messageCount: parseInt(row.messageCount),
             userMessages: parseInt(row.userMessages),

@@ -1458,6 +1458,13 @@ ${callbacks.robotStatus}
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground truncate">{groupName || '未知群组'}</p>
+                        {session.company && (
+                          <p className="text-xs text-blue-600 dark:text-blue-400 truncate mt-1">
+                            <Building2 className="h-3 w-3 inline mr-1" />
+                            {session.company}
+                            {session.robotNickname && ` (${session.robotNickname})`}
+                          </p>
+                        )}
                         <p className="text-xs text-muted-foreground mt-1">
                           {new Date(session.lastActiveTime).toLocaleString('zh-CN', {
                             month: 'short',
