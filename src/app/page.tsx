@@ -1777,7 +1777,7 @@ ${callbacks.robotStatus}
           <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-slate-500/10 to-slate-600/10 border-b border-primary/20">
               <CardTitle className="text-sm font-medium text-foreground">总会话数</CardTitle>
-              <Users className="h-4 w-4 text-primary">
+              <Users className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-primary">{stats.total}</div>
@@ -1790,7 +1790,7 @@ ${callbacks.robotStatus}
           <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-b border-primary/20">
               <CardTitle className="text-sm font-medium text-foreground">自动模式</CardTitle>
-              <Bot className="h-4 w-4 text-blue-500">
+              <Bot className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-500">{stats.auto}</div>
@@ -1803,7 +1803,7 @@ ${callbacks.robotStatus}
           <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-orange-500/10 to-red-500/10 border-b border-primary/20">
               <CardTitle className="text-sm font-medium text-foreground">人工模式</CardTitle>
-              <UserCheck className="h-4 w-4 text-orange-500">
+              <UserCheck className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-500">{stats.human}</div>
@@ -1816,7 +1816,7 @@ ${callbacks.robotStatus}
           <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-b border-primary/20">
               <CardTitle className="text-sm font-medium text-foreground">总消息数</CardTitle>
-              <MessageSquare className="h-4 w-4 text-purple-500">
+              <MessageSquare className="h-4 w-4 text-purple-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-purple-500">{stats.totalMessages}</div>
