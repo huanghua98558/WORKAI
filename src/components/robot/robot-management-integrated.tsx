@@ -248,7 +248,7 @@ export default function RobotManagement() {
   // 同步机器人信息
   const handleCheckStatus = async (robot: Robot) => {
     try {
-      const res = await fetch(`/api/proxy/admin/robots/${robot.id}/check-status`, {
+      const res = await fetch(`/api/proxy/admin/robots/check-status/${robot.robotId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
