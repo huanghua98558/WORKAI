@@ -30,6 +30,8 @@ const alertEnhancedApiRoutes = require('./routes/alert-enhanced.api');
 
 const redisClient = require('./lib/redis');
 
+const robotService = require('./services/robot.service');
+
 // 初始化 Fastify 实例
 const fastify = Fastify({
   logger: {
@@ -98,6 +100,31 @@ const start = async () => {
     const HOST = process.env.HOST || '0.0.0.0';
 
     await fastify.listen({ port: PORT, host: HOST });
+    
+    // 启动机器人状态定时检查任务（每5分钟检查一次）
+    console.log('🤖 启动机器人状态定时检查任务...');
+    const CHECK_INTERVAL = 5 * 60 * 1000; // 5分钟
+    
+    const checkRobotsTask = async () => {
+      try {
+        console.log(`[${new Date().toLocaleString('zh-CN')}] 开始检查所有机器人状态...`);
+        const results = await robotService.checkAllActiveRobots();
+        const onlineCount = results.filter(r => r.status === 'online').length;
+        const offlineCount = results.filter(r => r.status === 'offline').length;
+        const errorCount = results.filter(r => r.status === 'error').length;
+        console.log(`✅ 机器人状态检查完成: 在线 ${onlineCount}, 离线 ${offlineCount}, 错误 ${errorCount}`);
+      } catch (error) {
+        console.error('❌ 机器人状态检查失败:', error.message);
+      }
+    };
+    
+    // 立即执行一次
+    checkRobotsTask();
+    
+    // 设置定时任务
+    const checkIntervalId = setInterval(checkRobotsTask, CHECK_INTERVAL);
+    
+    console.log(`⏰ 机器人状态检查已配置为每5分钟自动执行`);
     
     console.log(`
 ╔═══════════════════════════════════════════════════════╗

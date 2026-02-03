@@ -93,6 +93,27 @@ export default function RobotManagement() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // 检查所有机器人状态
+  const checkAllRobotsStatus = async () => {
+    try {
+      const res = await fetch('/api/proxy/admin/robots/check-status-all', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.code === 0) {
+          console.log('机器人状态检查完成:', data.data);
+        }
+      }
+    } catch (error) {
+      console.error('检查机器人状态失败:', error);
+    }
+  };
+
   // 加载机器人列表
   const loadRobots = async () => {
     setIsLoading(true);
@@ -112,7 +133,21 @@ export default function RobotManagement() {
   };
 
   useEffect(() => {
+    // 页面加载时先检查一次机器人状态
+    checkAllRobotsStatus();
+    // 然后加载机器人列表
     loadRobots();
+
+    // 设置定时刷新：每5分钟检查一次状态并刷新列表
+    const refreshInterval = setInterval(() => {
+      console.log('定时刷新机器人状态...');
+      checkAllRobotsStatus().then(() => {
+        loadRobots();
+      });
+    }, 5 * 60 * 1000); // 5分钟
+
+    // 组件卸载时清除定时器
+    return () => clearInterval(refreshInterval);
   }, []);
 
   const getStatusBadge = (isActive: boolean, status: string) => {
