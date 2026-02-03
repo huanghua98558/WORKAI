@@ -317,7 +317,9 @@ export default function CommandSender() {
                                 {robot.name || robot.nickname || '未命名机器人'}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                ID: {robot.robotId}
+                                {robot.company && robot.nickname 
+                                  ? `${robot.company} - ${robot.nickname}` 
+                                  : robot.company || robot.nickname || ''}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
