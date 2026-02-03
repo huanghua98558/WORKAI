@@ -25,7 +25,8 @@ import {
   Settings,
   TestTube,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  MessageCircle
 } from 'lucide-react';
 
 // 导入子组件
@@ -53,6 +54,7 @@ interface Robot {
   isValid?: boolean;
   activatedAt?: string;
   expiresAt?: string;
+  messageCallbackEnabled?: boolean;
 }
 
 export default function RobotManagement() {
@@ -342,6 +344,22 @@ export default function RobotManagement() {
                             最后检查
                           </div>
                           <div className="font-medium">{formatDate(robot.lastCheckAt)}</div>
+                        </div>
+                      )}
+                      
+                      {robot.messageCallbackEnabled !== undefined && (
+                        <div>
+                          <div className="text-muted-foreground mb-1 flex items-center gap-2">
+                            <MessageCircle className="h-3 w-3" />
+                            消息回调
+                          </div>
+                          <div className="font-medium">
+                            {robot.messageCallbackEnabled ? (
+                              <Badge className="bg-green-500">已开启</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="bg-gray-100 text-gray-600">未开启</Badge>
+                            )}
+                          </div>
                         </div>
                       )}
                       
