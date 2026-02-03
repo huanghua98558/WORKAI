@@ -485,8 +485,6 @@ class SessionService {
       const { sessionMessages, robots } = require('../database/schema');
       const db = await getDb();
 
-      console.log(`[会话服务] 开始 enrichSessionWithRobotInfo for session ${session.sessionId}`);
-
       // 首先尝试从 sessionMessages 表获取机器人信息
       const robotMessage = await db.execute(sql`
         SELECT robot_id as "robotId", robot_name as "robotName", robot_nickname as "robotNickname"
@@ -502,15 +500,10 @@ class SessionService {
         session.robotId = robotMessage.rows[0].robotId;
         session.robotName = robotMessage.rows[0].robotName;
         session.robotNickname = robotMessage.rows[0].robotNickname;
-        console.log(`[会话服务] 会话 ${session.sessionId} 从 session_messages 获取机器人信息: robotId=${session.robotId}, robotName=${session.robotName}, robotNickname=${session.robotNickname}`);
-      } else {
-        console.warn(`[会话服务] 会话 ${session.sessionId} 从 session_messages 未找到机器人信息`);
       }
 
       // 无论 sessionMessages 中是否有机器人信息，都尝试从 robots 表查询 company 字段
       if (session.robotId) {
-        console.log(`[会话服务] 会话 ${session.sessionId} 尝试从 robots 表查询 robotId=${session.robotId}`);
-
         const robot = await db.execute(sql`
           SELECT robot_id as "robotId", name, nickname, company
           FROM robots
@@ -530,16 +523,12 @@ class SessionService {
           }
           // 始终设置 company 字段
           session.company = robotRow.company || null;
-          console.log(`[会话服务] 会话 ${session.sessionId} 从 robots 表获取机器人信息: name=${robotRow.name}, nickname=${robotRow.nickname}, company=${robotRow.company}, robotName=${session.robotName}, robotNickname=${session.robotNickname}, company=${session.company}`);
-        } else {
-          console.warn(`[会话服务] 会话 ${session.sessionId} 在 robots 表中未找到 robotId=${session.robotId}`);
         }
       }
 
       // 如果还是没有 robotName，使用 robotId 作为 fallback
       if (!session.robotName && session.robotId) {
         session.robotName = session.robotId;
-        console.log(`[会话服务] 会话 ${session.sessionId} 使用 robotId 作为 robotName: ${session.robotName}`);
       }
 
       // 填充用户信息

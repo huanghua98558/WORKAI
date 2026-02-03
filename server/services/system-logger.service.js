@@ -38,7 +38,15 @@ class SystemLogger {
 
     // 输出到控制台
     const consoleMethod = level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log';
-    console[consoleMethod](`[${level.toUpperCase()}] [${module}] ${message}`, data || '');
+
+    // 对于复杂对象，使用 JSON.stringify 一次性输出，避免逐行输出每个属性
+    if (data && typeof data === 'object') {
+      console[consoleMethod](`[${level.toUpperCase()}] [${module}] ${message}`, JSON.stringify(data));
+    } else if (data) {
+      console[consoleMethod](`[${level.toUpperCase()}] [${module}] ${message}`, data);
+    } else {
+      console[consoleMethod](`[${level.toUpperCase()}] [${module}] ${message}`);
+    }
 
     // 异步保存到数据库
     this.saveToDatabase(logEntry).catch(err => {
