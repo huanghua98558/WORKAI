@@ -46,10 +46,9 @@ const robotService = require('./services/robot.service');
 const robotCommandService = require('./services/robot-command.service');
 
 // 初始化 Fastify 实例
+// 禁用日志输出，避免频繁的请求日志刷屏
 const fastify = Fastify({
-  logger: {
-    level: process.env.LOG_LEVEL || 'info'
-  }
+  logger: false // 禁用 Fastify 内置的请求日志
 });
 
 // Redis 可选配置 - 如果 Redis 不可用，使用内存模式
