@@ -30,6 +30,7 @@ import AlertConfigTab from '@/components/alert-config-tab';
 import EnhancedAlertManagement from '@/components/enhanced-alert-management';
 import SystemLogs from '@/components/system-logs';
 import PromptTraining from '@/components/prompt-training';
+import MonitoringTab from '@/components/monitoring-tab';
 import { 
   BarChart3, 
   MessageSquare,
@@ -4970,15 +4971,10 @@ ${callbacks.robotStatus}
               <Server className="h-4 w-4" />
               <span className="hidden sm:inline">系统日志</span>
             </TabsTrigger>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-2 py-2"
-              onClick={() => window.location.href = '/monitoring'}
-            >
+            <TabsTrigger value="monitoring" className="gap-2 py-2">
               <Activity className="h-4 w-4" />
               <span className="hidden sm:inline">实时监控</span>
-            </Button>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
@@ -5041,6 +5037,10 @@ ${callbacks.robotStatus}
 
           <TabsContent value="system-logs" className="space-y-6">
             <SystemLogs />
+          </TabsContent>
+
+          <TabsContent value="monitoring" className="space-y-6">
+            <MonitoringTab />
           </TabsContent>
         </Tabs>
       </main>
