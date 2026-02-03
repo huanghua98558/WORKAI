@@ -20,6 +20,7 @@ const worktoolCallbackRoutes = require('./routes/worktool.callback');
 const adminApiRoutes = require('./routes/admin.api');
 const qaApiRoutes = require('./routes/qa.api');
 const robotApiRoutes = require('./routes/robot.api');
+const robotCommandApiRoutes = require('./routes/robot-command.api');
 const debugApiRoutes = require('./routes/debug.api');
 const executionTrackerApiRoutes = require('./routes/execution-tracker.api');
 const aiIoApiRoutes = require('./routes/ai-io.api');
@@ -31,6 +32,7 @@ const alertEnhancedApiRoutes = require('./routes/alert-enhanced.api');
 const redisClient = require('./lib/redis');
 
 const robotService = require('./services/robot.service');
+const robotCommandService = require('./services/robot-command.service');
 
 // 初始化 Fastify 实例
 const fastify = Fastify({
@@ -74,6 +76,7 @@ fastify.register(worktoolCallbackRoutes, { prefix: '/api/worktool/callback' });
 fastify.register(adminApiRoutes, { prefix: '/api/admin' });
 fastify.register(qaApiRoutes, { prefix: '/api/admin' });
 fastify.register(robotApiRoutes, { prefix: '/api/admin' });
+fastify.register(robotCommandApiRoutes, { prefix: '/api/admin' });
 fastify.register(debugApiRoutes, { prefix: '/api/admin' });
 fastify.register(executionTrackerApiRoutes, { prefix: '/api/admin/execution' });
 fastify.register(aiIoApiRoutes, { prefix: '/api' });
@@ -125,6 +128,12 @@ const start = async () => {
     const checkIntervalId = setInterval(checkRobotsTask, CHECK_INTERVAL);
     
     console.log(`⏰ 机器人状态检查已配置为每5分钟自动执行`);
+
+    // 启动指令队列处理器
+    console.log('📦 启动指令队列处理器...');
+    robotCommandService.startQueueProcessor('main-worker', 1000); // 每秒处理一次
+    
+    console.log(`⏰ 指令队列处理器已启动`);
     
     console.log(`
 ╔═══════════════════════════════════════════════════════╗

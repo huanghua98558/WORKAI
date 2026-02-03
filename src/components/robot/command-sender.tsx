@@ -117,14 +117,6 @@ export default function CommandSender() {
       return;
     }
 
-    // 暂时不实现实际发送功能，提示用户
-    toast.info('指令发送功能正在开发中，敬请期待！', {
-      description: `选择的机器人: ${robots.find(r => r.robotId === selectedRobot)?.name}`,
-      duration: 3000,
-    });
-
-    // 以下代码保留，等后端API实现后可以启用
-    /*
     try {
       setSending(true);
       
@@ -134,6 +126,7 @@ export default function CommandSender() {
         payload = JSON.parse(commandPayload);
       } catch {
         toast.error('指令内容必须是有效的 JSON');
+        setSending(false);
         return;
       }
 
@@ -151,8 +144,10 @@ export default function CommandSender() {
       const result = await response.json();
 
       if (result.code === 0) {
-        toast.success('指令发送成功');
-        setCommandPayload('{}');
+        toast.success('指令发送成功', {
+          description: '指令已加入队列，等待执行'
+        });
+        setCommandPayload(getDefaultPayload(commandType));
         fetchCommands();
       } else {
         toast.error(result.message || '发送指令失败');
@@ -163,7 +158,6 @@ export default function CommandSender() {
     } finally {
       setSending(false);
     }
-    */
   };
 
   // 重试指令
@@ -270,25 +264,6 @@ export default function CommandSender() {
         <h2 className="text-2xl font-bold">指令发送</h2>
         <p className="text-sm text-muted-foreground">向在线机器人发送指令并查看执行状态</p>
       </div>
-
-      {/* 功能提示 */}
-      <Card className="bg-blue-50 border-blue-200">
-        <CardContent className="p-4">
-          <div className="flex items-start gap-3">
-            <div className="text-blue-600 mt-0.5">
-              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="flex-1">
-              <div className="font-medium text-blue-900">功能开发中</div>
-              <div className="text-sm text-blue-700 mt-1">
-                指令发送功能正在开发中，您可以先查看和选择已添加的机器人。机器人列表会实时显示在线状态，方便您了解哪些机器人可用。
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* 发送指令表单 */}

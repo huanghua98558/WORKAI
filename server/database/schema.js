@@ -830,3 +830,62 @@ exports.alertStatsSnapshots = pgTable(
     statUniqueIdx: index("alert_stats_snapshots_stat_unique_idx").on(table.statDate, table.statHour),
   })
 );
+
+// 机器人指令表
+exports.robotCommands = pgTable(
+  "robot_commands",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    robotId: varchar("robot_id", { length: 64 }).notNull(),
+    commandType: varchar("command_type", { length: 50 }).notNull(),
+    commandData: jsonb("command_data").notNull(),
+    priority: integer("priority").notNull().default(5),
+    status: varchar("status", { length: 20 }).notNull().default("pending"),
+    retryCount: integer("retry_count").notNull().default(0),
+    maxRetries: integer("max_retries").notNull().default(3),
+    errorMessage: text("error_message"),
+    result: jsonb("result"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    executedAt: timestamp("executed_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => ({
+    robotIdIdx: index("robot_commands_robot_id_idx").on(table.robotId),
+    statusIdx: index("robot_commands_status_idx").on(table.status),
+    priorityIdx: index("robot_commands_priority_idx").on(table.priority),
+    createdAtIdx: index("robot_commands_created_at_idx").on(table.createdAt),
+  })
+);
+
+// 机器人指令队列表
+exports.robotCommandQueue = pgTable(
+  "robot_command_queue",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    commandId: varchar("command_id", { length: 36 }).notNull(),
+    robotId: varchar("robot_id", { length: 64 }).notNull(),
+    priority: integer("priority").notNull(),
+    status: varchar("status", { length: 20 }).notNull(),
+    scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lockedAt: timestamp("locked_at", { withTimezone: true }),
+    lockedBy: varchar("locked_by", { length: 100 }),
+    retryCount: integer("retry_count").notNull().default(0),
+  },
+  (table) => ({
+    commandIdIdx: index("robot_command_queue_command_id_idx").on(table.commandId).unique(),
+    statusIdx: index("robot_command_queue_status_idx").on(table.status),
+    priorityIdx: index("robot_command_queue_priority_idx").on(table.priority),
+    scheduledForIdx: index("robot_command_queue_scheduled_for_idx").on(table.scheduledFor),
+    robotIdIdx: index("robot_command_queue_robot_id_idx").on(table.robotId),
+  })
+);
