@@ -371,17 +371,34 @@ export default function AdminDashboard() {
 
   // 加载会话消息
   const loadSessionMessages = async (sessionId: string) => {
-    console.log('[会话消息] 开始加载会话消息:', sessionId);
+    console.log('[会话消息] ========== 开始加载会话消息 ==========');
+    console.log('[会话消息] sessionId:', sessionId);
     setIsLoadingSessionMessages(true);
     setSessionMessages([]); // 清空旧消息
+
     try {
       const res = await fetch(`/api/admin/sessions/${sessionId}/messages`);
       console.log('[会话消息] 请求状态:', res.status, res.ok);
+
       if (res.ok) {
         const data = await res.json();
-        console.log('[会话消息] 响应数据:', data);
-        console.log('[会话消息] 消息数量:', data.data?.length || 0);
-        setSessionMessages(data.data || []);
+        console.log('[会话消息] 原始响应数据:', data);
+
+        if (data.success) {
+          const messages = data.data || [];
+          console.log('[会话消息] 消息数量:', messages.length);
+          console.log('[会话消息] 消息列表:', messages);
+
+          setSessionMessages(messages);
+
+          // 验证消息是否已设置
+          setTimeout(() => {
+            console.log('[会话消息] 验证：当前 sessionMessages 状态:', messages.length, '条消息');
+          }, 100);
+        } else {
+          console.error('[会话消息] API返回失败:', data);
+          setSessionMessages([]);
+        }
       } else {
         console.error('[会话消息] 请求失败，状态码:', res.status);
         setSessionMessages([]);
@@ -391,7 +408,7 @@ export default function AdminDashboard() {
       setSessionMessages([]);
     } finally {
       setIsLoadingSessionMessages(false);
-      console.log('[会话消息] 加载完成，isLoading:', false);
+      console.log('[会话消息] ========== 加载完成 ==========');
     }
   };
 
@@ -429,9 +446,16 @@ export default function AdminDashboard() {
 
   // 查看会话详情
   const handleViewSessionDetail = async (session: Session) => {
-    console.log('[会话详情] 开始查看会话详情:', session.sessionId);
+    console.log('[会话详情] ========== 开始查看会话详情 ==========');
+    console.log('[会话详情] 选中的会话:', session);
     setSelectedSession(session);
     setShowSessionDetail(true);
+    console.log('[会话详情] 弹窗状态已设置为显示');
+
+    // 清空旧消息
+    setSessionMessages([]);
+    console.log('[会话详情] 已清空旧消息');
+
     console.log('[会话详情] 开始加载消息...');
     loadSessionMessages(session.sessionId);
     
