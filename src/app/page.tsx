@@ -292,7 +292,14 @@ export default function AdminDashboard() {
 
       if (sessionsRes.ok) {
         const data = await sessionsRes.json();
-        setSessions(data.data || []);
+        // 去重：确保sessionId唯一
+        const uniqueSessions = (data.data || []).reduce((acc: Session[], session: Session) => {
+          if (!acc.find(s => s.sessionId === session.sessionId)) {
+            acc.push(session);
+          }
+          return acc;
+        }, []);
+        setSessions(uniqueSessions);
       }
 
       if (uptimeRes.ok) {
@@ -415,7 +422,14 @@ export default function AdminDashboard() {
         const res = await fetch('/api/admin/sessions/active?limit=50');
         if (res.ok) {
           const data = await res.json();
-          setSessions(data.data || []);
+          // 去重：确保sessionId唯一
+          const uniqueSessions = (data.data || []).reduce((acc: Session[], session: Session) => {
+            if (!acc.find(s => s.sessionId === session.sessionId)) {
+              acc.push(session);
+            }
+            return acc;
+          }, []);
+          setSessions(uniqueSessions);
         }
       } catch (error) {
         console.error('搜索会话失败:', error);
@@ -1305,7 +1319,7 @@ ${callbacks.robotStatus}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock className="h-4 w-4" />
-            最后更新: {formatTime(lastUpdateTime.toISOString())}
+            <span suppressHydrationWarning>最后更新: {formatTime(lastUpdateTime.toISOString())}</span>
           </div>
           <Button
             onClick={loadData}
@@ -5019,7 +5033,14 @@ ${callbacks.robotStatus}
                               const sessionsRes = await fetch('/api/admin/sessions/active?limit=20');
                               if (sessionsRes.ok) {
                                 const data = await sessionsRes.json();
-                                setSessions(data.data || []);
+                                // 去重：确保sessionId唯一
+                                const uniqueSessions = (data.data || []).reduce((acc: Session[], session: Session) => {
+                                  if (!acc.find(s => s.sessionId === session.sessionId)) {
+                                    acc.push(session);
+                                  }
+                                  return acc;
+                                }, []);
+                                setSessions(uniqueSessions);
                               }
                             } else {
                               alert('❌ 切换失败');
@@ -5058,7 +5079,14 @@ ${callbacks.robotStatus}
                               const sessionsRes = await fetch('/api/admin/sessions/active?limit=20');
                               if (sessionsRes.ok) {
                                 const data = await sessionsRes.json();
-                                setSessions(data.data || []);
+                                // 去重：确保sessionId唯一
+                                const uniqueSessions = (data.data || []).reduce((acc: Session[], session: Session) => {
+                                  if (!acc.find(s => s.sessionId === session.sessionId)) {
+                                    acc.push(session);
+                                  }
+                                  return acc;
+                                }, []);
+                                setSessions(uniqueSessions);
                               }
                             } else {
                               alert('❌ 切换失败');
