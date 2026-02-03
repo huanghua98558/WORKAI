@@ -102,14 +102,14 @@ export default function RealtimeIOTab() {
       // 从队列中移除
       setPendingNewMessages(prev => prev.slice(1));
       
-      // 4秒后移除新消息标记（让用户有更多时间看到新消息）
+      // 1秒后移除新消息标记
       setTimeout(() => {
         setNewMessageIds(prev => {
           const newSet = new Set(prev);
           newSet.delete(nextMessage.id);
           return newSet;
         });
-      }, 4000);
+      }, 1000);
     };
 
     // 立即处理第一条
