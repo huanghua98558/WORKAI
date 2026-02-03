@@ -17,7 +17,15 @@ import {
   ShieldCheck,
   Sparkles,
   BarChart3,
-  Activity
+  Activity,
+  Globe,
+  Server,
+  Clock,
+  Edit3,
+  Settings,
+  TestTube,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react';
 
 // 导入子组件
@@ -52,6 +60,10 @@ export default function RobotManagement() {
   const [robots, setRobots] = useState<Robot[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('robots');
+  const [selectedRobot, setSelectedRobot] = useState<Robot | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showConfigDialog, setShowConfigDialog] = useState(false);
+  const [showTestDialog, setShowTestDialog] = useState(false);
 
   // 加载机器人列表
   const loadRobots = async () => {
@@ -90,6 +102,26 @@ export default function RobotManagement() {
       default:
         return <Badge>{status}</Badge>;
     }
+  };
+
+  const handleEdit = (robot: Robot) => {
+    setSelectedRobot(robot);
+    setShowEditDialog(true);
+  };
+
+  const handleConfig = (robot: Robot) => {
+    setSelectedRobot(robot);
+    setShowConfigDialog(true);
+  };
+
+  const handleTest = async (robot: Robot) => {
+    setSelectedRobot(robot);
+    setShowTestDialog(true);
+  };
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleString('zh-CN');
   };
 
   return (
@@ -212,37 +244,130 @@ export default function RobotManagement() {
             {robots.map(robot => (
               <Card key={robot.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-4">
-                      <div className="p-3 bg-blue-100 rounded-lg">
-                        <Bot className="h-8 w-8 text-blue-600" />
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-lg font-semibold">{robot.name}</h3>
-                          {getStatusBadge(robot.isActive, robot.status)}
+                  <div className="space-y-4">
+                    {/* 顶部：名称、状态、操作按钮 */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-4">
+                        <div className="p-3 bg-blue-100 rounded-lg">
+                          <Bot className="h-8 w-8 text-blue-600" />
                         </div>
-                        <div className="text-sm text-muted-foreground">{robot.robotId}</div>
-                        {robot.description && (
-                          <div className="text-sm">{robot.description}</div>
-                        )}
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>API: {robot.apiBaseUrl}</span>
-                          {robot.company && <span>企业: {robot.company}</span>}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-semibold">{robot.name}</h3>
+                            {getStatusBadge(robot.isActive, robot.status)}
+                            {robot.nickname && (
+                              <Badge variant="outline" className="text-xs">{robot.nickname}</Badge>
+                            )}
+                          </div>
+                          <div className="text-sm text-muted-foreground">{robot.robotId}</div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleEdit(robot)}
+                        >
+                          <Edit3 className="h-4 w-4 mr-2" />
+                          编辑
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleConfig(robot)}
+                        >
+                          <Settings className="h-4 w-4 mr-2" />
+                          配置
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleTest(robot)}
+                        >
+                          <TestTube className="h-4 w-4 mr-2" />
+                          测试
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* 描述 */}
+                    {robot.description && (
+                      <div className="p-3 bg-muted rounded-lg text-sm">
+                        {robot.description}
+                      </div>
+                    )}
+
+                    {/* 详细信息 */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <div className="text-muted-foreground mb-1 flex items-center gap-2">
+                          <Globe className="h-3 w-3" />
+                          API 地址
+                        </div>
+                        <div className="font-medium break-all">{robot.apiBaseUrl}</div>
+                      </div>
+                      
+                      {robot.company && (
+                        <div>
+                          <div className="text-muted-foreground mb-1 flex items-center gap-2">
+                            <Building2 className="h-3 w-3" />
+                            企业
+                          </div>
+                          <div className="font-medium">{robot.company}</div>
+                        </div>
+                      )}
+                      
+                      {robot.ipAddress && (
+                        <div>
+                          <div className="text-muted-foreground mb-1 flex items-center gap-2">
+                            <Server className="h-3 w-3" />
+                            IP 地址
+                          </div>
+                          <div className="font-medium">{robot.ipAddress}</div>
+                        </div>
+                      )}
+                      
+                      <div>
+                        <div className="text-muted-foreground mb-1 flex items-center gap-2">
+                          <Clock className="h-3 w-3" />
+                          创建时间
+                        </div>
+                        <div className="font-medium">{formatDate(robot.createdAt)}</div>
+                      </div>
+                      
+                      {robot.lastCheckAt && (
+                        <div>
+                          <div className="text-muted-foreground mb-1 flex items-center gap-2">
+                            <Activity className="h-3 w-3" />
+                            最后检查
+                          </div>
+                          <div className="font-medium">{formatDate(robot.lastCheckAt)}</div>
+                        </div>
+                      )}
+                      
+                      <div>
+                        <div className="text-muted-foreground mb-1 flex items-center gap-2">
+                          {robot.isActive ? <ToggleRight className="h-3 w-3 text-green-500" /> : <ToggleLeft className="h-3 w-3 text-gray-500" />}
+                          状态
+                        </div>
+                        <div className="font-medium">
+                          {robot.isActive ? '已启用' : '已停用'}
+                          {robot.isValid !== undefined && (
+                            <Badge variant={robot.isValid ? 'outline' : 'destructive'} className="ml-2 text-xs">
+                              {robot.isValid ? '有效' : '无效'}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
-                        编辑
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        配置
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        测试
-                      </Button>
-                    </div>
+
+                    {/* 错误信息 */}
+                    {robot.lastError && (
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+                        <div className="font-semibold mb-1">最后错误：</div>
+                        <div>{robot.lastError}</div>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -280,6 +405,117 @@ export default function RobotManagement() {
           <MonitoringDashboard />
         </TabsContent>
       </Tabs>
+
+      {/* 编辑对话框 */}
+      {showEditDialog && selectedRobot && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl mx-4">
+            <CardHeader>
+              <CardTitle>编辑机器人</CardTitle>
+              <CardDescription>修改机器人基本信息</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">机器人名称</label>
+                  <div className="mt-1 p-2 border rounded">{selectedRobot.name}</div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">描述</label>
+                  <div className="mt-1 p-2 border rounded min-h-[80px]">
+                    {selectedRobot.description || '暂无描述'}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+            <div className="flex justify-end gap-2 p-6 pt-0">
+              <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+                取消
+              </Button>
+              <Button onClick={() => setShowEditDialog(false)}>
+                保存
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* 配置对话框 */}
+      {showConfigDialog && selectedRobot && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl mx-4">
+            <CardHeader>
+              <CardTitle>机器人配置</CardTitle>
+              <CardDescription>配置机器人的高级选项</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">机器人ID</label>
+                  <div className="mt-1 p-2 border rounded">{selectedRobot.robotId}</div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">API Base URL</label>
+                  <div className="mt-1 p-2 border rounded">{selectedRobot.apiBaseUrl}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="isActive" checked={selectedRobot.isActive} />
+                  <label htmlFor="isActive" className="text-sm">启用机器人</label>
+                </div>
+              </div>
+            </CardContent>
+            <div className="flex justify-end gap-2 p-6 pt-0">
+              <Button variant="outline" onClick={() => setShowConfigDialog(false)}>
+                取消
+              </Button>
+              <Button onClick={() => setShowConfigDialog(false)}>
+                保存配置
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* 测试对话框 */}
+      {showTestDialog && selectedRobot && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl mx-4">
+            <CardHeader>
+              <CardTitle>测试机器人</CardTitle>
+              <CardDescription>测试机器人连接是否正常</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">测试机器人</label>
+                  <div className="mt-1 p-2 border rounded">{selectedRobot.name}</div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">API 地址</label>
+                  <div className="mt-1 p-2 border rounded">{selectedRobot.apiBaseUrl}</div>
+                </div>
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
+                  <div className="font-semibold mb-2">测试步骤：</div>
+                  <ol className="list-decimal list-inside space-y-1 text-sm">
+                    <li>连接到机器人服务器</li>
+                    <li>验证 API 密钥</li>
+                    <li>获取机器人状态</li>
+                    <li>检查响应时间</li>
+                  </ol>
+                </div>
+              </div>
+            </CardContent>
+            <div className="flex justify-end gap-2 p-6 pt-0">
+              <Button variant="outline" onClick={() => setShowTestDialog(false)}>
+                取消
+              </Button>
+              <Button onClick={() => setShowTestDialog(false)}>
+                开始测试
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
