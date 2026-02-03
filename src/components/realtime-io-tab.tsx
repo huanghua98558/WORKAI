@@ -21,6 +21,7 @@ export default function RealtimeIOTab() {
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
   const [pendingNewMessages, setPendingNewMessages] = useState<any[]>([]); // 待显示的新消息队列
   const [isSendingTestMessage, setIsSendingTestMessage] = useState(false);
+  const [newMessageCount, setNewMessageCount] = useState(0); // 待显示的新消息数量
   
   const lastFetchTime = useRef(0);
   const messagesRef = useRef<any[]>([]);
@@ -68,6 +69,7 @@ export default function RealtimeIOTab() {
             new Date(b.timestamp || b.createdAt).getTime() - new Date(a.timestamp || a.createdAt).getTime()
           );
           setPendingNewMessages(prev => [...prev, ...sortedNewMessages]);
+          setNewMessageCount(prev => prev + sortedNewMessages.length);
         }
       }
     } catch (error) {
@@ -100,20 +102,20 @@ export default function RealtimeIOTab() {
       // 从队列中移除
       setPendingNewMessages(prev => prev.slice(1));
       
-      // 3秒后移除新消息标记
+      // 4秒后移除新消息标记（让用户有更多时间看到新消息）
       setTimeout(() => {
         setNewMessageIds(prev => {
           const newSet = new Set(prev);
           newSet.delete(nextMessage.id);
           return newSet;
         });
-      }, 3000);
+      }, 4000);
     };
 
     // 立即处理第一条
     processNextMessage();
 
-    // 每隔800ms处理下一条
+    // 每隔600ms处理下一条（加快显示速度）
     const interval = setInterval(() => {
       if (pendingNewMessages.length > 0) {
         processNextMessage();
@@ -121,7 +123,7 @@ export default function RealtimeIOTab() {
         clearInterval(interval);
         isProcessingQueue.current = false;
       }
-    }, 800);
+    }, 600);
 
     return () => clearInterval(interval);
   }, [pendingNewMessages]);
@@ -250,6 +252,16 @@ export default function RealtimeIOTab() {
         </Alert>
       )}
 
+      {/* 待显示消息提示 */}
+      {pendingNewMessages.length > 0 && (
+        <Alert variant="default" className="border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/20 animate-pulse-glow">
+          <Activity className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+          <AlertDescription className="text-purple-700 dark:text-purple-300">
+            <span className="font-bold">{pendingNewMessages.length}</span> 条新消息正在显示中...
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* 筛选器 */}
       <Card>
         <CardHeader>
@@ -333,13 +345,17 @@ export default function RealtimeIOTab() {
                 return (
                   <div
                     key={msg.id}
-                    className={`p-4 border rounded-lg transition-all duration-500 ease-out ${
+                    className={`p-4 border rounded-lg transition-all duration-700 ease-out relative overflow-hidden ${
                       msg.direction === 'in' 
-                        ? 'bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-900' 
-                        : 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-900'
+                        ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900' 
+                        : 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-900'
                     } ${
                       isNew 
-                        ? 'scale-105 shadow-lg bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-800 animate-slide-down' 
+                        ? 'scale-105 shadow-2xl border-2 animate-slide-left animate-pulse-glow' +
+                          (msg.direction === 'in' 
+                            ? ' bg-gradient-to-r from-blue-100 to-blue-50 dark:from-blue-900/50 dark:to-blue-950/30 border-blue-400 dark:border-blue-600' 
+                            : ' bg-gradient-to-r from-green-100 to-green-50 dark:from-green-900/50 dark:to-green-950/30 border-green-400 dark:border-green-600'
+                          )
                         : ''
                     }`}
                   >
@@ -361,7 +377,14 @@ export default function RealtimeIOTab() {
                         {new Date(msg.timestamp || msg.createdAt).toLocaleString('zh-CN')}
                       </span>
                       {isNew && (
-                        <Badge variant="secondary" className="text-xs gap-1 bg-blue-500 text-white">
+                        <Badge 
+                          variant="secondary" 
+                          className={`text-xs gap-1 font-bold animate-bounce-in ${
+                            msg.direction === 'in' 
+                              ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg' 
+                              : 'bg-green-500 hover:bg-green-600 text-white shadow-lg'
+                          }`}
+                        >
                           <Activity className="h-3 w-3" />
                           新消息
                         </Badge>
