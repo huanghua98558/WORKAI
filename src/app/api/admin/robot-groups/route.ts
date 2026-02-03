@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
 async function execSQL(query: string, params: any[]) {
   // 这里需要根据实际的数据库连接方式实现
   // 临时返回空结果，需要后续集成真实的数据库连接
-  const { default: Client } = await import('pg');
+  const { Client } = await import('pg');
   const client = new Client({
     connectionString: process.env.DATABASE_URL
   });

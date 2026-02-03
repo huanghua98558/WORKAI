@@ -288,7 +288,7 @@ function getTimeRange(period: string): Date {
 
 // 辅助函数：执行 SQL
 async function execSQL(query: string, params: any[]) {
-  const { default: Client } = await import('pg');
+  const { Client } = await import('pg');
   const client = new Client({
     connectionString: process.env.DATABASE_URL
   });
