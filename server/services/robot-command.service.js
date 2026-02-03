@@ -23,7 +23,7 @@ class RobotCommandService {
    * @returns {Promise<Object>} 创建的指令
    */
   async createCommand(commandData) {
-    const { robotId, commandType, commandPayload, priority = 5, maxRetries = 3 } = commandData;
+    const { robotId, commandType, commandPayload, priority = 5, maxRetries = 0 } = commandData;
 
     try {
       logger.info('RobotCommand', '创建指令 - 开始', {

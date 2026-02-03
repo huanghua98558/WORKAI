@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
         id, robot_id, command_type, command_data,
         priority, status, retry_count, max_retries, created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, 'pending', 0, 3, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, 'pending', 0, 0, NOW(), NOW())
       RETURNING *
     `;
 
