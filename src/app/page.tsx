@@ -182,7 +182,7 @@ interface Session {
 }
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState('callbacks');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [callbacks, setCallbacks] = useState<CallbackUrl | null>(null);
   const [monitorData, setMonitorData] = useState<MonitorData | null>(null);
   const [alertData, setAlertData] = useState<AlertData | null>(null);
