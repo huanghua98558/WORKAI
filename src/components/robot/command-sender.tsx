@@ -198,18 +198,26 @@ export default function CommandSender() {
     }
   };
 
+  // 初始化加载数据（只执行一次）
   useEffect(() => {
     fetchRobots();
     fetchCommands();
     fetchMessageHistory();
-    
-    // 每5秒刷新一次指令列表和消息历史
+  }, []);
+
+  // 定时刷新（只执行一次，持续运行）
+  useEffect(() => {
     const commandsInterval = setInterval(fetchCommands, 5000);
     const historyInterval = setInterval(fetchMessageHistory, 5000);
     return () => {
       clearInterval(commandsInterval);
       clearInterval(historyInterval);
     };
+  }, []);
+
+  // 当筛选条件变化时，重新加载消息历史
+  useEffect(() => {
+    fetchMessageHistory();
   }, [historyFilter]);
 
   // 构建指令 payload
