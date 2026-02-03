@@ -77,7 +77,29 @@ export default function CommandSender() {
     privateContent: '',
     
     // 批量消息
-    batchMessages: [{ recipient: '', content: '' }]
+    batchMessages: [{ recipient: '', content: '' }],
+
+    // 转发消息
+    msgId: '',
+    forwardToList: '',
+
+    // 创建群聊
+    roomName: '',
+    members: '',
+
+    // 邀请入群
+    chatId: '',
+    inviteMembers: '',
+
+    // 上传文件
+    filePath: '',
+    fileTo: '',
+
+    // 更新资料
+    profileName: '',
+    profileAlias: '',
+    profileMobile: '',
+    profileDepartment: ''
   });
 
   // 加载机器人列表
@@ -178,8 +200,74 @@ export default function CommandSender() {
           }))
         };
 
+      case 'forward_message':
+        if (!formData.msgId) {
+          throw new Error('请填写消息ID');
+        }
+        const toList = formData.forwardToList
+          ? formData.forwardToList.split(/[,，]/).map(s => s.trim()).filter(s => s)
+          : [];
+        return {
+          msgId: formData.msgId,
+          to: toList
+        };
+
+      case 'create_room':
+        if (!formData.roomName) {
+          throw new Error('请填写群聊名称');
+        }
+        const memberList = formData.members
+          ? formData.members.split(/[,，]/).map(s => s.trim()).filter(s => s)
+          : [];
+        return {
+          name: formData.roomName,
+          members: memberList
+        };
+
+      case 'invite_to_room':
+        if (!formData.chatId) {
+          throw new Error('请填写群聊ID');
+        }
+        const inviteList = formData.inviteMembers
+          ? formData.inviteMembers.split(/[,，]/).map(s => s.trim()).filter(s => s)
+          : [];
+        return {
+          chatId: formData.chatId,
+          members: inviteList
+        };
+
+      case 'upload_file':
+        if (!formData.filePath || !formData.fileTo) {
+          throw new Error('请填写文件路径和发送目标');
+        }
+        return {
+          filePath: formData.filePath,
+          to: formData.fileTo
+        };
+
+      case 'get_contacts':
+      case 'get_rooms':
+        return {};
+
+      case 'update_profile':
+        return {
+          ...(formData.profileName && { name: formData.profileName }),
+          ...(formData.profileAlias && { alias: formData.profileAlias }),
+          ...(formData.profileMobile && { mobile: formData.profileMobile }),
+          ...(formData.profileDepartment && { department: formData.profileDepartment })
+        };
+
       default:
         throw new Error('不支持的指令类型');
+    }
+  };
+
+  // 构建预览 payload（用于显示）
+  const buildPayloadPreview = () => {
+    try {
+      return buildPayload();
+    } catch (error) {
+      return {};
     }
   };
 
@@ -285,8 +373,6 @@ export default function CommandSender() {
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  // 获取指令状态标签
-
   // 获取优先级标签
   const getPriorityBadge = (priority: number) => {
     const level = priority <= 3 ? 'high' : priority <= 6 ? 'medium' : 'low';
@@ -295,88 +381,32 @@ export default function CommandSender() {
     return <Badge variant={variant}>{label}</Badge>;
   };
 
-  // 根据命令类型生成默认 payload
-  const getDefaultPayload = (type: string) => {
-    switch (type) {
-      case 'send_group_message':
-        return JSON.stringify({
-          socketType: 2,
-          list: [
-            {
-              type: 203,
-              titleList: ["群聊名称"],
-              receivedContent: "要发送的群消息内容",
-              atList: [] // @的人，如: ["张三", "李四"]
-            }
-          ]
-        }, null, 2);
-      case 'send_private_message':
-        return JSON.stringify({
-          socketType: 2,
-          list: [
-            {
-              type: 203,
-              titleList: ["用户昵称"],
-              receivedContent: "要发送的私聊消息内容",
-              atList: [] // 私聊消息不需要 @
-            }
-          ]
-        }, null, 2);
-      case 'batch_send_message':
-        return JSON.stringify({
-          socketType: 2,
-          list: [
-            {
-              type: 203,
-              titleList: ["接收者1（群聊或个人）"],
-              receivedContent: "消息内容1"
-            },
-            {
-              type: 203,
-              titleList: ["接收者2（群聊或个人）"],
-              receivedContent: "消息内容2"
-            }
-          ]
-        }, null, 2);
-      case 'forward_message':
-        return JSON.stringify({ msgId: '', to: [] }, null, 2);
-      case 'create_room':
-        return JSON.stringify({ name: '', members: [] }, null, 2);
-      case 'invite_to_room':
-        return JSON.stringify({ chatId: '', members: [] }, null, 2);
-      case 'upload_file':
-        return JSON.stringify({ filePath: '', to: '' }, null, 2);
-      case 'get_contacts':
-        return JSON.stringify({}, null, 2);
-      case 'get_rooms':
-        return JSON.stringify({}, null, 2);
-      case 'update_profile':
-        return JSON.stringify({ name: '', alias: '', mobile: '', department: '' }, null, 2);
-      default:
-        return '{}';
-    }
-  };
-
   // 重置表单
   const resetForm = () => {
     setCommandType('send_group_message');
     setPriority(5);
-    setCommandPayload(getDefaultPayload('send_group_message'));
     setFormData({
       groupName: '',
       groupContent: '',
       groupAtList: '',
       userName: '',
       privateContent: '',
-      batchMessages: [{ recipient: '', content: '' }]
+      batchMessages: [{ recipient: '', content: '' }],
+      msgId: '',
+      forwardToList: '',
+      roomName: '',
+      members: '',
+      chatId: '',
+      inviteMembers: '',
+      filePath: '',
+      fileTo: '',
+      profileName: '',
+      profileAlias: '',
+      profileMobile: '',
+      profileDepartment: ''
     });
     setSending(false);
   };
-
-  // 命令类型改变时更新默认 payload
-  useEffect(() => {
-    setCommandPayload(getDefaultPayload(commandType));
-  }, [commandType]);
 
   return (
     <div className="space-y-6">
@@ -508,24 +538,287 @@ export default function CommandSender() {
                 </div>
               </div>
 
+              {/* 动态表单字段 */}
+              {commandType === 'send_group_message' && (
+                <div className="space-y-4 p-4 bg-muted rounded-lg border">
+                  <h4 className="font-semibold text-sm">群发消息参数</h4>
+                  <div>
+                    <Label htmlFor="groupName">群聊名称 <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="groupName"
+                      value={formData.groupName}
+                      onChange={(e) => setFormData({ ...formData, groupName: e.target.value })}
+                      placeholder="例如：产品研发部"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="groupContent">消息内容 <span className="text-red-500">*</span></Label>
+                    <Textarea
+                      id="groupContent"
+                      value={formData.groupContent}
+                      onChange={(e) => setFormData({ ...formData, groupContent: e.target.value })}
+                      placeholder="输入要发送的群消息内容"
+                      rows={4}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="groupAtList">@成员（可选）</Label>
+                    <Input
+                      id="groupAtList"
+                      value={formData.groupAtList}
+                      onChange={(e) => setFormData({ ...formData, groupAtList: e.target.value })}
+                      placeholder="使用逗号分隔，例如：张三,李四,王五"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">支持@群内成员，用逗号分隔多个昵称</p>
+                  </div>
+                </div>
+              )}
+
+              {commandType === 'send_private_message' && (
+                <div className="space-y-4 p-4 bg-muted rounded-lg border">
+                  <h4 className="font-semibold text-sm">私聊消息参数</h4>
+                  <div>
+                    <Label htmlFor="userName">用户昵称 <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="userName"
+                      value={formData.userName}
+                      onChange={(e) => setFormData({ ...formData, userName: e.target.value })}
+                      placeholder="例如：张三"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="privateContent">消息内容 <span className="text-red-500">*</span></Label>
+                    <Textarea
+                      id="privateContent"
+                      value={formData.privateContent}
+                      onChange={(e) => setFormData({ ...formData, privateContent: e.target.value })}
+                      placeholder="输入要发送的私聊消息内容"
+                      rows={4}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {commandType === 'batch_send_message' && (
+                <div className="space-y-4 p-4 bg-muted rounded-lg border">
+                  <h4 className="font-semibold text-sm">批量发送参数</h4>
+                  {formData.batchMessages.map((msg, index) => (
+                    <div key={index} className="space-y-3 p-3 bg-background rounded border">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">消息 {index + 1}</span>
+                        {formData.batchMessages.length > 1 && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              const newMessages = formData.batchMessages.filter((_, i) => i !== index);
+                              setFormData({ ...formData, batchMessages: newMessages });
+                            }}
+                          >
+                            删除
+                          </Button>
+                        )}
+                      </div>
+                      <div>
+                        <Label htmlFor={`recipient-${index}`}>接收者（群聊或个人） <span className="text-red-500">*</span></Label>
+                        <Input
+                          id={`recipient-${index}`}
+                          value={msg.recipient}
+                          onChange={(e) => {
+                            const newMessages = [...formData.batchMessages];
+                            newMessages[index].recipient = e.target.value;
+                            setFormData({ ...formData, batchMessages: newMessages });
+                          }}
+                          placeholder="群聊名称或用户昵称"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`content-${index}`}>消息内容 <span className="text-red-500">*</span></Label>
+                        <Textarea
+                          id={`content-${index}`}
+                          value={msg.content}
+                          onChange={(e) => {
+                            const newMessages = [...formData.batchMessages];
+                            newMessages[index].content = e.target.value;
+                            setFormData({ ...formData, batchMessages: newMessages });
+                          }}
+                          placeholder="输入消息内容"
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setFormData({
+                      ...formData,
+                      batchMessages: [...formData.batchMessages, { recipient: '', content: '' }]
+                    })}
+                  >
+                    + 添加消息
+                  </Button>
+                </div>
+              )}
+
+              {commandType === 'forward_message' && (
+                <div className="space-y-4 p-4 bg-muted rounded-lg border">
+                  <h4 className="font-semibold text-sm">转发消息参数</h4>
+                  <div>
+                    <Label htmlFor="msgId">消息ID <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="msgId"
+                      value={formData.msgId}
+                      onChange={(e) => setFormData({ ...formData, msgId: e.target.value })}
+                      placeholder="要转发的消息ID"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="forwardToList">转发目标（可选）</Label>
+                    <Input
+                      id="forwardToList"
+                      value={formData.forwardToList}
+                      onChange={(e) => setFormData({ ...formData, forwardToList: e.target.value })}
+                      placeholder="使用逗号分隔，例如：群聊1,张三"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {commandType === 'create_room' && (
+                <div className="space-y-4 p-4 bg-muted rounded-lg border">
+                  <h4 className="font-semibold text-sm">创建群聊参数</h4>
+                  <div>
+                    <Label htmlFor="roomName">群聊名称 <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="roomName"
+                      value={formData.roomName}
+                      onChange={(e) => setFormData({ ...formData, roomName: e.target.value })}
+                      placeholder="例如：项目讨论组"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="members">成员列表（可选）</Label>
+                    <Textarea
+                      id="members"
+                      value={formData.members}
+                      onChange={(e) => setFormData({ ...formData, members: e.target.value })}
+                      placeholder="使用逗号分隔成员昵称，例如：张三,李四,王五"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {commandType === 'invite_to_room' && (
+                <div className="space-y-4 p-4 bg-muted rounded-lg border">
+                  <h4 className="font-semibold text-sm">邀请入群参数</h4>
+                  <div>
+                    <Label htmlFor="chatId">群聊ID <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="chatId"
+                      value={formData.chatId}
+                      onChange={(e) => setFormData({ ...formData, chatId: e.target.value })}
+                      placeholder="群聊的chatId"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="inviteMembers">成员列表（可选）</Label>
+                    <Textarea
+                      id="inviteMembers"
+                      value={formData.inviteMembers}
+                      onChange={(e) => setFormData({ ...formData, inviteMembers: e.target.value })}
+                      placeholder="使用逗号分隔成员昵称"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {commandType === 'upload_file' && (
+                <div className="space-y-4 p-4 bg-muted rounded-lg border">
+                  <h4 className="font-semibold text-sm">上传文件参数</h4>
+                  <div>
+                    <Label htmlFor="filePath">文件路径 <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="filePath"
+                      value={formData.filePath}
+                      onChange={(e) => setFormData({ ...formData, filePath: e.target.value })}
+                      placeholder="文件在服务器上的路径"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="fileTo">发送目标 <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="fileTo"
+                      value={formData.fileTo}
+                      onChange={(e) => setFormData({ ...formData, fileTo: e.target.value })}
+                      placeholder="群聊名称或用户昵称"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {commandType === 'update_profile' && (
+                <div className="space-y-4 p-4 bg-muted rounded-lg border">
+                  <h4 className="font-semibold text-sm">更新资料参数</h4>
+                  <div>
+                    <Label htmlFor="profileName">昵称（可选）</Label>
+                    <Input
+                      id="profileName"
+                      value={formData.profileName}
+                      onChange={(e) => setFormData({ ...formData, profileName: e.target.value })}
+                      placeholder="新的昵称"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="profileAlias">备注名（可选）</Label>
+                    <Input
+                      id="profileAlias"
+                      value={formData.profileAlias}
+                      onChange={(e) => setFormData({ ...formData, profileAlias: e.target.value })}
+                      placeholder="新的备注名"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="profileMobile">手机号（可选）</Label>
+                    <Input
+                      id="profileMobile"
+                      value={formData.profileMobile}
+                      onChange={(e) => setFormData({ ...formData, profileMobile: e.target.value })}
+                      placeholder="新的手机号"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="profileDepartment">部门（可选）</Label>
+                    <Input
+                      id="profileDepartment"
+                      value={formData.profileDepartment}
+                      onChange={(e) => setFormData({ ...formData, profileDepartment: e.target.value })}
+                      placeholder="新的部门"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 预览生成的 JSON（只读） */}
               <div>
-                <Label htmlFor="payload">指令内容 (JSON)</Label>
+                <Label htmlFor="payloadPreview">生成的指令内容（JSON）</Label>
                 <Textarea
-                  id="payload"
-                  value={commandPayload}
-                  onChange={(e) => setCommandPayload(e.target.value)}
-                  placeholder="输入 JSON 格式的指令参数"
-                  rows={10}
-                  className="font-mono text-sm"
+                  id="payloadPreview"
+                  value={JSON.stringify(buildPayloadPreview(), null, 2)}
+                  readOnly
+                  rows={8}
+                  className="font-mono text-sm bg-muted"
                 />
+                <p className="text-xs text-muted-foreground mt-1">这是根据表单内容自动生成的JSON，只读</p>
               </div>
 
-              <Button type="submit" disabled={sending || !selectedRobot} className="w-full" variant="outline">
-                {sending ? '发送中...' : '发送指令 (开发中)'}
+              <Button type="submit" disabled={sending || !selectedRobot} className="w-full">
+                {sending ? '发送中...' : '发送指令'}
               </Button>
-              <div className="text-xs text-center text-muted-foreground mt-2">
-                当前仅支持机器人选择和状态查看，指令发送功能敬请期待
-              </div>
             </form>
           </CardContent>
         </Card>
