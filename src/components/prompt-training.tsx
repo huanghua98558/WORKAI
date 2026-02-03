@@ -574,7 +574,7 @@ export default function PromptTraining() {
           <div className="flex-1">
             <div className="flex items-center justify-between mb-1">
               <Label>系统提示词 (System Prompt)</Label>
-              <span className="text-xs text-gray-400">支持变量: { {'{{session}}'}, {{userName}}, {{groupName}} }</span>
+              <span className="text-xs text-gray-400">支持变量: {'{{sessionId}}, {{userName}}, {{groupName}}'}</span>
             </div>
             <div className="h-[200px] border rounded-lg mt-1 overflow-hidden">
               <Editor
