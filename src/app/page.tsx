@@ -2093,8 +2093,53 @@ ${callbacks.robotStatus}
     );
   };
 
-  // 监控告警页面
-  // 实时IO查看页面
+  // 计算运行时间
+  const calculateRunTime = (robot: Robot) => {
+    if (robot.activatedAt) {
+      const now = new Date();
+      const activatedTime = new Date(robot.activatedAt);
+      const diffMs = now.getTime() - activatedTime.getTime();
+      
+      const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      
+      if (days > 0) {
+        return `${days}天${hours}小时${minutes}分钟`;
+      } else if (hours > 0) {
+        return `${hours}小时${minutes}分钟`;
+      } else {
+        return `${minutes}分钟`;
+      }
+    }
+    return '未知';
+  };
+
+  // 计算剩余时间
+  const calculateRemainingTime = (robot: Robot) => {
+    if (robot.expiresAt) {
+      const now = new Date();
+      const expireTime = new Date(robot.expiresAt);
+      const diffMs = expireTime.getTime() - now.getTime();
+      
+      if (diffMs <= 0) {
+        return '已过期';
+      }
+      
+      const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      
+      if (days > 0) {
+        return `${days}天${hours}小时`;
+      } else if (hours > 0) {
+        return `${hours}小时${minutes}分钟`;
+      } else {
+        return `${minutes}分钟`;
+      }
+    }
+    return '未知';
+  };
 
   // 仪表盘主页面
   const DashboardTab = () => (
