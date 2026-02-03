@@ -36,6 +36,9 @@ interface PromptTemplate {
   userPrompt: string;
   temperature: number;
   maxTokens: number;
+  variables: string[];
+  version: string;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -192,7 +195,7 @@ export default function PromptTraining() {
 
   const deleteTemplate = async (id: string) => {
     if (!confirm('确定要删除此模板吗？')) return;
-    
+
     try {
       const response = await fetch(`/api/prompt-templates/${id}`, {
         method: 'DELETE'
@@ -209,6 +212,81 @@ export default function PromptTraining() {
       }
     } catch (error) {
       console.error('删除模板失败:', error);
+    }
+  };
+
+  const duplicateTemplate = async (id: string) => {
+    try {
+      const response = await fetch(`/api/prompt-templates/${id}/duplicate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: undefined })
+      });
+
+      const data = await response.json();
+      if (data.code === 0) {
+        await loadTemplates();
+        alert('模板复制成功');
+      } else {
+        alert(data.message || '复制失败');
+      }
+    } catch (error) {
+      console.error('复制模板失败:', error);
+      alert('复制失败');
+    }
+  };
+
+  const exportTemplate = async (id: string) => {
+    try {
+      const response = await fetch(`/api/prompt-templates/${id}/export`);
+      const data = await response.json();
+
+      if (data.code === 0) {
+        const json = JSON.stringify(data.data, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${data.data.name}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        alert(data.message || '导出失败');
+      }
+    } catch (error) {
+      console.error('导出模板失败:', error);
+      alert('导出失败');
+    }
+  };
+
+  const importTemplate = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      const response = await fetch('/api/prompt-templates/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      const result = await response.json();
+      if (result.code === 0) {
+        await loadTemplates();
+        alert('导入成功');
+      } else {
+        alert(result.message || '导入失败');
+      }
+    } catch (error) {
+      console.error('导入模板失败:', error);
+      alert('导入失败，请检查文件格式');
+    } finally {
+      event.target.value = '';
     }
   };
 
@@ -366,9 +444,23 @@ export default function PromptTraining() {
             <FileText size={18} />
             Prompt 模板
           </h3>
-          <Button size="sm" variant="ghost" onClick={createNewTemplate}>
-            <Plus size={16} />
-          </Button>
+          <div className="flex gap-1">
+            <input
+              type="file"
+              accept=".json"
+              onChange={importTemplate}
+              className="hidden"
+              id="import-template"
+            />
+            <Button size="sm" variant="ghost" asChild>
+              <label htmlFor="import-template" className="cursor-pointer">
+                <Copy size={16} />
+              </label>
+            </Button>
+            <Button size="sm" variant="ghost" onClick={createNewTemplate}>
+              <Plus size={16} />
+            </Button>
+          </div>
         </div>
         
         <ScrollArea className="flex-1">
@@ -389,11 +481,36 @@ export default function PromptTraining() {
                   <Button
                     size="sm"
                     variant="ghost"
+                    className="h-6 px-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      duplicateTemplate(template.id);
+                    }}
+                    title="复制"
+                  >
+                    <Copy size={12} />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      exportTemplate(template.id);
+                    }}
+                    title="导出"
+                  >
+                    <Layout size={12} />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
                     className="h-6 px-1 text-red-500 hover:text-red-700"
                     onClick={(e) => {
                       e.stopPropagation();
                       deleteTemplate(template.id);
                     }}
+                    title="删除"
                   >
                     <Trash2 size={12} />
                   </Button>
@@ -455,7 +572,10 @@ export default function PromptTraining() {
           </div>
 
           <div className="flex-1">
-            <Label>系统提示词 (System Prompt)</Label>
+            <div className="flex items-center justify-between mb-1">
+              <Label>系统提示词 (System Prompt)</Label>
+              <span className="text-xs text-gray-400">支持变量: { {'{{session}}'}, {{userName}}, {{groupName}} }</span>
+            </div>
             <div className="h-[200px] border rounded-lg mt-1 overflow-hidden">
               <Editor
                 height="200px"

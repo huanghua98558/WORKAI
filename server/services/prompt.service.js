@@ -362,6 +362,70 @@ class PromptService {
 
     return results;
   }
+
+  /**
+   * 复制 Prompt 模板
+   */
+  async duplicateTemplate(id, name) {
+    const template = await this.getTemplateById(id);
+    if (!template) {
+      return null;
+    }
+
+    const newTemplate = await this.createTemplate({
+      name: name || `${template.name} (副本)`,
+      type: template.type,
+      description: template.description,
+      systemPrompt: template.systemPrompt,
+      userPrompt: template.userPrompt,
+      temperature: template.temperature,
+      maxTokens: template.maxTokens,
+      variables: template.variables,
+      version: template.version,
+    });
+
+    return newTemplate;
+  }
+
+  /**
+   * 批量激活/停用 Prompt 模板
+   */
+  async batchToggleTemplateStatus(ids, isActive) {
+    const db = await getDb();
+    const results = [];
+
+    for (const id of ids) {
+      try {
+        await db
+          .update(prompt_templates)
+          .set({ isActive, updatedAt: new Date() })
+          .where(eq(prompt_templates.id, id));
+        results.push({ id, success: true });
+      } catch (error) {
+        results.push({ id, success: false, error: error.message });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * 获取模板使用统计（按类型分组）
+   */
+  async getTemplateUsageStats() {
+    const db = await getDb();
+
+    const stats = await db
+      .select({
+        type: prompt_templates.type,
+        total: count(),
+        active: count(sql`CASE WHEN ${prompt_templates.isActive} = true THEN 1 END`),
+      })
+      .from(prompt_templates)
+      .groupBy(prompt_templates.type);
+
+    return stats;
+  }
 }
 
 module.exports = new PromptService();

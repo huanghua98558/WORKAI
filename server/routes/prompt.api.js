@@ -332,6 +332,158 @@ const promptApiRoutes = async function (fastify, options) {
       });
     }
   });
+
+  // ========== Prompt 模板高级功能 ==========
+
+  // 复制 Prompt 模板
+  fastify.post('/prompt-templates/:id/duplicate', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const { name } = request.body;
+
+      const newTemplate = await promptService.duplicateTemplate(id, name);
+
+      if (!newTemplate) {
+        return reply.status(404).send({
+          code: -1,
+          message: '源模板不存在',
+        });
+      }
+
+      return reply.send({
+        code: 0,
+        message: '复制成功',
+        data: newTemplate,
+      });
+    } catch (error) {
+      console.error('复制模板失败:', error);
+      return reply.status(500).send({
+        code: -1,
+        message: '复制模板失败',
+        error: error.message,
+      });
+    }
+  });
+
+  // 导出 Prompt 模板
+  fastify.get('/prompt-templates/:id/export', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const template = await promptService.getTemplateById(id);
+
+      if (!template) {
+        return reply.status(404).send({
+          code: -1,
+          message: '模板不存在',
+        });
+      }
+
+      return reply.send({
+        code: 0,
+        message: 'success',
+        data: {
+          name: template.name,
+          type: template.type,
+          description: template.description,
+          systemPrompt: template.systemPrompt,
+          userPrompt: template.userPrompt,
+          temperature: template.temperature,
+          maxTokens: template.maxTokens,
+          variables: template.variables,
+          version: template.version,
+          exportedAt: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      console.error('导出模板失败:', error);
+      return reply.status(500).send({
+        code: -1,
+        message: '导出模板失败',
+        error: error.message,
+      });
+    }
+  });
+
+  // 导入 Prompt 模板
+  fastify.post('/prompt-templates/import', async (request, reply) => {
+    try {
+      const data = request.body;
+
+      const template = await promptService.createTemplate({
+        name: data.name,
+        type: data.type,
+        description: data.description,
+        systemPrompt: data.systemPrompt,
+        userPrompt: data.userPrompt,
+        temperature: data.temperature,
+        maxTokens: data.maxTokens,
+        variables: data.variables,
+        version: data.version
+      });
+
+      return reply.send({
+        code: 0,
+        message: '导入成功',
+        data: template,
+      });
+    } catch (error) {
+      console.error('导入模板失败:', error);
+      return reply.status(500).send({
+        code: -1,
+        message: '导入模板失败',
+        error: error.message,
+      });
+    }
+  });
+
+  // 批量激活/停用 Prompt 模板
+  fastify.post('/prompt-templates/batch-toggle', async (request, reply) => {
+    try {
+      const { ids, isActive } = request.body;
+
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return reply.status(400).send({
+          code: -1,
+          message: '请提供模板 ID 数组',
+        });
+      }
+
+      const results = await promptService.batchToggleTemplateStatus(ids, isActive);
+
+      return reply.send({
+        code: 0,
+        message: '批量操作完成',
+        data: results,
+      });
+    } catch (error) {
+      console.error('批量操作失败:', error);
+      return reply.status(500).send({
+        code: -1,
+        message: '批量操作失败',
+        error: error.message,
+      });
+    }
+  });
+
+  // 获取模板使用统计（按类型分组）
+  fastify.get('/prompt-templates/usage-stats', async (request, reply) => {
+    try {
+      const stats = await promptService.getTemplateUsageStats();
+
+      return reply.send({
+        code: 0,
+        message: 'success',
+        data: stats,
+      });
+    } catch (error) {
+      console.error('获取使用统计失败:', error);
+      return reply.status(500).send({
+        code: -1,
+        message: '获取使用统计失败',
+        error: error.message,
+      });
+    }
+  });
 };
 
 module.exports = promptApiRoutes;
