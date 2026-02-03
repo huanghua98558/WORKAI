@@ -27,23 +27,39 @@ interface RobotRole {
 }
 
 const AVAILABLE_PERMISSIONS = [
-  'message:send', 'message:receive', 'message:forward',
-  'contact:read', 'contact:write',
-  'room:manage', 'room:read',
-  'file:upload', 'file:download',
-  'config:read', 'config:write',
-  'session:manage', 'session:read',
-  'callback:manage', 'callback:read',
-  'metrics:read', 'metrics:write'
+  { code: 'message:send', label: '发送消息' },
+  { code: 'message:receive', label: '接收消息' },
+  { code: 'message:forward', label: '转发消息' },
+  { code: 'contact:read', label: '读取联系人' },
+  { code: 'contact:write', label: '管理联系人' },
+  { code: 'room:manage', label: '管理群组' },
+  { code: 'room:read', label: '读取群组信息' },
+  { code: 'file:upload', label: '上传文件' },
+  { code: 'file:download', label: '下载文件' },
+  { code: 'config:read', label: '读取配置' },
+  { code: 'config:write', label: '修改配置' },
+  { code: 'session:manage', label: '管理会话' },
+  { code: 'session:read', label: '读取会话' },
+  { code: 'callback:manage', label: '管理回调' },
+  { code: 'callback:read', label: '读取回调' },
+  { code: 'metrics:read', label: '读取指标' },
+  { code: 'metrics:write', label: '记录指标' }
 ];
 
 const AVAILABLE_OPERATIONS = [
-  'send_text', 'send_image', 'send_file',
-  'create_room', 'invite_to_room',
-  'forward_message', 'reply_message',
-  'upload_file', 'download_file',
-  'get_contacts', 'get_rooms',
-  'update_profile', 'set_status'
+  { code: 'send_text', label: '发送文本' },
+  { code: 'send_image', label: '发送图片' },
+  { code: 'send_file', label: '发送文件' },
+  { code: 'create_room', label: '创建群组' },
+  { code: 'invite_to_room', label: '邀请入群' },
+  { code: 'forward_message', label: '转发消息' },
+  { code: 'reply_message', label: '回复消息' },
+  { code: 'upload_file', label: '上传文件' },
+  { code: 'download_file', label: '下载文件' },
+  { code: 'get_contacts', label: '获取联系人' },
+  { code: 'get_rooms', label: '获取群组' },
+  { code: 'update_profile', label: '更新资料' },
+  { code: 'set_status', label: '设置状态' }
 ];
 
 export default function RobotRoleManager() {
@@ -174,22 +190,22 @@ export default function RobotRoleManager() {
   };
 
   // 切换权限
-  const togglePermission = (permission: string) => {
+  const togglePermission = (permissionCode: string) => {
     setFormData(prev => ({
       ...prev,
-      permissions: Array.isArray(prev.permissions) && prev.permissions.includes(permission)
-        ? prev.permissions.filter(p => p !== permission)
-        : [...(Array.isArray(prev.permissions) ? prev.permissions : []), permission]
+      permissions: Array.isArray(prev.permissions) && prev.permissions.includes(permissionCode)
+        ? prev.permissions.filter(p => p !== permissionCode)
+        : [...(Array.isArray(prev.permissions) ? prev.permissions : []), permissionCode]
     }));
   };
 
   // 切换操作
-  const toggleOperation = (operation: string) => {
+  const toggleOperation = (operationCode: string) => {
     setFormData(prev => ({
       ...prev,
-      allowed_operations: Array.isArray(prev.allowed_operations) && prev.allowed_operations.includes(operation)
-        ? prev.allowed_operations.filter(o => o !== operation)
-        : [...(Array.isArray(prev.allowed_operations) ? prev.allowed_operations : []), operation]
+      allowed_operations: Array.isArray(prev.allowed_operations) && prev.allowed_operations.includes(operationCode)
+        ? prev.allowed_operations.filter(o => o !== operationCode)
+        : [...(Array.isArray(prev.allowed_operations) ? prev.allowed_operations : []), operationCode]
     }));
   };
 
@@ -252,13 +268,13 @@ export default function RobotRoleManager() {
               <div>
                 <Label>权限配置 ({formData.permissions?.length || 0} 项)</Label>
                 <div className="mt-2 grid grid-cols-2 gap-2 p-4 border rounded-lg max-h-48 overflow-y-auto">
-                  {AVAILABLE_PERMISSIONS.map(permission => (
-                    <label key={permission} className="flex items-center gap-2 cursor-pointer">
+                  {AVAILABLE_PERMISSIONS.map(({ code, label }) => (
+                    <label key={code} className="flex items-center gap-2 cursor-pointer">
                       <Checkbox
-                        checked={Array.isArray(formData.permissions) && formData.permissions.includes(permission)}
-                        onCheckedChange={() => togglePermission(permission)}
+                        checked={Array.isArray(formData.permissions) && formData.permissions.includes(code)}
+                        onCheckedChange={() => togglePermission(code)}
                       />
-                      <span className="text-sm">{permission}</span>
+                      <span className="text-sm">{label}</span>
                     </label>
                   ))}
                 </div>
@@ -267,13 +283,13 @@ export default function RobotRoleManager() {
               <div>
                 <Label>允许的操作 ({formData.allowed_operations?.length || 0} 项)</Label>
                 <div className="mt-2 grid grid-cols-2 gap-2 p-4 border rounded-lg max-h-48 overflow-y-auto">
-                  {AVAILABLE_OPERATIONS.map(operation => (
-                    <label key={operation} className="flex items-center gap-2 cursor-pointer">
+                  {AVAILABLE_OPERATIONS.map(({ code, label }) => (
+                    <label key={code} className="flex items-center gap-2 cursor-pointer">
                       <Checkbox
-                        checked={Array.isArray(formData.allowed_operations) && formData.allowed_operations.includes(operation)}
-                        onCheckedChange={() => toggleOperation(operation)}
+                        checked={Array.isArray(formData.allowed_operations) && formData.allowed_operations.includes(code)}
+                        onCheckedChange={() => toggleOperation(code)}
                       />
-                      <span className="text-sm">{operation}</span>
+                      <span className="text-sm">{label}</span>
                     </label>
                   ))}
                 </div>
