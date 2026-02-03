@@ -18,3 +18,5 @@ exports.updateQADatabaseSchema = require("./schema").updateQADatabaseSchema;
 exports.insertRobotSchema = require("./schema").insertRobotSchema;
 exports.updateRobotSchema = require("./schema").updateRobotSchema;
 exports.insertCallbackHistorySchema = require("./schema").insertCallbackHistorySchema;
+exports.documents = require("./schema").documents;
+exports.documentsTable = require("./schema").documentsTable;

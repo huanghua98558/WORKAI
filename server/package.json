@@ -9,18 +9,19 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "fastify": "^5.7.2",
     "@fastify/cors": "^11.2.0",
     "@fastify/helmet": "^13.0.2",
+    "@fastify/multipart": "^9.4.0",
     "@fastify/rate-limit": "^10.3.0",
-    "ioredis": "^5.9.2",
     "axios": "^1.13.4",
+    "coze-coding-dev-sdk": "^0.7.3",
     "dotenv": "^17.2.3",
-    "openai": "^6.17.0",
     "drizzle-orm": "^0.45.1",
+    "fastify": "^5.7.2",
+    "ioredis": "^5.9.2",
+    "openai": "^6.17.0",
     "pg": "^8.16.3",
-    "zod": "^4.3.6",
-    "coze-coding-dev-sdk": "^0.7.3"
+    "zod": "^4.3.6"
   },
   "engines": {
     "node": ">=18.0.0"

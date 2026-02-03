@@ -2,7 +2,7 @@
  * 文档管理服务
  */
 
-const { db } = require('../database');
+const { getDb } = require('coze-coding-dev-sdk');
 const { documents } = require('../database/schema');
 const { eq, desc, and, sql } = require('drizzle-orm');
 const fs = require('fs').promises;
@@ -13,6 +13,7 @@ class DocumentService {
    * 获取所有文档
    */
   async getAllDocuments(filters = {}) {
+    const db = await getDb();
     const { category, isActive, source } = filters;
     
     let query = db.select().from(documents).orderBy(desc(documents.createdAt));
@@ -43,6 +44,7 @@ class DocumentService {
    * 根据ID获取文档
    */
   async getDocumentById(id) {
+    const db = await getDb();
     const docs = await db.select().from(documents).where(eq(documents.id, id));
     return docs[0] || null;
   }
@@ -51,6 +53,7 @@ class DocumentService {
    * 创建文档（文本类型）
    */
   async createTextDocument(data) {
+    const db = await getDb();
     const { title, content, category, uploadedBy } = data;
     
     const [newDoc] = await db.insert(documents).values({
@@ -89,6 +92,7 @@ class DocumentService {
    * 更新文档
    */
   async updateDocument(id, data) {
+    const db = await getDb();
     const updateData = { ...data };
     
     // 如果更新了内容，重新计算文件大小
@@ -109,6 +113,7 @@ class DocumentService {
    * 删除文档
    */
   async deleteDocument(id) {
+    const db = await getDb();
     const doc = await this.getDocumentById(id);
     
     if (!doc) {
@@ -127,6 +132,7 @@ class DocumentService {
    * 搜索文档（根据标题和内容）
    */
   async searchDocuments(keyword, filters = {}) {
+    const db = await getDb();
     const { category, isActive } = filters;
     
     let query = db.select().from(documents)
@@ -146,6 +152,7 @@ class DocumentService {
    * 获取文档统计信息
    */
   async getDocumentStats() {
+    const db = await getDb();
     const stats = await db
       .select({
         total: sql`COUNT(*)::int`,
