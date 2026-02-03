@@ -29,7 +29,8 @@
         "description": "多模态Agent优化模型（默认）",
         "category": [
           "intent",
-          "service"
+          "service",
+          "conversion"
         ],
         "maxTokens": 128000,
         "supportStream": true
@@ -94,7 +95,8 @@
         "description": "强大的对话能力，适合复杂推理",
         "category": [
           "service",
-          "report"
+          "report",
+          "conversion"
         ],
         "maxTokens": 128000,
         "supportStream": true

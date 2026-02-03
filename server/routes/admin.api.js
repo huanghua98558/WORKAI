@@ -55,6 +55,13 @@ const adminApiRoutes = async function (fastify, options) {
           builtinModelId: 'doubao-pro-32k',
           useCustom: false,
           customModel: null
+        },
+        // 转化客服配置
+        conversion: aiConfig?.conversion || {
+          useBuiltin: true,
+          builtinModelId: 'doubao-seed-1-8-251228',
+          useCustom: false,
+          customModel: null
         }
       },
       autoReply: config.get('autoReply'),

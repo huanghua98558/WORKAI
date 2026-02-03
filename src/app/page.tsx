@@ -2595,6 +2595,27 @@ ${callbacks.robotStatus}
 1. 回复简短，控制在 100 字以内
 2. 语气轻松活泼，可以使用表情符号
 3. 保持对话连贯性`,
+        'conversion': `你是一个专业的转化客服专员，擅长通过对话引导用户完成转化目标。
+
+转化目标：
+- 引导用户购买产品/服务
+- 引导用户填写表单/注册账号
+- 引导用户参加活动/预约
+- 引导用户咨询详情
+
+回复策略：
+1. 先了解用户需求和痛点
+2. 针对性地介绍产品/服务的价值
+3. 用利益点而非功能点打动用户
+4. 适时提出行动号召（CTA）
+5. 语气热情、专业、有说服力
+6. 适度使用表情符号增加亲和力
+7. 控制在 300 字以内，保持简洁有力
+
+注意事项：
+- 不要过于强势或推销感太强
+- 关注用户反馈，灵活调整策略
+- 建立信任，避免引起反感`,
         'report': `你是一个数据分析师。请根据以下数据生成日终总结报告。
 
 报告要求：
@@ -2612,6 +2633,7 @@ ${callbacks.robotStatus}
         'intentRecognition': 'intent',
         'serviceReply': 'service',
         'chat': 'chat',
+        'conversion': 'service',
         'report': 'report'
       };
       return mapping[type] || type;
@@ -4259,9 +4281,10 @@ ${callbacks.robotStatus}
               </div>
             ) : (
               <Tabs value={activeAiTab} onValueChange={handleTabChange} className="space-y-4">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="intentRecognition">意图判断</TabsTrigger>
                   <TabsTrigger value="serviceChat">客服与闲聊</TabsTrigger>
+                  <TabsTrigger value="conversion">转化客服</TabsTrigger>
                   <TabsTrigger value="report">报告生成</TabsTrigger>
                 </TabsList>
 
@@ -4293,6 +4316,30 @@ ${callbacks.robotStatus}
                       type="serviceReply"
                       title="客服与闲聊模型"
                       description="用于自动回复服务类问题和闲聊陪伴，生成专业、友好、自然的对话"
+                      aiConfig={propsAiConfig}
+                      onSaveConfig={saveAiConfig}
+                    />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="conversion">
+                  <div className="space-y-6">
+                    <div className="p-4 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <div className="flex items-start gap-2">
+                        <Info className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                        <div className="text-sm text-amber-900 dark:text-amber-100">
+                          <p className="font-medium mb-1">转化客服专用模式</p>
+                          <p className="text-amber-700 dark:text-amber-300">
+                            转化客服模式专门用于销售和转化场景，通过引导性对话促进用户完成购买、注册等转化目标。需要在机器人管理中为特定机器人开启"转化客服模式"才能生效。
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <AiModelConfig
+                      type="conversion"
+                      title="转化客服模型"
+                      description="用于销售转化场景，通过对话引导用户完成购买、注册、预约等转化目标"
                       aiConfig={propsAiConfig}
                       onSaveConfig={saveAiConfig}
                     />
