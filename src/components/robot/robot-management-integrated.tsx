@@ -63,20 +63,20 @@ interface Robot {
   expiresAt?: string;
   messageCallbackEnabled?: boolean;
   // 回调地址（5个）
-  callbackMessageUrl?: string;
-  callbackGroupQrcodeUrl?: string;
-  callbackCommandResultUrl?: string;
-  callbackRobotOnlineUrl?: string;
-  callbackRobotOfflineUrl?: string;
+  messageCallbackUrl?: string;
+  resultCallbackUrl?: string;
+  qrcodeCallbackUrl?: string;
+  onlineCallbackUrl?: string;
+  offlineCallbackUrl?: string;
   // 通讯地址（8个）
-  endpointSendMessageUrl?: string;
-  endpointGetFriendsUrl?: string;
-  endpointGetGroupsUrl?: string;
-  endpointUploadFileUrl?: string;
-  endpointGetQrcodeUrl?: string;
-  endpointJoinGroupUrl?: string;
-  endpointInviteMemberUrl?: string;
-  endpointGroupMembersUrl?: string;
+  sendMessageApi?: string;
+  updateApi?: string;
+  getInfoApi?: string;
+  onlineApi?: string;
+  onlineInfosApi?: string;
+  listRawMessageApi?: string;
+  rawMsgListApi?: string;
+  qaLogListApi?: string;
 }
 
 export default function RobotManagement() {
@@ -242,6 +242,37 @@ export default function RobotManagement() {
     // 重置测试结果
     setTestResults({});
     setApiLogs([]);
+  };
+
+  // 重新生成地址
+  const handleRegenerateUrls = async () => {
+    if (!selectedRobot) return;
+
+    setIsSaving(true);
+    try {
+      const response = await fetch(`/api/proxy/admin/robots/${selectedRobot.id}/regenerate-urls`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+
+      const result = await response.json();
+
+      if (result.code === 0) {
+        // 更新选中的机器人
+        setSelectedRobot(result.data);
+        // 刷新机器人列表
+        await loadRobots();
+        alert('地址重新生成成功！');
+      } else {
+        alert('地址重新生成失败：' + result.message);
+      }
+    } catch (error: any) {
+      console.error('重新生成地址失败:', error);
+      alert('地址重新生成失败：' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -1271,6 +1302,17 @@ export default function RobotManagement() {
               <CardDescription>查看和管理机器人的回调地址与通讯地址</CardDescription>
             </CardHeader>
             <CardContent>
+              {/* 提示和操作栏 */}
+              <div className="flex items-center justify-between mb-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                <div className="text-sm text-blue-700 dark:text-blue-300">
+                  {selectedRobot.messageCallbackUrl ? '地址已生成' : '地址未生成，请点击按钮生成'}
+                </div>
+                <Button size="sm" onClick={handleRegenerateUrls} disabled={isSaving}>
+                  <RefreshCw className={`w-4 h-4 mr-2 ${isSaving ? 'animate-spin' : ''}`} />
+                  {isSaving ? '生成中...' : '重新生成地址'}
+                </Button>
+              </div>
+              
               <div className="space-y-4">
                 {/* 通讯地址折叠面板 */}
                 <div className="space-y-4">
@@ -1292,14 +1334,14 @@ export default function RobotManagement() {
                         </Button>
                       </div>
                       {[
-                        { key: 'endpointSendMessageUrl', label: '发送消息', type: 'sendMessage' },
-                        { key: 'endpointGetFriendsUrl', label: '获取好友列表', type: 'getFriends' },
-                        { key: 'endpointGetGroupsUrl', label: '获取群组列表', type: 'getGroups' },
-                        { key: 'endpointUploadFileUrl', label: '上传文件', type: 'uploadFile' },
-                        { key: 'endpointGetQrcodeUrl', label: '获取二维码', type: 'getQrcode' },
-                        { key: 'endpointJoinGroupUrl', label: '加入群组', type: 'joinGroup' },
-                        { key: 'endpointInviteMemberUrl', label: '邀请成员', type: 'inviteMember' },
-                        { key: 'endpointGroupMembersUrl', label: '群组成员', type: 'groupMembers' }
+                        { key: 'sendMessageApi', label: '发送消息', type: 'sendMessage' },
+                        { key: 'updateApi', label: '机器人后端通讯加密地址', type: 'update' },
+                        { key: 'getInfoApi', label: '获取机器人信息地址', type: 'getInfo' },
+                        { key: 'onlineApi', label: '查询机器人是否在线地址', type: 'online' },
+                        { key: 'onlineInfosApi', label: '查询机器人登录日志地址', type: 'onlineInfos' },
+                        { key: 'listRawMessageApi', label: '指令消息API调用查询地址', type: 'listRawMessage' },
+                        { key: 'rawMsgListApi', label: '指令执行结果查询地址', type: 'rawMsgList' },
+                        { key: 'qaLogListApi', label: '机器人消息回调日志列表查询地址', type: 'qaLogList' }
                       ].map(endpoint => (
                         <div key={endpoint.key} className="flex items-center gap-2 p-2 border rounded-lg bg-secondary/30">
                           <div className="flex-1">
@@ -1343,11 +1385,11 @@ export default function RobotManagement() {
                     </CollapsibleTrigger>
                     <CollapsibleContent className="space-y-2 mt-2">
                       {[
-                        { key: 'callbackMessageUrl', label: '消息回调' },
-                        { key: 'callbackGroupQrcodeUrl', label: '群二维码回调' },
-                        { key: 'callbackCommandResultUrl', label: '指令结果回调' },
-                        { key: 'callbackRobotOnlineUrl', label: '上线回调' },
-                        { key: 'callbackRobotOfflineUrl', label: '下线回调' }
+                        { key: 'messageCallbackUrl', label: '消息回调' },
+                        { key: 'resultCallbackUrl', label: '执行结果回调' },
+                        { key: 'qrcodeCallbackUrl', label: '群二维码回调' },
+                        { key: 'onlineCallbackUrl', label: '机器人上线回调' },
+                        { key: 'offlineCallbackUrl', label: '机器人下线回调' }
                       ].map(endpoint => (
                         <div key={endpoint.key} className="p-2 border rounded-lg bg-secondary/30">
                           <div className="text-sm font-medium">{endpoint.label}</div>

@@ -1026,6 +1026,49 @@ const robotApiRoutes = async function (fastify, options) {
     }
   });
 
+  // 为机器人重新生成地址
+  fastify.post('/robots/:id/regenerate-urls', async (request, reply) => {
+    try {
+      const { id } = request.params;
+
+      // 查询机器人
+      const robot = await robotService.getRobotById(id);
+      if (!robot) {
+        return reply.status(404).send({
+          code: -1,
+          message: '机器人不存在'
+        });
+      }
+
+      // 生成新的地址
+      const callbackBaseUrl = request.body.callbackBaseUrl || process.env.CALLBACK_BASE_URL || 'http://localhost:5000';
+      const urls = robotService.generateRobotUrls(
+        robot.robotId,
+        robot.apiBaseUrl,
+        callbackBaseUrl
+      );
+
+      // 更新机器人
+      const updatedRobot = await robotService.updateRobot(id, {
+        ...urls,
+        callbackBaseUrl
+      });
+
+      return reply.send({
+        code: 0,
+        message: '地址重新生成成功',
+        data: updatedRobot
+      });
+    } catch (error) {
+      console.error('重新生成地址失败:', error);
+      return reply.status(500).send({
+        code: -1,
+        message: '重新生成地址失败',
+        error: error.message
+      });
+    }
+  });
+
   // 测试单个 API 接口
   fastify.post('/robots/:id/api-endpoints/test', async (request, reply) => {
     try {
