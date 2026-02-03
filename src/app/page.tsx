@@ -93,12 +93,9 @@ import {
   Circle,
   Mail,
   Building2,
-  TestTube,
   Send,
   BookOpen
 } from 'lucide-react';
-
-import DebugDialog from '@/components/debug-dialog';
 
 // 类型定义
 interface CallbackUrl {
@@ -205,7 +202,6 @@ export default function AdminDashboard() {
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'loading'>('loading');
   const [aiConfig, setAiConfig] = useState<any>(null);
   const [isLoadingAiConfig, setIsLoadingAiConfig] = useState(false);
-  const [showDebugDialog, setShowDebugDialog] = useState(false);
   const [serverUptime, setServerUptime] = useState<string>('加载中...');
   const [showSessionDetail, setShowSessionDetail] = useState(false);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
@@ -1679,14 +1675,6 @@ ${callbacks.robotStatus}
               >
                 <Settings className="h-4 w-4" />
                 系统设置
-              </Button>
-              <Button
-                className="w-full justify-start gap-2"
-                variant="outline"
-                onClick={() => setShowDebugDialog(true)}
-              >
-                <TestTube className="h-4 w-4" />
-                调试功能
               </Button>
             </CardContent>
           </Card>
@@ -4909,15 +4897,6 @@ ${callbacks.robotStatus}
                   </>
                 )}
               </Badge>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setShowDebugDialog(true)}
-                className="gap-2"
-              >
-                <TestTube className="h-4 w-4" />
-                <span className="hidden sm:inline">调试</span>
-              </Button>
             </div>
           </div>
         </div>
@@ -4948,7 +4927,7 @@ ${callbacks.robotStatus}
               <span className="hidden sm:inline">实时IO</span>
             </TabsTrigger>
             <TabsTrigger value="prompt-training" className="gap-2 py-2">
-              <TestTube className="h-4 w-4" />
+              <Zap className="h-4 w-4" />
               <span className="hidden sm:inline">AI 训练</span>
             </TabsTrigger>
             <TabsTrigger value="callbacks" className="gap-2 py-2 hidden">
@@ -5158,8 +5137,6 @@ ${callbacks.robotStatus}
           </div>
         </div>
       </footer>
-
-      <DebugDialog open={showDebugDialog} onOpenChange={setShowDebugDialog} />
 
       {/* 会话详情弹窗 */}
       <Dialog open={showSessionDetail} onOpenChange={setShowSessionDetail}>
