@@ -76,7 +76,10 @@ class MessageProcessingService {
       await sessionMessageService.saveUserMessage(
         session.sessionId,
         {
-          ...messageContext,
+          userId: messageContext.fromName,
+          groupId: messageContext.groupName,
+          userName: messageContext.fromName,
+          content: messageContext.content,
           timestamp: messageData.timestamp || new Date()
         },
         messageData.messageId,
@@ -495,7 +498,12 @@ class MessageProcessingService {
     await sessionMessageService.saveBotMessage(
       session.sessionId,
       reply,
-      messageContext,
+      {
+        userId: messageContext.fromName,
+        groupId: messageContext.groupName,
+        userName: messageContext.fromName,
+        groupName: messageContext.groupName,
+      },
       intent,
       robot
     );

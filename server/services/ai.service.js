@@ -168,17 +168,20 @@ class AIService {
     const robotId = context.robotId || null;
     const robotName = context.robotName || null;
 
+    let clientConfig;
+    let messages;
+
     try {
-      const clientConfig = this.getClient('intentRecognition');
-      
-      const messages = [
-        { 
-          role: 'system', 
-          content: clientConfig.systemPrompt 
+      clientConfig = this.getClient('intentRecognition');
+
+      messages = [
+        {
+          role: 'system',
+          content: clientConfig.systemPrompt
         },
-        { 
-          role: 'user', 
-          content: `消息内容：${message}\n\n上下文信息：${JSON.stringify(context)}` 
+        {
+          role: 'user',
+          content: `消息内容：${message}\n\n上下文信息：${JSON.stringify(context)}`
         }
       ];
 
@@ -189,7 +192,7 @@ class AIService {
 
       const content = response.content;
       const duration = Date.now() - startTime;
-      
+
       // 记录 AI IO 日志
       await aiIoLogService.saveLog({
         sessionId,
@@ -204,7 +207,7 @@ class AIService {
         requestDuration: duration,
         status: 'success',
       });
-      
+
       // 尝试解析 JSON
       let result;
       try {
@@ -226,7 +229,7 @@ class AIService {
     } catch (error) {
       const duration = Date.now() - startTime;
       console.error('意图识别失败:', error.message);
-      
+
       // 记录错误日志
       await aiIoLogService.saveLog({
         sessionId,
@@ -234,7 +237,7 @@ class AIService {
         robotId,
         robotName,
         operationType: 'intent_recognition',
-        aiInput: JSON.stringify(messages),
+        aiInput: messages ? JSON.stringify(messages) : null,
         aiOutput: null,
         modelId: clientConfig?.modelId,
         temperature: clientConfig?.temperature,
@@ -242,7 +245,7 @@ class AIService {
         status: 'error',
         errorMessage: error.message,
       });
-      
+
       // 降级处理：返回默认意图
       return {
         intent: 'chat',
@@ -264,17 +267,20 @@ class AIService {
     const robotId = context.robotId || null;
     const robotName = context.robotName || null;
 
-    try {
-      const clientConfig = this.getClient('serviceReply');
+    let clientConfig;
+    let messages;
 
-      const messages = [
-        { 
-          role: 'system', 
-          content: clientConfig.systemPrompt 
+    try {
+      clientConfig = this.getClient('serviceReply');
+
+      messages = [
+        {
+          role: 'system',
+          content: clientConfig.systemPrompt
         },
-        { 
-          role: 'user', 
-          content: `用户问题：${userMessage}\n意图：${intent}` 
+        {
+          role: 'user',
+          content: `用户问题：${userMessage}\n意图：${intent}`
         }
       ];
 
@@ -285,7 +291,7 @@ class AIService {
 
       const duration = Date.now() - startTime;
       const content = response.content;
-      
+
       // 记录 AI IO 日志
       await aiIoLogService.saveLog({
         sessionId,
@@ -305,7 +311,7 @@ class AIService {
     } catch (error) {
       const duration = Date.now() - startTime;
       console.error('生成服务回复失败:', error.message);
-      
+
       // 记录错误日志
       await aiIoLogService.saveLog({
         sessionId,
@@ -313,7 +319,7 @@ class AIService {
         robotId,
         robotName,
         operationType: 'service_reply',
-        aiInput: JSON.stringify(messages),
+        aiInput: messages ? JSON.stringify(messages) : null,
         aiOutput: null,
         modelId: clientConfig?.modelId,
         temperature: clientConfig?.temperature,
@@ -321,7 +327,7 @@ class AIService {
         status: 'error',
         errorMessage: error.message,
       });
-      
+
       // 降级处理：返回固定话术
       return '您好，我已收到您的问题，正在为您处理中，请稍等片刻 🙏';
     }
@@ -337,13 +343,16 @@ class AIService {
     const robotId = context.robotId || null;
     const robotName = context.robotName || null;
 
-    try {
-      const clientConfig = this.getClient('chat');
+    let clientConfig;
+    let messages;
 
-      const messages = [
-        { 
-          role: 'system', 
-          content: clientConfig.systemPrompt 
+    try {
+      clientConfig = this.getClient('chat');
+
+      messages = [
+        {
+          role: 'system',
+          content: clientConfig.systemPrompt
         },
         { role: 'user', content: userMessage }
       ];
@@ -355,7 +364,7 @@ class AIService {
 
       const duration = Date.now() - startTime;
       const content = response.content;
-      
+
       // 记录 AI IO 日志
       await aiIoLogService.saveLog({
         sessionId,
@@ -375,7 +384,7 @@ class AIService {
     } catch (error) {
       const duration = Date.now() - startTime;
       console.error('生成闲聊回复失败:', error.message);
-      
+
       // 记录错误日志
       await aiIoLogService.saveLog({
         sessionId,
@@ -383,7 +392,7 @@ class AIService {
         robotId,
         robotName,
         operationType: 'chat_reply',
-        aiInput: JSON.stringify(messages),
+        aiInput: messages ? JSON.stringify(messages) : null,
         aiOutput: null,
         modelId: clientConfig?.modelId,
         temperature: clientConfig?.temperature,
@@ -391,7 +400,7 @@ class AIService {
         status: 'error',
         errorMessage: error.message,
       });
-      
+
       // 降级处理：返回随机表情
       const emojis = ['👋', '😊', '🎉', '✨', '👍', '💪'];
       return emojis[Math.floor(Math.random() * emojis.length)];
