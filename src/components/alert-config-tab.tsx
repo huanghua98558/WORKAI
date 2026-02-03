@@ -120,7 +120,7 @@ export default function AlertConfigTab() {
   const [notificationMethods, setNotificationMethods] = useState<NotificationMethod[]>([]);
 
   // 加载所有数据
-  const loadData = useCallback(async () => {
+  const loadData = async () => {
     setIsLoading(true);
     try {
       const [intentsRes, rulesRes, historyRes, statsRes] = await Promise.all([
@@ -154,11 +154,12 @@ export default function AlertConfigTab() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 加载通知方式
   const loadNotificationMethods = async (ruleId: string) => {
