@@ -126,6 +126,7 @@ export async function GET(request: NextRequest) {
 
     // 字段映射：将数据库字段名转换为前端期望的字段名
     const mappedData = result.rows.map((row: any) => ({
+      id: row.id,
       commandId: row.id,
       robotId: row.robot_id,
       commandType: row.command_type,
@@ -134,6 +135,7 @@ export async function GET(request: NextRequest) {
       priority: row.priority,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      startedAt: row.started_at,
       executedAt: row.executed_at,
       completedAt: row.completed_at,
       retryCount: row.retry_count,

@@ -52,12 +52,33 @@ export async function GET(
     `;
     const callbackResult = await execSQL(callbackQuery, [commandId]);
 
+    // 字段映射：将数据库字段名转换为前端期望的字段名
+    const rowData = result.rows[0];
+    const mappedData = {
+      id: rowData.id,
+      commandId: rowData.id,
+      robotId: rowData.robot_id,
+      commandType: rowData.command_type,
+      commandPayload: rowData.command_data,
+      status: rowData.status,
+      priority: rowData.priority,
+      createdAt: rowData.created_at,
+      updatedAt: rowData.updated_at,
+      startedAt: rowData.started_at,
+      completedAt: rowData.completed_at,
+      retryCount: rowData.retry_count,
+      maxRetries: rowData.max_retries,
+      result: rowData.result,
+      errorMessage: rowData.error_message,
+      robotName: rowData.robot_name,
+      groupId: rowData.group_id,
+      groupName: rowData.group_name,
+      callbacks: callbackResult.rows
+    };
+
     return NextResponse.json({
       success: true,
-      data: {
-        ...result.rows[0],
-        callbacks: callbackResult.rows
-      }
+      data: mappedData
     });
   } catch (error) {
     console.error('获取指令详情失败:', error);
@@ -134,9 +155,29 @@ export async function PUT(
       );
     }
 
+    // 字段映射：将数据库字段名转换为前端期望的字段名
+    const rowData = result.rows[0];
+    const mappedData = {
+      id: rowData.id,
+      commandId: rowData.id,
+      robotId: rowData.robot_id,
+      commandType: rowData.command_type,
+      commandPayload: rowData.command_data,
+      status: rowData.status,
+      priority: rowData.priority,
+      createdAt: rowData.created_at,
+      updatedAt: rowData.updated_at,
+      startedAt: rowData.started_at,
+      completedAt: rowData.completed_at,
+      retryCount: rowData.retry_count,
+      maxRetries: rowData.max_retries,
+      result: rowData.result,
+      errorMessage: rowData.error_message
+    };
+
     return NextResponse.json({
       success: true,
-      data: result.rows[0],
+      data: mappedData,
       message: '更新指令状态成功'
     });
   } catch (error) {

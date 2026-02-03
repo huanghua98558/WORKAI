@@ -458,11 +458,12 @@ export default function AdminDashboard() {
 
       const data = await res.json();
 
-      if (!res.ok || data.code !== 0) {
+      // 注意：API 返回的是 { success: true/false, data: {...} }，不是 { code: 0 }
+      if (!res.ok || !data.success) {
         throw new Error(data.message || '创建指令失败');
       }
 
-      const commandId = data.data.id;
+      const commandId = data.data.commandId || data.data.id;
 
       // 轮询指令状态
       let attempts = 0;
@@ -475,7 +476,8 @@ export default function AdminDashboard() {
         const statusRes = await fetch(`/api/admin/robot-commands/${commandId}`);
         const statusData = await statusRes.json();
 
-        if (statusRes.ok && statusData.code === 0 && statusData.data) {
+        // 注意：API 返回的是 { success: true, data: {...} }，不是 { code: 0 }
+        if (statusRes.ok && statusData.success && statusData.data) {
           const command = statusData.data;
           if (command.status === 'completed') {
             finalStatus = command;
