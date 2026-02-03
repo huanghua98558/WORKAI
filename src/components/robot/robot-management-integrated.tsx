@@ -74,6 +74,7 @@ export default function RobotManagement() {
   // 表单状态
   const [editFormData, setEditFormData] = useState({
     name: '',
+    robotId: '',
     description: '',
   });
   const [configFormData, setConfigFormData] = useState({
@@ -135,6 +136,7 @@ export default function RobotManagement() {
     setSelectedRobot(robot);
     setEditFormData({
       name: robot.name,
+      robotId: robot.robotId,
       description: robot.description || '',
     });
     setShowEditDialog(true);
@@ -717,8 +719,14 @@ export default function RobotManagement() {
             <CardContent>
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium mb-1 block">机器人ID</label>
-                  <div className="p-2 border rounded bg-muted text-sm">{selectedRobot.robotId}</div>
+                  <label className="text-sm font-medium mb-1 block">机器人ID <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={editFormData.robotId}
+                    onChange={(e) => setEditFormData({ ...editFormData, robotId: e.target.value })}
+                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="请输入机器人ID"
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-1 block">机器人名称 <span className="text-red-500">*</span></label>
@@ -757,7 +765,7 @@ export default function RobotManagement() {
               <Button variant="outline" onClick={() => setShowEditDialog(false)}>
                 取消
               </Button>
-              <Button onClick={handleSaveEdit} disabled={isSaving || !editFormData.name.trim()}>
+              <Button onClick={handleSaveEdit} disabled={isSaving || !editFormData.name.trim() || !editFormData.robotId.trim()}>
                 {isSaving ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
