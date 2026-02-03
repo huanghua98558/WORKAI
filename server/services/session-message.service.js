@@ -6,32 +6,105 @@
 const { getDb } = require('coze-coding-dev-sdk');
 const { sessionMessages } = require('../database/schema');
 const { sql } = require('drizzle-orm');
+const logger = require('./system-logger.service');
 
 class SessionMessageService {
   /**
    * 保存用户消息
    */
   async saveUserMessage(sessionId, messageContext, messageId, robot) {
-    const db = await getDb();
+    try {
+      const db = await getDb();
 
-    const message = {
-      sessionId: sessionId,
-      messageId: messageId || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-      userId: messageContext.userId || messageContext.fromName,
-      groupId: messageContext.groupId || messageContext.groupName,
-      userName: messageContext.userName || messageContext.fromName,
-      groupName: messageContext.groupName,
-      content: messageContext.content,
-      isFromUser: true,
-      isFromBot: false,
-      isHuman: false,
-      robotId: robot?.robotId || null,
-      robotName: robot?.nickname || robot?.name || null,
-      timestamp: messageContext.timestamp || new Date(),
-    };
+      // 验证必填字段
+      if (!sessionId) {
+        throw new Error('sessionId 不能为空');
+      }
 
-    await db.insert(sessionMessages).values(message);
-    console.log(`[会话消息] 保存用户消息: sessionId=${sessionId}, robot=${robot?.nickname || robot?.name || '未知'}, content="${messageContext.content.substring(0, 50)}..."`);
+      if (!messageContext || !messageContext.content) {
+        throw new Error('消息内容不能为空');
+      }
+
+      const message = {
+        sessionId: sessionId,
+        messageId: messageId || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+        userId: messageContext.userId || messageContext.fromName || null,
+        groupId: messageContext.groupId || messageContext.groupName || null,
+        userName: messageContext.userName || messageContext.fromName || null,
+        groupName: messageContext.groupName || null,
+        content: messageContext.content,
+        isFromUser: true,
+        isFromBot: false,
+        isHuman: false,
+        robotId: robot?.robotId || null,
+        robotName: robot?.nickname || robot?.name || null,
+        timestamp: messageContext.timestamp || new Date(),
+      };
+
+      // 验证字段长度
+      if (message.sessionId && message.sessionId.length > 255) {
+        throw new Error(`sessionId 长度超过限制: ${message.sessionId.length}`);
+      }
+
+      if (message.robotId && message.robotId.length > 64) {
+        throw new Error(`robotId 长度超过限制: ${message.robotId.length}, value: ${message.robotId}`);
+      }
+
+      if (message.robotName && message.robotName.length > 255) {
+        throw new Error(`robotName 长度超过限制: ${message.robotName.length}`);
+      }
+
+      logger.info('SessionMessage', '准备保存用户消息', {
+        sessionId: message.sessionId,
+        messageId: message.messageId,
+        robotId: message.robotId,
+        robotName: message.robotName,
+        contentLength: message.content.length,
+        timestamp: message.timestamp
+      });
+
+      await db.insert(sessionMessages).values(message);
+
+      logger.info('SessionMessage', '用户消息保存成功', {
+        sessionId: message.sessionId,
+        messageId: message.messageId,
+        robotId: message.robotId,
+        robotName: message.robotName,
+        contentLength: message.content.length
+      });
+
+      console.log(`[会话消息] 保存用户消息: sessionId=${sessionId}, robot=${robot?.nickname || robot?.name || '未知'}, content="${messageContext.content.substring(0, 50)}..."`);
+    } catch (error) {
+      logger.error('SessionMessage', '保存用户消息失败', {
+        sessionId,
+        messageId,
+        robotId: robot?.robotId,
+        robotName: robot?.nickname || robot?.name,
+        error: error.message,
+        stack: error.stack,
+        messageContext: {
+          userId: messageContext?.userId,
+          groupId: messageContext?.groupId,
+          userName: messageContext?.userName,
+          groupName: messageContext?.groupName,
+          contentLength: messageContext?.content?.length,
+          timestamp: messageContext?.timestamp
+        }
+      });
+
+      console.error('[会话消息] 保存用户消息失败:', error);
+      console.error('[会话消息] 错误详情:', {
+        sessionId,
+        messageId,
+        robotId: robot?.robotId,
+        robotIdLength: robot?.robotId?.length,
+        robotName: robot?.nickname || robot?.name,
+        error: error.message,
+        stack: error.stack
+      });
+
+      throw error;
+    }
   }
 
   /**

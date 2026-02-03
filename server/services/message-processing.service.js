@@ -85,7 +85,20 @@ class MessageProcessingService {
       });
 
       // 步骤4: 保存用户消息到数据库
-      logger.info('MessageProcessing', '步骤4: 保存用户消息到数据库', { processingId });
+      logger.info('MessageProcessing', '步骤4: 保存用户消息到数据库', {
+        processingId,
+        sessionId: session.sessionId,
+        messageId: messageData.messageId,
+        robotId: robot.robotId,
+        robotIdLength: robot.robotId?.length,
+        robotName: robot.name,
+        robotNickname: robot.nickname,
+        userId: messageContext.fromName,
+        groupId: messageContext.groupName,
+        contentLength: messageContext.content.length,
+        timestamp: messageData.timestamp
+      });
+
       await sessionMessageService.saveUserMessage(
         session.sessionId,
         {
@@ -239,12 +252,17 @@ class MessageProcessingService {
         stack: error.stack,
         processingId,
         robotId: robot.robotId,
+        robotIdLength: robot.robotId?.length,
         robotName: robot.name,
+        robotNickname: robot.nickname,
         userId: messageData.fromName,
         groupId: messageData.groupName,
         messageContent: messageContent.substring(0, 200),
         errorType: error.constructor.name,
         errorCode: error.code,
+        errorDetail: error.detail,
+        errorConstraint: error.constraint,
+        errorTable: error.table,
         timestamp: new Date().toISOString()
       });
 
