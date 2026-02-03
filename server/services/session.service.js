@@ -28,16 +28,26 @@ class SessionService {
    */
   async getOrCreateSession(userId, groupId, userInfo = {}) {
     const redis = await this.getRedis();
-    const sessionId = `${groupId}_${userId}`;
+    
+    // 生成 sessionId：使用哈希确保长度不超过限制
+    // 原始格式：${groupId}_${userId} 可能会超过 255 字符
+    // 新格式：hash(${groupId}_${userId})
+    const originalSessionId = `${groupId}_${userId}`;
+    const sessionId = this.hashSessionId(originalSessionId);
+    
     const key = `${this.sessionPrefix}${sessionId}`;
 
     const existing = await redis.get(key);
     if (existing) {
-      return JSON.parse(existing);
+      const session = JSON.parse(existing);
+      // 存储原始 sessionId 用于调试
+      session.originalSessionId = originalSessionId;
+      return session;
     }
 
     const session = {
       sessionId,
+      originalSessionId, // 存储原始 ID
       userId,
       groupId,
       userInfo,
@@ -54,6 +64,23 @@ class SessionService {
 
     await redis.setex(key, this.sessionTTL, JSON.stringify(session));
     return session;
+  }
+
+  /**
+   * 生成 sessionId 的哈希值（确保长度不超过限制）
+   */
+  hashSessionId(originalId) {
+    // 简单的哈希算法：将字符串转换为数字，然后转换为 36 进制
+    let hash = 0;
+    for (let i = 0; i < originalId.length; i++) {
+      const char = originalId.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    
+    // 转换为正数并添加前缀
+    const hashStr = Math.abs(hash).toString(36);
+    return `sess_${hashStr}`;
   }
 
   /**

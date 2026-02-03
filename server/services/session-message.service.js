@@ -28,6 +28,18 @@ class SessionMessageService {
       // 获取机器人名称：优先使用 nickname，其次 name，最后使用 robotId
       const robotName = robot?.nickname || robot?.name || robot?.robotId || '未知机器人';
 
+      // 处理 timestamp：确保是有效的日期对象或 ISO 字符串
+      let timestamp = messageContext.timestamp || new Date();
+      if (typeof timestamp === 'string') {
+        timestamp = new Date(timestamp);
+      }
+      // 确保 timestamp 是有效的 Date 对象
+      if (!(timestamp instanceof Date) || isNaN(timestamp.getTime())) {
+        timestamp = new Date();
+      }
+      // 转换为 ISO 字符串
+      const timestampISO = timestamp.toISOString();
+
       const message = {
         sessionId: sessionId,
         messageId: messageId || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
@@ -41,12 +53,12 @@ class SessionMessageService {
         isHuman: false,
         robotId: robot?.robotId || null,
         robotName: robotName,
-        timestamp: messageContext.timestamp || new Date(),
+        timestamp: timestampISO,
       };
 
       // 验证字段长度
       if (message.sessionId && message.sessionId.length > 255) {
-        throw new Error(`sessionId 长度超过限制: ${message.sessionId.length}`);
+        throw new Error(`sessionId 长度超过限制: ${message.sessionId.length}, value: ${message.sessionId.substring(0, 50)}...`);
       }
 
       if (message.robotId && message.robotId.length > 64) {
@@ -54,16 +66,29 @@ class SessionMessageService {
       }
 
       if (message.robotName && message.robotName.length > 255) {
-        throw new Error(`robotName 长度超过限制: ${message.robotName.length}`);
+        throw new Error(`robotName 长度超过限制: ${message.robotName.length}, value: ${message.robotName}`);
+      }
+
+      // 验证字段类型
+      if (typeof message.content !== 'string' || message.content.length === 0) {
+        throw new Error(`content 必须是非空字符串`);
+      }
+
+      if (typeof message.isFromUser !== 'boolean') {
+        throw new Error(`isFromUser 必须是布尔值`);
       }
 
       logger.info('SessionMessage', '准备保存用户消息', {
         sessionId: message.sessionId,
+        sessionIdLength: message.sessionId.length,
         messageId: message.messageId,
         robotId: message.robotId,
+        robotIdLength: message.robotId?.length,
         robotName: message.robotName,
+        robotNameLength: message.robotName.length,
         contentLength: message.content.length,
-        timestamp: message.timestamp
+        timestamp: timestampISO,
+        timestampValid: !isNaN(new Date(timestampISO).getTime())
       });
 
       await db.insert(sessionMessages).values(message);
@@ -80,10 +105,16 @@ class SessionMessageService {
     } catch (error) {
       logger.error('SessionMessage', '保存用户消息失败', {
         sessionId,
+        sessionIdLength: sessionId?.length,
         messageId,
         robotId: robot?.robotId,
+        robotIdLength: robot?.robotId?.length,
         robotName: robot?.nickname || robot?.name || robot?.robotId,
         error: error.message,
+        errorType: error.constructor.name,
+        errorCode: error.code,
+        errorConstraint: error.constraint,
+        errorTable: error.table,
         stack: error.stack,
         messageContext: {
           userId: messageContext?.userId,
@@ -91,13 +122,16 @@ class SessionMessageService {
           userName: messageContext?.userName,
           groupName: messageContext?.groupName,
           contentLength: messageContext?.content?.length,
-          timestamp: messageContext?.timestamp
+          contentPreview: messageContext?.content?.substring(0, 100),
+          timestamp: messageContext?.timestamp,
+          timestampType: typeof messageContext?.timestamp
         }
       });
 
       console.error('[会话消息] 保存用户消息失败:', error);
       console.error('[会话消息] 错误详情:', {
         sessionId,
+        sessionIdLength: sessionId?.length,
         messageId,
         robotId: robot?.robotId,
         robotIdLength: robot?.robotId?.length,
@@ -119,6 +153,9 @@ class SessionMessageService {
     // 获取机器人名称：优先使用 nickname，其次 name，最后使用 robotId
     const robotName = robot?.nickname || robot?.name || robot?.robotId || '未知机器人';
 
+    // 处理 timestamp：确保是有效的 ISO 字符串
+    const timestampISO = new Date().toISOString();
+
     const message = {
       sessionId: sessionId,
       messageId: `bot_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
@@ -133,7 +170,7 @@ class SessionMessageService {
       intent: intent,
       robotId: robot?.robotId || null,
       robotName: robotName,
-      timestamp: new Date(),
+      timestamp: timestampISO,
     };
 
     await db.insert(sessionMessages).values(message);
@@ -149,6 +186,9 @@ class SessionMessageService {
     // 获取机器人名称：优先使用 nickname，其次 name，最后使用 robotId
     const robotName = robot?.nickname || robot?.name || robot?.robotId || '未知机器人';
 
+    // 处理 timestamp：确保是有效的 ISO 字符串
+    const timestampISO = new Date().toISOString();
+
     const message = {
       sessionId: sessionId,
       messageId: `human_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
@@ -163,7 +203,7 @@ class SessionMessageService {
       robotId: robot?.robotId || null,
       robotName: robotName,
       extraData: { operator },
-      timestamp: new Date(),
+      timestamp: timestampISO,
     };
 
     await db.insert(sessionMessages).values(message);
