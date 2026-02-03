@@ -173,6 +173,17 @@
         "apiKey": "",
         "apiBase": ""
       }
+    },
+    "memory": {
+      "enabled": true,
+      "retentionDays": 30,
+      "maxContextMessages": 20,
+      "summaryEnabled": true,
+      "userProfileEnabled": true,
+      "rememberUserPreferences": true,
+      "rememberUserHistory": true,
+      "rememberUserQuestions": true,
+      "rememberUserFeedback": true
     }
   },
   "autoReply": {

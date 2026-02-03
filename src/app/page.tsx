@@ -35,6 +35,7 @@ import MonitorTab from '@/components/monitor-tab';
 import RealtimeIOTab from '@/components/realtime-io-tab';
 import UserManagement from '@/components/user-management';
 import SettingsTab from '@/components/settings-tab';
+import MonitorMetrics from '@/components/monitor-metrics';
 import { 
   BarChart3, 
   MessageSquare,
@@ -1686,41 +1687,8 @@ ${callbacks.robotStatus}
             </CardContent>
           </Card>
 
-          {/* 快速操作 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Zap className="h-4 w-4 text-yellow-500" />
-                快速操作
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button
-                className="w-full justify-start gap-2"
-                variant="outline"
-                onClick={() => setActiveTab('callbacks')}
-              >
-                <Link2 className="h-4 w-4" />
-                配置回调地址
-              </Button>
-              <Button
-                className="w-full justify-start gap-2"
-                variant="outline"
-                onClick={() => setActiveTab('robots')}
-              >
-                <Bot className="h-4 w-4" />
-                管理机器人
-              </Button>
-              <Button
-                className="w-full justify-start gap-2"
-                variant="outline"
-                onClick={() => setActiveTab('settings')}
-              >
-                <Settings className="h-4 w-4" />
-                系统设置
-              </Button>
-            </CardContent>
-          </Card>
+          {/* 监控指标 */}
+          <MonitorMetrics />
         </div>
       </div>
     </div>

@@ -256,6 +256,176 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
               />
             </CardContent>
           </Card>
+
+          {/* 长期记忆配置 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5 text-indigo-500" />
+                长期记忆配置
+              </CardTitle>
+              <CardDescription>配置AI的长期记忆和上下文管理</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="memoryEnabled">启用长期记忆</Label>
+                  <p className="text-xs text-muted-foreground">
+                    开启后AI将记住用户的偏好和历史信息
+                  </p>
+                </div>
+                <Switch
+                  id="memoryEnabled"
+                  checked={config.ai?.memory?.enabled !== false}
+                  onCheckedChange={(checked) => {
+                    setConfig({
+                      ...config,
+                      ai: {
+                        ...config.ai,
+                        memory: {
+                          ...config.ai?.memory,
+                          enabled: checked
+                        }
+                      }
+                    });
+                  }}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="memoryRetentionDays">记忆保留天数</Label>
+                <Input
+                  id="memoryRetentionDays"
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={config.ai?.memory?.retentionDays || 30}
+                  onChange={(e) => {
+                    setConfig({
+                      ...config,
+                      ai: {
+                        ...config.ai,
+                        memory: {
+                          ...config.ai?.memory,
+                          retentionDays: parseInt(e.target.value)
+                        }
+                      }
+                    });
+                  }}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  用户记忆保留的天数，超过此时间将自动清理
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="memoryMaxContext">最大上下文消息数</Label>
+                <Input
+                  id="memoryMaxContext"
+                  type="number"
+                  min="5"
+                  max="100"
+                  value={config.ai?.memory?.maxContextMessages || 20}
+                  onChange={(e) => {
+                    setConfig({
+                      ...config,
+                      ai: {
+                        ...config.ai,
+                        memory: {
+                          ...config.ai?.memory,
+                          maxContextMessages: parseInt(e.target.value)
+                        }
+                      }
+                    });
+                  }}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  发送给AI的历史消息数量，值越大AI理解越好但响应越慢
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="memorySummaryEnabled">启用记忆摘要</Label>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs text-muted-foreground">
+                    对长期记忆进行摘要压缩，节省token消耗
+                  </p>
+                  <Switch
+                    id="memorySummaryEnabled"
+                    checked={config.ai?.memory?.summaryEnabled !== false}
+                    onCheckedChange={(checked) => {
+                      setConfig({
+                        ...config,
+                        ai: {
+                          ...config.ai,
+                          memory: {
+                            ...config.ai?.memory,
+                            summaryEnabled: checked
+                          }
+                        }
+                      });
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="memoryUserProfile">启用用户画像</Label>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs text-muted-foreground">
+                    自动构建用户画像，记住用户的偏好和习惯
+                  </p>
+                  <Switch
+                    id="memoryUserProfile"
+                    checked={config.ai?.memory?.userProfileEnabled !== false}
+                    onCheckedChange={(checked) => {
+                      setConfig({
+                        ...config,
+                        ai: {
+                          ...config.ai,
+                          memory: {
+                            ...config.ai?.memory,
+                            userProfileEnabled: checked
+                          }
+                        }
+                      });
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label>记忆内容类型</Label>
+                <div className="grid gap-2 mt-2">
+                  {[
+                    { key: 'rememberUserPreferences', label: '记住用户偏好' },
+                    { key: 'rememberUserHistory', label: '记住对话历史' },
+                    { key: 'rememberUserQuestions', label: '记住常见问题' },
+                    { key: 'rememberUserFeedback', label: '记住用户反馈' }
+                  ].map((item) => (
+                    <div key={item.key} className="flex items-center justify-between p-2 border rounded">
+                      <span className="text-sm">{item.label}</span>
+                      <Switch
+                        checked={config.ai?.memory?.[item.key] !== false}
+                        onCheckedChange={(checked) => {
+                          setConfig({
+                            ...config,
+                            ai: {
+                              ...config.ai,
+                              memory: {
+                                ...config.ai?.memory,
+                                [item.key]: checked
+                              }
+                            }
+                          });
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* 自动回复配置 */}

@@ -62,6 +62,18 @@ const adminApiRoutes = async function (fastify, options) {
           builtinModelId: 'doubao-seed-1-8-251228',
           useCustom: false,
           customModel: null
+        },
+        // 长期记忆配置
+        memory: aiConfig?.memory || {
+          enabled: true,
+          retentionDays: 30,
+          maxContextMessages: 20,
+          summaryEnabled: true,
+          userProfileEnabled: true,
+          rememberUserPreferences: true,
+          rememberUserHistory: true,
+          rememberUserQuestions: true,
+          rememberUserFeedback: true
         }
       },
       autoReply: config.get('autoReply'),
