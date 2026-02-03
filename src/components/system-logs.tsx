@@ -1,0 +1,475 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  AlertCircle,
+  RefreshCw,
+  Trash2,
+  AlertTriangle,
+  Info,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Filter,
+  Server,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  MoreHorizontal,
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+
+interface SystemLog {
+  id: string;
+  level: string;
+  module: string;
+  message: string;
+  details?: any;
+  timestamp: string;
+  userId?: string;
+}
+
+export default function SystemLogs() {
+  const [logs, setLogs] = useState<SystemLog[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [filterLevel, setFilterLevel] = useState<string>('all');
+  const [filterModule, setFilterModule] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [limit, setLimit] = useState(100);
+  const [showDetail, setShowDetail] = useState(false);
+  const [selectedLog, setSelectedLog] = useState<SystemLog | null>(null);
+  const [stats, setStats] = useState<any>({});
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteDays, setDeleteDays] = useState(30);
+
+  const loadLogs = async () => {
+    try {
+      setIsLoading(true);
+      const params = new URLSearchParams();
+      params.append('limit', limit.toString());
+      if (filterLevel !== 'all') {
+        params.append('level', filterLevel);
+      }
+      if (filterModule !== 'all') {
+        params.append('module', filterModule);
+      }
+
+      const res = await fetch(`/api/system-logs?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLogs(data.data || []);
+        setStats(data.stats || {});
+      }
+    } catch (error) {
+      console.error('加载系统日志失败:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadLogs();
+  }, [filterLevel, filterModule, limit]);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+
+    const interval = setInterval(() => {
+      loadLogs();
+    }, 5000); // 每5秒刷新一次
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, filterLevel, filterModule, limit]);
+
+  const handleDeleteOldLogs = async () => {
+    try {
+      const res = await fetch(`/api/system-logs?days=${deleteDays}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        alert(`✅ 已清理 ${data.deletedCount} 条日志`);
+        loadLogs();
+      }
+    } catch (error) {
+      alert('❌ 清理失败');
+    }
+    setShowDeleteDialog(false);
+  };
+
+  const getLevelColor = (level: string) => {
+    switch (level.toLowerCase()) {
+      case 'error':
+        return 'destructive';
+      case 'warn':
+        return 'secondary';
+      case 'info':
+        return 'default';
+      case 'debug':
+        return 'outline';
+      default:
+        return 'outline';
+    }
+  };
+
+  const getLevelIcon = (level: string) => {
+    switch (level.toLowerCase()) {
+      case 'error':
+        return <XCircle className="h-4 w-4" />;
+      case 'warn':
+        return <AlertTriangle className="h-4 w-4" />;
+      case 'info':
+        return <Info className="h-4 w-4" />;
+      case 'debug':
+        return <Search className="h-4 w-4" />;
+      default:
+        return <AlertCircle className="h-4 w-4" />;
+    }
+  };
+
+  const filteredLogs = logs.filter(log => {
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      log.message.toLowerCase().includes(searchLower) ||
+      log.module.toLowerCase().includes(searchLower) ||
+      (log.details && JSON.stringify(log.details).toLowerCase().includes(searchLower))
+    );
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Server className="h-6 w-6 text-purple-500" />
+            系统运行日志
+          </h2>
+          <p className="text-muted-foreground">查看系统运行日志和错误信息</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={autoRefresh}
+              onCheckedChange={setAutoRefresh}
+            />
+            <Label className="text-sm">自动刷新</Label>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadLogs}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            刷新
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowDeleteDialog(true)}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            清理旧日志
+          </Button>
+        </div>
+      </div>
+
+      {/* 统计卡片 */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">总日志数</CardTitle>
+            <Server className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total || 0}</div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              近 7 天
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">错误日志</CardTitle>
+            <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600 dark:text-red-400">{stats.error || 0}</div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              需要处理
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">警告日志</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.warn || 0}</div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              需要关注
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">信息日志</CardTitle>
+            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.info || 0}</div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              正常运行
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 筛选和搜索 */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex gap-4 items-center flex-wrap">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-slate-500" />
+              <span className="text-sm font-medium">筛选:</span>
+            </div>
+
+            <Select value={filterLevel} onValueChange={setFilterLevel}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder="日志级别" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部级别</SelectItem>
+                <SelectItem value="error">错误</SelectItem>
+                <SelectItem value="warn">警告</SelectItem>
+                <SelectItem value="info">信息</SelectItem>
+                <SelectItem value="debug">调试</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={filterModule} onValueChange={setFilterModule}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="模块" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部模块</SelectItem>
+                <SelectItem value="api">API</SelectItem>
+                <SelectItem value="database">数据库</SelectItem>
+                <SelectItem value="service">服务</SelectItem>
+                <SelectItem value="system">系统</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={limit.toString()} onValueChange={(value) => setLimit(parseInt(value))}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder="显示条数" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="50">50 条</SelectItem>
+                <SelectItem value="100">100 条</SelectItem>
+                <SelectItem value="200">200 条</SelectItem>
+                <SelectItem value="500">500 条</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="搜索日志内容..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 日志列表 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            日志列表 ({filteredLogs.length} 条)
+          </CardTitle>
+          <CardDescription>
+            显示最近的系统日志记录
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {filteredLogs.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Server className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>暂无日志记录</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[100px]">级别</TableHead>
+                  <TableHead className="w-[120px]">模块</TableHead>
+                  <TableHead>消息</TableHead>
+                  <TableHead className="w-[180px]">时间</TableHead>
+                  <TableHead className="w-[80px]">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredLogs.map((log) => (
+                  <TableRow key={log.id}>
+                    <TableCell>
+                      <Badge variant={getLevelColor(log.level)} className="gap-1">
+                        {getLevelIcon(log.level)}
+                        {log.level.toUpperCase()}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">{log.module}</TableCell>
+                    <TableCell>
+                      <div className="max-w-md truncate text-sm">
+                        {log.message}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {new Date(log.timestamp).toLocaleString('zh-CN')}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedLog(log);
+                          setShowDetail(true);
+                        }}
+                      >
+                        查看详情
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 日志详情弹窗 */}
+      <Dialog open={showDetail} onOpenChange={setShowDetail}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>日志详情</DialogTitle>
+            <DialogDescription>
+              查看完整的日志信息
+            </DialogDescription>
+          </DialogHeader>
+          {selectedLog && (
+            <div className="space-y-4">
+              <div className="grid gap-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">ID:</span>
+                  <span className="font-mono">{selectedLog.id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">级别:</span>
+                  <Badge variant={getLevelColor(selectedLog.level)} className="gap-1">
+                    {getLevelIcon(selectedLog.level)}
+                    {selectedLog.level.toUpperCase()}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">模块:</span>
+                  <span>{selectedLog.module}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">时间:</span>
+                  <span>{new Date(selectedLog.timestamp).toLocaleString('zh-CN')}</span>
+                </div>
+              </div>
+              <div>
+                <h4 className="font-medium mb-2">消息内容</h4>
+                <div className="p-4 bg-slate-100 dark:bg-slate-900 rounded-lg text-sm">
+                  {selectedLog.message}
+                </div>
+              </div>
+              {selectedLog.details && (
+                <div>
+                  <h4 className="font-medium mb-2">详细信息</h4>
+                  <div className="p-4 bg-slate-100 dark:bg-slate-900 rounded-lg text-sm font-mono overflow-x-auto">
+                    <pre>{JSON.stringify(selectedLog.details, null, 2)}</pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* 清理日志确认弹窗 */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>清理旧日志</DialogTitle>
+            <DialogDescription>
+              确定要清理 {deleteDays} 天前的日志吗？此操作不可恢复。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>清理天数</Label>
+              <Input
+                type="number"
+                value={deleteDays}
+                onChange={(e) => setDeleteDays(parseInt(e.target.value))}
+                min={1}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              取消
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteOldLogs}>
+              确认清理
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

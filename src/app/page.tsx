@@ -28,6 +28,7 @@ import {
 import RobotManagement from '@/components/robot-management';
 import AlertConfigTab from '@/components/alert-config-tab';
 import EnhancedAlertManagement from '@/components/enhanced-alert-management';
+import SystemLogs from '@/components/system-logs';
 import { 
   BarChart3, 
   MessageSquare,
@@ -4624,7 +4625,7 @@ ${callbacks.robotStatus}
       {/* 主内容 */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-10 lg:w-auto lg:inline-grid h-auto p-1 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+          <TabsList className="grid w-full grid-cols-11 lg:w-auto lg:inline-grid h-auto p-1 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
             <TabsTrigger value="dashboard" className="gap-2 py-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">仪表盘</span>
@@ -4664,6 +4665,10 @@ ${callbacks.robotStatus}
             <TabsTrigger value="settings" className="gap-2 py-2">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">系统设置</span>
+            </TabsTrigger>
+            <TabsTrigger value="system-logs" className="gap-2 py-2">
+              <Server className="h-4 w-4" />
+              <span className="hidden sm:inline">系统日志</span>
             </TabsTrigger>
           </TabsList>
 
@@ -4705,6 +4710,10 @@ ${callbacks.robotStatus}
 
           <TabsContent value="settings" className="space-y-6">
             <SettingsTab aiConfig={aiConfig} isLoadingAiConfig={isLoadingAiConfig} />
+          </TabsContent>
+
+          <TabsContent value="system-logs" className="space-y-6">
+            <SystemLogs />
           </TabsContent>
         </Tabs>
       </main>
