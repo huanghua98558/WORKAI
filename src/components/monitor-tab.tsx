@@ -168,7 +168,7 @@ export default function MonitorTab() {
             {alertHistory.map((alert) => (
               <div
                 key={alert.id}
-                className={`flex items-start gap-3 p-3 border rounded-lg animate-slide-left hover:shadow-glow transition-all duration-300 bg-tech-gradient dark:bg-tech-gradient ${
+                className={`flex items-start gap-3 p-3 border rounded-lg hover:shadow-glow transition-all duration-300 bg-tech-gradient dark:bg-tech-gradient ${
                   alert.level === 'critical' ? 'border-red-500/30 hover:border-red-500/50' :
                   alert.level === 'warning' ? 'border-yellow-500/30 hover:border-yellow-500/50' :
                   'border-blue-500/30 hover:border-blue-500/50'

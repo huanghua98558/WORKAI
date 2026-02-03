@@ -351,7 +351,7 @@ export default function RealtimeIOTab() {
                         : 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-900'
                     } ${
                       isNew 
-                        ? 'scale-105 shadow-2xl border-2 animate-slide-left' +
+                        ? 'scale-105 shadow-2xl border-2' +
                           (msg.direction === 'in' 
                             ? ' bg-gradient-to-r from-blue-100 to-blue-50 dark:from-blue-900/50 dark:to-blue-950/30 border-blue-400 dark:border-blue-600' 
                             : ' bg-gradient-to-r from-green-100 to-green-50 dark:from-green-900/50 dark:to-green-950/30 border-green-400 dark:border-green-600'
