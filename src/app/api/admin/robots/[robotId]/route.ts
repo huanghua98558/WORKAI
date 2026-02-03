@@ -10,10 +10,10 @@ import { NextRequest, NextResponse } from 'next/server';
 // GET - 获取机器人详情
 export async function GET(
   request: NextRequest,
-  { params }: { params: { robotId: string } }
+  { params }: { params: Promise<{ robotId: string }> }
 ) {
   try {
-    const { robotId } = params;
+    const { robotId } = await params;
 
     const query = `
       SELECT 
@@ -100,10 +100,10 @@ export async function GET(
 // PUT - 更新机器人
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { robotId: string } }
+  { params }: { params: Promise<{ robotId: string }> }
 ) {
   try {
-    const { robotId } = params;
+    const { robotId } = await params;
     const body = await request.json();
 
     // 构建动态更新字段
@@ -190,10 +190,10 @@ export async function PUT(
 // DELETE - 删除机器人
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { robotId: string } }
+  { params }: { params: Promise<{ robotId: string }> }
 ) {
   try {
-    const { robotId } = params;
+    const { robotId } = await params;
 
     // 检查机器人是否存在
     const checkQuery = `SELECT id, status FROM robots WHERE robot_id = $1`;
@@ -264,10 +264,10 @@ export async function DELETE(
 // POST - 启用/停用机器人
 export async function POST(
   request: NextRequest,
-  { params }: { params: { robotId: string } }
+  { params }: { params: Promise<{ robotId: string }> }
 ) {
   try {
-    const { robotId } = params;
+    const { robotId } = await params;
     const body = await request.json();
     const { action } = body; // 'activate' | 'deactivate'
 

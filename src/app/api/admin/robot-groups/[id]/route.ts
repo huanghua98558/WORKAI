@@ -10,10 +10,10 @@ import { NextRequest, NextResponse } from 'next/server';
 // GET - 获取分组详情
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const query = `
       SELECT 
@@ -49,10 +49,10 @@ export async function GET(
 // PUT - 更新分组
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { name, description, color, icon, priority, is_enabled } = body;
 
@@ -137,10 +137,10 @@ export async function PUT(
 // DELETE - 删除分组
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // 检查是否有机器人使用该分组
     const checkQuery = `

@@ -10,10 +10,10 @@ import { NextRequest, NextResponse } from 'next/server';
 // GET - 获取指令详情
 export async function GET(
   request: NextRequest,
-  { params }: { params: { commandId: string } }
+  { params }: { params: Promise<{ commandId: string }> }
 ) {
   try {
-    const { commandId } = params;
+    const { commandId } = await params;
 
     const query = `
       SELECT 
@@ -71,10 +71,10 @@ export async function GET(
 // PUT - 更新指令状态
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { commandId: string } }
+  { params }: { params: Promise<{ commandId: string }> }
 ) {
   try {
-    const { commandId } = params;
+    const { commandId } = await params;
     const body = await request.json();
     const { status, error, result: commandResult, metadata } = body;
 
@@ -151,10 +151,10 @@ export async function PUT(
 // DELETE - 删除指令
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { commandId: string } }
+  { params }: { params: Promise<{ commandId: string }> }
 ) {
   try {
-    const { commandId } = params;
+    const { commandId } = await params;
 
     // 检查指令是否存在
     const checkQuery = `SELECT id, status FROM robot_commands WHERE id = $1`;
@@ -196,10 +196,10 @@ export async function DELETE(
 // POST - 重试指令
 export async function POST(
   request: NextRequest,
-  { params }: { params: { commandId: string } }
+  { params }: { params: Promise<{ commandId: string }> }
 ) {
   try {
-    const { commandId } = params;
+    const { commandId } = await params;
     const body = await request.json();
     const { force } = body; // 强制重试（即使是成功的）
 

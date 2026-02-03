@@ -1703,7 +1703,7 @@ ${callbacks.robotStatus}
                 {sessions.slice(0, 6).map((session) => {
                   const userName = session.userName || session.userInfo?.userName;
                   const groupName = session.groupName || session.userInfo?.groupName;
-                  
+
                   return (
                     <div 
                       key={session.sessionId} 
@@ -1840,8 +1840,8 @@ ${callbacks.robotStatus}
             ) : (
               <div className="space-y-3">
                 {filteredSessions.map((session) => (
-                  <div 
-                    key={session.sessionId} 
+                  <div
+                    key={session.sessionId}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
                     onClick={() => handleViewSessionDetail(session)}
                   >
