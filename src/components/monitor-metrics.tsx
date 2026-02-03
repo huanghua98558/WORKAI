@@ -60,20 +60,37 @@ export default function MonitorMetrics({ className }: MonitorMetricsProps) {
       ]) as Response;
       
       console.log('📥 响应状态:', res.status, res.ok);
+      console.log('📥 响应类型:', res.type);
+      console.log('📥 Content-Type:', res.headers.get('Content-Type'));
       
       if (!res.ok) {
         console.error('❌ HTTP 错误:', res.status, res.statusText);
         throw new Error('加载失败');
       }
 
-      const data = await res.json();
-      console.log('📊 响应数据:', data);
+      const text = await res.text();
+      console.log('📥 响应文本 (前500字符):', text.substring(0, 500));
       
-      if (isMounted.current && data.success && data.data) {
+      let data;
+      try {
+        data = JSON.parse(text);
+        console.log('📊 JSON 解析成功');
+        console.log('📊 解析后的数据:', data);
+      } catch (parseError) {
+        console.error('❌ JSON 解析失败:', parseError);
+        throw new Error('JSON 解析失败');
+      }
+      
+      if (isMounted.current && data && data.success && data.data) {
         console.log('✅ 数据加载成功');
+        console.log('✅ metrics.system:', data.data.system);
+        console.log('✅ metrics.ai:', data.data.ai);
+        console.log('✅ metrics.summary:', data.data.summary);
         setMetrics(data.data);
       } else {
         console.error('❌ 数据格式错误:', data);
+        console.error('❌ data.success:', data?.success);
+        console.error('❌ data.data:', data?.data);
         throw new Error('数据格式错误');
       }
     } catch (error) {
