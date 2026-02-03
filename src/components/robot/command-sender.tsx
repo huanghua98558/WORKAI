@@ -23,7 +23,7 @@ interface Robot {
 }
 
 interface Command {
-  id: string;
+  commandId: string;
   robotId: string;
   commandType: string;
   status: string;
@@ -63,6 +63,7 @@ export default function CommandSender() {
   const [selectedRobotDisplay, setSelectedRobotDisplay] = useState<string>('');
   const [commandType, setCommandType] = useState<string>('send_group_message');
   const [priority, setPriority] = useState<number>(5);
+  const [commandPayload, setCommandPayload] = useState<any>(null);
   
   // 表单字段状态
   const [formData, setFormData] = useState({
@@ -354,6 +355,22 @@ export default function CommandSender() {
       default:
         return '{}';
     }
+  };
+
+  // 重置表单
+  const resetForm = () => {
+    setCommandType('send_group_message');
+    setPriority(5);
+    setCommandPayload(getDefaultPayload('send_group_message'));
+    setFormData({
+      groupName: '',
+      groupContent: '',
+      groupAtList: '',
+      userName: '',
+      privateContent: '',
+      batchMessages: [{ recipient: '', content: '' }]
+    });
+    setSending(false);
   };
 
   // 命令类型改变时更新默认 payload
