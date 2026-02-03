@@ -940,14 +940,14 @@ ${callbacks.robotStatus}
         </div>
       </div>
 
-      {/* 基础信息卡片 */}
-      <Card className="border-2 border-blue-200 dark:border-blue-900">
-        <CardHeader className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
-          <CardTitle className="flex items-center gap-2">
-            <Server className="h-5 w-5" />
+      {/* 科幻风格部署信息卡片 */}
+      <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
+        <CardHeader className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-b border-primary/20">
+          <CardTitle className="flex items-center gap-2 text-primary">
+            <Server className="h-5 w-5 animate-tech-glow" />
             部署信息
           </CardTitle>
-          <CardDescription className="text-blue-100">
+          <CardDescription className="text-muted-foreground">
             当前部署环境的基础配置信息
           </CardDescription>
         </CardHeader>
@@ -1030,26 +1030,26 @@ ${callbacks.robotStatus}
         </CardContent>
       </Card>
 
-      {/* 回调地址列表 */}
+      {/* 科幻风格回调地址列表 */}
       <div className="grid gap-4">
         {/* 消息回调 */}
-        <Card className="border-l-4 border-l-blue-500">
-          <CardHeader>
+        <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
+          <CardHeader className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-b border-primary/20">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                  <MessageCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <div className="p-2 bg-blue-500/10 rounded-lg animate-pulse-glow">
+                  <MessageCircle className="h-5 w-5 text-blue-500" />
                 </div>
                 <div>
-                  <CardTitle className="text-base">消息回调地址</CardTitle>
-                  <CardDescription className="text-xs">
+                  <CardTitle className="text-base text-foreground">消息回调地址</CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">
                     接收群消息、私聊消息、@机器人等所有消息
                   </CardDescription>
                 </div>
               </div>
-              <Badge variant="secondary" className="gap-1">
-                <Radio className="h-3 w-3" />
-                实时推送
+              <Badge variant="outline" className="gap-1 border-primary/30">
+                <Radio className="h-3 w-3 text-primary" />
+                <span className="text-xs">实时推送</span>
               </Badge>
             </div>
           </CardHeader>
@@ -1117,23 +1117,23 @@ ${callbacks.robotStatus}
         </Card>
 
         {/* 执行结果回调 */}
-        <Card className="border-l-4 border-l-green-500">
-          <CardHeader>
+        <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
+          <CardHeader className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-b border-primary/20">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                  <Activity className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <div className="p-2 bg-green-500/10 rounded-lg animate-pulse-glow-cyan">
+                  <Activity className="h-5 w-5 text-green-500" />
                 </div>
                 <div>
-                  <CardTitle className="text-base">执行结果回调地址</CardTitle>
-                  <CardDescription className="text-xs">
+                  <CardTitle className="text-base text-foreground">执行结果回调地址</CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">
                     接收发送消息、踢人、拉人、建群等操作结果
                   </CardDescription>
                 </div>
               </div>
-              <Badge variant="secondary" className="gap-1">
-                <Radio className="h-3 w-3" />
-                实时推送
+              <Badge variant="outline" className="gap-1 border-primary/30">
+                <Radio className="h-3 w-3 text-primary" />
+                <span className="text-xs">实时推送</span>
               </Badge>
             </div>
           </CardHeader>
@@ -1200,24 +1200,24 @@ ${callbacks.robotStatus}
           </CardContent>
         </Card>
 
-        {/* 群二维码回调 */}
-        <Card className="border-l-4 border-l-purple-500">
-          <CardHeader>
+        {/* 科幻风格群二维码回调卡片 */}
+        <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
+          <CardHeader className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-b border-primary/20">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
-                  <QrCodeIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                <div className="p-2 bg-purple-500/10 rounded-lg animate-pulse-glow-purple">
+                  <QrCodeIcon className="h-5 w-5 text-purple-500" />
                 </div>
                 <div>
-                  <CardTitle className="text-base">群二维码回调地址</CardTitle>
-                  <CardDescription className="text-xs">
+                  <CardTitle className="text-base text-foreground">群二维码回调地址</CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">
                     接收群二维码生成、更新、失效等事件
                   </CardDescription>
                 </div>
               </div>
-              <Badge variant="secondary" className="gap-1">
-                <Radio className="h-3 w-3" />
-                事件推送
+              <Badge variant="outline" className="gap-1 border-primary/30">
+                <Radio className="h-3 w-3 text-primary" />
+                <span className="text-xs">事件推送</span>
               </Badge>
             </div>
           </CardHeader>
@@ -1285,23 +1285,23 @@ ${callbacks.robotStatus}
         </Card>
 
         {/* 机器人状态回调 */}
-        <Card className="border-l-4 border-l-orange-500">
-          <CardHeader>
+        <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
+          <CardHeader className="bg-gradient-to-r from-orange-500/10 to-red-500/10 border-b border-primary/20">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
-                  <ShieldCheck className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                <div className="p-2 bg-orange-500/10 rounded-lg animate-pulse-glow">
+                  <ShieldCheck className="h-5 w-5 text-orange-500" />
                 </div>
                 <div>
-                  <CardTitle className="text-base">机器人状态回调地址</CardTitle>
-                  <CardDescription className="text-xs">
+                  <CardTitle className="text-base text-foreground">机器人状态回调地址</CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">
                     接收机器人上线、掉线、心跳异常等状态事件
                   </CardDescription>
                 </div>
               </div>
-              <Badge variant="secondary" className="gap-1">
-                <Radio className="h-3 w-3" />
-                实时监控
+              <Badge variant="outline" className="gap-1 border-primary/30">
+                <Radio className="h-3 w-3 text-primary" />
+                <span className="text-xs">实时监控</span>
               </Badge>
             </div>
           </CardHeader>
@@ -2254,99 +2254,158 @@ ${callbacks.robotStatus}
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-950 dark:to-blue-950">
-      {/* 头部 */}
-      <header className="border-b bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
+    <div className="min-h-screen bg-tech-grid dark:bg-tech-grid">
+      {/* 科幻风格标题栏 */}
+      <header className="border-b border-primary/20 glass sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl">
-                <Bot className="h-6 w-6 text-white" />
+            {/* 左侧 Logo 和标题 */}
+            <div className="flex items-center gap-4">
+              <div className="relative group">
+                {/* 发光背景 */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl animate-pulse-glow blur-sm"></div>
+                {/* Logo 图标 */}
+                <div className="relative p-2.5 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl animate-float">
+                  <Bot className="h-6 w-6 text-white" />
+                </div>
+                {/* 装饰元素 */}
+                <div className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-400 rounded-full animate-tech-glow"></div>
               </div>
+              
               <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-xl font-bold text-neon-blue animate-neon-flicker">
                   WorkTool AI 中枢系统
                 </h1>
-                <p className="text-sm text-muted-foreground">企业微信社群智能运营平台</p>
+                <p className="text-xs text-muted-foreground font-mono">
+                  ENTERPRISE WECHAT AI PLATFORM
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
-                <Globe className="h-4 w-4" />
-                {callbacks?.baseUrl || '加载中...'}
+
+            {/* 右侧状态信息 */}
+            <div className="flex items-center gap-4">
+              {/* 服务器地址 */}
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-background/50 rounded-lg border border-primary/20">
+                <Globe className="h-4 w-4 text-primary" />
+                <span className="text-xs font-mono text-muted-foreground truncate max-w-[200px]">
+                  {callbacks?.baseUrl || '加载中...'}
+                </span>
               </div>
-              <Badge 
-                variant={connectionStatus === 'connected' ? 'default' : 'destructive'} 
-                className="gap-1"
+
+              {/* 运行状态 */}
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-background/50 rounded-lg border border-primary/20">
+                <div className={`w-2 h-2 rounded-full animate-pulse-glow-cyan ${connectionStatus === 'connected' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span className={`text-xs font-medium ${connectionStatus === 'connected' ? 'text-green-500' : 'text-red-500'}`}>
+                  {connectionStatus === 'connected' ? 'RUNNING' : 'OFFLINE'}
+                </span>
+              </div>
+
+              {/* 刷新按钮 */}
+              <Button 
+                onClick={loadData} 
+                variant="outline"
+                size="sm"
+                className="border-primary/30 hover:border-primary/60 hover:bg-primary/10 transition-all duration-300"
+                disabled={isLoading}
               >
-                {connectionStatus === 'connected' ? (
-                  <>
-                    <CheckCircle className="h-3 w-3" />
-                    运行中
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="h-3 w-3" />
-                    未连接
-                  </>
-                )}
-              </Badge>
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''} text-primary`} />
+              </Button>
             </div>
           </div>
+
+          {/* 装饰线条 */}
+          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent opacity-50"></div>
         </div>
       </header>
 
       {/* 主内容 */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-12 lg:w-auto lg:inline-grid h-auto p-1 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
-            <TabsTrigger value="dashboard" className="gap-2 py-2">
+          {/* 科幻风格标签栏 */}
+          <TabsList className="grid w-full grid-cols-12 lg:w-auto lg:inline-grid h-auto p-1.5 glass border border-primary/20 gap-1">
+            <TabsTrigger 
+              value="dashboard" 
+              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            >
               <LayoutDashboard className="h-4 w-4" />
-              <span className="hidden sm:inline">仪表盘</span>
+              <span className="hidden sm:inline font-medium">仪表盘</span>
             </TabsTrigger>
-            <TabsTrigger value="sessions" className="gap-2 py-2">
+            <TabsTrigger 
+              value="sessions" 
+              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            >
               <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">会话管理</span>
+              <span className="hidden sm:inline font-medium">会话管理</span>
             </TabsTrigger>
-            <TabsTrigger value="robots" className="gap-2 py-2">
+            <TabsTrigger 
+              value="robots" 
+              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            >
               <Bot className="h-4 w-4" />
-              <span className="hidden sm:inline">机器人管理</span>
+              <span className="hidden sm:inline font-medium">机器人管理</span>
             </TabsTrigger>
-            <TabsTrigger value="monitor" className="gap-2 py-2">
+            <TabsTrigger 
+              value="monitor" 
+              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            >
               <Activity className="h-4 w-4" />
-              <span className="hidden sm:inline">监控告警</span>
+              <span className="hidden sm:inline font-medium">监控告警</span>
             </TabsTrigger>
-            <TabsTrigger value="realtime" className="gap-2 py-2">
+            <TabsTrigger 
+              value="realtime" 
+              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            >
               <Terminal className="h-4 w-4" />
-              <span className="hidden sm:inline">实时消息</span>
+              <span className="hidden sm:inline font-medium">实时消息</span>
             </TabsTrigger>
-            <TabsTrigger value="prompt-training" className="gap-2 py-2">
+            <TabsTrigger 
+              value="prompt-training" 
+              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            >
               <Zap className="h-4 w-4" />
-              <span className="hidden sm:inline">AI 训练</span>
+              <span className="hidden sm:inline font-medium">AI 训练</span>
             </TabsTrigger>
-            <TabsTrigger value="callbacks" className="gap-2 py-2 hidden">
+            <TabsTrigger 
+              value="callbacks" 
+              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300 hidden"
+            >
               <Link2 className="h-4 w-4" />
-              <span className="hidden sm:inline">回调中心</span>
+              <span className="hidden sm:inline font-medium">回调中心</span>
             </TabsTrigger>
-            <TabsTrigger value="users" className="gap-2 py-2">
+            <TabsTrigger 
+              value="users" 
+              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            >
               <UserCheck className="h-4 w-4" />
-              <span className="hidden sm:inline">用户管理</span>
+              <span className="hidden sm:inline font-medium">用户管理</span>
             </TabsTrigger>
-            <TabsTrigger value="qa" className="gap-2 py-2">
+            <TabsTrigger 
+              value="qa" 
+              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            >
               <Database className="h-4 w-4" />
-              <span className="hidden sm:inline">知识库</span>
+              <span className="hidden sm:inline font-medium">知识库</span>
             </TabsTrigger>
-            <TabsTrigger value="settings" className="gap-2 py-2">
+            <TabsTrigger 
+              value="settings" 
+              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            >
               <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">系统设置</span>
+              <span className="hidden sm:inline font-medium">系统设置</span>
             </TabsTrigger>
-            <TabsTrigger value="system-logs" className="gap-2 py-2">
+            <TabsTrigger 
+              value="system-logs" 
+              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            >
               <Server className="h-4 w-4" />
-              <span className="hidden sm:inline">系统日志</span>
+              <span className="hidden sm:inline font-medium">系统日志</span>
             </TabsTrigger>
-            <TabsTrigger value="monitoring" className="gap-2 py-2">
+            <TabsTrigger 
+              value="monitoring" 
+              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            >
               <Activity className="h-4 w-4" />
-              <span className="hidden sm:inline">实时监控</span>
+              <span className="hidden sm:inline font-medium">实时监控</span>
             </TabsTrigger>
           </TabsList>
 
