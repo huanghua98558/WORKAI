@@ -104,9 +104,10 @@ export default function SystemLogs() {
     }
   };
 
-  useEffect(() => {
-    loadLogs();
-  }, [filterLevel, filterModule, limit]);
+  // 移除自动加载，仅手动刷新
+  // useEffect(() => {
+  //   loadLogs();
+  // }, [filterLevel, filterModule, limit]);
 
   const handleDeleteOldLogs = async () => {
     try {

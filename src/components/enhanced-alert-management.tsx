@@ -215,9 +215,10 @@ export default function EnhancedAlertManagement() {
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  // 移除自动加载，仅手动刷新
+  // useEffect(() => {
+  //   loadData();
+  // }, []);
 
   // 编辑分组
   const handleEditGroup = (group: AlertGroup) => {

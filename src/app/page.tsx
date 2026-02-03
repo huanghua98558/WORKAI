@@ -4347,6 +4347,7 @@ ${callbacks.robotStatus}
     const [selectedRobot, setSelectedRobot] = useState<string>('');
     const [messageLimit, setMessageLimit] = useState<number>(50);
     const lastFetchTime = useRef<number>(0);
+    const [isMounted, setIsMounted] = useState(false);
 
     const loadMessages = async (limit?: number) => {
       // 防抖：1秒内不重复加载
@@ -4383,10 +4384,11 @@ ${callbacks.robotStatus}
       }
     };
 
-    // 初始化加载（只执行一次）
+    // 只在组件首次挂载时加载一次，且需要手动触发
     useEffect(() => {
-      console.log('RealtimeIO: 初始化加载');
-      loadMessages();
+      if (!isMounted) {
+        setIsMounted(true);
+      }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
