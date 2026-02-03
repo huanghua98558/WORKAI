@@ -234,12 +234,16 @@ export default function MonitoringTab() {
             size="sm"
             onClick={() => setAutoRefresh(!autoRefresh)}
           >
-            {autoRefresh ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Clock className="h-4 w-4" />}
-            <span className="ml-2">{autoRefresh ? '自动刷新' : '手动刷新'}</span>
+            <>
+              {autoRefresh ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Clock className="h-4 w-4" />}
+              <span className="ml-2">{autoRefresh ? '自动刷新' : '手动刷新'}</span>
+            </>
           </Button>
           <Badge variant={autoRefresh ? "secondary" : "outline"} className="gap-1">
-            <RefreshCw className={`h-3 w-3 ${autoRefresh ? 'animate-spin' : ''}`} />
-            {autoRefresh ? '5秒刷新' : '已暂停'}
+            <>
+              <RefreshCw className={`h-3 w-3 ${autoRefresh ? 'animate-spin' : ''}`} />
+              {autoRefresh ? '5秒刷新' : '已暂停'}
+            </>
           </Badge>
         </div>
       </div>
@@ -326,13 +330,13 @@ export default function MonitoringTab() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
-                    消息处理列表
+                    <>消息处理列表
                     {autoRefresh && (
                       <Badge variant="outline" className="gap-1 text-xs">
                         <RefreshCw className="h-3 w-3 animate-spin" />
                         自动刷新
                       </Badge>
-                    )}
+                    )}</>
                   </CardTitle>
                   <CardDescription>
                     实时显示消息处理的执行状态
@@ -514,13 +518,13 @@ export default function MonitoringTab() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
-                    AI对话日志
+                    <>AI对话日志
                     {autoRefresh && (
                       <Badge variant="outline" className="gap-1 text-xs">
                         <RefreshCw className="h-3 w-3 animate-spin" />
                         自动刷新
                       </Badge>
-                    )}
+                    )}</>
                   </CardTitle>
                   <CardDescription>
                     实时显示AI的输入输出记录
