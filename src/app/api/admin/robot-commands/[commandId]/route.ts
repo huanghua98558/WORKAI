@@ -31,7 +31,7 @@ export async function GET(
       FROM robot_commands rc
       LEFT JOIN robots r ON rc.robot_id = r.robot_id
       LEFT JOIN robot_groups rg ON r.group_id = rg.id
-      WHERE rc.command_id = $1
+      WHERE rc.id = $1
     `;
 
     const result = await execSQL(query, [commandId]);
@@ -46,7 +46,7 @@ export async function GET(
     // 获取相关的回调日志
     const callbackQuery = `
       SELECT * FROM robot_callback_logs
-      WHERE command_id = $1
+      WHERE id = $1
       ORDER BY created_at DESC
       LIMIT 10
     `;
@@ -109,11 +109,6 @@ export async function PUT(
       values.push(JSON.stringify(commandResult));
     }
 
-    if (metadata !== undefined) {
-      updates.push(`metadata = $${paramIndex++}`);
-      values.push(JSON.stringify(metadata));
-    }
-
     // 根据状态设置时间戳
     if (status === 'processing') {
       updates.push(`started_at = NOW()`);
@@ -126,7 +121,7 @@ export async function PUT(
     const query = `
       UPDATE robot_commands
       SET ${updates.join(', ')}
-      WHERE command_id = $${paramIndex}
+      WHERE id = $${paramIndex}
       RETURNING *
     `;
 
@@ -162,7 +157,7 @@ export async function DELETE(
     const { commandId } = params;
 
     // 检查指令是否存在
-    const checkQuery = `SELECT id, status FROM robot_commands WHERE command_id = $1`;
+    const checkQuery = `SELECT id, status FROM robot_commands WHERE id = $1`;
     const checkResult = await execSQL(checkQuery, [commandId]);
 
     if (checkResult.rows.length === 0) {
@@ -182,7 +177,7 @@ export async function DELETE(
       );
     }
 
-    const query = `DELETE FROM robot_commands WHERE command_id = $1`;
+    const query = `DELETE FROM robot_commands WHERE id = $1`;
     await execSQL(query, [commandId]);
 
     return NextResponse.json({
@@ -209,7 +204,7 @@ export async function POST(
     const { force } = body; // 强制重试（即使是成功的）
 
     // 检查指令是否存在
-    const checkQuery = `SELECT * FROM robot_commands WHERE command_id = $1`;
+    const checkQuery = `SELECT * FROM robot_commands WHERE id = $1`;
     const checkResult = await execSQL(checkQuery, [commandId]);
 
     if (checkResult.rows.length === 0) {
@@ -230,7 +225,7 @@ export async function POST(
     }
 
     // 检查重试次数限制
-    if (!force && command.retry_count >= (command.retry_policy?.maxRetries || 3)) {
+    if (!force && command.retry_count >= command.max_retries) {
       return NextResponse.json(
         { success: false, message: '已达到最大重试次数' },
         { status: 400 }
@@ -247,7 +242,7 @@ export async function POST(
         started_at = NULL,
         completed_at = NULL,
         updated_at = NOW()
-      WHERE command_id = $1
+      WHERE id = $1
       RETURNING *
     `;
 
@@ -269,7 +264,7 @@ export async function POST(
 
 // 辅助函数：执行 SQL
 async function execSQL(query: string, params: any[]) {
-  const { default: Client } = await import('pg');
+  const { Client } = await import('pg');
   const client = new Client({
     connectionString: process.env.DATABASE_URL
   });

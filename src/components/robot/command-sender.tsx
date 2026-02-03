@@ -104,10 +104,10 @@ export default function CommandSender() {
   // 加载指令列表
   const fetchCommands = async () => {
     try {
-      const response = await fetch('/api/proxy/admin/robot-commands?limit=20');
+      const response = await fetch('/api/admin/robot-commands?limit=20');
       const result = await response.json();
       
-      if (result.code === 0) {
+      if (result.success) {
         setCommands(result.data);
       }
     } catch (error) {
@@ -205,7 +205,7 @@ export default function CommandSender() {
         return;
       }
 
-      const response = await fetch('/api/proxy/admin/robot-commands', {
+      const response = await fetch('/api/admin/robot-commands', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -218,7 +218,7 @@ export default function CommandSender() {
 
       const result = await response.json();
 
-      if (result.code === 0) {
+      if (result.success) {
         toast.success('指令发送成功', {
           description: '指令已加入队列，等待执行'
         });
@@ -239,14 +239,14 @@ export default function CommandSender() {
   // 重试指令
   const handleRetryCommand = async (commandId: string) => {
     try {
-      const response = await fetch(`/api/proxy/admin/robot-commands/${commandId}`, {
+      const response = await fetch(`/api/admin/robot-commands/${commandId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
 
       const result = await response.json();
 
-      if (result.code === 0) {
+      if (result.success) {
         toast.success('指令重试成功');
         fetchCommands();
       } else {

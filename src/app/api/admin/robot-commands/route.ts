@@ -124,9 +124,29 @@ export async function GET(request: NextRequest) {
     `;
     const statsResult = await execSQL(statsQuery, []);
 
+    // 字段映射：将数据库字段名转换为前端期望的字段名
+    const mappedData = result.rows.map((row: any) => ({
+      commandId: row.id,
+      robotId: row.robot_id,
+      commandType: row.command_type,
+      commandPayload: row.command_data,
+      status: row.status,
+      priority: row.priority,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      executedAt: row.executed_at,
+      completedAt: row.completed_at,
+      retryCount: row.retry_count,
+      maxRetries: row.max_retries,
+      result: row.result,
+      errorMessage: row.error_message,
+      robotName: row.robot_name,
+      groupName: row.group_name
+    }));
+
     return NextResponse.json({
       success: true,
-      data: result.rows,
+      data: mappedData,
       total: parseInt(countResult.rows[0].count),
       stats: statsResult.rows,
       limit,
@@ -193,11 +213,10 @@ export async function POST(request: NextRequest) {
     // 插入指令
     const query = `
       INSERT INTO robot_commands (
-        command_id, robot_id, command_type, command_payload,
-        priority, scheduled_time, retry_policy, metadata,
-        batch_id, status, retry_count, created_at, updated_at
+        id, robot_id, command_type, command_data,
+        priority, status, retry_count, max_retries, created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', 0, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, 'pending', 0, 3, NOW(), NOW())
       RETURNING *
     `;
 
@@ -206,18 +225,30 @@ export async function POST(request: NextRequest) {
       robotId,
       commandType,
       JSON.stringify(commandPayload),
-      priority || 5,
-      scheduledTime || null,
-      retryPolicy ? JSON.stringify(retryPolicy) : null,
-      metadata ? JSON.stringify(metadata) : null,
-      batchId || null
+      priority || 5
     ];
 
     const result = await execSQL(query, params);
 
+    // 字段映射：将数据库字段名转换为前端期望的字段名
+    const mappedData = {
+      commandId: result.rows[0].id,
+      robotId: result.rows[0].robot_id,
+      commandType: result.rows[0].command_type,
+      commandPayload: result.rows[0].command_data,
+      status: result.rows[0].status,
+      priority: result.rows[0].priority,
+      createdAt: result.rows[0].created_at,
+      updatedAt: result.rows[0].updated_at,
+      retryCount: result.rows[0].retry_count,
+      maxRetries: result.rows[0].max_retries,
+      result: result.rows[0].result,
+      errorMessage: result.rows[0].error_message
+    };
+
     return NextResponse.json({
       success: true,
-      data: result.rows[0],
+      data: mappedData,
       message: '创建指令成功'
     });
   } catch (error) {
@@ -373,7 +404,7 @@ export async function DELETE(request: NextRequest) {
 
 // 辅助函数：执行 SQL
 async function execSQL(query: string, params: any[]) {
-  const { default: Client } = await import('pg');
+  const { Client } = await import('pg');
   const client = new Client({
     connectionString: process.env.DATABASE_URL
   });
