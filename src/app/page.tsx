@@ -91,7 +91,8 @@ import {
   Circle,
   Mail,
   Building2,
-  TestTube
+  TestTube,
+  Send
 } from 'lucide-react';
 
 import DebugDialog from '@/components/debug-dialog';
@@ -213,6 +214,9 @@ export default function AdminDashboard() {
   const [showRobotDetail, setShowRobotDetail] = useState(false);
   const [selectedRobot, setSelectedRobot] = useState<Robot | null>(null);
   const [robotInfoMap, setRobotInfoMap] = useState<Record<string, { name: string; loaded: boolean }>>({});
+  const [replyContent, setReplyContent] = useState('');
+  const [isSendingReply, setIsSendingReply] = useState(false);
+  const [replyResult, setReplyResult] = useState<{ success: boolean; message: string; timestamp?: Date } | null>(null);
 
   // 初始化加载（只执行一次）
   useEffect(() => {
@@ -408,6 +412,117 @@ export default function AdminDashboard() {
       }
     } catch (error) {
       console.error('获取会话信息失败:', error);
+    }
+  };
+
+  // 发送回复消息
+  const handleSendReply = async () => {
+    if (!selectedSession || !selectedSession.robotId || !replyContent.trim()) {
+      return;
+    }
+
+    setIsSendingReply(true);
+    setReplyResult(null);
+
+    try {
+      // 确定接收者
+      const toName = selectedSession.groupName || selectedSession.userName;
+      if (!toName) {
+        throw new Error('无法确定接收者');
+      }
+
+      // 创建指令
+      const commandPayload = {
+        list: [{
+          type: 203,
+          titleList: [toName],
+          receivedContent: replyContent.trim()
+        }]
+      };
+
+      const commandType = selectedSession.groupName ? 'send_group_message' : 'send_private_message';
+
+      const res = await fetch('/api/admin/robot-commands', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          robotId: selectedSession.robotId,
+          commandType,
+          commandPayload,
+          priority: 5,
+          maxRetries: 3
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data.code !== 0) {
+        throw new Error(data.message || '创建指令失败');
+      }
+
+      const commandId = data.data.id;
+
+      // 轮询指令状态
+      let attempts = 0;
+      const maxAttempts = 60; // 最多轮询60次（约1分钟）
+      let finalStatus = null;
+
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // 等待1秒
+
+        const statusRes = await fetch(`/api/admin/robot-commands/${commandId}`);
+        const statusData = await statusRes.json();
+
+        if (statusRes.ok && statusData.code === 0 && statusData.data) {
+          const command = statusData.data;
+          if (command.status === 'completed') {
+            finalStatus = command;
+            break;
+          } else if (command.status === 'failed') {
+            finalStatus = command;
+            break;
+          }
+        }
+
+        attempts++;
+      }
+
+      if (finalStatus) {
+        if (finalStatus.status === 'completed') {
+          setReplyResult({
+            success: true,
+            message: `消息发送成功！指令ID: ${commandId}`,
+            timestamp: new Date()
+          });
+          // 清空输入框
+          setReplyContent('');
+          // 重新加载消息列表
+          await loadSessionMessages(selectedSession.sessionId);
+        } else {
+          setReplyResult({
+            success: false,
+            message: `消息发送失败！${finalStatus.errorMessage || '未知错误'}`,
+            timestamp: new Date()
+          });
+        }
+      } else {
+        setReplyResult({
+          success: false,
+          message: `消息发送超时，请稍后查看指令状态。指令ID: ${commandId}`,
+          timestamp: new Date()
+        });
+      }
+    } catch (error: any) {
+      console.error('发送回复失败:', error);
+      setReplyResult({
+        success: false,
+        message: error.message || '发送失败',
+        timestamp: new Date()
+      });
+    } finally {
+      setIsSendingReply(false);
     }
   };
 
@@ -5210,6 +5325,111 @@ ${callbacks.robotStatus}
                         </div>
                       ))}
                     </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* 回复表单 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4" />
+                    回复消息
+                    {replyResult && (
+                      <Badge variant={replyResult.success ? "default" : "destructive"} className="ml-2">
+                        {replyResult.success ? "发送成功" : "发送失败"}
+                      </Badge>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {selectedSession?.robotId ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Bot className="h-4 w-4" />
+                        <span>使用机器人: {selectedSession.robotName || selectedSession.robotNickname || selectedSession.robotId}</span>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="reply-content">回复内容</Label>
+                        <Textarea
+                          id="reply-content"
+                          placeholder="请输入回复内容..."
+                          value={replyContent}
+                          onChange={(e) => setReplyContent(e.target.value)}
+                          disabled={isSendingReply}
+                          rows={4}
+                          className="resize-none"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span>发送到:</span>
+                          <Badge variant="outline">
+                            {selectedSession.groupName ? `群聊: ${selectedSession.groupName}` : `私聊: ${selectedSession.userName}`}
+                          </Badge>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setReplyContent('');
+                              setReplyResult(null);
+                            }}
+                            disabled={isSendingReply || !replyContent}
+                          >
+                            清空
+                          </Button>
+                          <Button
+                            onClick={handleSendReply}
+                            disabled={isSendingReply || !replyContent.trim()}
+                            className="min-w-[120px]"
+                          >
+                            {isSendingReply ? (
+                              <>
+                                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                发送中...
+                              </>
+                            ) : (
+                              <>
+                                <Send className="h-4 w-4 mr-2" />
+                                发送
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {replyResult && (
+                        <Alert variant={replyResult.success ? "default" : "destructive"}>
+                          {replyResult.success ? (
+                            <CheckCircle className="h-4 w-4" />
+                          ) : (
+                            <XCircle className="h-4 w-4" />
+                          )}
+                          <AlertTitle>
+                            {replyResult.success ? "发送成功" : "发送失败"}
+                          </AlertTitle>
+                          <AlertDescription>
+                            {replyResult.message}
+                            {replyResult.timestamp && (
+                              <div className="text-xs mt-1 text-muted-foreground">
+                                时间: {replyResult.timestamp.toLocaleString('zh-CN')}
+                              </div>
+                            )}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
+                  ) : (
+                    <Alert>
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>无法回复</AlertTitle>
+                      <AlertDescription>
+                        此会话没有关联的机器人，无法发送回复消息。
+                      </AlertDescription>
+                    </Alert>
                   )}
                 </CardContent>
               </Card>
