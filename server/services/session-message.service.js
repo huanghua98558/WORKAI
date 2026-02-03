@@ -111,6 +111,7 @@ class SessionMessageService {
       intent: msg.intent,
       userName: msg.userName,
       groupName: msg.groupName,
+      robotName: msg.robotName,
       extraData: msg.extraData,
     }));
   }

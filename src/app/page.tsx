@@ -4878,7 +4878,11 @@ ${callbacks.robotStatus}
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">机器人</p>
-                      <p className="font-medium">{selectedSession.robotName || '未知机器人'}</p>
+                      <p className="font-medium">
+                        {selectedSession.robotName ||
+                          sessionMessages.find(m => m.robotName)?.robotName ||
+                          '未知机器人'}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">会话ID</p>
