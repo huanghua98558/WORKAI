@@ -16,9 +16,13 @@ const debugApiRoutes = async function (fastify, options) {
     try {
       const { robotId, messageType, recipient, content } = request.body;
 
+      // 参数标准化：确保 robotId 正确读取（兼容不同大小写形式）
+      const normalizedRobotId = request.body.robotId || request.body.robotid;
+
       console.log('[debug.api.js] 发送消息请求:', {
         debugId,
         robotId,
+        normalizedRobotId,
         messageType,
         recipient,
         content,
@@ -28,14 +32,14 @@ const debugApiRoutes = async function (fastify, options) {
       // 记录调试开始日志
       logger.info('DebugOperation', '调试发送消息开始', {
         debugId,
-        robotId,
+        robotId: normalizedRobotId,
         messageType,
         recipient,
-        content: content.substring(0, 100),
+        content: content ? content.substring(0, 100) : '',
         timestamp: new Date().toISOString()
       });
 
-      if (!robotId) {
+      if (!normalizedRobotId) {
         console.error('[debug.api.js] 缺少 robotId 参数');
         logger.warn('DebugOperation', '调试发送消息失败：缺少 robotId', { debugId });
         return reply.status(400).send({
@@ -45,7 +49,7 @@ const debugApiRoutes = async function (fastify, options) {
       }
 
       if (!recipient || !content) {
-        logger.warn('DebugOperation', '调试发送消息失败：缺少接收方或内容', { debugId, robotId });
+        logger.warn('DebugOperation', '调试发送消息失败：缺少接收方或内容', { debugId, robotId: normalizedRobotId });
         return reply.status(400).send({
           code: -1,
           message: '缺少必要参数：接收方或消息内容'
@@ -54,21 +58,21 @@ const debugApiRoutes = async function (fastify, options) {
 
       // 获取指定的机器人
       const robotService = require('../services/robot.service');
-      const robot = await robotService.getRobotByRobotId(robotId);
+      const robot = await robotService.getRobotByRobotId(normalizedRobotId);
 
       if (!robot) {
-        logger.warn('DebugOperation', '调试发送消息失败：机器人不存在', { debugId, robotId });
+        logger.warn('DebugOperation', '调试发送消息失败：机器人不存在', { debugId, robotId: normalizedRobotId });
         return reply.status(404).send({
           code: -1,
-          message: `机器人不存在: ${robotId}`
+          message: `机器人不存在: ${normalizedRobotId}`
         });
       }
 
       if (!robot.isActive) {
-        logger.warn('DebugOperation', '调试发送消息失败：机器人未启用', { debugId, robotId });
+        logger.warn('DebugOperation', '调试发送消息失败：机器人未启用', { debugId, robotId: normalizedRobotId });
         return reply.status(403).send({
           code: -1,
-          message: `机器人未启用: ${robotId}`
+          message: `机器人未启用: ${normalizedRobotId}`
         });
       }
 
@@ -76,7 +80,7 @@ const debugApiRoutes = async function (fastify, options) {
 
       logger.info('DebugOperation', '调试发送消息：调用 WorkTool API', {
         debugId,
-        robotId,
+        robotId: normalizedRobotId,
         robotName: robot.name,
         messageType,
         recipient
@@ -101,7 +105,7 @@ const debugApiRoutes = async function (fastify, options) {
       if (result.success) {
         logger.info('DebugOperation', '调试发送消息成功', {
           debugId,
-          robotId,
+          robotId: normalizedRobotId,
           robotName: robot.name,
           messageType,
           recipient,
@@ -127,7 +131,7 @@ const debugApiRoutes = async function (fastify, options) {
       } else {
         logger.error('DebugOperation', '调试发送消息失败', {
           debugId,
-          robotId,
+          robotId: normalizedRobotId,
           robotName: robot.name,
           messageType,
           recipient,
@@ -147,7 +151,7 @@ const debugApiRoutes = async function (fastify, options) {
       console.error('[debug.api.js] 发送消息失败:', error);
       logger.error('DebugOperation', '调试发送消息异常', {
         debugId,
-        robotId: request.body?.robotId,
+        robotId: normalizedRobotId,
         error: error.message,
         stack: error.stack,
         processingTime
