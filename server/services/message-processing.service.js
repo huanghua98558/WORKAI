@@ -1,6 +1,6 @@
 /**
  * 消息处理服务
- * 统一消息处理流程：意图识别 → 决策是否回复 → 生成回复 → 发送回复
+ * 统一消息处理流程：意图识别 → 告警触发（如需要）→ 决策是否回复 → 生成回复 → 发送回复
  */
 
 const aiService = require('./ai.service');
@@ -8,6 +8,7 @@ const sessionService = require('./session.service');
 const worktoolService = require('./worktool.service');
 const executionTrackerService = require('./execution-tracker.service');
 const sessionMessageService = require('./session-message.service');
+const alertTriggerService = require('./alert-trigger.service');
 const config = require('../lib/config');
 const logger = require('./system-logger.service');
 
@@ -123,6 +124,40 @@ class MessageProcessingService {
       });
 
       console.log(`[消息处理] 意图识别结果:`, intentResult);
+
+      // 4.5 触发告警（如果需要）
+      executionTrackerService.updateStep(processingId, 'alert_trigger', {
+        status: 'processing',
+        startTime: Date.now()
+      });
+
+      const alertResult = await alertTriggerService.triggerAlert({
+        sessionId: session.sessionId,
+        intentType: intentResult.intent,
+        intent: intentResult.intent,
+        userId: messageContext.fromName,
+        userName: messageContext.fromName,
+        groupId: messageContext.groupName,
+        groupName: messageContext.groupName,
+        messageContent: messageContext.content,
+        robotId: robot.robotId,
+        robotName: robot.name,
+      });
+
+      if (alertResult) {
+        logger.info('MessageProcessing', '告警已触发', {
+          alertId: alertResult.id,
+          alertLevel: alertResult.alertLevel,
+          intentType: intentResult.intent,
+        });
+        console.log(`[消息处理] 告警已触发: ${alertResult.alertLevel} - ${intentResult.intent}`);
+      }
+
+      executionTrackerService.updateStep(processingId, 'alert_trigger', {
+        status: 'completed',
+        endTime: Date.now(),
+        result: alertResult
+      });
 
       // 5. 根据意图决策
       const decision = await this.makeDecision(

@@ -2,6 +2,357 @@ const { pgTable, text, varchar, timestamp, boolean, integer, jsonb, index } = re
 const { sql } = require('drizzle-orm');
 const { z } = require('zod');
 
+// 意图配置表
+exports.intentConfigs = pgTable(
+  "intent_configs",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    intentType: varchar("intent_type", { length: 50 }).notNull().unique(), // 意图类型: service, help, chat, welcome, risk, spam, admin
+    intentName: varchar("intent_name", { length: 100 }).notNull(), // 意图名称
+    intentDescription: text("intent_description"), // 意图描述
+    systemPrompt: text("system_prompt").notNull(), // 系统提示词（用于AI识别）
+    isEnabled: boolean("is_enabled").notNull().default(true), // 是否启用
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    intentTypeIdx: index("intent_configs_intent_type_idx").on(table.intentType),
+    isEnabledIdx: index("intent_configs_is_enabled_idx").on(table.isEnabled),
+  })
+);
+
+// 告警规则表
+exports.alertRules = pgTable(
+  "alert_rules",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    intentType: varchar("intent_type", { length: 50 }).notNull(), // 关联的意图类型
+    ruleName: varchar("rule_name", { length: 255 }).notNull(), // 规则名称
+    isEnabled: boolean("is_enabled").notNull().default(true), // 是否启用
+    alertLevel: varchar("alert_level", { length: 20 }).notNull(), // 告警级别: critical, warning, info
+    threshold: integer("threshold").default(1), // 告警阈值（连续触发N次才告警）
+    cooldownPeriod: integer("cooldown_period").default(300), // 冷却时间（秒），避免重复告警
+    messageTemplate: text("message_template"), // 告警消息模板
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    intentTypeIdx: index("alert_rules_intent_type_idx").on(table.intentType),
+    alertLevelIdx: index("alert_rules_alert_level_idx").on(table.alertLevel),
+    isEnabledIdx: index("alert_rules_is_enabled_idx").on(table.isEnabled),
+  })
+);
+
+// 通知方式配置表
+exports.notificationMethods = pgTable(
+  "notification_methods",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    alertRuleId: varchar("alert_rule_id", { length: 36 }).notNull(), // 关联的告警规则ID
+    methodType: varchar("method_type", { length: 50 }).notNull(), // 通知方式: robot, email, sms, wechat, dingtalk, feishu
+    isEnabled: boolean("is_enabled").notNull().default(true), // 是否启用
+    recipientConfig: jsonb("recipient_config"), // 接收人配置（JSON格式，包含联系方式等）
+    messageTemplate: text("message_template"), // 通知消息模板
+    priority: integer("priority").notNull().default(10), // 优先级（1-10，1最高）
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    alertRuleIdIdx: index("notification_methods_alert_rule_id_idx").on(table.alertRuleId),
+    methodTypeIdx: index("notification_methods_method_type_idx").on(table.methodType),
+    isEnabledIdx: index("notification_methods_is_enabled_idx").on(table.isEnabled),
+    priorityIdx: index("notification_methods_priority_idx").on(table.priority),
+  })
+);
+
+// 告警历史表
+exports.alertHistory = pgTable(
+  "alert_history",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    sessionId: varchar("session_id", { length: 255 }), // 关联的会话ID
+    alertRuleId: varchar("alert_rule_id", { length: 36 }).notNull(), // 关联的告警规则ID
+    intentType: varchar("intent_type", { length: 50 }).notNull(), // 触发告警的意图类型
+    alertLevel: varchar("alert_level", { length: 20 }).notNull(), // 告警级别
+    userId: varchar("user_id", { length: 255 }), // 触发告警的用户ID
+    userName: varchar("user_name", { length: 255 }), // 触发告警的用户名
+    groupId: varchar("group_id", { length: 255 }), // 群组ID
+    groupName: varchar("group_name", { length: 255 }), // 群组名
+    messageContent: text("message_content"), // 触发告警的消息内容
+    alertMessage: text("alert_message").notNull(), // 告警消息
+    notificationStatus: varchar("notification_status", { length: 20 }).notNull().default("pending"), // 通知状态: pending, sent, failed
+    notificationResult: jsonb("notification_result"), // 通知结果（JSON格式，包含各方式的发送结果）
+    isHandled: boolean("is_handled").notNull().default(false), // 是否已处理
+    handledBy: varchar("handled_by", { length: 36 }), // 处理人ID
+    handledAt: timestamp("handled_at", { withTimezone: true }), // 处理时间
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    sessionIdIdx: index("alert_history_session_id_idx").on(table.sessionId),
+    alertRuleIdIdx: index("alert_history_alert_rule_id_idx").on(table.alertRuleId),
+    intentTypeIdx: index("alert_history_intent_type_idx").on(table.intentType),
+    alertLevelIdx: index("alert_history_alert_level_idx").on(table.alertLevel),
+    notificationStatusIdx: index("alert_history_notification_status_idx").on(table.notificationStatus),
+    createdAtIdx: index("alert_history_created_at_idx").on(table.createdAt),
+  })
+);
+
+// 用户表
+exports.users = pgTable(
+  "users",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    username: varchar("username", { length: 64 }).notNull().unique(),
+    email: varchar("email", { length: 255 }).unique(),
+    password: text("password").notNull(),
+    role: varchar("role", { length: 20 }).notNull().default("admin"), // admin, operator
+    isActive: boolean("is_active").default(true).notNull(),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }),
+  },
+  (table) => ({
+    usernameIdx: index("users_username_idx").on(table.username),
+    emailIdx: index("users_email_idx").on(table.email),
+  })
+);
+
+// 系统设置表
+exports.systemSettings = pgTable(
+  "system_settings",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    key: varchar("key", { length: 128 }).notNull().unique(),
+    value: text("value").notNull(),
+    category: varchar("category", { length: 64 }), // ai, alert, monitor, callback, etc.
+    description: text("description"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAtBy: varchar("updated_at_by", { length: 36 }), // userId
+  },
+  (table) => ({
+    keyIdx: index("system_settings_key_idx").on(table.key),
+    categoryIdx: index("system_settings_category_idx").on(table.category),
+  })
+);
+
+// QA 问答库表
+exports.qaDatabase = pgTable(
+  "qa_database",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    keyword: text("keyword").notNull(), // 匹配关键词
+    reply: text("reply").notNull(), // 回复内容
+    receiverType: varchar("receiver_type", { length: 20 }).notNull().default("all"), // 适用场景: all=全部/user=私聊/group=群聊
+    priority: integer("priority").notNull().default(5), // 匹配优先级: 1-10（1最高）
+    isExactMatch: boolean("is_exact_match").notNull().default(false), // 是否精确匹配
+    relatedKeywords: text("related_keywords"), // 关联关键词（逗号分隔）
+    groupName: varchar("group_name", { length: 255 }), // 限制群名（可选，不填则所有群都可用）
+    isActive: boolean("is_active").notNull().default(true), // 是否启用
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    keywordIdx: index("qa_database_keyword_idx").on(table.keyword),
+    priorityIdx: index("qa_database_priority_idx").on(table.priority),
+    groupIdx: index("qa_database_group_idx").on(table.groupName),
+    isActiveIdx: index("qa_database_is_active_idx").on(table.is_active),
+  })
+);
+
+// 机器人管理表
+exports.robots = pgTable(
+  "robots",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    name: varchar("name", { length: 255 }).notNull(), // 机器人名称
+    robotId: varchar("robot_id", { length: 64 }).notNull().unique(), // WorkTool Robot ID
+    apiBaseUrl: varchar("api_base_url", { length: 255 }).notNull(), // API Base URL
+    description: text("description"), // 描述
+    isActive: boolean("is_active").notNull().default(true), // 是否启用
+    status: varchar("status", { length: 20 }).notNull().default("unknown"), // 状态: online, offline, unknown, error
+    lastCheckAt: timestamp("last_check_at", { withTimezone: true }), // 最后检查时间
+    lastError: text("last_error"), // 最后错误信息
+    nickname: varchar("nickname", { length: 255 }), // 机器人昵称（从WorkTool API获取）
+    company: varchar("company", { length: 255 }), // 企业名称（从WorkTool API获取）
+    ipAddress: varchar("ip_address", { length: 45 }), // IP地址（支持IPv6）
+    isValid: boolean("is_valid").notNull().default(true), // 是否有效（从WorkTool API获取）
+    activatedAt: timestamp("activated_at", { withTimezone: true }), // 启用时间（从WorkTool API获取）
+    expiresAt: timestamp("expires_at", { withTimezone: true }), // 到期时间（从WorkTool API获取）
+    messageCallbackEnabled: boolean("message_callback_enabled").notNull().default(false), // 消息回调是否开启（从WorkTool API获取）
+    extraData: jsonb("extra_data"), // 额外数据（JSON格式，存储其他WorkTool返回的信息）
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    robotIdIdx: index("robots_robot_id_idx").on(table.robotId),
+    isActiveIdx: index("robots_is_active_idx").on(table.isActive),
+    statusIdx: index("robots_status_idx").on(table.status),
+    isValidIdx: index("robots_is_valid_idx").on(table.isValid),
+    expiresAtIdx: index("robots_expires_at_idx").on(table.expiresAt),
+    companyIdx: index("robots_company_idx").on(table.company),
+  })
+);
+
+// 回调历史记录表
+exports.callbackHistory = pgTable(
+  "callback_history",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    robotId: varchar("robot_id", { length: 64 }).notNull(), // WorkTool Robot ID
+    messageId: varchar("message_id", { length: 128 }).notNull(), // 消息ID
+    callbackType: integer("callback_type").notNull(), // 回调类型: 0=群二维码, 1=指令结果, 5=上线, 6=下线, 11=消息
+    errorCode: integer("error_code").notNull(), // 错误码: 0=成功
+    errorReason: text("error_reason").notNull(), // 错误原因
+    runTime: integer("run_time"), // 执行时间戳（毫秒）
+    timeCost: integer("time_cost"), // 指令执行耗时（毫秒）
+    commandType: integer("command_type"), // 指令类型
+    rawMsg: text("raw_msg"), // 原始指令
+    extraData: jsonb("extra_data"), // 额外数据（JSON格式，包含 successList, failList, groupName, qrCode 等）
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    robotIdIdx: index("callback_history_robot_id_idx").on(table.robotId),
+    messageIdIdx: index("callback_history_message_id_idx").on(table.messageId),
+    callbackTypeIdx: index("callback_history_callback_type_idx").on(table.callbackType),
+    errorCodeIdx: index("callback_history_error_code_idx").on(table.errorCode),
+    createdAtIdx: index("callback_history_created_at_idx").on(table.createdAt),
+  })
+);
+
+// 会话消息记录表
+exports.sessionMessages = pgTable(
+  "session_messages",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    sessionId: varchar("session_id", { length: 255 }).notNull(), // 会话ID
+    messageId: varchar("message_id", { length: 255 }), // 消息ID
+    userId: varchar("user_id", { length: 255 }), // 用户ID
+    groupId: varchar("group_id", { length: 255 }), // 群组ID
+    userName: varchar("user_name", { length: 255 }), // 用户名
+    groupName: varchar("group_name", { length: 255 }), // 群组名
+    robotId: varchar("robot_id", { length: 64 }), // 机器人ID
+    robotName: varchar("robot_name", { length: 255 }), // 机器人名称
+    content: text("content").notNull(), // 消息内容
+    isFromUser: boolean("is_from_user").notNull().default(false), // 是否来自用户
+    isFromBot: boolean("is_from_bot").notNull().default(false), // 是否来自机器人
+    isHuman: boolean("is_human").notNull().default(false), // 是否人工回复
+    intent: varchar("intent", { length: 50 }), // 意图识别结果
+    confidence: integer("confidence"), // 意图识别置信度（0-100）
+    timestamp: timestamp("timestamp", { withTimezone: true }).notNull(), // 消息时间戳
+    extraData: jsonb("extra_data"), // 额外数据（JSON格式）
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    sessionIdIdx: index("session_messages_session_id_idx").on(table.sessionId),
+    userIdIdx: index("session_messages_user_id_idx").on(table.userId),
+    groupIdIdx: index("session_messages_group_id_idx").on(table.groupId),
+    robotIdIdx: index("session_messages_robot_id_idx").on(table.robotId),
+    timestampIdx: index("session_messages_timestamp_idx").on(table.timestamp),
+    intentIdx: index("session_messages_intent_idx").on(table.intent),
+  })
+);
+
+// AI IO 日志表
+exports.aiIoLogs = pgTable(
+  "ai_io_logs",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    sessionId: varchar("session_id", { length: 255 }), // 关联的会话ID
+    messageId: varchar("message_id", { length: 255 }), // 关联的消息ID
+    robotId: varchar("robot_id", { length: 64 }), // 机器人ID
+    robotName: varchar("robot_name", { length: 255 }), // 机器人名称
+    operationType: varchar("operation_type", { length: 50 }).notNull(), // 操作类型: intent_recognition, service_reply, chat_reply, report
+    aiInput: text("ai_input").notNull(), // 发送给 AI 的输入（prompt）
+    aiOutput: text("ai_output"), // AI 返回的输出
+    modelId: varchar("model_id", { length: 255 }), // 使用的 AI 模型 ID
+    temperature: varchar("temperature", { length: 10 }), // 温度参数
+    requestDuration: integer("request_duration"), // 请求耗时（毫秒）
+    status: varchar("status", { length: 20 }).notNull(), // 状态: success, error, timeout
+    errorMessage: text("error_message"), // 错误信息
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    sessionIdIdx: index("ai_io_logs_session_id_idx").on(table.sessionId),
+    messageIdIdx: index("ai_io_logs_message_id_idx").on(table.messageId),
+    robotIdIdx: index("ai_io_logs_robot_id_idx").on(table.robotId),
+    operationTypeIdx: index("ai_io_logs_operation_type_idx").on(table.operationType),
+    statusIdx: index("ai_io_logs_status_idx").on(table.status),
+    createdAtIdx: index("ai_io_logs_created_at_idx").on(table.createdAt),
+  })
+);
+
+// 运营日志表
+exports.operationLogs = pgTable(
+  "operation_logs",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    module: varchar("module", { length: 50 }).notNull(), // 模块: robots, callbacks, ai, sessions, etc.
+    operation: varchar("operation", { length: 50 }).notNull(), // 操作: create, update, delete, start, stop, etc.
+    operatorId: varchar("operator_id", { length: 36 }), // 操作人ID
+    operatorName: varchar("operator_name", { length: 255 }), // 操作人名称
+    targetId: varchar("target_id", { length: 36 }), // 目标对象ID
+    targetType: varchar("target_type", { length: 50 }), // 目标对象类型: robot, callback, ai_config, etc.
+    description: text("description"), // 操作描述
+    extraData: jsonb("extra_data"), // 额外数据（JSON格式）
+    ipAddress: varchar("ip_address", { length: 45 }), // 操作IP地址
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    moduleIdx: index("operation_logs_module_idx").on(table.module),
+    operationIdx: index("operation_logs_operation_idx").on(table.operation),
+    operatorIdIdx: index("operation_logs_operator_id_idx").on(table.operatorId),
+    targetIdIdx: index("operation_logs_target_id_idx").on(table.targetId),
+    createdAtIdx: index("operation_logs_created_at_idx").on(table.createdAt),
+  })
+);
+
+
 // 用户表
 exports.users = pgTable(
   "users",
