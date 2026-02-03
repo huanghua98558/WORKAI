@@ -59,59 +59,51 @@ export default function MonitorTab() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h3 className="text-2xl font-bold flex items-center gap-2">
-            <div className="p-2 bg-red-500/10 rounded-lg border border-red-500/30">
-              <Activity className="h-6 w-6 text-red-500" />
-            </div>
+            <Activity className="h-6 w-6 text-red-500" />
             监控与告警
           </h3>
           <p className="text-muted-foreground mt-1">实时监控系统状态和告警信息</p>
         </div>
-        <Button onClick={loadAlertData} disabled={isLoading} variant="outline" className="border-primary/30 hover:border-primary/50">
+        <Button onClick={loadAlertData} disabled={isLoading} variant="outline">
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
           刷新
         </Button>
       </div>
 
-      {/* 科幻风格熔断器状态 */}
-      <Card className={`sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300 ${circuitBreakerStatus ? 'border-red-500/50' : ''}`}>
-        <CardHeader className={`bg-gradient-to-r ${circuitBreakerStatus ? 'from-red-500/10 to-orange-500/10' : 'from-green-500/10 to-emerald-500/10'} border-b border-primary/20`}>
-          <div className="flex items-center gap-2">
-            <div className={`p-1.5 ${circuitBreakerStatus ? 'bg-red-500/10 border-red-500/30' : 'bg-green-500/10 border-green-500/30'} rounded-lg border`}>
-              <AlertOctagon className={`h-4 w-4 ${circuitBreakerStatus ? 'text-red-500' : 'text-green-500'}`} />
-            </div>
-            <CardTitle className="text-base">熔断器状态</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
+      {/* 熔断器状态 */}
+      <Alert variant={circuitBreakerStatus ? 'destructive' : 'default'}>
+        <AlertOctagon className="h-4 w-4" />
+        <AlertTitle>熔断器状态</AlertTitle>
+        <AlertDescription>
           <div className="flex items-center justify-between mt-2">
             <span className="flex items-center gap-2">
               {circuitBreakerStatus ? (
                 <>
-                  <AlertCircle className="h-4 w-4 text-red-500" />
-                  <span className="text-red-500 font-medium">熔断器已开启，AI 服务已暂停</span>
+                  <AlertCircle className="h-4 w-4" />
+                  <span>熔断器已开启，AI 服务已暂停</span>
                 </>
               ) : (
                 <>
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <span className="text-green-500 font-medium">熔断器正常，AI 服务运行中</span>
+                  <CheckCircle className="h-4 w-4" />
+                  <span>熔断器正常，AI 服务运行中</span>
                 </>
               )}
             </span>
             {circuitBreakerStatus && (
-              <Button size="sm" variant="outline" onClick={resetCircuitBreaker} className="border-primary/30 hover:border-primary/50">
+              <Button size="sm" variant="outline" onClick={resetCircuitBreaker}>
                 重置熔断器
               </Button>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </AlertDescription>
+      </Alert>
 
-      {/* 科幻风格告警统计 */}
+      {/* 告警统计 */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
-          <CardHeader className="pb-2 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-b border-primary/20">
+        <Card>
+          <CardHeader className="pb-2">
             <CardDescription>总告警数</CardDescription>
-            <CardTitle className="text-3xl text-blue-500 font-mono">{alertHistory.length}</CardTitle>
+            <CardTitle className="text-3xl">{alertHistory.length}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xs text-muted-foreground">
@@ -120,10 +112,10 @@ export default function MonitorTab() {
           </CardContent>
         </Card>
 
-        <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
-          <CardHeader className="pb-2 bg-gradient-to-r from-red-500/10 to-orange-500/10 border-b border-primary/20">
+        <Card>
+          <CardHeader className="pb-2">
             <CardDescription>严重告警</CardDescription>
-            <CardTitle className="text-3xl text-red-500 font-mono">
+            <CardTitle className="text-3xl text-red-600">
               {alertHistory.filter(a => a.level === 'critical').length}
             </CardTitle>
           </CardHeader>
@@ -134,12 +126,12 @@ export default function MonitorTab() {
           </CardContent>
         </Card>
 
-        <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
-          <CardHeader className="pb-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-b border-primary/20">
+        <Card>
+          <CardHeader className="pb-2">
             <CardDescription>告警趋势</CardDescription>
             <CardTitle className="text-3xl flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-purple-500" />
-              <span className="font-mono">{alertHistory.length > 0 ? '上升' : '平稳'}</span>
+              <TrendingUp className="h-5 w-5 text-blue-500" />
+              <span>{alertHistory.length > 0 ? '上升' : '平稳'}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -150,15 +142,10 @@ export default function MonitorTab() {
         </Card>
       </div>
 
-      {/* 科幻风格告警历史 */}
-      <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
-        <CardHeader className="bg-gradient-to-r from-orange-500/10 to-red-500/10 border-b border-primary/20">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-orange-500/10 rounded-lg border border-orange-500/30">
-              <AlertTriangle className="h-4 w-4 text-orange-500" />
-            </div>
-            <CardTitle>告警历史</CardTitle>
-          </div>
+      {/* 告警历史 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>告警历史</CardTitle>
           <CardDescription>
             最近的告警记录
           </CardDescription>
@@ -168,27 +155,22 @@ export default function MonitorTab() {
             {alertHistory.map((alert) => (
               <div
                 key={alert.id}
-                className={`flex items-start gap-3 p-3 border rounded-lg animate-slide-left hover:shadow-glow transition-all duration-300 bg-tech-gradient dark:bg-tech-gradient ${
-                  alert.level === 'critical' ? 'border-red-500/30 hover:border-red-500/50' :
-                  alert.level === 'warning' ? 'border-yellow-500/30 hover:border-yellow-500/50' :
-                  'border-blue-500/30 hover:border-blue-500/50'
-                }`}
+                className="flex items-start gap-3 p-3 border rounded-lg"
               >
-                <div className={`p-2 rounded-lg border ${
-                  alert.level === 'critical' ? 'bg-red-500/10 border-red-500/30 text-red-500' :
-                  alert.level === 'warning' ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-500' :
-                  'bg-blue-500/10 border-blue-500/30 text-blue-500'
+                <div className={`p-2 rounded-lg ${
+                  alert.level === 'critical' ? 'bg-red-100 dark:bg-red-900' :
+                  alert.level === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900' :
+                  'bg-blue-100 dark:bg-blue-900'
                 }`}>
                   <AlertTriangle className="h-4 w-4 text-current" />
                 </div>
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <div className="flex items-center gap-2 mb-1">
                     <span className="font-medium">{alert.title || alert.type || '告警'}</span>
-                    <Badge variant="outline" className={`${
-                      alert.level === 'critical' ? 'border-red-500/50 text-red-500' :
-                      alert.level === 'warning' ? 'border-yellow-500/50 text-yellow-500' :
-                      'border-blue-500/50 text-blue-500'
-                    }`}>
+                    <Badge variant={
+                      alert.level === 'critical' ? 'destructive' :
+                      alert.level === 'warning' ? 'secondary' : 'outline'
+                    }>
                       {alert.level}
                     </Badge>
                   </div>

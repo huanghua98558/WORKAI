@@ -544,31 +544,29 @@ export default function RobotManagement() {
     }
   };
 
-  // 获取科幻风格状态徽章
+  // 获取状态徽章
   const getStatusBadge = (status: string, isActive: boolean) => {
     if (!isActive) {
-      return <Badge variant="outline" className="gap-1 border-slate-500/50 text-slate-500"><XCircle className="h-3 w-3" /> 已停用</Badge>;
+      return <Badge variant="secondary" className="gap-1"><XCircle className="h-3 w-3" /> 已停用</Badge>;
     }
     
     switch (status) {
       case 'online':
-        return <Badge variant="outline" className="gap-1 border-green-500/50 text-green-500"><CheckCircle className="h-3 w-3" /> 在线</Badge>;
+        return <Badge variant="default" className="gap-1 bg-green-500 hover:bg-green-600"><CheckCircle className="h-3 w-3" /> 在线</Badge>;
       case 'offline':
-        return <Badge variant="outline" className="gap-1 border-red-500/50 text-red-500"><XCircle className="h-3 w-3" /> 离线</Badge>;
+        return <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" /> 离线</Badge>;
       default:
-        return <Badge variant="outline" className="gap-1 border-orange-500/50 text-orange-500"><AlertTriangle className="h-3 w-3" /> 未知</Badge>;
+        return <Badge variant="outline" className="gap-1"><AlertTriangle className="h-3 w-3" /> 未知</Badge>;
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* 科幻风格页面标题和操作栏 */}
+      {/* 页面标题和操作栏 */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
-            <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/30">
-              <Bot className="h-6 w-6 text-blue-500" />
-            </div>
+            <Bot className="h-6 w-6" />
             机器人管理
           </h2>
           <p className="text-muted-foreground mt-1">
@@ -601,104 +599,86 @@ export default function RobotManagement() {
         </div>
       </div>
 
-      {/* 科幻风格统计信息 */}
+      {/* 统计信息 */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
-          <CardHeader className="pb-3 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-b border-primary/20">
-            <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
-              <div className="p-1 bg-blue-500/10 rounded border border-blue-500/30">
-                <Bot className="h-3.5 w-3.5 text-blue-500" />
-              </div>
-              总机器人数
-            </CardTitle>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">总机器人数</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-500 font-mono">{robots.length}</div>
+            <div className="text-2xl font-bold flex items-center gap-2">
+              <Bot className="h-5 w-5 text-blue-500" />
+              {robots.length}
+            </div>
           </CardContent>
         </Card>
-        <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
-          <CardHeader className="pb-3 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-b border-primary/20">
-            <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
-              <div className="p-1 bg-green-500/10 rounded border border-green-500/30">
-                <CheckCircle className="h-3.5 w-3.5 text-green-500" />
-              </div>
-              在线
-            </CardTitle>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">在线</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-500 font-mono">{robots.filter(r => r.isActive && r.status === 'online').length}</div>
+            <div className="text-2xl font-bold flex items-center gap-2 text-green-600">
+              <CheckCircle className="h-5 w-5" />
+              {robots.filter(r => r.isActive && r.status === 'online').length}
+            </div>
           </CardContent>
         </Card>
-        <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
-          <CardHeader className="pb-3 bg-gradient-to-r from-red-500/10 to-orange-500/10 border-b border-primary/20">
-            <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
-              <div className="p-1 bg-red-500/10 rounded border border-red-500/30">
-                <XCircle className="h-3.5 w-3.5 text-red-500" />
-              </div>
-              离线
-            </CardTitle>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">离线</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-500 font-mono">{robots.filter(r => r.isActive && r.status === 'offline').length}</div>
+            <div className="text-2xl font-bold flex items-center gap-2 text-red-600">
+              <XCircle className="h-5 w-5" />
+              {robots.filter(r => r.isActive && r.status === 'offline').length}
+            </div>
           </CardContent>
         </Card>
-        <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
-          <CardHeader className="pb-3 bg-gradient-to-r from-slate-500/10 to-gray-500/10 border-b border-primary/20">
-            <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
-              <div className="p-1 bg-slate-500/10 rounded border border-slate-500/30">
-                <AlertTriangle className="h-3.5 w-3.5 text-slate-500" />
-              </div>
-              已停用
-            </CardTitle>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">已停用</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-500 font-mono">{robots.filter(r => !r.isActive).length}</div>
+            <div className="text-2xl font-bold flex items-center gap-2 text-gray-600">
+              <AlertTriangle className="h-5 w-5" />
+              {robots.filter(r => !r.isActive).length}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* 科幻风格新功能提示 */}
-      <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
-        <CardHeader className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-b border-primary/20">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-blue-500/10 rounded-lg border border-blue-500/30">
-              <Info className="h-4 w-4 text-blue-500" />
-            </div>
-            <CardTitle className="text-base">新功能推荐</CardTitle>
-          </div>
-          <CardDescription>
-            系统现已支持分组管理和角色管理，可以帮助您更好地组织和管理多个机器人。
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2 mt-2">
-            <Button variant="outline" size="sm" onClick={() => router.push('/#robot-groups')} className="border-primary/30 hover:border-primary/50">
+      {/* 新功能提示 */}
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle>新功能推荐</AlertTitle>
+        <AlertDescription>
+          系统现已支持分组管理和角色管理，可以帮助您更好地组织和管理多个机器人。
+          <div className="flex gap-2 mt-2">
+            <Button variant="outline" size="sm" onClick={() => router.push('/#robot-groups')}>
               <Building2 className="h-4 w-4 mr-2" />
               分组管理
             </Button>
-            <Button variant="outline" size="sm" onClick={() => router.push('/#robot-roles')} className="border-primary/30 hover:border-primary/50">
+            <Button variant="outline" size="sm" onClick={() => router.push('/#robot-roles')}>
               <ShieldCheck className="h-4 w-4 mr-2" />
               角色管理
             </Button>
-            <Button variant="outline" size="sm" onClick={() => router.push('/#command-sender')} className="border-primary/30 hover:border-primary/50">
+            <Button variant="outline" size="sm" onClick={() => router.push('/#command-sender')}>
               <Sparkles className="h-4 w-4 mr-2" />
               指令发送
             </Button>
-            <Button variant="outline" size="sm" onClick={() => router.push('/#monitoring-dashboard')} className="border-primary/30 hover:border-primary/50">
+            <Button variant="outline" size="sm" onClick={() => router.push('/#monitoring-dashboard')}>
               <BarChart3 className="h-4 w-4 mr-2" />
               监控大屏
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </AlertDescription>
+      </Alert>
 
-      {/* 科幻风格性能指标 */}
-      <Card className="sci-fi-card border-primary/30 hover:border-primary/50 transition-all duration-300">
-        <CardHeader className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-b border-primary/20">
+      {/* 性能指标 */}
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <div className="p-1.5 bg-purple-500/10 rounded-lg border border-purple-500/30">
-              <BarChart3 className="h-4 w-4 text-purple-500" />
-            </div>
+            <BarChart3 className="h-4 w-4" />
             性能指标
           </CardTitle>
           <CardDescription>
@@ -708,14 +688,12 @@ export default function RobotManagement() {
         <CardContent>
           <div className="space-y-4">
             {robots.filter(r => r.isActive).map((robot) => (
-              <div key={robot.id} className="border border-primary/20 rounded-lg p-4 bg-tech-gradient dark:bg-tech-gradient hover:border-primary/40 transition-all duration-300">
+              <div key={robot.id} className="border rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-blue-500/10 rounded-lg border border-blue-500/30">
-                      <Bot className="h-4 w-4 text-blue-500" />
-                    </div>
+                    <Bot className="h-5 w-5 text-blue-500" />
                     <span className="font-medium">{robot.name}</span>
-                    <Badge variant="outline" className="text-xs border-primary/30">{robot.robotId}</Badge>
+                    <Badge variant="outline" className="text-xs">{robot.robotId}</Badge>
                     {getStatusBadge(robot.status, robot.isActive)}
                   </div>
                   <div className="flex gap-2">
