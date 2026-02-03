@@ -56,7 +56,7 @@ echo "✅ Backend started (PID: ${BACKEND_PID})"
 
 # 启动前端服务
 echo "Starting frontend service on port ${FRONTEND_PORT}..."
-npx next dev --webpack --port ${FRONTEND_PORT} &
+npx next dev --port ${FRONTEND_PORT} &
 FRONTEND_PID=$!
 
 echo "✅ Frontend started (PID: ${FRONTEND_PID})"
