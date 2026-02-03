@@ -4343,7 +4343,6 @@ ${callbacks.robotStatus}
   const RealtimeIOTab = () => {
     const [messages, setMessages] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [autoRefresh, setAutoRefresh] = useState(false); // 默认关闭自动刷新
     const [filterType, setFilterType] = useState<'all' | 'user' | 'bot'>('all');
     const [selectedRobot, setSelectedRobot] = useState<string>('');
     const [messageLimit, setMessageLimit] = useState<number>(50);
@@ -4390,36 +4389,11 @@ ${callbacks.robotStatus}
       loadMessages();
     }, []); // 移除依赖，只执行一次
 
-    // 自动刷新
+    // 监听筛选条件变化，手动触发加载
     useEffect(() => {
-      if (!autoRefresh) {
-        console.log('RealtimeIO: 自动刷新已关闭');
-        return;
-      }
-
-      console.log('RealtimeIO: 开启自动刷新，间隔 5 秒');
-      const interval = setInterval(() => {
-        console.log('RealtimeIO: 自动刷新触发');
-        loadMessages();
-      }, 5000);
-
-      return () => {
-        console.log('RealtimeIO: 清除自动刷新定时器');
-        clearInterval(interval);
-      };
-    }, [autoRefresh]); // 移除 loadMessages 依赖，避免函数重创建导致定时器重置
-
-    // 监听筛选条件变化，手动触发加载（但避免与自动刷新冲突）
-    useEffect(() => {
-      // 如果自动刷新已开启，不手动触发加载，等待下一次自动刷新
-      if (autoRefresh) {
-        console.log(`RealtimeIO: 筛选条件变化，但自动刷新已开启，等待下一次自动刷新 filter=${filterType}, robot=${selectedRobot}`);
-        return;
-      }
-
       console.log(`RealtimeIO: 筛选条件变化，手动触发加载 filter=${filterType}, robot=${selectedRobot}`);
       loadMessages();
-    }, [filterType, selectedRobot, messageLimit, autoRefresh]);
+    }, [filterType, selectedRobot, messageLimit]);
 
     return (
       <div className="space-y-6">
@@ -4429,11 +4403,6 @@ ${callbacks.robotStatus}
             <p className="text-muted-foreground">实时查看 AI 的输入和输出内容</p>
           </div>
           <div className="flex items-center gap-3">
-            <Switch
-              checked={autoRefresh}
-              onCheckedChange={setAutoRefresh}
-            />
-            <span className="text-sm">自动刷新</span>
             <Button
               variant="outline"
               size="sm"

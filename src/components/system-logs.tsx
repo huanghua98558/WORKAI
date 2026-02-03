@@ -67,7 +67,6 @@ interface SystemLog {
 export default function SystemLogs() {
   const [logs, setLogs] = useState<SystemLog[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(false);
   const [filterLevel, setFilterLevel] = useState<string>('all');
   const [filterModule, setFilterModule] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -108,16 +107,6 @@ export default function SystemLogs() {
   useEffect(() => {
     loadLogs();
   }, [filterLevel, filterModule, limit]);
-
-  useEffect(() => {
-    if (!autoRefresh) return;
-
-    const interval = setInterval(() => {
-      loadLogs();
-    }, 5000); // 每5秒刷新一次
-
-    return () => clearInterval(interval);
-  }, [autoRefresh, filterLevel, filterModule, limit]);
 
   const handleDeleteOldLogs = async () => {
     try {
@@ -307,13 +296,6 @@ export default function SystemLogs() {
           <p className="text-muted-foreground">查看系统运行日志和错误信息</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Switch
-              checked={autoRefresh}
-              onCheckedChange={setAutoRefresh}
-            />
-            <Label className="text-sm">自动刷新</Label>
-          </div>
           <Button
             variant="outline"
             size="sm"
