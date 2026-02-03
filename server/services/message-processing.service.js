@@ -570,17 +570,22 @@ class MessageProcessingService {
           processingId
         });
       } else {
-        // AI 自然陪聊：使用闲聊AI模型
-        logger.info('MessageProcessing', 'generateReply步骤: 使用闲聊AI模型', {
+        // AI 自然陪聊：使用客服回复模型（统一模型）
+        logger.info('MessageProcessing', 'generateReply步骤: 使用客服回复模型', {
           processingId
         });
 
-        reply = await aiService.generateChatReply(messageContext.content, {
-          sessionId: session.sessionId,
-          messageId: messageContext.messageId,
-          robotId: robot.robotId,
-          robotName: robot.name
-        });
+        reply = await aiService.generateServiceReply(
+          messageContext.content,
+          intent,
+          '',
+          {
+            sessionId: session.sessionId,
+            messageId: messageContext.messageId,
+            robotId: robot.robotId,
+            robotName: robot.name
+          }
+        );
         actionReason = '闲聊 AI 陪聊';
 
         logger.info('MessageProcessing', 'generateReply步骤: 闲聊回复生成完成', {

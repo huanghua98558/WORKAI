@@ -29,9 +29,7 @@
         "description": "多模态Agent优化模型（默认）",
         "category": [
           "intent",
-          "service",
-          "chat",
-          "report"
+          "service"
         ],
         "maxTokens": 128000,
         "supportStream": true
@@ -44,8 +42,7 @@
         "description": "平衡性能，适合通用对话",
         "category": [
           "intent",
-          "service",
-          "chat"
+          "service"
         ],
         "maxTokens": 32000,
         "supportStream": true
@@ -58,7 +55,7 @@
         "description": "快速响应模型，适合简单任务",
         "category": [
           "intent",
-          "chat"
+          "service"
         ],
         "maxTokens": 4000,
         "supportStream": true
@@ -84,7 +81,7 @@
         "description": "轻量级模型，成本更低",
         "category": [
           "intent",
-          "chat"
+          "service"
         ],
         "maxTokens": 4000,
         "supportStream": true
@@ -97,7 +94,6 @@
         "description": "强大的对话能力，适合复杂推理",
         "category": [
           "service",
-          "chat",
           "report"
         ],
         "maxTokens": 128000,
@@ -150,17 +146,6 @@
       "customModel": {
         "provider": "openai",
         "model": "gpt-4o",
-        "apiKey": "",
-        "apiBase": ""
-      }
-    },
-    "chat": {
-      "useBuiltin": true,
-      "builtinModelId": "doubao-seed-1-6-flash-250615",
-      "useCustom": false,
-      "customModel": {
-        "provider": "openai",
-        "model": "gpt-4o-mini",
         "apiKey": "",
         "apiBase": ""
       }

@@ -247,8 +247,13 @@ class DecisionService {
         };
       }
 
-      // AI 自然陪聊
-      reply = await aiService.generateChatReply(context.content);
+      // AI 自然陪聊：使用客服回复模型（统一模型）
+      reply = await aiService.generateServiceReply(context.content, 'chat', '', {
+        sessionId: session.sessionId,
+        messageId: context.messageId,
+        robotId: context.robotId,
+        robotName: context.robotName
+      });
       
       await sessionService.updateSession(session.sessionId, {
         aiReplyCount: session.aiReplyCount + 1,

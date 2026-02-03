@@ -20,7 +20,7 @@ class AIService {
    */
   initializeClients() {
     const aiConfig = config.get('ai');
-    const providers = ['intentRecognition', 'serviceReply', 'chat', 'report'];
+    const providers = ['intentRecognition', 'serviceReply', 'report'];
 
     // 构建内置模型映射
     if (aiConfig?.builtinModels) {
@@ -89,8 +89,7 @@ class AIService {
   getDefaultTemperature(provider) {
     const defaults = {
       'intentRecognition': 0.1,  // 意图识别需要确定性高
-      'serviceReply': 0.7,      // 服务回复需要一定的创造性
-      'chat': 0.9,              // 闲聊需要高创造性
+      'serviceReply': 0.7,      // 客服回复需要一定的创造性和友好性
       'report': 0.3             // 报告生成需要确定性和专业性
     };
     return defaults[provider] || 0.7;
@@ -121,20 +120,18 @@ class AIService {
   "reason": "判断理由"
 }`,
 
-      'serviceReply': `你是一个企业微信群服务助手。请根据用户问题和意图，生成专业、友好的回复。
+      'serviceReply': `你是一个企业微信群客服助手。请根据用户问题和意图，生成专业、友好、自然的回复。
 
 回复要求：
-1. 语言简洁明了，控制在 200 字以内
-2. 语气亲切友好，使用表情符号增加亲和力
-3. 避免敏感词汇和不当内容
-4. 如果需要人工介入，明确提示`,
-
-      'chat': `你是一个友好的聊天伙伴。请以轻松、自然的方式回应用户的闲聊内容。
-
-要求：
-1. 回复简短，控制在 100 字以内
-2. 语气轻松活泼，可以使用表情符号
-3. 保持对话连贯性`,
+1. 根据意图类型调整回复风格：
+   - service/help/welcome: 专业、详细、有耐心
+   - chat: 轻松、友好、简短
+   - 其他意图: 礼貌、得体
+2. 语言简洁明了，控制在 200 字以内（闲聊可以更短）
+3. 语气亲切友好，适度使用表情符号增加亲和力
+4. 避免敏感词汇和不当内容
+5. 闲聊时可以更随意、更活泼
+6. 如果需要人工介入，明确提示`,
 
       'report': `你是一个数据分析师。请根据以下数据生成日终总结报告。
 
@@ -334,80 +331,6 @@ class AIService {
   }
 
   /**
-   * 闲聊回复生成
-   */
-  async generateChatReply(userMessage, context = {}) {
-    const startTime = Date.now();
-    const sessionId = context.sessionId || null;
-    const messageId = context.messageId || null;
-    const robotId = context.robotId || null;
-    const robotName = context.robotName || null;
-
-    let clientConfig;
-    let messages;
-
-    try {
-      clientConfig = this.getClient('chat');
-
-      messages = [
-        {
-          role: 'system',
-          content: clientConfig.systemPrompt
-        },
-        { role: 'user', content: userMessage }
-      ];
-
-      const response = await clientConfig.client.invoke(messages, {
-        model: clientConfig.modelId,
-        temperature: clientConfig.temperature
-      });
-
-      const duration = Date.now() - startTime;
-      const content = response.content;
-
-      // 记录 AI IO 日志
-      await aiIoLogService.saveLog({
-        sessionId,
-        messageId,
-        robotId,
-        robotName,
-        operationType: 'chat_reply',
-        aiInput: JSON.stringify(messages),
-        aiOutput: content,
-        modelId: clientConfig.modelId,
-        temperature: clientConfig.temperature,
-        requestDuration: duration,
-        status: 'success',
-      });
-
-      return content;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error('生成闲聊回复失败:', error.message);
-
-      // 记录错误日志
-      await aiIoLogService.saveLog({
-        sessionId,
-        messageId,
-        robotId,
-        robotName,
-        operationType: 'chat_reply',
-        aiInput: messages ? JSON.stringify(messages) : null,
-        aiOutput: null,
-        modelId: clientConfig?.modelId,
-        temperature: clientConfig?.temperature,
-        requestDuration: duration,
-        status: 'error',
-        errorMessage: error.message,
-      });
-
-      // 降级处理：返回随机表情
-      const emojis = ['👋', '😊', '🎉', '✨', '👍', '💪'];
-      return emojis[Math.floor(Math.random() * emojis.length)];
-    }
-  }
-
-  /**
    * 日终总结生成
    */
   async generateDailyReport(data) {
@@ -448,7 +371,7 @@ class AIService {
    */
   getConfigStatus() {
     const status = {};
-    const providers = ['intentRecognition', 'serviceReply', 'chat', 'report'];
+    const providers = ['intentRecognition', 'serviceReply', 'report'];
     
     providers.forEach(provider => {
       const clientConfig = this.clients[provider];

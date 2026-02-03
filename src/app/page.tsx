@@ -4294,7 +4294,6 @@ ${callbacks.robotStatus}
                       description="用于自动回复服务类问题和闲聊陪伴，生成专业、友好、自然的对话"
                       aiConfig={propsAiConfig}
                       onSaveConfig={saveAiConfig}
-                      extraConfig={['chat']}
                     />
                   </div>
                 </TabsContent>
