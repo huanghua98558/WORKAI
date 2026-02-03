@@ -31,6 +31,7 @@ import {
   ChevronDown,
   ChevronUp,
   MoreHorizontal,
+  Download,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -128,6 +129,82 @@ export default function SystemLogs() {
     setShowDeleteDialog(false);
   };
 
+  const handleDownloadLogs = async () => {
+    try {
+      // 获取所有日志（不限制条数）
+      const res = await fetch('/api/system-logs?limit=10000');
+      if (res.ok) {
+        const data = await res.json();
+        const allLogs = data.data || [];
+
+        if (allLogs.length === 0) {
+          alert('❌ 没有日志可下载');
+          return;
+        }
+
+        // 生成TXT格式的内容
+        const lines = [
+          '=====================================',
+          '系统运行日志导出',
+          '=====================================',
+          `导出时间: ${new Date().toLocaleString('zh-CN')}`,
+          `日志总数: ${allLogs.length} 条`,
+          '=====================================',
+          '',
+        ];
+
+        // 按时间排序（从旧到新）
+        const sortedLogs = [...allLogs].sort((a, b) => 
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+
+        // 添加每条日志
+        sortedLogs.forEach(log => {
+          const timestamp = new Date(log.timestamp).toLocaleString('zh-CN');
+          lines.push(`[${timestamp}] [${log.level.toUpperCase()}] [${log.module}]`);
+          lines.push(log.message);
+          if (log.details) {
+            lines.push(`详情: ${JSON.stringify(log.details, null, 2)}`);
+          }
+          lines.push('---');
+        });
+
+        // 添加尾部信息
+        lines.push('');
+        lines.push('=====================================');
+        lines.push('日志导出结束');
+        lines.push('=====================================');
+
+        const content = lines.join('\n');
+
+        // 创建Blob对象
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+
+        // 创建下载链接
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        const filename = `系统日志_${new Date().toISOString().split('T')[0]}.txt`;
+        link.download = filename;
+
+        // 触发下载
+        document.body.appendChild(link);
+        link.click();
+
+        // 清理
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        alert(`✅ 已下载 ${allLogs.length} 条日志`);
+      } else {
+        alert('❌ 下载失败，请重试');
+      }
+    } catch (error) {
+      console.error('下载日志失败:', error);
+      alert('❌ 下载失败，请检查网络连接');
+    }
+  };
+
   const getLevelColor = (level: string) => {
     switch (level.toLowerCase()) {
       case 'error':
@@ -194,6 +271,14 @@ export default function SystemLogs() {
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             刷新
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadLogs}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            下载日志
           </Button>
           <Button
             variant="outline"
