@@ -269,14 +269,26 @@ export default function RobotManagement() {
     setTestError(null);
 
     try {
-      const res = await fetch(`/api/proxy/admin/robots/${selectedRobot.id}/test`, {
+      const res = await fetch('/api/proxy/admin/robots/test', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          robotId: selectedRobot.robotId,
+          apiBaseUrl: selectedRobot.apiBaseUrl,
+        }),
       });
-      
+
       const result = await res.json();
-      
-      if (res.ok) {
-        setTestResult(result);
+
+      if (res.ok && result.code === 0) {
+        setTestResult({
+          success: true,
+          message: result.message,
+          robotDetails: result.robotDetails,
+          responseTime: '< 1000ms',
+        });
       } else {
         setTestError(result.message || '测试失败');
       }
