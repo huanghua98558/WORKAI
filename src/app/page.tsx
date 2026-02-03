@@ -2359,6 +2359,24 @@ ${callbacks.robotStatus}
 
   return (
     <div className="min-h-screen bg-tech-grid dark:bg-tech-grid">
+      {/* 测试按钮 - 临时调试 */}
+      <button 
+        onClick={() => alert('测试按钮被点击了！')}
+        style={{
+          position: 'fixed',
+          top: '50px',
+          left: '10px',
+          zIndex: 10000,
+          background: 'red',
+          color: 'white',
+          padding: '10px',
+          border: 'none',
+          borderRadius: '5px',
+          cursor: 'pointer'
+        }}
+      >
+        测试按钮
+      </button>
       {/* 科幻风格标题栏 */}
       <header className="border-b border-primary/20 glass sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3">
@@ -2424,7 +2442,7 @@ ${callbacks.robotStatus}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           {/* 科幻风格标签栏 */}
-          <TabsList className="grid w-full grid-cols-12 lg:w-auto lg:inline-grid h-auto p-1.5 glass border border-primary/20 gap-1">
+          <TabsList className="w-auto h-auto p-1.5 glass border border-primary/20 gap-1 flex flex-wrap">
             <TabsTrigger 
               value="dashboard" 
               className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
