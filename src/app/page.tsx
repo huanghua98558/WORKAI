@@ -4758,52 +4758,54 @@ ${callbacks.robotStatus}
 
             {/* 联系方式 */}
             <div className="space-y-4">
-              <h5 className="font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-                <Mail className="h-4 w-4 text-blue-500" />
-                联系我们
-              </h5>
+              <div className="flex items-center gap-4">
+                <h5 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-blue-500" />
+                  联系我们
+                </h5>
+              </div>
               
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 {/* 手机 */}
-                <Card className="flex-1 min-w-[140px] border border-blue-100 dark:border-blue-900/50 hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
-                  <CardContent className="p-3">
-                    <div className="flex flex-col items-center gap-2 text-center">
-                      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                        <MessageCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <Card className="flex-1 min-w-[100px] border border-blue-100 dark:border-blue-900/50 hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
+                  <CardContent className="p-2">
+                    <div className="flex flex-col items-center gap-1 text-center">
+                      <div className="p-1 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                        <MessageCircle className="h-3 w-3 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div className="flex-1 w-full">
                         <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">手机</div>
-                        <div className="text-sm font-mono text-gray-900 dark:text-gray-100 break-all">13337289759</div>
+                        <div className="text-xs font-mono text-gray-900 dark:text-gray-100 break-all">13337289759</div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* 微信 */}
-                <Card className="flex-1 min-w-[140px] border border-green-100 dark:border-green-900/50 hover:border-green-300 dark:hover:border-green-700 transition-colors">
-                  <CardContent className="p-3">
-                    <div className="flex flex-col items-center gap-2 text-center">
-                      <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                        <MessageCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <Card className="flex-1 min-w-[100px] border border-green-100 dark:border-green-900/50 hover:border-green-300 dark:hover:border-green-700 transition-colors">
+                  <CardContent className="p-2">
+                    <div className="flex flex-col items-center gap-1 text-center">
+                      <div className="p-1 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                        <MessageCircle className="h-3 w-3 text-green-600 dark:text-green-400" />
                       </div>
                       <div className="flex-1 w-full">
                         <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">微信</div>
-                        <div className="text-sm font-mono text-gray-900 dark:text-gray-100 break-all">xhy12040523</div>
+                        <div className="text-xs font-mono text-gray-900 dark:text-gray-100 break-all">xhy12040523</div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* QQ */}
-                <Card className="flex-1 min-w-[140px] border border-purple-100 dark:border-purple-900/50 hover:border-purple-300 dark:hover:border-purple-700 transition-colors">
-                  <CardContent className="p-3">
-                    <div className="flex flex-col items-center gap-2 text-center">
-                      <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                        <Globe className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                <Card className="flex-1 min-w-[100px] border border-purple-100 dark:border-purple-900/50 hover:border-purple-300 dark:hover:border-purple-700 transition-colors">
+                  <CardContent className="p-2">
+                    <div className="flex flex-col items-center gap-1 text-center">
+                      <div className="p-1 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                        <Globe className="h-3 w-3 text-purple-600 dark:text-purple-400" />
                       </div>
                       <div className="flex-1 w-full">
                         <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">QQ</div>
-                        <div className="text-sm font-mono text-gray-900 dark:text-gray-100 break-all">1823985558</div>
+                        <div className="text-xs font-mono text-gray-900 dark:text-gray-100 break-all">1823985558</div>
                       </div>
                     </div>
                   </CardContent>
