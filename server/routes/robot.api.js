@@ -1025,6 +1025,109 @@ const robotApiRoutes = async function (fastify, options) {
       });
     }
   });
+
+  // 测试单个 API 接口
+  fastify.post('/robots/:id/api-endpoints/test', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const { endpointType } = request.body;
+
+      // 查询机器人
+      const robot = await robotService.getRobotById(id);
+      if (!robot) {
+        return reply.status(404).send({
+          code: -1,
+          message: '机器人不存在'
+        });
+      }
+
+      // 测试指定类型的接口
+      const result = await robotService.testApiEndpoint(robot.robotId, endpointType);
+
+      return reply.send({
+        code: 0,
+        message: '测试完成',
+        data: result
+      });
+    } catch (error) {
+      console.error('测试 API 接口失败:', error);
+      return reply.status(500).send({
+        code: -1,
+        message: '测试 API 接口失败',
+        error: error.message
+      });
+    }
+  });
+
+  // 批量测试所有通讯地址接口
+  fastify.post('/robots/:id/api-endpoints/test-all', async (request, reply) => {
+    try {
+      const { id } = request.params;
+
+      // 查询机器人
+      const robot = await robotService.getRobotById(id);
+      if (!robot) {
+        return reply.status(404).send({
+          code: -1,
+          message: '机器人不存在'
+        });
+      }
+
+      // 批量测试所有通讯地址接口
+      const result = await robotService.testAllApiEndpoints(robot.robotId);
+
+      return reply.send({
+        code: 0,
+        message: '批量测试完成',
+        data: result
+      });
+    } catch (error) {
+      console.error('批量测试 API 接口失败:', error);
+      return reply.status(500).send({
+        code: -1,
+        message: '批量测试 API 接口失败',
+        error: error.message
+      });
+    }
+  });
+
+  // 获取接口调用日志
+  fastify.get('/robots/:id/api-endpoints/logs', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const { page = 1, pageSize = 20, endpointType, status } = request.query;
+
+      // 查询机器人
+      const robot = await robotService.getRobotById(id);
+      if (!robot) {
+        return reply.status(404).send({
+          code: -1,
+          message: '机器人不存在'
+        });
+      }
+
+      // 获取接口调用日志
+      const result = await robotService.getApiCallLogs(robot.robotId, {
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        endpointType,
+        status
+      });
+
+      return reply.send({
+        code: 0,
+        message: '获取成功',
+        data: result
+      });
+    } catch (error) {
+      console.error('获取接口调用日志失败:', error);
+      return reply.status(500).send({
+        code: -1,
+        message: '获取接口调用日志失败',
+        error: error.message
+      });
+    }
+  });
 };
 
 module.exports = robotApiRoutes;

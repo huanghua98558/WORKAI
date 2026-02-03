@@ -234,6 +234,26 @@ exports.robots = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }), // 到期时间（从WorkTool API获取）
     messageCallbackEnabled: boolean("message_callback_enabled").notNull().default(false), // 消息回调是否开启（从WorkTool API获取）
     extraData: jsonb("extra_data"), // 额外数据（JSON格式，存储其他WorkTool返回的信息）
+
+    // 回调地址（5个）
+    messageCallbackUrl: varchar("message_callback_url", { length: 500 }), // 消息回调地址
+    resultCallbackUrl: varchar("result_callback_url", { length: 500 }), // 执行结果回调地址
+    qrcodeCallbackUrl: varchar("qrcode_callback_url", { length: 500 }), // 群二维码回调地址
+    onlineCallbackUrl: varchar("online_callback_url", { length: 500 }), // 机器人上线回调地址
+    offlineCallbackUrl: varchar("offline_callback_url", { length: 500 }), // 机器人下线回调地址
+
+    // 通讯地址（8个）
+    sendMessageApi: varchar("send_message_api", { length: 500 }), // 指令消息通讯地址
+    updateApi: varchar("update_api", { length: 500 }), // 机器人后端通讯加密地址
+    getInfoApi: varchar("get_info_api", { length: 500 }), // 获取机器人信息地址
+    onlineApi: varchar("online_api", { length: 500 }), // 查询机器人是否在线地址
+    onlineInfosApi: varchar("online_infos_api", { length: 500 }), // 查询机器人登录日志地址
+    listRawMessageApi: varchar("list_raw_message_api", { length: 500 }), // 指令消息API调用查询地址
+    rawMsgListApi: varchar("raw_msg_list_api", { length: 500 }), // 指令执行结果查询地址
+    qaLogListApi: varchar("qa_log_list_api", { length: 500 }), // 机器人消息回调日志列表查询地址
+
+    callbackBaseUrl: varchar("callback_base_url", { length: 500 }), // 回调基础地址（用于生成回调地址）
+
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -246,6 +266,36 @@ exports.robots = pgTable(
     isValidIdx: index("robots_is_valid_idx").on(table.isValid),
     expiresAtIdx: index("robots_expires_at_idx").on(table.expiresAt),
     companyIdx: index("robots_company_idx").on(table.company),
+  })
+);
+
+// 接口调用日志表（新增）
+exports.apiCallLogs = pgTable(
+  "api_call_logs",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    robotId: varchar("robot_id", { length: 64 }).notNull(), // 关联的机器人ID
+    apiType: varchar("api_type", { length: 50 }).notNull(), // 接口类型: sendMessage, update, getInfo, online, onlineInfos, listRawMessage, rawMsgList, qaLogList
+    apiUrl: text("api_url").notNull(), // 完整的API地址
+    httpMethod: varchar("http_method", { length: 10 }).notNull(), // HTTP方法: GET, POST
+    requestParams: jsonb("request_params"), // 请求参数
+    requestBody: jsonb("request_body"), // 请求体（POST请求）
+    responseStatus: integer("response_status"), // 响应状态码
+    responseData: jsonb("response_data"), // 响应数据
+    responseTime: integer("response_time"), // 响应时间（毫秒）
+    success: boolean("success").notNull().default(false), // 是否成功
+    errorMessage: text("error_message"), // 错误信息
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    robotIdIdx: index("api_call_logs_robot_id_idx").on(table.robotId),
+    apiTypeIdx: index("api_call_logs_api_type_idx").on(table.apiType),
+    createdAtIdx: index("api_call_logs_created_at_idx").on(table.createdAt),
+    successIdx: index("api_call_logs_success_idx").on(table.success),
   })
 );
 
@@ -474,6 +524,26 @@ exports.robots = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }), // 到期时间（从WorkTool API获取）
     messageCallbackEnabled: boolean("message_callback_enabled").notNull().default(false), // 消息回调是否开启（从WorkTool API获取）
     extraData: jsonb("extra_data"), // 额外数据（JSON格式，存储其他WorkTool返回的信息）
+
+    // 回调地址（5个）
+    messageCallbackUrl: varchar("message_callback_url", { length: 500 }), // 消息回调地址
+    resultCallbackUrl: varchar("result_callback_url", { length: 500 }), // 执行结果回调地址
+    qrcodeCallbackUrl: varchar("qrcode_callback_url", { length: 500 }), // 群二维码回调地址
+    onlineCallbackUrl: varchar("online_callback_url", { length: 500 }), // 机器人上线回调地址
+    offlineCallbackUrl: varchar("offline_callback_url", { length: 500 }), // 机器人下线回调地址
+
+    // 通讯地址（8个）
+    sendMessageApi: varchar("send_message_api", { length: 500 }), // 指令消息通讯地址
+    updateApi: varchar("update_api", { length: 500 }), // 机器人后端通讯加密地址
+    getInfoApi: varchar("get_info_api", { length: 500 }), // 获取机器人信息地址
+    onlineApi: varchar("online_api", { length: 500 }), // 查询机器人是否在线地址
+    onlineInfosApi: varchar("online_infos_api", { length: 500 }), // 查询机器人登录日志地址
+    listRawMessageApi: varchar("list_raw_message_api", { length: 500 }), // 指令消息API调用查询地址
+    rawMsgListApi: varchar("raw_msg_list_api", { length: 500 }), // 指令执行结果查询地址
+    qaLogListApi: varchar("qa_log_list_api", { length: 500 }), // 机器人消息回调日志列表查询地址
+
+    callbackBaseUrl: varchar("callback_base_url", { length: 500 }), // 回调基础地址（用于生成回调地址）
+
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -486,6 +556,36 @@ exports.robots = pgTable(
     isValidIdx: index("robots_is_valid_idx").on(table.isValid),
     expiresAtIdx: index("robots_expires_at_idx").on(table.expiresAt),
     companyIdx: index("robots_company_idx").on(table.company),
+  })
+);
+
+// 接口调用日志表（新增）
+exports.apiCallLogs = pgTable(
+  "api_call_logs",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    robotId: varchar("robot_id", { length: 64 }).notNull(), // 关联的机器人ID
+    apiType: varchar("api_type", { length: 50 }).notNull(), // 接口类型: sendMessage, update, getInfo, online, onlineInfos, listRawMessage, rawMsgList, qaLogList
+    apiUrl: text("api_url").notNull(), // 完整的API地址
+    httpMethod: varchar("http_method", { length: 10 }).notNull(), // HTTP方法: GET, POST
+    requestParams: jsonb("request_params"), // 请求参数
+    requestBody: jsonb("request_body"), // 请求体（POST请求）
+    responseStatus: integer("response_status"), // 响应状态码
+    responseData: jsonb("response_data"), // 响应数据
+    responseTime: integer("response_time"), // 响应时间（毫秒）
+    success: boolean("success").notNull().default(false), // 是否成功
+    errorMessage: text("error_message"), // 错误信息
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    robotIdIdx: index("api_call_logs_robot_id_idx").on(table.robotId),
+    apiTypeIdx: index("api_call_logs_api_type_idx").on(table.apiType),
+    createdAtIdx: index("api_call_logs_created_at_idx").on(table.createdAt),
+    successIdx: index("api_call_logs_success_idx").on(table.success),
   })
 );
 

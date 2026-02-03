@@ -4,11 +4,129 @@
  */
 
 const { getDb } = require('coze-coding-dev-sdk');
-const { robots } = require('../database/schema');
+const { robots, apiCallLogs } = require('../database/schema');
 const { eq, and, like, or } = require('drizzle-orm');
 const axios = require('axios');
 
 class RobotService {
+  /**
+   * 生成机器人的回调地址和通讯地址
+   */
+  generateRobotUrls(robotId, apiBaseUrl, callbackBaseUrl) {
+    // 从 apiBaseUrl 提取基础地址
+    const baseUrl = apiBaseUrl.replace(/\/wework\/?$/, '').replace(/\/$/, '');
+
+    // 回调地址（5个）
+    const messageCallbackUrl = `${callbackBaseUrl}/api/worktool/callback/message?robotId=${robotId}`;
+    const resultCallbackUrl = `${callbackBaseUrl}/api/worktool/callback/result?robotId=${robotId}`;
+    const qrcodeCallbackUrl = `${callbackBaseUrl}/api/worktool/callback/qrcode?robotId=${robotId}`;
+    const onlineCallbackUrl = `${callbackBaseUrl}/api/worktool/callback/status?robotId=${robotId}`;
+    const offlineCallbackUrl = `${callbackBaseUrl}/api/worktool/callback/status?robotId=${robotId}`;
+
+    // 通讯地址（8个）
+    const sendMessageApi = `${baseUrl}/wework/sendRawMessage?robotId=${robotId}`;
+    const updateApi = `${baseUrl}/robot/robotInfo/update?robotId=${robotId}`;
+    const getInfoApi = `${baseUrl}/robot/robotInfo/get?robotId=${robotId}`;
+    const onlineApi = `${baseUrl}/robot/robotInfo/online?robotId=${robotId}`;
+    const onlineInfosApi = `${baseUrl}/robot/robotInfo/onlineInfos?robotId=${robotId}`;
+    const listRawMessageApi = `${baseUrl}/wework/listRawMessage?robotId=${robotId}`;
+    const rawMsgListApi = `${baseUrl}/robot/rawMsg/list?robotId=${robotId}`;
+    const qaLogListApi = `${baseUrl}/robot/qaLog/list?robotId=${robotId}`;
+
+    return {
+      // 回调地址
+      messageCallbackUrl,
+      resultCallbackUrl,
+      qrcodeCallbackUrl,
+      onlineCallbackUrl,
+      offlineCallbackUrl,
+
+      // 通讯地址
+      sendMessageApi,
+      updateApi,
+      getInfoApi,
+      onlineApi,
+      onlineInfosApi,
+      listRawMessageApi,
+      rawMsgListApi,
+      qaLogListApi,
+
+      callbackBaseUrl
+    };
+  }
+
+  /**
+   * 测试API接口
+   */
+  async testApiEndpoint(robotId, apiType, apiUrl, httpMethod = 'GET', requestParams = {}, requestBody = {}) {
+    const startTime = Date.now();
+    let responseStatus, responseData, errorMessage, success;
+
+    try {
+      let response;
+
+      if (httpMethod === 'GET') {
+        response = await axios.get(apiUrl, {
+          params: requestParams,
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 10000
+        });
+      } else if (httpMethod === 'POST') {
+        response = await axios.post(apiUrl, requestBody, {
+          params: requestParams,
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 10000
+        });
+      } else {
+        throw new Error(`不支持的 HTTP 方法: ${httpMethod}`);
+      }
+
+      responseStatus = response.status;
+      responseData = response.data;
+      success = response.data?.code === 200 || response.data?.code === 0;
+
+      if (!success) {
+        errorMessage = responseData?.message || 'API 返回错误';
+      }
+    } catch (error) {
+      responseStatus = error.response?.status || 0;
+      errorMessage = error.message;
+      success = false;
+      responseData = error.response?.data || null;
+    }
+
+    const responseTime = Date.now() - startTime;
+
+    // 记录日志
+    try {
+      const db = await getDb();
+      await db.insert(apiCallLogs).values({
+        robotId,
+        apiType,
+        apiUrl,
+        httpMethod,
+        requestParams,
+        requestBody,
+        responseStatus,
+        responseData,
+        responseTime,
+        success,
+        errorMessage,
+        createdAt: new Date()
+      });
+    } catch (logError) {
+      console.error('记录API调用日志失败:', logError);
+    }
+
+    return {
+      success,
+      responseStatus,
+      responseData,
+      errorMessage,
+      responseTime
+    };
+  }
+
   /**
    * 获取所有机器人
    */
@@ -77,10 +195,19 @@ class RobotService {
    */
   async addRobot(data) {
     const db = await getDb();
+
+    // 生成回调地址和通讯地址
+    const urls = this.generateRobotUrls(
+      data.robotId,
+      data.apiBaseUrl,
+      data.callbackBaseUrl || process.env.CALLBACK_BASE_URL || 'http://localhost:5000'
+    );
+
     const result = await db
       .insert(robots)
       .values({
         ...data,
+        ...urls,
         createdAt: new Date(),
         updatedAt: new Date()
       })
@@ -94,12 +221,33 @@ class RobotService {
    */
   async updateRobot(id, data) {
     const db = await getDb();
+
+    let updateData = {
+      ...data,
+      updatedAt: new Date()
+    };
+
+    // 如果更新了 robotId 或 apiBaseUrl，重新生成地址
+    const existingRobot = await this.getRobotById(id);
+    if (existingRobot) {
+      if (data.robotId !== undefined && data.robotId !== existingRobot.robotId ||
+          data.apiBaseUrl !== undefined && data.apiBaseUrl !== existingRobot.apiBaseUrl ||
+          data.callbackBaseUrl !== undefined && data.callbackBaseUrl !== existingRobot.callbackBaseUrl) {
+        const urls = this.generateRobotUrls(
+          data.robotId || existingRobot.robotId,
+          data.apiBaseUrl || existingRobot.apiBaseUrl,
+          data.callbackBaseUrl || existingRobot.callbackBaseUrl || process.env.CALLBACK_BASE_URL || 'http://localhost:5000'
+        );
+        updateData = {
+          ...updateData,
+          ...urls
+        };
+      }
+    }
+
     const result = await db
       .update(robots)
-      .set({
-        ...data,
-        updatedAt: new Date()
-      })
+      .set(updateData)
       .where(eq(robots.id, id))
       .returning();
 
@@ -325,6 +473,114 @@ class RobotService {
         });
       }
     }
+
+    return results;
+  }
+
+  /**
+   * 批量测试机器人的所有通讯地址
+   */
+  async testAllApiEndpoints(robotId) {
+    const robot = await this.getRobotByRobotId(robotId);
+
+    if (!robot) {
+      throw new Error('机器人不存在');
+    }
+
+    const tests = [
+      {
+        apiType: 'sendMessage',
+        apiUrl: robot.sendMessageApi,
+        httpMethod: 'POST',
+        requestBody: { socketType: 2, list: [{ type: 203, titleList: ['测试'], receivedContent: '测试消息' }] }
+      },
+      {
+        apiType: 'update',
+        apiUrl: robot.updateApi,
+        httpMethod: 'POST',
+        requestBody: { test: true }
+      },
+      {
+        apiType: 'getInfo',
+        apiUrl: robot.getInfoApi,
+        httpMethod: 'GET'
+      },
+      {
+        apiType: 'online',
+        apiUrl: robot.onlineApi,
+        httpMethod: 'GET'
+      },
+      {
+        apiType: 'onlineInfos',
+        apiUrl: robot.onlineInfosApi,
+        httpMethod: 'GET'
+      },
+      {
+        apiType: 'listRawMessage',
+        apiUrl: robot.listRawMessageApi,
+        httpMethod: 'GET',
+        requestParams: { pageNum: 1, pageSize: 10 }
+      },
+      {
+        apiType: 'rawMsgList',
+        apiUrl: robot.rawMsgListApi,
+        httpMethod: 'GET'
+      },
+      {
+        apiType: 'qaLogList',
+        apiUrl: robot.qaLogListApi,
+        httpMethod: 'GET',
+        requestParams: { pageNum: 1, pageSize: 10 }
+      }
+    ];
+
+    const results = {};
+
+    for (const test of tests) {
+      try {
+        results[test.apiType] = await this.testApiEndpoint(
+          robotId,
+          test.apiType,
+          test.apiUrl,
+          test.httpMethod,
+          test.requestParams || {},
+          test.requestBody || {}
+        );
+      } catch (error) {
+        results[test.apiType] = {
+          success: false,
+          errorMessage: error.message,
+          responseTime: 0
+        };
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * 获取接口调用日志
+   */
+  async getApiCallLogs(robotId, options = {}) {
+    const db = await getDb();
+    const { apiType, success, limit = 50 } = options;
+
+    let whereConditions = [eq(apiCallLogs.robotId, robotId)];
+
+    if (apiType) {
+      whereConditions.push(eq(apiCallLogs.apiType, apiType));
+    }
+
+    if (success !== undefined) {
+      whereConditions.push(eq(apiCallLogs.success, success));
+    }
+
+    const results = await db
+      .select()
+      .from(apiCallLogs)
+      .where(and(...whereConditions))
+      .orderBy(apiCallLogs.createdAt)
+      .limit(limit);
 
     return results;
   }

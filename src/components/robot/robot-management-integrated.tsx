@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   Bot,
   Plus,
@@ -26,7 +27,12 @@ import {
   TestTube,
   ToggleLeft,
   ToggleRight,
-  MessageCircle
+  MessageCircle,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  PlayCircle,
+  History
 } from 'lucide-react';
 
 // 导入子组件
@@ -55,6 +61,21 @@ interface Robot {
   activatedAt?: string;
   expiresAt?: string;
   messageCallbackEnabled?: boolean;
+  // 回调地址（5个）
+  callbackMessageUrl?: string;
+  callbackGroupQrcodeUrl?: string;
+  callbackCommandResultUrl?: string;
+  callbackRobotOnlineUrl?: string;
+  callbackRobotOfflineUrl?: string;
+  // 通讯地址（8个）
+  endpointSendMessageUrl?: string;
+  endpointGetFriendsUrl?: string;
+  endpointGetGroupsUrl?: string;
+  endpointUploadFileUrl?: string;
+  endpointGetQrcodeUrl?: string;
+  endpointJoinGroupUrl?: string;
+  endpointInviteMemberUrl?: string;
+  endpointGroupMembersUrl?: string;
 }
 
 export default function RobotManagement() {
@@ -70,6 +91,14 @@ export default function RobotManagement() {
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
   const [testError, setTestError] = useState<string | null>(null);
+  // 新增：API 地址管理相关状态
+  const [apiEndpointsOpen, setApiEndpointsOpen] = useState(false);
+  const [callbackEndpointsOpen, setCallbackEndpointsOpen] = useState(false);
+  const [testingEndpoint, setTestingEndpoint] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string; timestamp: string }>>({});
+  const [logsOpen, setLogsOpen] = useState(false);
+  const [apiLogs, setApiLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
   
   // 表单状态
   const [editFormData, setEditFormData] = useState({
@@ -304,6 +333,109 @@ export default function RobotManagement() {
       setIsTesting(false);
     }
   };
+
+  // 测试单个 API 接口
+  const handleTestEndpoint = async (endpointType: string) => {
+    if (!selectedRobot) return;
+    
+    setTestingEndpoint(endpointType);
+    try {
+      const response = await fetch(`/api/proxy/admin/robots/${selectedRobot.id}/api-endpoints/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpointType })
+      });
+      
+      const result = await response.json();
+      
+      if (result.code === 0) {
+        setTestResults({
+          ...testResults,
+          [endpointType]: {
+            success: result.data.success,
+            message: result.data.message,
+            timestamp: new Date().toISOString()
+          }
+        });
+      } else {
+        setTestResults({
+          ...testResults,
+          [endpointType]: {
+            success: false,
+            message: result.message || '测试失败',
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+    } catch (error: any) {
+      setTestResults({
+        ...testResults,
+        [endpointType]: {
+          success: false,
+          message: '测试请求失败',
+          timestamp: new Date().toISOString()
+        }
+      });
+    } finally {
+      setTestingEndpoint(null);
+    }
+  };
+
+  // 批量测试所有通讯地址
+  const handleTestAllEndpoints = async () => {
+    if (!selectedRobot) return;
+    
+    setTestingEndpoint('all');
+    try {
+      const response = await fetch(`/api/proxy/admin/robots/${selectedRobot.id}/api-endpoints/test-all`, {
+        method: 'POST'
+      });
+      
+      const result = await response.json();
+      
+      if (result.code === 0) {
+        const newResults: Record<string, { success: boolean; message: string; timestamp: string }> = {};
+        result.data.forEach((item: any) => {
+          newResults[item.endpointType] = {
+            success: item.success,
+            message: item.message,
+            timestamp: new Date().toISOString()
+          };
+        });
+        setTestResults(newResults);
+      }
+    } catch (error: any) {
+      console.error('批量测试失败:', error);
+    } finally {
+      setTestingEndpoint(null);
+    }
+  };
+
+  // 获取接口调用日志
+  const handleLoadLogs = async () => {
+    if (!selectedRobot) return;
+    
+    setLogsLoading(true);
+    try {
+      const response = await fetch(`/api/proxy/admin/robots/${selectedRobot.id}/api-endpoints/logs?page=1&pageSize=20`);
+      const result = await response.json();
+      
+      if (result.code === 0) {
+        setApiLogs(result.data.list || []);
+      }
+    } catch (error: any) {
+      console.error('获取日志失败:', error);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  // 打开日志面板时自动加载
+  useEffect(() => {
+    if (logsOpen && selectedRobot) {
+      handleLoadLogs();
+    }
+  }, [logsOpen, selectedRobot]);
 
   const handleAdd = () => {
     setShowAddDialog(true);
@@ -1035,6 +1167,203 @@ export default function RobotManagement() {
                   重新测试
                 </Button>
               )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* 编辑机器人对话框 */}
+      {showEditDialog && selectedRobot && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle>编辑机器人</CardTitle>
+              <CardDescription>编辑机器人配置和查看 API 地址</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">机器人名称</label>
+                  <input
+                    type="text"
+                    value={editFormData.name}
+                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">机器人ID</label>
+                  <input
+                    type="text"
+                    value={editFormData.robotId}
+                    disabled
+                    className="w-full p-2 border rounded bg-muted"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">描述</label>
+                  <textarea
+                    value={editFormData.description}
+                    onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows={3}
+                  />
+                </div>
+
+                {/* API 地址配置折叠面板 */}
+                <div className="space-y-4 border-t pt-4 mt-4">
+                  <Collapsible open={apiEndpointsOpen} onOpenChange={setApiEndpointsOpen}>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between">
+                        <div className="flex items-center gap-2">
+                          <Globe className="w-4 h-4" />
+                          <span>通讯地址（8个）</span>
+                        </div>
+                        {apiEndpointsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-2 mt-2">
+                      <div className="flex justify-end mb-2">
+                        <Button size="sm" onClick={handleTestAllEndpoints} disabled={testingEndpoint === 'all'}>
+                          <PlayCircle className="w-4 h-4 mr-2" />
+                          批量测试
+                        </Button>
+                      </div>
+                      {[
+                        { key: 'endpointSendMessageUrl', label: '发送消息', type: 'sendMessage' },
+                        { key: 'endpointGetFriendsUrl', label: '获取好友列表', type: 'getFriends' },
+                        { key: 'endpointGetGroupsUrl', label: '获取群组列表', type: 'getGroups' },
+                        { key: 'endpointUploadFileUrl', label: '上传文件', type: 'uploadFile' },
+                        { key: 'endpointGetQrcodeUrl', label: '获取二维码', type: 'getQrcode' },
+                        { key: 'endpointJoinGroupUrl', label: '加入群组', type: 'joinGroup' },
+                        { key: 'endpointInviteMemberUrl', label: '邀请成员', type: 'inviteMember' },
+                        { key: 'endpointGroupMembersUrl', label: '群组成员', type: 'groupMembers' }
+                      ].map(endpoint => (
+                        <div key={endpoint.key} className="flex items-center gap-2 p-2 border rounded-lg bg-secondary/30">
+                          <div className="flex-1">
+                            <div className="text-sm font-medium">{endpoint.label}</div>
+                            <div className="text-xs text-muted-foreground break-all">
+                              {selectedRobot[endpoint.key as keyof Robot] as string || '未配置'}
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleTestEndpoint(endpoint.type)}
+                            disabled={testingEndpoint === endpoint.type}
+                          >
+                            {testingEndpoint === endpoint.type ? (
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <PlayCircle className="w-4 h-4" />
+                            )}
+                          </Button>
+                          {testResults[endpoint.type] && (
+                            <Badge variant={testResults[endpoint.type].success ? "default" : "destructive"}>
+                              {testResults[endpoint.type].success ? '成功' : '失败'}
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  <Collapsible open={callbackEndpointsOpen} onOpenChange={setCallbackEndpointsOpen}>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between">
+                        <div className="flex items-center gap-2">
+                          <ExternalLink className="w-4 h-4" />
+                          <span>回调地址（5个）</span>
+                        </div>
+                        {callbackEndpointsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-2 mt-2">
+                      {[
+                        { key: 'callbackMessageUrl', label: '消息回调' },
+                        { key: 'callbackGroupQrcodeUrl', label: '群二维码回调' },
+                        { key: 'callbackCommandResultUrl', label: '指令结果回调' },
+                        { key: 'callbackRobotOnlineUrl', label: '上线回调' },
+                        { key: 'callbackRobotOfflineUrl', label: '下线回调' }
+                      ].map(endpoint => (
+                        <div key={endpoint.key} className="p-2 border rounded-lg bg-secondary/30">
+                          <div className="text-sm font-medium">{endpoint.label}</div>
+                          <div className="text-xs text-muted-foreground break-all">
+                            {selectedRobot[endpoint.key as keyof Robot] as string || '未配置'}
+                          </div>
+                        </div>
+                      ))}
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  <Collapsible open={logsOpen} onOpenChange={setLogsOpen}>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between">
+                        <div className="flex items-center gap-2">
+                          <History className="w-4 h-4" />
+                          <span>接口调用日志</span>
+                        </div>
+                        {logsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2">
+                      <div className="max-h-60 overflow-y-auto border rounded-lg p-2">
+                        {logsLoading ? (
+                          <div className="text-center text-muted-foreground py-4">加载中...</div>
+                        ) : apiLogs.length === 0 ? (
+                          <div className="text-center text-muted-foreground py-4">暂无日志</div>
+                        ) : (
+                          <div className="space-y-2">
+                            {apiLogs.map((log: any, index: number) => (
+                              <div key={index} className="text-xs p-2 border rounded">
+                                <div className="flex justify-between items-start">
+                                  <span className="font-medium">{log.endpoint_type}</span>
+                                  <Badge variant={log.status === 'success' ? 'default' : 'destructive'}>
+                                    {log.status}
+                                  </Badge>
+                                </div>
+                                <div className="text-muted-foreground mt-1">
+                                  {new Date(log.created_at).toLocaleString()}
+                                </div>
+                                {log.error_message && (
+                                  <div className="text-red-500 mt-1">{log.error_message}</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+
+                {/* 保存反馈 */}
+                {saveSuccess && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                    ✓ 保存成功
+                  </div>
+                )}
+                {saveError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    ✗ {saveError}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+            <div className="flex justify-end gap-2 p-6 pt-0">
+              <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+                取消
+              </Button>
+              <Button onClick={handleSaveEdit} disabled={isSaving}>
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    保存中...
+                  </>
+                ) : (
+                  '保存'
+                )}
+              </Button>
             </div>
           </Card>
         </div>

@@ -15,7 +15,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { Bot, Plus, Edit2, Trash2, RefreshCw, CheckCircle, XCircle, Activity, AlertTriangle, Settings } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Bot, Plus, Edit2, Trash2, RefreshCw, CheckCircle, XCircle, Activity, AlertTriangle, Settings, ChevronDown, ChevronRight, Globe, ExternalLink, PlayCircle, History, Terminal } from 'lucide-react';
 
 interface Robot {
   id: string;
@@ -44,6 +45,21 @@ interface Robot {
   current_sessions: number;
   is_available: boolean;
   avg_response_time: number;
+  // 回调地址（5个）
+  callback_message_url?: string;
+  callback_group_qrcode_url?: string;
+  callback_command_result_url?: string;
+  callback_robot_online_url?: string;
+  callback_robot_offline_url?: string;
+  // 通讯地址（8个）
+  endpoint_send_message_url?: string;
+  endpoint_get_friends_url?: string;
+  endpoint_get_groups_url?: string;
+  endpoint_upload_file_url?: string;
+  endpoint_get_qrcode_url?: string;
+  endpoint_join_group_url?: string;
+  endpoint_invite_member_url?: string;
+  endpoint_group_members_url?: string;
 }
 
 interface RobotGroup {
@@ -71,6 +87,13 @@ export default function RobotManagement() {
   const [viewMode, setViewMode] = useState<'list' | 'group'>('group'); // list 或 group
   const [selectedGroupId, setSelectedGroupId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [apiEndpointsOpen, setApiEndpointsOpen] = useState(false);
+  const [callbackEndpointsOpen, setCallbackEndpointsOpen] = useState(false);
+  const [testingEndpoint, setTestingEndpoint] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string; timestamp: string }>>({});
+  const [logsOpen, setLogsOpen] = useState(false);
+  const [apiLogs, setApiLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
   
   const [formData, setFormData] = useState({
     robotId: '',
@@ -254,7 +277,127 @@ export default function RobotManagement() {
       capabilities: [],
       isActive: true
     });
+    // 重置折叠面板和测试状态
+    setApiEndpointsOpen(false);
+    setCallbackEndpointsOpen(false);
+    setLogsOpen(false);
+    setTestResults({});
+    setApiLogs([]);
   };
+
+  // 测试单个接口
+  const handleTestEndpoint = async (endpointType: string) => {
+    if (!editingRobot) return;
+    
+    setTestingEndpoint(endpointType);
+    try {
+      const response = await fetch(`/api/proxy/admin/robots/${editingRobot.id}/api-endpoints/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpointType })
+      });
+      
+      const result = await response.json();
+      
+      if (result.code === 0) {
+        setTestResults({
+          ...testResults,
+          [endpointType]: {
+            success: result.data.success,
+            message: result.data.message,
+            timestamp: new Date().toISOString()
+          }
+        });
+        toast.success(result.data.message);
+      } else {
+        setTestResults({
+          ...testResults,
+          [endpointType]: {
+            success: false,
+            message: result.message || '测试失败',
+            timestamp: new Date().toISOString()
+          }
+        });
+        toast.error(result.message || '测试失败');
+      }
+    } catch (error) {
+      console.error('测试接口失败:', error);
+      setTestResults({
+        ...testResults,
+        [endpointType]: {
+          success: false,
+          message: '测试请求失败',
+          timestamp: new Date().toISOString()
+        }
+      });
+      toast.error('测试请求失败');
+    } finally {
+      setTestingEndpoint(null);
+    }
+  };
+
+  // 批量测试所有通讯地址
+  const handleTestAllEndpoints = async () => {
+    if (!editingRobot) return;
+    
+    setTestingEndpoint('all');
+    try {
+      const response = await fetch(`/api/proxy/admin/robots/${editingRobot.id}/api-endpoints/test-all`, {
+        method: 'POST'
+      });
+      
+      const result = await response.json();
+      
+      if (result.code === 0) {
+        const newResults: Record<string, { success: boolean; message: string; timestamp: string }> = {};
+        result.data.forEach((item: any) => {
+          newResults[item.endpointType] = {
+            success: item.success,
+            message: item.message,
+            timestamp: new Date().toISOString()
+          };
+        });
+        setTestResults(newResults);
+        toast.success(`批量测试完成，成功 ${result.data.filter((r: any) => r.success).length} 个`);
+      } else {
+        toast.error(result.message || '批量测试失败');
+      }
+    } catch (error) {
+      console.error('批量测试失败:', error);
+      toast.error('批量测试请求失败');
+    } finally {
+      setTestingEndpoint(null);
+    }
+  };
+
+  // 获取接口调用日志
+  const handleLoadLogs = async () => {
+    if (!editingRobot) return;
+    
+    setLogsLoading(true);
+    try {
+      const response = await fetch(`/api/proxy/admin/robots/${editingRobot.id}/api-endpoints/logs?page=1&pageSize=20`);
+      const result = await response.json();
+      
+      if (result.code === 0) {
+        setApiLogs(result.data.list || []);
+      } else {
+        toast.error(result.message || '获取日志失败');
+      }
+    } catch (error) {
+      console.error('获取日志失败:', error);
+      toast.error('获取日志失败');
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  // 打开日志面板时自动加载
+  useEffect(() => {
+    if (logsOpen && editingRobot) {
+      handleLoadLogs();
+    }
+  }, [logsOpen, editingRobot]);
 
   // 过滤机器人
   const filteredRobots = robots.filter(robot => {
@@ -712,6 +855,135 @@ export default function RobotManagement() {
               />
               <Label>启用机器人</Label>
             </div>
+
+            {/* API 地址配置折叠面板（仅在编辑时显示） */}
+            {editingRobot && (
+              <div className="space-y-4 border-t pt-4 mt-4">
+                <Collapsible open={apiEndpointsOpen} onOpenChange={setApiEndpointsOpen}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between">
+                      <div className="flex items-center gap-2">
+                        <Globe className="w-4 h-4" />
+                        <span>通讯地址（8个）</span>
+                      </div>
+                      {apiEndpointsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-2 mt-2">
+                    <div className="flex justify-end mb-2">
+                      <Button size="sm" onClick={handleTestAllEndpoints} disabled={testingEndpoint === 'all'}>
+                        <PlayCircle className="w-4 h-4 mr-2" />
+                        批量测试
+                      </Button>
+                    </div>
+                    {[
+                      { key: 'endpoint_send_message_url', label: '发送消息', type: 'sendMessage' },
+                      { key: 'endpoint_get_friends_url', label: '获取好友列表', type: 'getFriends' },
+                      { key: 'endpoint_get_groups_url', label: '获取群组列表', type: 'getGroups' },
+                      { key: 'endpoint_upload_file_url', label: '上传文件', type: 'uploadFile' },
+                      { key: 'endpoint_get_qrcode_url', label: '获取二维码', type: 'getQrcode' },
+                      { key: 'endpoint_join_group_url', label: '加入群组', type: 'joinGroup' },
+                      { key: 'endpoint_invite_member_url', label: '邀请成员', type: 'inviteMember' },
+                      { key: 'endpoint_group_members_url', label: '群组成员', type: 'groupMembers' }
+                    ].map(endpoint => (
+                      <div key={endpoint.key} className="flex items-center gap-2 p-2 border rounded-lg bg-secondary/30">
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">{endpoint.label}</div>
+                          <div className="text-xs text-muted-foreground break-all">
+                            {editingRobot[endpoint.key as keyof Robot] as string || '未配置'}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleTestEndpoint(endpoint.type)}
+                          disabled={testingEndpoint === endpoint.type}
+                        >
+                          {testingEndpoint === endpoint.type ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <PlayCircle className="w-4 h-4" />
+                          )}
+                        </Button>
+                        {testResults[endpoint.type] && (
+                          <Badge variant={testResults[endpoint.type].success ? "default" : "destructive"}>
+                            {testResults[endpoint.type].success ? '成功' : '失败'}
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </CollapsibleContent>
+                </Collapsible>
+
+                <Collapsible open={callbackEndpointsOpen} onOpenChange={setCallbackEndpointsOpen}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between">
+                      <div className="flex items-center gap-2">
+                        <ExternalLink className="w-4 h-4" />
+                        <span>回调地址（5个）</span>
+                      </div>
+                      {callbackEndpointsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-2 mt-2">
+                    {[
+                      { key: 'callback_message_url', label: '消息回调' },
+                      { key: 'callback_group_qrcode_url', label: '群二维码回调' },
+                      { key: 'callback_command_result_url', label: '指令结果回调' },
+                      { key: 'callback_robot_online_url', label: '上线回调' },
+                      { key: 'callback_robot_offline_url', label: '下线回调' }
+                    ].map(endpoint => (
+                      <div key={endpoint.key} className="p-2 border rounded-lg bg-secondary/30">
+                        <div className="text-sm font-medium">{endpoint.label}</div>
+                        <div className="text-xs text-muted-foreground break-all">
+                          {editingRobot[endpoint.key as keyof Robot] as string || '未配置'}
+                        </div>
+                      </div>
+                    ))}
+                  </CollapsibleContent>
+                </Collapsible>
+
+                <Collapsible open={logsOpen} onOpenChange={setLogsOpen}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between">
+                      <div className="flex items-center gap-2">
+                        <History className="w-4 h-4" />
+                        <span>接口调用日志</span>
+                      </div>
+                      {logsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2">
+                    <div className="max-h-60 overflow-y-auto border rounded-lg p-2">
+                      {logsLoading ? (
+                        <div className="text-center text-muted-foreground py-4">加载中...</div>
+                      ) : apiLogs.length === 0 ? (
+                        <div className="text-center text-muted-foreground py-4">暂无日志</div>
+                      ) : (
+                        <div className="space-y-2">
+                          {apiLogs.map((log: any, index: number) => (
+                            <div key={index} className="text-xs p-2 border rounded">
+                              <div className="flex justify-between items-start">
+                                <span className="font-medium">{log.endpoint_type}</span>
+                                <Badge variant={log.status === 'success' ? 'default' : 'destructive'}>
+                                  {log.status}
+                                </Badge>
+                              </div>
+                              <div className="text-muted-foreground mt-1">
+                                {new Date(log.created_at).toLocaleString()}
+                              </div>
+                              {log.error_message && (
+                                <div className="text-red-500 mt-1">{log.error_message}</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+            )}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
