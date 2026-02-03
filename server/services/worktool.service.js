@@ -150,6 +150,58 @@ class WorkToolService {
           sendId,
           processingTime
         };
+      } else if (response.data && response.data.message) {
+        // WorkTool API 返回的某些消息实际上表示成功
+        // 例如："指令已加入代发队列中！" 表示消息已经成功提交
+        const successMessages = [
+          '指令已加入代发队列中！',
+          '消息已加入队列',
+          '消息发送成功',
+          '已加入发送队列'
+        ];
+
+        const isSuccess = successMessages.some(msg => 
+          response.data.message.includes(msg)
+        );
+
+        if (isSuccess) {
+          logger.info('WorkTool', '发送消息成功（通过消息判断）', {
+            sendId,
+            robotId,
+            robotName: robot.name,
+            toName,
+            processingTime,
+            apiMessage: response.data.message,
+            apiCode: response.data.code
+          });
+
+          return {
+            success: true,
+            message: response.data.message || '发送成功',
+            data: response.data.data,
+            sendId,
+            processingTime
+          };
+        } else {
+          logger.warn('WorkTool', '发送消息失败：API 返回非成功状态', {
+            sendId,
+            robotId,
+            robotName: robot.name,
+            toName,
+            apiCode: response.data?.code,
+            apiMessage: response.data?.message,
+            responseData: JSON.stringify(response.data),
+            processingTime
+          });
+
+          return {
+            success: false,
+            message: response.data?.message || '发送失败',
+            code: response.data?.code,
+            sendId,
+            processingTime
+          };
+        }
       } else {
         logger.warn('WorkTool', '发送消息失败：API 返回非成功状态', {
           sendId,
