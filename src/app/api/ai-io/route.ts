@@ -21,7 +21,31 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
 
-    return NextResponse.json(data, { status: response.status });
+    if (!data.success) {
+      return NextResponse.json(data, { status: response.status });
+    }
+
+    // 转换数据格式以匹配前端期望
+    const formattedMessages = (data.data || []).map((msg: any) => ({
+      id: msg.id,
+      direction: msg.type === 'user' ? 'in' : msg.type === 'bot' ? 'out' : 'in',
+      input: msg.type === 'user' ? msg.content : undefined,
+      output: msg.type === 'bot' ? msg.content : undefined,
+      robotId: msg.robotId,
+      robotName: msg.robotName,
+      userName: msg.userName,
+      groupName: msg.groupName,
+      sessionId: msg.sessionId,
+      timestamp: msg.timestamp,
+      createdAt: msg.timestamp,
+      intent: msg.intent,
+      confidence: msg.confidence,
+    }));
+
+    return NextResponse.json({
+      success: true,
+      data: formattedMessages
+    }, { status: 200 });
   } catch (error: any) {
     console.error('获取实时 AI 输入输出失败:', error);
     return NextResponse.json({
