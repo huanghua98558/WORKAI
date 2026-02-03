@@ -227,9 +227,15 @@ export default function AdminDashboard() {
 
   // 自动刷新：每隔 10 秒刷新一次会话数据
   // 当打开会话详情时停止刷新，关闭会话详情后恢复刷新
+  // 当切换到监控标签页时停止刷新（监控组件有自己的刷新机制）
   useEffect(() => {
     // 如果会话详情打开，不进行自动刷新
     if (showSessionDetail) {
+      return;
+    }
+
+    // 如果当前是监控标签页，暂停自动刷新（避免与监控组件的刷新冲突）
+    if (activeTab === 'monitoring') {
       return;
     }
 
@@ -239,7 +245,7 @@ export default function AdminDashboard() {
     }, 10000); // 每 10 秒刷新一次
 
     return () => clearInterval(interval);
-  }, [showSessionDetail]);
+  }, [showSessionDetail, activeTab]);
 
   // 加载机器人列表
   const loadRobots = async () => {

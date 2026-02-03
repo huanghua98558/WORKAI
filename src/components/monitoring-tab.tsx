@@ -93,7 +93,11 @@ export default function MonitoringTab() {
         const currentIds = new Set(executions.map(e => e.processing_id));
         const newIds = new Set(newExecutions.map(e => e.processing_id).filter(id => !currentIds.has(id)));
         
-        setNewExecutionIds(newIds);
+        // 只标记最新的 3 条消息为新消息，避免大量动画同时播放
+        const newIdArray = Array.from(newIds);
+        const limitedNewIds = new Set(newIdArray.slice(0, 3));
+        
+        setNewExecutionIds(limitedNewIds);
         setExecutions(newExecutions);
         
         // 3秒后移除新消息标记
@@ -121,22 +125,28 @@ export default function MonitoringTab() {
 
   // 初始加载和自动刷新
   useEffect(() => {
-    const loadAllData = async () => {
-      setLoading(true);
+    const loadAllData = async (showLoading = false) => {
+      if (showLoading) {
+        setLoading(true);
+      }
       await Promise.all([
         fetchHealth(),
         fetchExecutions(),
         fetchAiLogs()
       ]);
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
       setLastUpdateTime(new Date().toLocaleTimeString('zh-CN'));
     };
 
-    loadAllData();
+    // 初始加载时显示加载状态
+    loadAllData(true);
 
     if (autoRefresh) {
       const interval = setInterval(() => {
-        loadAllData();
+        // 自动刷新时不显示加载状态，避免页面闪烁
+        loadAllData(false);
       }, 5000); // 每5秒刷新一次
 
       return () => clearInterval(interval);
@@ -301,10 +311,14 @@ export default function MonitoringTab() {
                     return (
                       <div
                         key={execution.processing_id}
-                        className={`flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-all duration-300 ${
-                          isNew ? 'animate-slide-down bg-blue-50 dark:bg-blue-950' : ''
+                        className={`flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer ${
+                          isNew 
+                            ? 'animate-slide-down bg-blue-50 dark:bg-blue-950' 
+                            : ''
                         }`}
-                        style={{ animationDelay: `${Math.min(index, 5) * 50}ms` }}
+                        style={{
+                          animationDelay: isNew ? `${Math.min(index, 2) * 100}ms` : undefined
+                        }}
                         onClick={() => setSelectedExecution(execution)}
                       >
                         <div className="flex-1">
