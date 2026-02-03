@@ -219,18 +219,6 @@ export default function AdminDashboard() {
     loadAiConfig(); // 只在组件挂载时加载一次 AI 配置
   }, []);
 
-  // 自动刷新数据（每30秒）
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (activeTab === 'callbacks' || activeTab === 'robots') {
-        loadData();
-        loadRobots();
-      }
-    }, 30000); // 30秒刷新一次
-
-    return () => clearInterval(interval);
-  }, [activeTab]);
-
   // 加载机器人列表
   const loadRobots = async () => {
     try {
@@ -489,27 +477,6 @@ export default function AdminDashboard() {
 
     return () => clearTimeout(debounceTimer);
   }, [sessionSearchQuery, sessionStatusFilter]);
-
-  // 定期更新服务器运行时间
-  useEffect(() => {
-    const updateUptime = () => {
-      // 假设服务器启动时间保存在某个地方
-      // 这里我们通过health接口获取启动时间
-      fetch('/api/proxy/health')
-        .then(res => res.json())
-        .then(data => {
-          if (data.startTime) {
-            const uptimeMs = Date.now() - data.startTime;
-            setServerUptime(formatUptime(uptimeMs));
-          }
-        })
-        .catch(() => {});
-    };
-
-    // 每10秒更新一次
-    const interval = setInterval(updateUptime, 10000);
-    return () => clearInterval(interval);
-  }, []);
 
   const loadAiConfig = async () => {
     if (isLoadingAiConfig) return;
