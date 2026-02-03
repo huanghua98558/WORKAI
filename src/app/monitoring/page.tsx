@@ -9,35 +9,38 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Activity, MessageSquare, Bot, AlertCircle, CheckCircle, Clock, RefreshCw, ArrowLeft } from 'lucide-react';
 
 interface Execution {
-  processing_id: string;
-  robot_id: string;
-  robot_name?: string;
-  session_id: string;
-  user_id: string;
-  group_id: string;
+  id: string;
+  processingId: string;
+  robotId: string;
+  robotName?: string | null;
+  messageId?: string | null;
+  sessionId: string;
+  userId?: string | null;
+  groupId?: string | null;
   status: string;
-  start_time: string;
-  end_time: string;
-  processing_time: number;
-  error_message?: string;
+  startTime: string;
+  endTime?: string | null;
+  processingTime?: number | null;
+  errorMessage?: string | null;
+  errorStack?: string | null;
   steps: any;
   decision: any;
-  created_at?: string;
+  createdAt: string;
 }
 
 interface AiLog {
   id: number;
-  session_id: string;
-  message_id: string;
-  robot_id: string;
-  robot_name?: string;
-  operation_type: string;
-  ai_input: string;
-  ai_output: string;
-  model_id: string;
+  sessionId: string;
+  messageId: string;
+  robotId: string;
+  robotName?: string;
+  operationType: string;
+  aiInput: string;
+  aiOutput: string;
+  modelId: string;
   status: string;
-  error_message?: string;
-  created_at: string;
+  errorMessage?: string | null;
+  createdAt: string;
 }
 
 interface HealthStatus {
@@ -293,28 +296,28 @@ export default function MonitoringPage() {
                   ) : (
                     executions.map((execution) => (
                       <div
-                        key={execution.processing_id}
+                        key={execution.processingId}
                         className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer"
-                        onClick={() => fetchExecutionDetail(execution.processing_id)}
+                        onClick={() => fetchExecutionDetail(execution.processingId)}
                       >
                         <div className="flex items-center gap-3">
                           {getStatusIcon(execution.status)}
                           <div>
-                            <div className="font-medium">{execution.user_id || execution.group_id}</div>
+                            <div className="font-medium">{execution.userId || execution.groupId}</div>
                             <div className="text-sm text-muted-foreground">
-                              机器人: {execution.robot_name} | 会话: {execution.session_id?.slice(0, 8)}...
+                              机器人: {execution.robotName} | 会话: {execution.sessionId?.slice(0, 8)}...
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
                           {getStatusBadge(execution.status)}
-                          {execution.processing_time && (
+                          {execution.processingTime && (
                             <div className="text-sm text-muted-foreground">
-                              {execution.processing_time}ms
+                              {execution.processingTime}ms
                             </div>
                           )}
                           <div className="text-sm text-muted-foreground">
-                            {execution.created_at ? new Date(execution.created_at).toLocaleTimeString() : new Date(execution.start_time).toLocaleTimeString()}
+                            {execution.createdAt ? new Date(execution.createdAt).toLocaleTimeString() : new Date(execution.startTime).toLocaleTimeString()}
                           </div>
                         </div>
                       </div>
@@ -345,9 +348,9 @@ export default function MonitoringPage() {
                       <div key={log.id} className="border rounded-lg p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Badge variant="outline">{log.operation_type}</Badge>
+                            <Badge variant="outline">{log.operationType}</Badge>
                             <span className="text-sm text-muted-foreground">
-                              {log.robot_name}
+                              {log.robotName}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
@@ -357,7 +360,7 @@ export default function MonitoringPage() {
                               <AlertCircle className="w-4 h-4 text-red-500" />
                             )}
                             <span className="text-sm text-muted-foreground">
-                              {new Date(log.created_at).toLocaleTimeString()}
+                              {new Date(log.createdAt).toLocaleTimeString()}
                             </span>
                           </div>
                         </div>
@@ -366,22 +369,22 @@ export default function MonitoringPage() {
                           <div>
                             <div className="text-sm font-medium text-blue-600">输入:</div>
                             <div className="text-sm bg-muted p-2 rounded mt-1 whitespace-pre-wrap">
-                              {log.ai_input?.substring(0, 500)}
-                              {log.ai_input?.length > 500 && '...'}
+                              {log.aiInput?.substring(0, 500)}
+                              {log.aiInput?.length > 500 && '...'}
                             </div>
                           </div>
                           <div>
                             <div className="text-sm font-medium text-green-600">输出:</div>
                             <div className="text-sm bg-muted p-2 rounded mt-1 whitespace-pre-wrap">
-                              {log.ai_output?.substring(0, 500)}
-                              {log.ai_output?.length > 500 && '...'}
+                              {log.aiOutput?.substring(0, 500)}
+                              {log.aiOutput?.length > 500 && '...'}
                             </div>
                           </div>
                         </div>
 
-                        {log.error_message && (
+                        {log.errorMessage && (
                           <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
-                            错误: {log.error_message}
+                            错误: {log.errorMessage}
                           </div>
                         )}
                       </div>
@@ -400,7 +403,7 @@ export default function MonitoringPage() {
               <CardHeader>
                 <CardTitle>执行详情</CardTitle>
                 <CardDescription>
-                  处理ID: {selectedExecution.processing_id}
+                  处理ID: {selectedExecution.processingId}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -414,26 +417,26 @@ export default function MonitoringPage() {
                   <div>
                     <div className="text-sm text-muted-foreground">处理时间</div>
                     <div className="font-medium mt-1">
-                      {selectedExecution.processing_time}ms
+                      {selectedExecution.processingTime}ms
                     </div>
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground">机器人</div>
-                    <div className="font-medium mt-1">{selectedExecution.robot_name}</div>
+                    <div className="font-medium mt-1">{selectedExecution.robotName}</div>
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground">会话ID</div>
                     <div className="font-medium mt-1">
-                      {selectedExecution.session_id?.slice(0, 12)}...
+                      {selectedExecution.sessionId?.slice(0, 12)}...
                     </div>
                   </div>
                 </div>
 
-                {selectedExecution.error_message && (
+                {selectedExecution.errorMessage && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                     <div className="font-medium text-red-600">错误信息</div>
                     <div className="text-sm text-red-700 mt-1">
-                      {selectedExecution.error_message}
+                      {selectedExecution.errorMessage}
                     </div>
                   </div>
                 )}
