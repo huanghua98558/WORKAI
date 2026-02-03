@@ -215,6 +215,7 @@ export default function AdminDashboard() {
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [sessionMessages, setSessionMessages] = useState<any[]>([]);
   const [isLoadingSessionMessages, setIsLoadingSessionMessages] = useState(false);
+  const [loadingSessionId, setLoadingSessionId] = useState<string | null>(null); // 跟踪正在加载的会话ID
   const [sessionSearchQuery, setSessionSearchQuery] = useState('');
   const [sessionStatusFilter, setSessionStatusFilter] = useState<'all' | 'auto' | 'human'>('all');
   const [isSearchingSessions, setIsSearchingSessions] = useState(false);
@@ -373,6 +374,15 @@ export default function AdminDashboard() {
   const loadSessionMessages = async (sessionId: string) => {
     console.log('[会话消息] ========== 开始加载会话消息 ==========');
     console.log('[会话消息] sessionId:', sessionId);
+
+    // 如果已经在加载这个会话的消息，直接返回
+    if (loadingSessionId === sessionId && isLoadingSessionMessages) {
+      console.log('[会话消息] 正在加载中，跳过重复请求');
+      return;
+    }
+
+    // 更新正在加载的会话ID
+    setLoadingSessionId(sessionId);
     setIsLoadingSessionMessages(true);
     setSessionMessages([]); // 清空旧消息
 
@@ -389,7 +399,10 @@ export default function AdminDashboard() {
           console.log('[会话消息] 消息数量:', messages.length);
           console.log('[会话消息] 消息列表:', messages);
 
-          setSessionMessages(messages);
+          // 只有当正在加载的会话ID匹配时才更新消息
+          if (loadingSessionId === sessionId) {
+            setSessionMessages(messages);
+          }
 
           // 验证消息是否已设置
           setTimeout(() => {
@@ -397,20 +410,41 @@ export default function AdminDashboard() {
           }, 100);
         } else {
           console.error('[会话消息] API返回失败:', data);
-          setSessionMessages([]);
+          if (loadingSessionId === sessionId) {
+            setSessionMessages([]);
+          }
         }
       } else {
         console.error('[会话消息] 请求失败，状态码:', res.status);
-        setSessionMessages([]);
+        if (loadingSessionId === sessionId) {
+          setSessionMessages([]);
+        }
       }
     } catch (error) {
       console.error('[会话消息] 加载会话消息失败:', error);
-      setSessionMessages([]);
+      if (loadingSessionId === sessionId) {
+        setSessionMessages([]);
+      }
     } finally {
-      setIsLoadingSessionMessages(false);
+      // 只有当正在加载的会话ID匹配时才重置加载状态
+      if (loadingSessionId === sessionId) {
+        setIsLoadingSessionMessages(false);
+        setLoadingSessionId(null);
+      }
       console.log('[会话消息] ========== 加载完成 ==========');
     }
   };
+
+  // 监听 Dialog 关闭，清理状态
+  useEffect(() => {
+    if (!showSessionDetail) {
+      console.log('[Dialog] 弹窗已关闭，清理状态');
+      setSessionMessages([]);
+      setSelectedSession(null);
+      setIsLoadingSessionMessages(false);
+      setLoadingSessionId(null);
+    }
+  }, [showSessionDetail]);
 
   // 获取机器人信息（企微昵称）
   const loadRobotInfo = async (robotId: string): Promise<string | null> => {
@@ -458,34 +492,32 @@ export default function AdminDashboard() {
     console.log('[会话详情] 选中的会话:', session);
     console.log('[会话详情] sessionId:', session.sessionId);
 
+    // 先清空旧消息
+    setSessionMessages([]);
+
+    // 设置选中的会话
     setSelectedSession(session);
     console.log('[会话详情] 已设置 selectedSession');
 
+    // 打开弹窗
     setShowSessionDetail(true);
     console.log('[会话详情] 弹窗状态已设置为显示');
 
-    // 验证状态是否已设置
+    // 使用 setTimeout 确保 selectedSession 状态已更新后再加载消息
     setTimeout(() => {
-      console.log('[会话详情] 验证 - selectedSession 是否已设置:', !!selectedSession);
-      console.log('[会话详情] 验证 - showSessionDetail:', showSessionDetail);
-    }, 100);
+      console.log('[会话详情] 开始加载消息...');
+      loadSessionMessages(session.sessionId);
+    }, 50);
 
-    // 清空旧消息
-    setSessionMessages([]);
-    console.log('[会话详情] 已清空旧消息');
-
-    console.log('[会话详情] 开始加载消息...');
-    loadSessionMessages(session.sessionId);
-    
     // 加载机器人信息
     if (session.robotId) {
-      const robotName = await loadRobotInfo(session.robotId);
-      if (robotName) {
-        // 更新选中的会话，添加机器人名称
-        setSelectedSession(prev => prev ? { ...prev, robotName } : null);
-      }
+      loadRobotInfo(session.robotId).then(robotName => {
+        if (robotName) {
+          setSelectedSession(prev => prev ? { ...prev, robotName } : null);
+        }
+      });
     }
-    
+
     // 重新获取最新的会话信息，确保机器人名称和状态正确
     try {
       const res = await fetch(`/api/admin/sessions/${session.sessionId}`);
@@ -2662,16 +2694,12 @@ ${callbacks.robotStatus}
       </footer>
 
       {/* 会话详情弹窗 */}
-      <Dialog open={showSessionDetail} onOpenChange={(open) => {
-        console.log('[Dialog] onOpenChange 触发:', open);
-        setShowSessionDetail(open);
-
-        // 关闭时清空消息和选中会话
-        if (!open) {
-          console.log('[Dialog] 关闭弹窗，清空状态');
-          setSessionMessages([]);
-          setSelectedSession(null);
-        }
+      <Dialog
+        key={selectedSession?.sessionId || 'session-detail'}
+        open={showSessionDetail}
+        onOpenChange={(open) => {
+          console.log('[Dialog] onOpenChange 触发:', open);
+          setShowSessionDetail(open);
       }}>
         <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -2684,11 +2712,11 @@ ${callbacks.robotStatus}
             </DialogDescription>
           </DialogHeader>
 
-          {!selectedSession ? (
+          {!selectedSession || !selectedSession.sessionId ? (
             <div className="text-center py-12 text-muted-foreground">
               <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>未选中会话</p>
-              <p className="text-xs mt-2 text-gray-500">selectedSession: {String(selectedSession)}</p>
+              <p className="text-xs mt-2 text-gray-500">selectedSession: {String(!!selectedSession)}, sessionId: {String(selectedSession?.sessionId)}</p>
             </div>
           ) : (
             <div className="space-y-6">
