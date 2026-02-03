@@ -44,15 +44,13 @@ export async function GET(
 
     const data = await response.json();
 
-    // 开发环境：只输出请求路径和状态码，避免频繁输出响应数据
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[API Proxy] ${request.method} ${path} - ${response.status}`);
-    } else {
-      // 生产环境只在非200状态码时输出警告日志
-      if (response.status !== 200 && response.status !== 204) {
-        console.warn(`[API Proxy] ${request.method} ${path} - Status: ${response.status}`);
-      }
-    }
+    // 移除所有日志输出，避免频繁的日志刷屏
+    // 如果需要调试，可以临时取消注释以下代码
+    // if (process.env.NODE_ENV === 'development') {
+    //   console.log(`[API Proxy] ${request.method} ${path} - ${response.status}`);
+    // } else if (response.status !== 200 && response.status !== 204) {
+    //   console.warn(`[API Proxy] ${request.method} ${path} - Status: ${response.status}`);
+    // }
 
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
@@ -103,10 +101,11 @@ export async function POST(
 
     const data = await response.json();
 
-    // 开发环境：只输出请求路径和状态码，避免频繁输出响应数据
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[API Proxy] POST ${path} - ${response.status}`);
-    }
+    // 移除所有日志输出，避免频繁的日志刷屏
+    // 如果需要调试，可以临时取消注释以下代码
+    // if (process.env.NODE_ENV === 'development') {
+    //   console.log(`[API Proxy] POST ${path} - ${response.status}`);
+    // }
 
     return NextResponse.json(data, { status: response.status });
   } catch (error) {

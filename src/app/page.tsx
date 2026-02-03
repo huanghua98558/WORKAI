@@ -250,7 +250,7 @@ export default function AdminDashboard() {
     const interval = setInterval(() => {
       loadData();
       loadRobots();
-    }, 3000); // 每 3 秒刷新一次（与实时消息保持同步）
+    }, 10000); // 每 10 秒刷新一次，降低日志输出频率
 
     return () => clearInterval(interval);
   }, [showSessionDetail, activeTab]);
