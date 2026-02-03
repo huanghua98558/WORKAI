@@ -5,7 +5,15 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { recipient, fileType, fileName, fileUrl, remark } = body;
+    const { robotId, recipient, fileType, fileName, fileUrl, remark } = body;
+
+    // 验证必要参数
+    if (!robotId) {
+      return NextResponse.json(
+        { code: -1, message: '缺少必要参数：robotId' },
+        { status: 400 }
+      );
+    }
 
     if (!recipient || !fileUrl) {
       return NextResponse.json(
@@ -23,12 +31,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('[push-file proxy] 转发请求到后端:', {
+      robotId,
+      recipient,
+      fileType,
+      fileName,
+      fileUrl: fileUrl.substring(0, 50) + '...'
+    });
+
     // 调用后端 API
     const url = new URL('/api/admin/debug/push-file', BACKEND_URL);
     const response = await fetch(url.toString(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recipient, fileType, fileName, fileUrl, remark })
+      body: JSON.stringify({ robotId, recipient, fileType, fileName, fileUrl, remark })
     });
 
     const data = await response.json();
