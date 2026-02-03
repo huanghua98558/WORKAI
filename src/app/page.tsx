@@ -4757,14 +4757,7 @@ ${callbacks.robotStatus}
             </div>
 
             {/* 联系方式 */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <h5 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-blue-500" />
-                  联系我们
-                </h5>
-              </div>
-              
+            <div>
               <div className="flex gap-2">
                 {/* 手机 */}
                 <Card className="flex-1 min-w-[100px] border border-blue-100 dark:border-blue-900/50 hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
