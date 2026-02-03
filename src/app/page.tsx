@@ -1439,6 +1439,21 @@ ${callbacks.robotStatus}
             <p className="text-sm text-white/80 mt-1">今日累计接收消息</p>
           </CardContent>
         </Card>
+        <Card 
+          className="bg-gradient-to-r from-orange-500 to-red-500 border-none text-white cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => window.location.href = '/monitoring'}
+        >
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Activity className="h-5 w-5 animate-pulse" />
+              <CardTitle className="text-base">实时监控</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">查看详情</div>
+            <p className="text-sm text-white/80 mt-1">追踪执行流程与AI对话</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* 页面标题和操作 */}
@@ -4922,6 +4937,15 @@ ${callbacks.robotStatus}
               <Server className="h-4 w-4" />
               <span className="hidden sm:inline">系统日志</span>
             </TabsTrigger>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 py-2"
+              onClick={() => window.location.href = '/monitoring'}
+            >
+              <Activity className="h-4 w-4" />
+              <span className="hidden sm:inline">实时监控</span>
+            </Button>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
