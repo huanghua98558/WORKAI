@@ -169,6 +169,7 @@ interface Session {
   robotId?: string;
   robotName?: string;
   robotNickname?: string;
+  company?: string; // 企业名称
   userInfo?: {
     userName?: string;
     groupName?: string;
@@ -1719,10 +1720,10 @@ ${callbacks.robotStatus}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{userName || '未知用户'}</p>
                           <p className="text-xs text-muted-foreground truncate">{groupName || '未知群组'}</p>
-                          {session.robotName && (
+                          {session.company && (
                             <p className="text-xs text-blue-600 dark:text-blue-400 truncate">
-                              <Bot className="h-3 w-3 inline mr-1" />
-                              {session.robotName}
+                              <Building2 className="h-3 w-3 inline mr-1" />
+                              {session.company}
                               {session.robotNickname && ` (${session.robotNickname})`}
                             </p>
                           )}
@@ -1891,10 +1892,10 @@ ${callbacks.robotStatus}
                             <User className="h-3 w-3" />
                             人工回复: {session.humanReplyCount}
                           </span>
-                          {session.robotName && (
+                          {session.company && (
                             <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
-                              <Bot className="h-3 w-3" />
-                              机器人: {session.robotName}
+                              <Building2 className="h-3 w-3" />
+                              {session.company}
                               {session.robotNickname && ` (${session.robotNickname})`}
                             </span>
                           )}
@@ -4992,9 +4993,9 @@ ${callbacks.robotStatus}
                       <p className="font-medium">{selectedSession.groupName || selectedSession.userInfo?.groupName || '未知群组'}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">机器人</p>
+                      <p className="text-xs text-muted-foreground mb-1">企业</p>
                       <p className="font-medium">
-                        {selectedSession.robotName || '未知机器人'}
+                        {selectedSession.company || selectedSession.robotName || '未知企业'}
                         {selectedSession.robotNickname && ` (${selectedSession.robotNickname})`}
                       </p>
                     </div>
