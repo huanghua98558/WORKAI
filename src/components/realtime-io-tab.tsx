@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, Bot, User as UserIcon, MessageCircle, Filter, Activity, Pause, Play } from 'lucide-react';
+import { RefreshCw, Bot, User as UserIcon, MessageCircle, Filter, Activity, Pause, Play, Send } from 'lucide-react';
 
 export default function RealtimeIOTab() {
   const [messages, setMessages] = useState<any[]>([]);
@@ -19,9 +19,12 @@ export default function RealtimeIOTab() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdateTime, setLastUpdateTime] = useState<string | null>(null);
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
+  const [pendingNewMessages, setPendingNewMessages] = useState<any[]>([]); // 待显示的新消息队列
+  const [isSendingTestMessage, setIsSendingTestMessage] = useState(false);
   
   const lastFetchTime = useRef(0);
   const messagesRef = useRef<any[]>([]);
+  const isProcessingQueue = useRef(false); // 是否正在处理消息队列
 
   const loadMessages = useCallback(async () => {
     // 防抖：避免频繁请求
@@ -51,22 +54,21 @@ export default function RealtimeIOTab() {
         const currentMessages = messagesRef.current;
         const currentIds = new Set(currentMessages.map((m: any) => m.id));
         
-        // 检测新消息（出现在列表顶部的新消息）
-        const addedIds = new Set(
-          newMessages
-            .slice(0, 5) // 只标记最新的5条为新消息
-            .map((msg: any) => msg.id)
-            .filter((id: string) => !currentIds.has(id))
-        );
+        // 找出新增的消息（在当前列表中不存在的新消息）
+        const addedMessages = newMessages.filter((msg: any) => !currentIds.has(msg.id));
         
-        setNewMessageIds(addedIds);
+        // 更新当前消息列表
         setMessages(newMessages);
         setLastUpdateTime(new Date().toLocaleTimeString('zh-CN'));
         
-        // 3秒后移除新消息标记
-        setTimeout(() => {
-          setNewMessageIds(new Set<string>());
-        }, 3000);
+        // 如果有新消息，添加到待显示队列
+        if (addedMessages.length > 0) {
+          // 按时间顺序添加到队列（最新的在前面）
+          const sortedNewMessages = addedMessages.sort((a: any, b: any) => 
+            new Date(b.timestamp || b.createdAt).getTime() - new Date(a.timestamp || a.createdAt).getTime()
+          );
+          setPendingNewMessages(prev => [...prev, ...sortedNewMessages]);
+        }
       }
     } catch (error) {
       console.error('加载消息失败:', error);
@@ -74,6 +76,55 @@ export default function RealtimeIOTab() {
       setIsLoading(false);
     }
   }, [messageLimit, filterType, selectedRobot]);
+
+  // 处理待显示的消息队列（一条一条显示）
+  useEffect(() => {
+    if (isProcessingQueue.current || pendingNewMessages.length === 0) {
+      return;
+    }
+
+    isProcessingQueue.current = true;
+
+    const processNextMessage = () => {
+      if (pendingNewMessages.length === 0) {
+        isProcessingQueue.current = false;
+        return;
+      }
+
+      // 取出队列中的第一条消息
+      const nextMessage = pendingNewMessages[0];
+      
+      // 标记为新消息
+      setNewMessageIds(prev => new Set([...prev, nextMessage.id]));
+      
+      // 从队列中移除
+      setPendingNewMessages(prev => prev.slice(1));
+      
+      // 3秒后移除新消息标记
+      setTimeout(() => {
+        setNewMessageIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(nextMessage.id);
+          return newSet;
+        });
+      }, 3000);
+    };
+
+    // 立即处理第一条
+    processNextMessage();
+
+    // 每隔800ms处理下一条
+    const interval = setInterval(() => {
+      if (pendingNewMessages.length > 0) {
+        processNextMessage();
+      } else {
+        clearInterval(interval);
+        isProcessingQueue.current = false;
+      }
+    }, 800);
+
+    return () => clearInterval(interval);
+  }, [pendingNewMessages]);
 
   const loadRobots = async () => {
     try {
@@ -86,6 +137,31 @@ export default function RealtimeIOTab() {
       }
     } catch (error) {
       console.error('加载机器人列表失败:', error);
+    }
+  };
+
+  // 发送测试消息
+  const sendTestMessages = async () => {
+    setIsSendingTestMessage(true);
+    try {
+      const res = await fetch('/api/ai-io/create-test-message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ count: 5 }), // 每次发送5条测试消息
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        console.log('✅ 测试消息发送成功:', data);
+        // 手动触发一次刷新
+        setTimeout(() => loadMessages(), 500);
+      }
+    } catch (error) {
+      console.error('发送测试消息失败:', error);
+    } finally {
+      setIsSendingTestMessage(false);
     }
   };
 
@@ -125,6 +201,15 @@ export default function RealtimeIOTab() {
           <p className="text-muted-foreground mt-1">查看 AI 输入输出实时记录</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={sendTestMessages}
+            disabled={isSendingTestMessage}
+          >
+            <Send className={`h-4 w-4 mr-2 ${isSendingTestMessage ? 'animate-pulse' : ''}`} />
+            {isSendingTestMessage ? '发送中...' : '测试消息'}
+          </Button>
           <Button
             variant="outline"
             size="sm"
