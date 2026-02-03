@@ -67,6 +67,7 @@ export default function MonitoringTab() {
   const [selectedExecution, setSelectedExecution] = useState<Execution | null>(null);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastUpdateTime, setLastUpdateTime] = useState<string | null>(null);
 
   // 获取系统健康状态
   const fetchHealth = async () => {
@@ -117,6 +118,7 @@ export default function MonitoringTab() {
         fetchAiLogs()
       ]);
       setLoading(false);
+      setLastUpdateTime(new Date().toLocaleTimeString('zh-CN'));
     };
 
     loadAllData();
@@ -145,7 +147,7 @@ export default function MonitoringTab() {
       {/* 页面标题和操作 */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold">实时监控中心</h2>
+          <h2 className="text-2xl font-bold">实时消息</h2>
           <p className="text-muted-foreground mt-1">
             实时查看消息处理流程、AI对话和系统状态
           </p>
@@ -153,7 +155,7 @@ export default function MonitoringTab() {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock className="h-4 w-4" />
-            最后更新: {health ? formatTime(health.timestamp) : '--'}
+            最后更新: {lastUpdateTime || '--'}
           </div>
           <Button
             variant="outline"
@@ -162,6 +164,7 @@ export default function MonitoringTab() {
               fetchHealth();
               fetchExecutions();
               fetchAiLogs();
+              setLastUpdateTime(new Date().toLocaleTimeString('zh-CN'));
             }}
             disabled={loading}
           >
@@ -175,6 +178,10 @@ export default function MonitoringTab() {
             {autoRefresh ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Clock className="h-4 w-4" />}
             <span className="ml-2">{autoRefresh ? '自动刷新' : '手动刷新'}</span>
           </Button>
+          <Badge variant={autoRefresh ? "secondary" : "outline"} className="gap-1">
+            <RefreshCw className={`h-3 w-3 ${autoRefresh ? 'animate-spin' : ''}`} />
+            {autoRefresh ? '5秒刷新' : '已暂停'}
+          </Badge>
         </div>
       </div>
 
@@ -257,10 +264,23 @@ export default function MonitoringTab() {
         <TabsContent value="executions" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>消息处理列表</CardTitle>
-              <CardDescription>
-                实时显示消息处理的执行状态
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    消息处理列表
+                    {autoRefresh && (
+                      <Badge variant="outline" className="gap-1 text-xs">
+                        <RefreshCw className="h-3 w-3 animate-spin" />
+                        自动刷新
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  <CardDescription>
+                    实时显示消息处理的执行状态
+                  </CardDescription>
+                </div>
+                <Badge variant="secondary">{executions.length} 条记录</Badge>
+              </div>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[600px]">
@@ -381,10 +401,23 @@ export default function MonitoringTab() {
         <TabsContent value="ai-logs" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>AI对话日志</CardTitle>
-              <CardDescription>
-                实时显示AI的输入输出记录
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    AI对话日志
+                    {autoRefresh && (
+                      <Badge variant="outline" className="gap-1 text-xs">
+                        <RefreshCw className="h-3 w-3 animate-spin" />
+                        自动刷新
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  <CardDescription>
+                    实时显示AI的输入输出记录
+                  </CardDescription>
+                </div>
+                <Badge variant="secondary">{aiLogs.length} 条记录</Badge>
+              </div>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[600px]">

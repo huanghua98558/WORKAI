@@ -4954,7 +4954,7 @@ ${callbacks.robotStatus}
             </TabsTrigger>
             <TabsTrigger value="realtime" className="gap-2 py-2">
               <Terminal className="h-4 w-4" />
-              <span className="hidden sm:inline">实时IO</span>
+              <span className="hidden sm:inline">实时消息</span>
             </TabsTrigger>
             <TabsTrigger value="prompt-training" className="gap-2 py-2">
               <Zap className="h-4 w-4" />
