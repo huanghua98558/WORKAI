@@ -4,10 +4,10 @@ requires = ["nodejs-24"]
 [dev]
 build = ["bash", "./scripts/prepare.sh"]
 run = ["bash", "./scripts/dev.sh"]
-deps = ["git"] # -> apt install git
+deps = ["git"]
 
 [deploy]
 build = ["bash","./scripts/build.sh"]
 run = ["bash","./scripts/start.sh"]
-deps = ["git"] # -> apt install git
-environment = ["BACKEND_HOST=localhost", "BACKEND_PORT=5001"]
+deps = ["git"]
+environment = ["BACKEND_URL=http://localhost:5001"]
