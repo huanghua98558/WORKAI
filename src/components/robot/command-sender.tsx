@@ -61,9 +61,23 @@ export default function CommandSender() {
   const [sending, setSending] = useState(false);
   const [selectedRobot, setSelectedRobot] = useState<string>('');
   const [selectedRobotDisplay, setSelectedRobotDisplay] = useState<string>('');
-  const [commandType, setCommandType] = useState<string>('send_message');
+  const [commandType, setCommandType] = useState<string>('send_group_message');
   const [priority, setPriority] = useState<number>(5);
-  const [commandPayload, setCommandPayload] = useState<string>('{}');
+  
+  // 表单字段状态
+  const [formData, setFormData] = useState({
+    // 群发消息
+    groupName: '',
+    groupContent: '',
+    groupAtList: '',
+    
+    // 私聊消息
+    userName: '',
+    privateContent: '',
+    
+    // 批量消息
+    batchMessages: [{ recipient: '', content: '' }]
+  });
 
   // 加载机器人列表
   const fetchRobots = async () => {
@@ -88,17 +102,16 @@ export default function CommandSender() {
 
   // 加载指令列表
   const fetchCommands = async () => {
-    // 暂时不加载指令列表，因为后端API尚未实现
-    // try {
-    //   const response = await fetch('/api/proxy/admin/robot-commands?limit=10');
-    //   const result = await response.json();
-    //   
-    //   if (result.code === 0) {
-    //     setCommands(result.data);
-    //   }
-    // } catch (error) {
-    //   console.error('加载指令列表失败:', error);
-    // }
+    try {
+      const response = await fetch('/api/proxy/admin/robot-commands?limit=20');
+      const result = await response.json();
+      
+      if (result.code === 0) {
+        setCommands(result.data);
+      }
+    } catch (error) {
+      console.error('加载指令列表失败:', error);
+    }
   };
 
   useEffect(() => {
@@ -109,6 +122,65 @@ export default function CommandSender() {
     const interval = setInterval(fetchCommands, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  // 构建指令 payload
+  const buildPayload = () => {
+    switch (commandType) {
+      case 'send_group_message':
+        if (!formData.groupName || !formData.groupContent) {
+          throw new Error('请填写群名称和消息内容');
+        }
+        const atList = formData.groupAtList
+          ? formData.groupAtList.split(/[,，]/).map(s => s.trim()).filter(s => s)
+          : [];
+        return {
+          socketType: 2,
+          list: [
+            {
+              type: 203,
+              titleList: [formData.groupName],
+              receivedContent: formData.groupContent,
+              ...(atList.length > 0 && { atList })
+            }
+          ]
+        };
+
+      case 'send_private_message':
+        if (!formData.userName || !formData.privateContent) {
+          throw new Error('请填写用户昵称和消息内容');
+        }
+        return {
+          socketType: 2,
+          list: [
+            {
+              type: 203,
+              titleList: [formData.userName],
+              receivedContent: formData.privateContent,
+              atList: []
+            }
+          ]
+        };
+
+      case 'batch_send_message':
+        const validMessages = formData.batchMessages.filter(
+          msg => msg.recipient && msg.content
+        );
+        if (validMessages.length === 0) {
+          throw new Error('请至少添加一条有效的消息');
+        }
+        return {
+          socketType: 2,
+          list: validMessages.map(msg => ({
+            type: 203,
+            titleList: [msg.recipient],
+            receivedContent: msg.content
+          }))
+        };
+
+      default:
+        throw new Error('不支持的指令类型');
+    }
+  };
 
   // 发送指令
   const handleSendCommand = async (e: React.FormEvent) => {
@@ -122,12 +194,12 @@ export default function CommandSender() {
     try {
       setSending(true);
       
-      // 验证 JSON
+      // 构建指令 payload
       let payload;
       try {
-        payload = JSON.parse(commandPayload);
-      } catch {
-        toast.error('指令内容必须是有效的 JSON');
+        payload = buildPayload();
+      } catch (error: any) {
+        toast.error(error.message || '构建指令失败');
         setSending(false);
         return;
       }
@@ -149,7 +221,8 @@ export default function CommandSender() {
         toast.success('指令发送成功', {
           description: '指令已加入队列，等待执行'
         });
-        setCommandPayload(getDefaultPayload(commandType));
+        // 重置表单
+        resetForm();
         fetchCommands();
       } else {
         toast.error(result.message || '发送指令失败');
@@ -463,8 +536,8 @@ export default function CommandSender() {
                   <TableRow>
                     <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       <div className="space-y-2">
-                        <div className="text-base font-medium">指令记录功能开发中</div>
-                        <div className="text-sm">当指令发送功能上线后，这里将显示指令执行历史</div>
+                        <div className="text-base font-medium">暂无指令记录</div>
+                        <div className="text-sm">发送指令后，这里将显示指令执行历史</div>
                       </div>
                     </TableCell>
                   </TableRow>
