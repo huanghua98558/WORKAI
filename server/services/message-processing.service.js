@@ -60,11 +60,21 @@ class MessageProcessingService {
 
     const processingId = executionTrackerService.startProcessing({
       robotId: robot.robotId,
+      sessionId: messageData.fromName,
       messageData,
       startTime
     });
 
     logger.debug('MessageProcessing', '步骤1: 开始执行', { processingId });
+
+    // 记录用户消息步骤
+    executionTrackerService.updateStep(processingId, 'user_message', {
+      content: messageContent,
+      userId: messageData.fromName,
+      groupId: messageData.groupName,
+      messageId: messageData.messageId,
+      timestamp: messageData.timestamp || new Date().toISOString()
+    });
 
     try {
       // 步骤1: 解析消息内容
@@ -691,6 +701,13 @@ class MessageProcessingService {
       status: 'completed',
       endTime: Date.now(),
       result: { reply }
+    });
+
+    // 记录 AI 回复步骤
+    executionTrackerService.updateStep(processingId, 'ai_response', {
+      response: reply,
+      model: 'doubao-1.8',
+      timestamp: new Date().toISOString()
     });
 
     logger.info('MessageProcessing', 'generateReply步骤: 回复生成完成', {

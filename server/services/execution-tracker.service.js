@@ -4,6 +4,8 @@
  */
 
 const redisClient = require('../lib/redis');
+const { getDb } = require('coze-coding-dev-sdk');
+const { sql } = require('drizzle-orm');
 
 class ExecutionTrackerService {
   constructor() {
@@ -13,6 +15,13 @@ class ExecutionTrackerService {
 
   async init() {
     this.redis = await redisClient.getClient();
+  }
+
+  /**
+   * 获取数据库实例
+   */
+  async getDb() {
+    return await getDb();
   }
 
   /**
@@ -52,6 +61,22 @@ class ExecutionTrackerService {
 
     // 更新统计
     await this.redis.incr('execution:stats:total');
+
+    // 【新增】同步写入数据库
+    try {
+      const db = await this.getDb();
+
+      await db.execute(sql`
+        INSERT INTO execution_tracking
+        (id, processing_id, robot_id, session_id, message_id, user_id, group_id, status, steps, start_time, created_at)
+        VALUES (${processingId}, ${processingId}, ${context.robotId || null}, ${context.sessionId || (context.messageData?.FromUserName) || 'unknown'}, ${context.messageData?.MsgId || null}, ${context.messageData?.FromUserName || null}, ${context.messageData?.ToUserName || null}, 'processing', '{}'::jsonb, ${startTimeIso}, ${startTimeIso})
+      `);
+
+      console.log(`[执行追踪] 数据库记录已创建: ${processingId}`);
+    } catch (error) {
+      console.error(`[执行追踪] 数据库写入失败:`, error);
+      // 不抛出错误，以免影响主流程
+    }
 
     return processingId;
   }
@@ -112,6 +137,34 @@ class ExecutionTrackerService {
       7 * 24 * 3600,
       JSON.stringify(processing)
     );
+
+    // 【新增】同步更新数据库
+    try {
+      const db = await this.getDb();
+
+      // 确定最终状态
+      const finalStatus = result.status === 'success' ? 'completed' :
+                          result.status === 'error' ? 'failed' :
+                          'processing';
+
+      await db.execute(sql`
+        UPDATE execution_tracking
+        SET
+          status = ${finalStatus},
+          steps = ${JSON.stringify(processing.steps || {})}::jsonb,
+          end_time = ${processing.completedAt},
+          processing_time = ${processing.processingTime || 0},
+          decision = ${JSON.stringify(processing.decision || {})}::jsonb,
+          error_message = ${processing.error || null},
+          error_stack = null
+        WHERE processing_id = ${processingId}
+      `);
+
+      console.log(`[执行追踪] 数据库记录已更新: ${processingId}, status: ${finalStatus}`);
+    } catch (error) {
+      console.error(`[执行追踪] 数据库更新失败:`, error);
+      // 不抛出错误，以免影响主流程
+    }
   }
 
   /**

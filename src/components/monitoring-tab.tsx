@@ -381,14 +381,14 @@ export default function MonitoringTab() {
                             </div>
                           )}
                           {/* 尝试显示消息内容 */}
-                          {execution.steps && execution.steps.user_message && (
+                          {execution.steps && execution.steps.user_message && execution.steps.user_message.content && (
                             <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 truncate">
-                              用户消息: {execution.steps.user_message}
+                              用户消息: {execution.steps.user_message.content}
                             </div>
                           )}
-                          {execution.steps && execution.steps.ai_response && (
+                          {execution.steps && execution.steps.ai_response && execution.steps.ai_response.response && (
                             <div className="text-xs text-green-600 dark:text-green-400 mt-1 truncate">
-                              AI回复: {execution.steps.ai_response}
+                              AI回复: {execution.steps.ai_response.response}
                             </div>
                           )}
                         </div>
@@ -460,16 +460,16 @@ export default function MonitoringTab() {
                     <div>
                       <h4 className="font-semibold mb-2">消息内容</h4>
                       <div className="space-y-2">
-                        {selectedExecution.steps.user_message && (
+                        {selectedExecution.steps.user_message && selectedExecution.steps.user_message.content && (
                           <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                             <div className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">用户消息</div>
-                            <div className="text-sm">{selectedExecution.steps.user_message}</div>
+                            <div className="text-sm">{selectedExecution.steps.user_message.content}</div>
                           </div>
                         )}
-                        {selectedExecution.steps.ai_response && (
+                        {selectedExecution.steps.ai_response && selectedExecution.steps.ai_response.response && (
                           <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                             <div className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">AI回复</div>
-                            <div className="text-sm">{selectedExecution.steps.ai_response}</div>
+                            <div className="text-sm">{selectedExecution.steps.ai_response.response}</div>
                           </div>
                         )}
                       </div>
