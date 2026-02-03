@@ -2273,12 +2273,10 @@ ${callbacks.robotStatus}
               </div>
               
               <div>
-                <h1 className="text-xl font-bold text-neon-blue animate-neon-flicker">
+                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   WorkTool AI 中枢系统
                 </h1>
-                <p className="text-xs text-muted-foreground font-mono">
-                  ENTERPRISE WECHAT AI PLATFORM
-                </p>
+                <p className="text-sm text-muted-foreground">企业微信社群智能运营平台</p>
               </div>
             </div>
 
@@ -2294,7 +2292,7 @@ ${callbacks.robotStatus}
 
               {/* 运行状态 */}
               <div className="flex items-center gap-2 px-3 py-1.5 bg-background/50 rounded-lg border border-primary/20">
-                <div className={`w-2 h-2 rounded-full animate-pulse-glow-cyan ${connectionStatus === 'connected' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <div className={`w-2 h-2 rounded-full ${connectionStatus === 'connected' ? 'bg-green-500' : 'bg-red-500'}`}></div>
                 <span className={`text-xs font-medium ${connectionStatus === 'connected' ? 'text-green-500' : 'text-red-500'}`}>
                   {connectionStatus === 'connected' ? 'RUNNING' : 'OFFLINE'}
                 </span>
