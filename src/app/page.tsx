@@ -367,6 +367,44 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleToggleSessionStatus = async (session: Session) => {
+    try {
+      const url = session.status === 'auto'
+        ? `/api/admin/sessions/${session.sessionId}/takeover`
+        : `/api/admin/sessions/${session.sessionId}/auto`;
+
+      const body = session.status === 'auto'
+        ? JSON.stringify({ operator: 'admin' })
+        : undefined;
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          // 更新会话列表中的会话状态
+          setSessions(prevSessions =>
+            prevSessions.map(s =>
+              s.sessionId === session.sessionId
+                ? { ...s, status: data.data.status }
+                : s
+            )
+          );
+          alert(`✅ 已切换为${session.status === 'auto' ? '人工接管' : '自动模式'}`);
+        }
+      } else {
+        alert('❌ 切换失败');
+      }
+    } catch (error) {
+      console.error('切换会话状态失败:', error);
+      alert('❌ 切换失败');
+    }
+  };
+
   // 搜索和筛选会话
   const handleSearchSessions = async () => {
     if (!sessionSearchQuery.trim() && sessionStatusFilter === 'all') {
@@ -1826,6 +1864,27 @@ ${callbacks.robotStatus}
                       <span className="text-xs text-muted-foreground">
                         {formatTime(session.lastActiveTime)}
                       </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8"
+                        onClick={(e) => {
+                          e.stopPropagation(); // 阻止冒泡，避免打开详情
+                          handleToggleSessionStatus(session);
+                        }}
+                      >
+                        {session.status === 'auto' ? (
+                          <>
+                            <UserCheck className="h-3 w-3 mr-1" />
+                            人工接管
+                          </>
+                        ) : (
+                          <>
+                            <Bot className="h-3 w-3 mr-1" />
+                            自动模式
+                          </>
+                        )}
+                      </Button>
                     </div>
                   </div>
                 ))}
