@@ -255,7 +255,7 @@ export default function RobotManagement() {
     setAddFormData({
       name: '',
       robotId: '',
-      apiBaseUrl: '',
+      apiBaseUrl: 'https://api.worktool.ymdyes.cn/wework/',
       description: '',
       company: '',
       isActive: true,
