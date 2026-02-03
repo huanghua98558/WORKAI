@@ -7,6 +7,7 @@ const { getDb } = require('coze-coding-dev-sdk');
 const { sessionMessages } = require('../database/schema');
 const { sql } = require('drizzle-orm');
 const logger = require('./system-logger.service');
+const { diagnoseAndHandleSaveError } = require('./message-save-diagnostics');
 
 class SessionMessageService {
   /**
@@ -139,6 +140,27 @@ class SessionMessageService {
         error: error.message,
         stack: error.stack
       });
+
+      // 运行详细诊断
+      try {
+        const context = {
+          sessionId,
+          messageId,
+          robotId: robot?.robotId,
+          robotName: robot?.nickname || robot?.name || robot?.robotId,
+          content: messageContext?.content,
+          timestamp: timestampISO
+        };
+        
+        const diagnosis = await diagnoseAndHandleSaveError(error, context);
+        
+        // 将诊断结果记录到日志
+        logger.error('SessionMessage', '保存用户消息失败 - 详细诊断', {
+          diagnosis: diagnosis
+        });
+      } catch (diagError) {
+        console.error('[会话消息] 诊断过程失败:', diagError.message);
+      }
 
       throw error;
     }
