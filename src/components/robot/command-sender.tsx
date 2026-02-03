@@ -92,9 +92,9 @@ export default function CommandSender() {
   
   // 消息历史筛选条件
   const [historyFilter, setHistoryFilter] = useState({
-    robotId: '',
-    commandType: '',
-    status: '',
+    robotId: 'all',
+    commandType: 'all',
+    status: 'all',
     limit: 50
   });
   
@@ -175,9 +175,9 @@ export default function CommandSender() {
     try {
       setHistoryLoading(true);
       const params = new URLSearchParams();
-      if (historyFilter.robotId) params.append('robotId', historyFilter.robotId);
-      if (historyFilter.commandType) params.append('commandType', historyFilter.commandType);
-      if (historyFilter.status) params.append('status', historyFilter.status);
+      if (historyFilter.robotId && historyFilter.robotId !== 'all') params.append('robotId', historyFilter.robotId);
+      if (historyFilter.commandType && historyFilter.commandType !== 'all') params.append('commandType', historyFilter.commandType);
+      if (historyFilter.status && historyFilter.status !== 'all') params.append('status', historyFilter.status);
       params.append('limit', String(historyFilter.limit));
       
       const response = await fetch(`/api/admin/message-history?${params.toString()}`);
@@ -981,7 +981,6 @@ export default function CommandSender() {
                       <SelectValue placeholder="全部机器人" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">全部机器人</SelectItem>
                       {robots.filter(r => r.isActive).map(robot => (
                         <SelectItem key={robot.robotId} value={robot.robotId}>
                           {robot.name || robot.nickname || robot.robotId}
@@ -997,7 +996,7 @@ export default function CommandSender() {
                       <SelectValue placeholder="全部类型" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">全部类型</SelectItem>
+                      <SelectItem value="all">全部类型</SelectItem>
                       <SelectItem value="send_group_message">群发消息</SelectItem>
                       <SelectItem value="send_private_message">私聊消息</SelectItem>
                       <SelectItem value="batch_send_message">批量发送</SelectItem>
@@ -1011,7 +1010,7 @@ export default function CommandSender() {
                       <SelectValue placeholder="全部状态" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">全部状态</SelectItem>
+                      <SelectItem value="all">全部状态</SelectItem>
                       <SelectItem value="pending">待处理</SelectItem>
                       <SelectItem value="processing">处理中</SelectItem>
                       <SelectItem value="completed">已完成</SelectItem>
