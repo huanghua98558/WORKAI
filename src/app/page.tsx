@@ -4935,10 +4935,7 @@ ${callbacks.robotStatus}
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">机器人</p>
                       <p className="font-medium">
-                        {selectedSession.robotName || 
-                          sessionMessages.find(m => m.robotName && m.robotName.trim() !== '')?.robotName ||
-                          robots.find(r => r.robotId === selectedSession.robotId)?.name ||
-                          '未知机器人'}
+                        {selectedSession.robotName || '未知机器人'}
                       </p>
                     </div>
                     <div>
@@ -5107,22 +5104,22 @@ ${callbacks.robotStatus}
                                 ? 'bg-green-100 dark:bg-green-900/30'
                                 : 'bg-gray-100 dark:bg-gray-800'
                           } rounded-2xl p-4 ${msg.isFromUser ? 'rounded-br-sm' : 'rounded-bl-sm'}`}>
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <span className="text-xs font-semibold opacity-90">
+                            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                              <span className={`text-sm font-bold ${msg.isFromUser ? 'text-white' : 'text-foreground'}`}>
                                 {msg.isFromUser ? (
                                   <>
-                                    <User className="h-3 w-3 inline mr-1" />
+                                    <User className="h-4 w-4 inline mr-1.5" />
                                     {msg.userName || '用户'}
                                   </>
                                 ) : msg.isHuman ? (
                                   <>
-                                    <UserCheck className="h-3 w-3 inline mr-1" />
+                                    <UserCheck className="h-4 w-4 inline mr-1.5" />
                                     {msg.extraData?.operator || '人工客服'}
                                   </>
                                 ) : (
                                   <>
-                                    <Bot className="h-3 w-3 inline mr-1" />
-                                    {msg.robotName || selectedSession.robotName || robots.find(r => r.robotId === selectedSession.robotId)?.name || 'AI'}
+                                    <Bot className="h-4 w-4 inline mr-1.5 text-blue-600 dark:text-blue-400" />
+                                    {msg.robotName || 'AI'}
                                   </>
                                 )}
                               </span>
