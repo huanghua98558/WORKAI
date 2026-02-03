@@ -24,12 +24,70 @@ class DecisionService {
    */
   async makeDecision(message, context = {}) {
     // 支持 WorkTool 格式和原有格式
-    const { userId, groupId, userName, groupName, roomType, atMe, message: contextMessage } = context;
+    const { userId, groupId, userName, groupName, roomType, atMe, message: contextMessage, robot } = context;
 
     // WorkTool 格式参数
     const spoken = message.spoken || message.content || '';
     const fromName = message.fromName || userName || userId;
     const toGroupName = message.groupName || groupName || groupId;
+
+    // ========== 检查是否为转化客服模式 ==========
+    if (robot && robot.conversionMode) {
+      console.log(`机器人 ${robot.robotId} 配置为转化客服模式，使用转化AI回复`);
+
+      const session = await sessionService.getOrCreateSession(
+        userId || fromName,
+        toGroupName,
+        { userName: fromName, groupName: toGroupName }
+      );
+
+      // 添加消息到上下文
+      await sessionService.addContext(session.sessionId, {
+        content: spoken,
+        from_type: atMe ? 'user' : 'other',
+        timestamp: message.timestamp || new Date().toISOString()
+      });
+
+      // 只使用转化AI回复
+      try {
+        const reply = await aiService.generateConversionReply(
+          spoken || message.content || '',
+          'conversion',
+          {
+            sessionId: session.sessionId,
+            messageId: message.id || context.messageId,
+            robotId: robot.robotId,
+            robotName: robot.name || robot.nickname || robot.robotId,
+            userName: fromName,
+            groupName: toGroupName
+          }
+        );
+
+        const toType = roomType === '2' || roomType === '4' ? 'single' : 'group';
+        await worktoolService.sendTextMessage(toType, toGroupName, reply);
+
+        await sessionService.updateSession(session.sessionId, {
+          aiReplyCount: session.aiReplyCount + 1,
+          replyCount: session.replyCount + 1,
+          lastIntent: 'conversion',
+          lastActiveTime: new Date().toISOString()
+        });
+
+        return {
+          action: 'conversion_reply',
+          reply,
+          reason: '转化客服模式，使用转化AI回复',
+          sessionStatus: 'auto'
+        };
+      } catch (error) {
+        console.error('转化AI回复失败:', error);
+        return {
+          action: 'none',
+          reason: '转化AI回复失败',
+          error: error.message
+        };
+      }
+    }
 
     // 1. 获取或创建会话
     const session = await sessionService.getOrCreateSession(

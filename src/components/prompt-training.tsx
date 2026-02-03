@@ -1,906 +1,725 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Bot,
-  Plus,
-  Edit2,
-  Trash2,
-  Play,
-  CheckCircle,
-  XCircle,
-  Clock,
-  TrendingUp,
-  Star,
-  Save,
-  X,
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { 
+  Plus, 
+  Trash2, 
+  Play, 
+  Save, 
+  Copy, 
   RefreshCw,
+  ChevronRight,
+  ChevronLeft,
+  Edit3,
+  MessageSquare,
+  TestTube2,
   FileText,
-  TestTube,
-  Settings,
-  ChevronDown,
-  ChevronUp,
-  Copy,
+  Layout
 } from 'lucide-react';
+import Editor from '@monaco-editor/react';
 
-// 类型定义
 interface PromptTemplate {
   id: string;
   name: string;
-  type: 'intentRecognition' | 'serviceReply' | 'report';
-  description?: string;
+  description: string;
+  category: string;
   systemPrompt: string;
-  variables: string[];
-  version: string;
-  isActive: boolean;
-  createdBy: string;
+  userPrompt: string;
+  temperature: number;
+  maxTokens: number;
   createdAt: string;
   updatedAt: string;
 }
 
-interface PromptTest {
-  id: number;
-  templateId: string;
-  testName: string;
-  inputMessage: string;
-  variables: Record<string, any>;
-  aiOutput?: string;
-  expectedOutput?: string;
-  expectedIntent?: string;
-  actualIntent?: string;
-  isCorrect?: boolean;
-  rating?: number;
-  feedback?: string;
-  modelId: string;
-  temperature: number;
-  requestDuration: number;
-  status: 'success' | 'error';
-  errorMessage?: string;
-  createdAt: string;
+interface TestCase {
+  id: string;
+  name: string;
+  input: string;
+  expectedOutput: string;
+  category: string;
 }
 
-interface TestStatistics {
-  total: number;
-  success: number;
-  error: number;
-  correct: number;
-  incorrect: number;
-  avgRating: string;
-  avgDuration: number;
-  byType: {
-    intentRecognition: { total: number; correct: number };
-    serviceReply: { total: number };
-    report: { total: number };
-  };
+interface ConversationMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: string;
 }
+
+interface ModelResponse {
+  model: string;
+  response: string;
+  latency: number;
+  success: boolean;
+  error?: string;
+}
+
+const BUILTIN_MODELS = [
+  'doubao-seed-1-8-251228',
+  'doubao-seed-1-6-251015',
+  'doubao-seed-1-6-flash-250615',
+  'doubao-seed-1-6-thinking-250715',
+  'doubao-seed-1-6-lite-251015',
+  'deepseek-v3-2-251201',
+  'deepseek-r1-250528',
+  'kimi-k2-250905'
+];
 
 export default function PromptTraining() {
   const [templates, setTemplates] = useState<PromptTemplate[]>([]);
-  const [tests, setTests] = useState<PromptTest[]>([]);
-  const [statistics, setStatistics] = useState<TestStatistics | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [testCases, setTestCases] = useState<TestCase[]>([]);
+  const [selectedTestCaseId, setSelectedTestCaseId] = useState<string>('');
+  const [selectedModels, setSelectedModels] = useState<string[]>(['doubao-seed-1-8-251228']);
+  const [conversation, setConversation] = useState<ConversationMessage[]>([]);
+  const [userInput, setUserInput] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [modelResponses, setModelResponses] = useState<ModelResponse[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [isTesting, setIsTesting] = useState(false);
-
-  // 对话框状态
-  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
-  const [showTestDialog, setShowTestDialog] = useState(false);
-  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
-
-  // 表单状态
+  const [activeTab, setActiveTab] = useState<'chat' | 'test'>('chat');
+  
+  // 模板编辑状态
   const [templateForm, setTemplateForm] = useState<Partial<PromptTemplate>>({
     name: '',
-    type: 'intentRecognition',
     description: '',
+    category: 'service',
     systemPrompt: '',
-    variables: [],
-    version: '1.0',
-    isActive: true,
+    userPrompt: '{{input}}',
+    temperature: 0.7,
+    maxTokens: 2000
   });
 
-  const [testForm, setTestForm] = useState({
-    templateId: '',
-    testName: '',
-    inputMessage: '',
-    expectedOutput: '',
-    expectedIntent: '',
-    aiConfig: {
-      modelId: 'doubao-seed-1-8-251228',
-      temperature: 0.7,
-    },
-  });
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const [expandedTests, setExpandedTests] = useState<Set<number>>(new Set());
+  // 滚动到对话底部
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [conversation]);
 
   // 加载模板列表
+  useEffect(() => {
+    loadTemplates();
+    loadTestCases();
+  }, []);
+
+  // 选择模板时加载表单
+  useEffect(() => {
+    if (selectedTemplateId) {
+      const template = templates.find(t => t.id === selectedTemplateId);
+      if (template) {
+        setTemplateForm(template);
+      }
+    }
+  }, [selectedTemplateId, templates]);
+
   const loadTemplates = async () => {
-    setIsLoading(true);
     try {
-      const res = await fetch('/api/prompt-templates');
-      const data = await res.json();
-      if (data.code === 0) {
-        setTemplates(data.data);
+      const response = await fetch('/api/prompt-templates');
+      const data = await response.json();
+      setTemplates(data.data || []);
+      
+      if (data.data && data.data.length > 0 && !selectedTemplateId) {
+        setSelectedTemplateId(data.data[0].id);
       }
     } catch (error) {
       console.error('加载模板失败:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  // 加载测试记录
-  const loadTests = async (templateId?: string) => {
-    try {
-      const url = templateId
-        ? `/api/prompt-tests?templateId=${templateId}`
-        : '/api/prompt-tests?limit=50';
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.code === 0) {
-        setTests(data.data);
-      }
-    } catch (error) {
-      console.error('加载测试记录失败:', error);
-    }
+  const loadTestCases = async () => {
+    // 暂时不使用测试用例 API，直接使用空数组
+    setTestCases([]);
   };
 
-  // 加载统计数据
-  const loadStatistics = async (templateId?: string) => {
-    try {
-      const url = templateId
-        ? `/api/prompt-tests/statistics?templateId=${templateId}`
-        : '/api/prompt-tests/statistics';
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.code === 0) {
-        setStatistics(data.data);
-      }
-    } catch (error) {
-      console.error('加载统计数据失败:', error);
-    }
-  };
-
-  useEffect(() => {
-    loadTemplates();
-  }, []);
-
-  // 选择模板
-  const handleSelectTemplate = (template: PromptTemplate) => {
-    setSelectedTemplate(template);
-    loadTests(template.id);
-    loadStatistics(template.id);
-  };
-
-  // 创建/更新模板
-  const handleSaveTemplate = async () => {
+  const saveTemplate = async () => {
     setIsSaving(true);
     try {
-      const method = templateForm.id ? 'PUT' : 'POST';
-      const url = templateForm.id
-        ? `/api/prompt-templates/${templateForm.id}`
-        : '/api/prompt-templates';
+      const payload = selectedTemplateId
+        ? { ...templateForm, id: selectedTemplateId }
+        : templateForm;
 
-      const res = await fetch(url, {
+      const url = selectedTemplateId 
+        ? `/api/prompt-templates/${selectedTemplateId}`
+        : '/api/prompt-templates';
+      
+      const method = selectedTemplateId ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(templateForm),
+        body: JSON.stringify(payload)
       });
 
-      const data = await res.json();
+      const data = await response.json();
+      
       if (data.code === 0) {
-        setShowTemplateDialog(false);
-        loadTemplates();
+        await loadTemplates();
+        if (!selectedTemplateId && data.data?.id) {
+          setSelectedTemplateId(data.data.id);
+        }
+        alert('模板保存成功');
+      } else {
+        alert(data.message || '保存失败');
       }
     } catch (error) {
       console.error('保存模板失败:', error);
+      alert('保存失败');
     } finally {
       setIsSaving(false);
     }
   };
 
-  // 删除模板
-  const handleDeleteTemplate = async (id: string) => {
-    if (!confirm('确定要删除这个模板吗？')) return;
+  const createNewTemplate = () => {
+    setSelectedTemplateId('');
+    setTemplateForm({
+      name: `新模板 ${templates.length + 1}`,
+      description: '',
+      category: 'service',
+      systemPrompt: '',
+      userPrompt: '{{input}}',
+      temperature: 0.7,
+      maxTokens: 2000
+    });
+  };
 
+  const deleteTemplate = async (id: string) => {
+    if (!confirm('确定要删除此模板吗？')) return;
+    
     try {
-      const res = await fetch(`/api/prompt-templates/${id}`, {
-        method: 'DELETE',
+      const response = await fetch(`/api/prompt-templates/${id}`, {
+        method: 'DELETE'
       });
-      if (res.ok) {
-        loadTemplates();
-        if (selectedTemplate?.id === id) {
-          setSelectedTemplate(null);
-          setTests([]);
-          setStatistics(null);
+
+      const data = await response.json();
+      if (data.code === 0) {
+        await loadTemplates();
+        if (selectedTemplateId === id) {
+          setSelectedTemplateId(templates.find(t => t.id !== id)?.id || '');
         }
+      } else {
+        alert(data.message || '删除失败');
       }
     } catch (error) {
       console.error('删除模板失败:', error);
     }
   };
 
-  // 切换模板状态
-  const handleToggleTemplate = async (id: string, isActive: boolean) => {
-    try {
-      const res = await fetch(`/api/prompt-templates/${id}/toggle`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive }),
-      });
-      if (res.ok) {
-        loadTemplates();
-      }
-    } catch (error) {
-      console.error('切换模板状态失败:', error);
+  const selectTestCase = (id: string) => {
+    setSelectedTestCaseId(id);
+    const testCase = testCases.find(t => t.id === id);
+    if (testCase) {
+      setUserInput(testCase.input);
     }
   };
 
-  // 运行测试
-  const handleRunTest = async () => {
-    setIsTesting(true);
+  const sendMessage = async () => {
+    if (!userInput.trim() || !templateForm.systemPrompt) return;
+
+    const userMessage: ConversationMessage = {
+      role: 'user',
+      content: userInput,
+      timestamp: new Date().toISOString()
+    };
+
+    setConversation(prev => [...prev, userMessage]);
+    setIsGenerating(true);
+
     try {
-      const res = await fetch('/api/prompt-tests/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(testForm),
+      // 并行调用所有选中的模型
+      const promises = selectedModels.map(async (model) => {
+        const startTime = Date.now();
+        try {
+          const response = await fetch('/api/prompt-tests/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model,
+              systemPrompt: templateForm.systemPrompt,
+              userPrompt: templateForm.userPrompt?.replace('{{input}}', userInput) || userInput,
+              temperature: templateForm.temperature || 0.7,
+              maxTokens: templateForm.maxTokens || 2000
+            })
+          });
+
+          const data = await response.json();
+          const latency = Date.now() - startTime;
+
+          return {
+            model,
+            response: data.data?.response || '',
+            latency,
+            success: data.code === 0,
+            error: data.message
+          };
+        } catch (error) {
+          return {
+            model,
+            response: '',
+            latency: Date.now() - startTime,
+            success: false,
+            error: error instanceof Error ? error.message : '未知错误'
+          };
+        }
       });
 
-      const data = await res.json();
-      if (data.code === 0) {
-        setShowTestDialog(false);
-        loadTests(selectedTemplate?.id);
-        loadStatistics(selectedTemplate?.id);
+      const responses = await Promise.all(promises);
+      setModelResponses(responses);
+
+      // 使用第一个成功的模型回复作为主要对话
+      const mainResponse = responses.find(r => r.success);
+      if (mainResponse) {
+        const assistantMessage: ConversationMessage = {
+          role: 'assistant',
+          content: mainResponse.response,
+          timestamp: new Date().toISOString()
+        };
+        setConversation(prev => [...prev, assistantMessage]);
       }
     } catch (error) {
-      console.error('运行测试失败:', error);
+      console.error('生成失败:', error);
     } finally {
-      setIsTesting(false);
+      setIsGenerating(false);
+      setUserInput('');
     }
   };
 
-  // 打开编辑对话框
-  const handleEditTemplate = (template?: PromptTemplate) => {
-    if (template) {
-      setTemplateForm(template);
-    } else {
-      setTemplateForm({
-        name: '',
-        type: 'intentRecognition',
-        description: '',
-        systemPrompt: '',
-        variables: [],
-        version: '1.0',
-        isActive: true,
+  const runTestCase = async () => {
+    if (!selectedTestCaseId || selectedModels.length === 0) return;
+
+    const testCase = testCases.find(t => t.id === selectedTestCaseId);
+    if (!testCase) return;
+
+    setIsGenerating(true);
+    try {
+      const promises = selectedModels.map(async (model) => {
+        const startTime = Date.now();
+        try {
+          const response = await fetch('/api/prompt-tests/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model,
+              systemPrompt: templateForm.systemPrompt,
+              userPrompt: templateForm.userPrompt?.replace('{{input}}', testCase.input) || testCase.input,
+              temperature: templateForm.temperature || 0.7,
+              maxTokens: templateForm.maxTokens || 2000
+            })
+          });
+
+          const data = await response.json();
+          const latency = Date.now() - startTime;
+
+          return {
+            model,
+            response: data.data?.response || '',
+            latency,
+            success: data.code === 0,
+            error: data.message
+          };
+        } catch (error) {
+          return {
+            model,
+            response: '',
+            latency: Date.now() - startTime,
+            success: false,
+            error: error instanceof Error ? error.message : '未知错误'
+          };
+        }
       });
+
+      const responses = await Promise.all(promises);
+      setModelResponses(responses);
+    } catch (error) {
+      console.error('测试失败:', error);
+    } finally {
+      setIsGenerating(false);
     }
-    setShowTemplateDialog(true);
   };
 
-  // 打开测试对话框
-  const handleOpenTestDialog = (templateId: string) => {
-    setTestForm({ ...testForm, templateId });
-    setShowTestDialog(true);
+  const toggleModel = (model: string) => {
+    setSelectedModels(prev => 
+      prev.includes(model) 
+        ? prev.filter(m => m !== model)
+        : [...prev, model]
+    );
   };
 
-  // 展开/折叠测试详情
-  const toggleTestExpand = (testId: number) => {
-    const newExpanded = new Set(expandedTests);
-    if (newExpanded.has(testId)) {
-      newExpanded.delete(testId);
-    } else {
-      newExpanded.add(testId);
-    }
-    setExpandedTests(newExpanded);
-  };
-
-  // 获取类型名称
-  const getTypeName = (type: string) => {
-    const names: Record<string, string> = {
-      intentRecognition: '意图识别',
-      serviceReply: '客服回复',
-      report: '报告生成',
-    };
-    return names[type] || type;
-  };
-
-  // 获取类型颜色
-  const getTypeColor = (type: string) => {
-    const colors: Record<string, string> = {
-      intentRecognition: 'bg-blue-500',
-      serviceReply: 'bg-green-500',
-      report: 'bg-purple-500',
-    };
-    return colors[type] || 'bg-gray-500';
+  const clearConversation = () => {
+    setConversation([]);
+    setModelResponses([]);
   };
 
   return (
-    <div className="space-y-6">
-      {/* 顶部统计卡片 */}
-      {statistics && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">总测试数</CardTitle>
-              <TestTube className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{statistics.total}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">成功率</CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {statistics.total > 0
-                  ? ((statistics.success / statistics.total) * 100).toFixed(1)
-                  : 0}
-                %
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {statistics.success} 成功 / {statistics.error} 失败
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">正确率</CardTitle>
-              <TrendingUp className="h-4 w-4 text-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {statistics.correct + statistics.incorrect > 0
-                  ? ((statistics.correct / (statistics.correct + statistics.incorrect)) *
-                      100).toFixed(1)
-                  : 0}
-                %
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {statistics.correct} 正确 / {statistics.incorrect} 错误
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">平均评分</CardTitle>
-              <Star className="h-4 w-4 text-yellow-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{statistics.avgRating}</div>
-              <p className="text-xs text-muted-foreground">
-                平均耗时 {statistics.avgDuration}ms
-              </p>
-            </CardContent>
-          </Card>
+    <div className="h-[calc(100vh-120px)] flex gap-3 p-4 bg-gray-50">
+      {/* 第一栏：模板列表 */}
+      <Card className="w-64 flex flex-col p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold flex items-center gap-2">
+            <FileText size={18} />
+            Prompt 模板
+          </h3>
+          <Button size="sm" variant="ghost" onClick={createNewTemplate}>
+            <Plus size={16} />
+          </Button>
         </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 模板列表 */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Prompt 模板</CardTitle>
-                <CardDescription>
-                  管理和配置 AI 提示词模板
-                </CardDescription>
-              </div>
-              <Button size="sm" onClick={() => handleEditTemplate()}>
-                <Plus className="h-4 w-4 mr-1" />
-                新建
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {templates.map((template) => (
-                <div
-                  key={template.id}
-                  className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                    selectedTemplate?.id === template.id
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:border-primary/50'
-                  }`}
-                  onClick={() => handleSelectTemplate(template)}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-medium truncate">{template.name}</h4>
-                        <Badge
-                          className={`${getTypeColor(template.type)} text-white text-xs`}
-                        >
-                          {getTypeName(template.type)}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground line-clamp-2">
-                        {template.description || '暂无描述'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 ml-2">
-                      <Switch
-                        checked={template.isActive}
-                        onCheckedChange={(checked) =>
-                          handleToggleTemplate(template.id, checked)
-                        }
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>v{template.version}</span>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenTestDialog(template.id);
-                        }}
-                      >
-                        <Play className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEditTemplate(template);
-                        }}
-                      >
-                        <Edit2 className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteTemplate(template.id);
-                        }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
+        
+        <ScrollArea className="flex-1">
+          <div className="space-y-2">
+            {templates.map(template => (
+              <div
+                key={template.id}
+                className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                  selectedTemplateId === template.id 
+                    ? 'bg-blue-50 border border-blue-200' 
+                    : 'bg-gray-50 hover:bg-gray-100 border border-transparent'
+                }`}
+                onClick={() => setSelectedTemplateId(template.id)}
+              >
+                <div className="font-medium text-sm truncate">{template.name}</div>
+                <div className="text-xs text-gray-500 truncate">{template.category}</div>
+                <div className="flex items-center gap-2 mt-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-1 text-red-500 hover:text-red-700"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteTemplate(template.id);
+                    }}
+                  >
+                    <Trash2 size={12} />
+                  </Button>
                 </div>
-              ))}
-
-              {templates.length === 0 && !isLoading && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>暂无模板，点击"新建"创建第一个模板</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 测试记录 */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>测试记录</CardTitle>
-                <CardDescription>
-                  {selectedTemplate
-                    ? `模板"${selectedTemplate.name}"的测试记录`
-                    : '选择一个模板查看测试记录'}
-                </CardDescription>
               </div>
-              {selectedTemplate && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    loadTests(selectedTemplate.id);
-                    loadStatistics(selectedTemplate.id);
-                  }}
-                >
-                  <RefreshCw className="h-4 w-4 mr-1" />
-                  刷新
-                </Button>
-              )}
+            ))}
+          </div>
+        </ScrollArea>
+      </Card>
+
+      {/* 第二栏：编辑器 */}
+      <Card className="w-[30%] flex flex-col p-4">
+        <h3 className="font-semibold mb-4 flex items-center gap-2">
+          <Edit3 size={18} />
+          Prompt 编辑器
+        </h3>
+
+        <div className="space-y-4 flex-1 overflow-y-auto">
+          <div>
+            <Label>模板名称</Label>
+            <Input
+              value={templateForm.name}
+              onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
+              placeholder="模板名称"
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label>分类</Label>
+            <Select
+              value={templateForm.category}
+              onValueChange={(value) => setTemplateForm({ ...templateForm, category: value })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="intent">意图识别</SelectItem>
+                <SelectItem value="service">服务回复</SelectItem>
+                <SelectItem value="chat">闲聊</SelectItem>
+                <SelectItem value="report">报告生成</SelectItem>
+                <SelectItem value="conversion">转化客服</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>温度: {templateForm.temperature}</Label>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={templateForm.temperature}
+              onChange={(e) => setTemplateForm({ ...templateForm, temperature: parseFloat(e.target.value) })}
+              className="w-full mt-1"
+            />
+          </div>
+
+          <div className="flex-1">
+            <Label>系统提示词 (System Prompt)</Label>
+            <div className="h-[200px] border rounded-lg mt-1 overflow-hidden">
+              <Editor
+                height="200px"
+                defaultLanguage="markdown"
+                value={templateForm.systemPrompt}
+                onChange={(value) => setTemplateForm({ ...templateForm, systemPrompt: value || '' })}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 12,
+                  lineNumbers: 'on',
+                  scrollBeyondLastLine: false,
+                  wordWrap: 'on'
+                }}
+              />
             </div>
-          </CardHeader>
-          <CardContent>
-            {!selectedTemplate ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Bot className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                <p>请选择一个模板开始测试</p>
-              </div>
-            ) : tests.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <TestTube className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                <p>暂无测试记录，点击模板列表中的"运行"按钮开始测试</p>
-                <Button
-                  className="mt-4"
-                  onClick={() => handleOpenTestDialog(selectedTemplate.id)}
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  运行测试
-                </Button>
+          </div>
+
+          <div className="flex-1">
+            <Label>用户提示词模板 (使用 {{input}} 代表用户输入)</Label>
+            <div className="h-[150px] border rounded-lg mt-1 overflow-hidden">
+              <Editor
+                height="150px"
+                defaultLanguage="markdown"
+                value={templateForm.userPrompt}
+                onChange={(value) => setTemplateForm({ ...templateForm, userPrompt: value || '' })}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 12,
+                  lineNumbers: 'on',
+                  scrollBeyondLastLine: false,
+                  wordWrap: 'on'
+                }}
+              />
+            </div>
+          </div>
+
+          <Button onClick={saveTemplate} disabled={isSaving} className="w-full">
+            <Save size={16} className="mr-2" />
+            {isSaving ? '保存中...' : '保存模板'}
+          </Button>
+        </div>
+      </Card>
+
+      {/* 第三栏：对话 + 模型选择 */}
+      <Card className="w-[35%] flex flex-col p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold flex items-center gap-2">
+            <MessageSquare size={18} />
+            实时测试
+          </h3>
+          <Button size="sm" variant="ghost" onClick={clearConversation}>
+            <RefreshCw size={14} />
+          </Button>
+        </div>
+
+        {/* 模型选择 */}
+        <div className="mb-4">
+          <Label className="text-sm">选择模型（可多选）</Label>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {BUILTIN_MODELS.map(model => (
+              <Badge
+                key={model}
+                variant={selectedModels.includes(model) ? 'default' : 'outline'}
+                className="cursor-pointer hover:opacity-80"
+                onClick={() => toggleModel(model)}
+              >
+                {model}
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        {/* 对话区域 */}
+        <div className="flex-1 border rounded-lg overflow-hidden flex flex-col">
+          <ScrollArea className="flex-1 p-4 bg-gray-50">
+            {conversation.length === 0 ? (
+              <div className="text-center text-gray-400 text-sm mt-20">
+                开始测试您的 Prompt
               </div>
             ) : (
-              <div className="space-y-3">
-                {tests.map((test) => (
-                  <Card
-                    key={test.id}
-                    className={`border-2 ${
-                      test.status === 'error'
-                        ? 'border-red-200 bg-red-50/50'
-                        : test.isCorrect === false
-                        ? 'border-yellow-200 bg-yellow-50/50'
-                        : test.isCorrect === true
-                        ? 'border-green-200 bg-green-50/50'
-                        : 'border-border'
-                    }`}
+              <div className="space-y-4">
+                {conversation.map((msg, index) => (
+                  <div
+                    key={index}
+                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h4 className="font-medium">{test.testName}</h4>
-                            <Badge
-                              variant={
-                                test.status === 'success'
-                                  ? 'default'
-                                  : 'destructive'
-                              }
-                            >
-                              {test.status === 'success' ? '成功' : '失败'}
-                            </Badge>
-                            {test.isCorrect !== null && (
-                              <Badge
-                                variant={test.isCorrect ? 'default' : 'secondary'}
-                              >
-                                {test.isCorrect ? '正确' : '错误'}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            输入: {test.inputMessage.substring(0, 100)}
-                            {test.inputMessage.length > 100 ? '...' : ''}
-                          </p>
-                          {test.actualIntent && (
-                            <p className="text-xs text-muted-foreground">
-                              期望意图: {test.expectedIntent} | 实际意图:{' '}
-                              {test.actualIntent}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 ml-4">
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {test.requestDuration}ms
-                          </span>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => toggleTestExpand(test.id)}
-                          >
-                            {expandedTests.has(test.id) ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-
-                      {expandedTests.has(test.id) && (
-                        <div className="mt-4 pt-4 border-t space-y-3">
-                          {test.aiOutput && (
-                            <div>
-                              <Label className="text-sm font-medium">AI 输出:</Label>
-                              <div className="mt-1 p-3 bg-muted rounded-md text-sm whitespace-pre-wrap">
-                                {test.aiOutput}
-                              </div>
-                            </div>
-                          )}
-                          {test.expectedOutput && (
-                            <div>
-                              <Label className="text-sm font-medium">期望输出:</Label>
-                              <div className="mt-1 p-3 bg-muted rounded-md text-sm whitespace-pre-wrap">
-                                {test.expectedOutput}
-                              </div>
-                            </div>
-                          )}
-                          {test.errorMessage && (
-                            <Alert variant="destructive">
-                              <AlertDescription>{test.errorMessage}</AlertDescription>
-                            </Alert>
-                          )}
-                          <div className="text-xs text-muted-foreground">
-                            模型: {test.modelId} | 温度: {test.temperature}
-                          </div>
-                        </div>
-                      )}
+                    <div
+                      className={`max-w-[85%] rounded-lg px-4 py-2 ${
+                        msg.role === 'user'
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-white border shadow-sm'
+                      }`}
+                    >
+                      <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
                     </div>
-                  </Card>
+                  </div>
                 ))}
+                {isGenerating && (
+                  <div className="flex justify-start">
+                    <div className="bg-white border rounded-lg px-4 py-2 shadow-sm">
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <RefreshCw size={14} className="animate-spin" />
+                        AI 正在思考...
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
               </div>
             )}
-          </CardContent>
-        </Card>
-      </div>
+          </ScrollArea>
 
-      {/* 创建/编辑模板对话框 */}
-      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {templateForm.id ? '编辑模板' : '新建模板'}
-            </DialogTitle>
-            <DialogDescription>
-              配置 AI 提示词模板，用于意图识别、客服回复或报告生成
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>模板名称 *</Label>
-                <Input
-                  value={templateForm.name}
-                  onChange={(e) =>
-                    setTemplateForm({ ...templateForm, name: e.target.value })
-                  }
-                  placeholder="输入模板名称"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>模板类型 *</Label>
-                <Select
-                  value={templateForm.type}
-                  onValueChange={(value: any) =>
-                    setTemplateForm({ ...templateForm, type: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="intentRecognition">意图识别</SelectItem>
-                    <SelectItem value="serviceReply">客服回复</SelectItem>
-                    <SelectItem value="report">报告生成</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>描述</Label>
-              <Textarea
-                value={templateForm.description}
-                onChange={(e) =>
-                  setTemplateForm({ ...templateForm, description: e.target.value })
-                }
-                placeholder="输入模板描述"
-                rows={2}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>System Prompt *</Label>
-              <Textarea
-                value={templateForm.systemPrompt}
-                onChange={(e) =>
-                  setTemplateForm({ ...templateForm, systemPrompt: e.target.value })
-                }
-                placeholder="输入系统提示词"
-                rows={8}
-                className="font-mono text-sm"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>版本</Label>
-                <Input
-                  value={templateForm.version}
-                  onChange={(e) =>
-                    setTemplateForm({ ...templateForm, version: e.target.value })
-                  }
-                  placeholder="1.0"
-                />
-              </div>
-
-              <div className="flex items-center space-x-2 pt-6">
-                <Switch
-                  checked={templateForm.isActive}
-                  onCheckedChange={(checked) =>
-                    setTemplateForm({ ...templateForm, isActive: checked })
-                  }
-                />
-                <Label>启用此模板</Label>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowTemplateDialog(false)}>
-              取消
-            </Button>
-            <Button onClick={handleSaveTemplate} disabled={isSaving}>
-              {isSaving ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  保存中...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  保存
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 运行测试对话框 */}
-      <Dialog open={showTestDialog} onOpenChange={setShowTestDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>运行测试</DialogTitle>
-            <DialogDescription>
-              输入测试消息，验证 Prompt 模板的效果
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>测试名称 *</Label>
+          {/* 输入区域 */}
+          <div className="border-t p-3 bg-white">
+            <div className="flex gap-2">
               <Input
-                value={testForm.testName}
-                onChange={(e) =>
-                  setTestForm({ ...testForm, testName: e.target.value })
-                }
-                placeholder="输入测试名称"
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                placeholder="输入测试内容..."
+                className="flex-1"
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label>输入消息 *</Label>
-              <Textarea
-                value={testForm.inputMessage}
-                onChange={(e) =>
-                  setTestForm({ ...testForm, inputMessage: e.target.value })
-                }
-                placeholder="输入测试消息"
-                rows={4}
-              />
-            </div>
-
-            {selectedTemplate?.type === 'intentRecognition' && (
-              <div className="space-y-2">
-                <Label>期望意图</Label>
-                <Input
-                  value={testForm.expectedIntent}
-                  onChange={(e) =>
-                    setTestForm({ ...testForm, expectedIntent: e.target.value })
-                  }
-                  placeholder="输入期望的意图类型（如: service, chat, help）"
-                />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label>期望输出（可选）</Label>
-              <Textarea
-                value={testForm.expectedOutput}
-                onChange={(e) =>
-                  setTestForm({ ...testForm, expectedOutput: e.target.value })
-                }
-                placeholder="输入期望的 AI 输出，用于对比验证"
-                rows={3}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>模型 ID</Label>
-                <Input
-                  value={testForm.aiConfig.modelId}
-                  onChange={(e) =>
-                    setTestForm({
-                      ...testForm,
-                      aiConfig: {
-                        ...testForm.aiConfig,
-                        modelId: e.target.value,
-                      },
-                    })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>温度</Label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="2"
-                  value={testForm.aiConfig.temperature}
-                  onChange={(e) =>
-                    setTestForm({
-                      ...testForm,
-                      aiConfig: {
-                        ...testForm.aiConfig,
-                        temperature: parseFloat(e.target.value),
-                      },
-                    })
-                  }
-                />
-              </div>
+              <Button onClick={sendMessage} disabled={isGenerating || !userInput.trim()}>
+                <Play size={16} />
+              </Button>
             </div>
           </div>
+        </div>
+      </Card>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowTestDialog(false)}>
-              取消
-            </Button>
-            <Button onClick={handleRunTest} disabled={isTesting}>
-              {isTesting ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  测试中...
-                </>
+      {/* 第四栏：测试用例 + 模型对比 */}
+      <Card className="w-[calc(35%-48px)] flex flex-col p-4">
+        <h3 className="font-semibold mb-4 flex items-center gap-2">
+          <TestTube2 size={18} />
+          测试用例 & 对比
+        </h3>
+
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'chat' | 'test')}>
+          <TabsList className="w-full">
+            <TabsTrigger value="chat" className="flex-1">对话历史</TabsTrigger>
+            <TabsTrigger value="test" className="flex-1">测试用例</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="chat" className="mt-4">
+            <ScrollArea className="h-[calc(100%-40px)]">
+              {modelResponses.length === 0 ? (
+                <div className="text-center text-gray-400 text-sm mt-10">
+                  发送消息后查看模型对比
+                </div>
               ) : (
-                <>
-                  <Play className="h-4 w-4 mr-2" />
-                  运行测试
-                </>
+                <div className="space-y-3">
+                  {modelResponses.map((response, index) => (
+                    <Card key={index} className="p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <Badge variant="outline">{response.model}</Badge>
+                        {response.success && (
+                          <span className="text-xs text-gray-500">
+                            {response.latency}ms
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm">
+                        {response.success ? (
+                          <div className="whitespace-pre-wrap">{response.response}</div>
+                        ) : (
+                          <div className="text-red-500 text-xs">{response.error}</div>
+                        )}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
               )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value="test" className="mt-4">
+            <div className="space-y-4 h-[calc(100%-40px)] flex flex-col">
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={() => {
+                  const newTestCase: TestCase = {
+                    id: Date.now().toString(),
+                    name: `测试用例 ${testCases.length + 1}`,
+                    input: '',
+                    expectedOutput: '',
+                    category: templateForm.category || 'service'
+                  };
+                  setTestCases([...testCases, newTestCase]);
+                  setSelectedTestCaseId(newTestCase.id);
+                }}>
+                  <Plus size={14} className="mr-1" />
+                  新建
+                </Button>
+              </div>
+
+              <ScrollArea className="flex-1">
+                <div className="space-y-2">
+                  {testCases.map(testCase => (
+                    <div
+                      key={testCase.id}
+                      className={`p-3 rounded-lg cursor-pointer border ${
+                        selectedTestCaseId === testCase.id
+                          ? 'bg-blue-50 border-blue-200'
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      onClick={() => selectTestCase(testCase.id)}
+                    >
+                      <div className="font-medium text-sm">{testCase.name}</div>
+                      <div className="text-xs text-gray-500 truncate mt-1">
+                        {testCase.input}
+                      </div>
+                      <div className="flex justify-between mt-2">
+                        <Badge variant="outline" className="text-xs">
+                          {testCase.category}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-1 text-red-500"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTestCases(testCases.filter(t => t.id !== testCase.id));
+                          }}
+                        >
+                          <Trash2 size={12} />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+
+              {selectedTestCaseId && (
+                <div className="space-y-2 pt-2 border-t">
+                  <Input
+                    value={testCases.find(t => t.id === selectedTestCaseId)?.name || ''}
+                    onChange={(e) => {
+                      setTestCases(testCases.map(t =>
+                        t.id === selectedTestCaseId ? { ...t, name: e.target.value } : t
+                      ));
+                    }}
+                    placeholder="用例名称"
+                    className="text-sm"
+                  />
+                  <Textarea
+                    value={testCases.find(t => t.id === selectedTestCaseId)?.input || ''}
+                    onChange={(e) => {
+                      setTestCases(testCases.map(t =>
+                        t.id === selectedTestCaseId ? { ...t, input: e.target.value } : t
+                      ));
+                    }}
+                    placeholder="输入内容"
+                    rows={3}
+                    className="text-sm"
+                  />
+                  <Button size="sm" onClick={runTestCase} disabled={isGenerating} className="w-full">
+                    <TestTube2 size={14} className="mr-1" />
+                    运行测试
+                  </Button>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
+      </Card>
     </div>
   );
 }

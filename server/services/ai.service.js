@@ -20,7 +20,7 @@ class AIService {
    */
   initializeClients() {
     const aiConfig = config.get('ai');
-    const providers = ['intentRecognition', 'serviceReply', 'report'];
+    const providers = ['intentRecognition', 'serviceReply', 'report', 'conversion'];
 
     // 构建内置模型映射
     if (aiConfig?.builtinModels) {
@@ -90,7 +90,8 @@ class AIService {
     const defaults = {
       'intentRecognition': 0.1,  // 意图识别需要确定性高
       'serviceReply': 0.7,      // 客服回复需要一定的创造性和友好性
-      'report': 0.3             // 报告生成需要确定性和专业性
+      'report': 0.3,            // 报告生成需要确定性和专业性
+      'conversion': 0.8         // 转化客服需要更高的创造性和亲和力
     };
     return defaults[provider] || 0.7;
   }
@@ -139,7 +140,29 @@ class AIService {
 1. 包含关键指标统计（消息数、回复数、人工介入数等）
 2. 识别问题和风险
 3. 提出改进建议
-4. 语言简洁专业`
+4. 语言简洁专业`,
+
+      'conversion': `你是一个专业的转化客服专员，擅长通过对话引导用户完成转化目标。
+
+转化目标：
+- 引导用户购买产品/服务
+- 引导用户填写表单/注册账号
+- 引导用户参加活动/预约
+- 引导用户咨询详情
+
+回复策略：
+1. 先了解用户需求和痛点
+2. 针对性地介绍产品/服务的价值
+3. 用利益点而非功能点打动用户
+4. 适时提出行动号召（CTA）
+5. 语气热情、专业、有说服力
+6. 适度使用表情符号增加亲和力
+7. 控制在 300 字以内，保持简洁有力
+
+注意事项：
+- 不要过于强势或推销感太强
+- 关注用户反馈，灵活调整策略
+- 建立信任，避免引起反感`
     };
     return prompts[provider] || '';
   }
@@ -358,6 +381,78 @@ class AIService {
   }
 
   /**
+   * 转化客服回复生成
+   */
+  async generateConversionReply(userMessage, intent, context = {}) {
+    const startTime = Date.now();
+    const sessionId = context.sessionId || null;
+    const messageId = context.messageId || null;
+    const robotId = context.robotId || null;
+    const robotName = context.robotName || null;
+
+    let clientConfig;
+    let messages;
+
+    try {
+      clientConfig = this.getClient('conversion');
+
+      messages = [
+        {
+          role: 'system',
+          content: clientConfig.systemPrompt
+        },
+        {
+          role: 'user',
+          content: `用户消息：${userMessage}\n意图：${intent}\n\n上下文信息：${JSON.stringify(context)}`
+        }
+      ];
+
+      const response = await clientConfig.client.invoke(messages, {
+        model: clientConfig.modelId,
+        temperature: clientConfig.temperature
+      });
+
+      const content = response.content;
+      const duration = Date.now() - startTime;
+
+      // 记录 AI IO 日志
+      await aiIoLogService.saveLog({
+        sessionId,
+        messageId,
+        robotId,
+        robotName,
+        operationType: 'conversion_reply',
+        aiInput: JSON.stringify(messages),
+        aiOutput: content,
+        modelId: clientConfig.modelId,
+        temperature: clientConfig.temperature,
+        requestDuration: duration,
+        status: 'success',
+      });
+
+      return content;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error('生成转化客服回复失败:', error.message);
+
+      // 记录错误日志
+      await aiIoLogService.saveLog({
+        sessionId,
+        messageId,
+        robotId,
+        robotName,
+        operationType: 'conversion_reply',
+        aiInput: JSON.stringify(messages),
+        status: 'error',
+        errorMessage: error.message,
+        requestDuration: duration,
+      });
+
+      return '抱歉，我暂时无法回复，请稍后再试。';
+    }
+  }
+
+  /**
    * 重新初始化客户端（配置更新后）
    */
   reinitialize() {
@@ -371,7 +466,7 @@ class AIService {
    */
   getConfigStatus() {
     const status = {};
-    const providers = ['intentRecognition', 'serviceReply', 'report'];
+    const providers = ['intentRecognition', 'serviceReply', 'report', 'conversion'];
     
     providers.forEach(provider => {
       const clientConfig = this.clients[provider];

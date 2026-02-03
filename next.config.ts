@@ -22,6 +22,11 @@ const nextConfig: NextConfig = {
         source: '/api/worktool/callback/:path*',
         destination: `${backendUrl}/api/worktool/callback/:path*`,
       },
+      // 添加其他 API 路由的代理
+      {
+        source: '/api/:path*',
+        destination: `${backendUrl}/api/:path*`,
+      },
     ];
   },
 };

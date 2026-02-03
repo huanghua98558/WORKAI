@@ -53,13 +53,15 @@ class PromptService {
     const newTemplate = {
       id,
       name: data.name,
-      type: data.type,
+      type: data.type || 'custom',
       description: data.description || '',
-      systemPrompt: data.systemPrompt,
+      systemPrompt: data.systemPrompt || '',
       variables: data.variables || [],
       version: data.version || '1.0',
       isActive: data.isActive !== undefined ? data.isActive : true,
       createdBy: data.createdBy || 'system',
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     await db.insert(prompt_templates).values(newTemplate);
@@ -109,50 +111,66 @@ class PromptService {
 
   /**
    * 运行 Prompt 测试
+   * 支持两种模式：
+   * 1. 使用现有模板（传递 templateId）
+   * 2. 直接使用 prompt 内容（传递 systemPrompt 和 userPrompt）
    */
   async runTest(testData) {
     const startTime = Date.now();
-    const template = await this.getTemplateById(testData.templateId);
+    let template = null;
 
-    if (!template) {
-      throw new Error('Template not found');
+    // 如果提供了 templateId，从数据库加载模板
+    if (testData.templateId) {
+      template = await this.getTemplateById(testData.templateId);
+      if (!template) {
+        throw new Error('Template not found');
+      }
     }
 
     try {
       const sdkConfig = new Config();
       const client = new LLMClient(sdkConfig);
 
-      // 构建消息
+      // 构建消息：使用传递的 prompt 或模板中的 prompt
+      const systemPrompt = testData.systemPrompt || (template?.systemPrompt);
+      const userPrompt = testData.userPrompt || testData.inputMessage || '';
+
+      if (!systemPrompt) {
+        throw new Error('System prompt is required');
+      }
+
       const messages = [
         {
           role: 'system',
-          content: template.systemPrompt,
+          content: systemPrompt,
         },
         {
           role: 'user',
-          content: testData.inputMessage,
+          content: userPrompt,
         },
       ];
 
       // 获取 AI 配置
       const aiConfig = testData.aiConfig || {};
-      const modelId = aiConfig.modelId || 'doubao-seed-1-8-251228';
-      const temperature = aiConfig.temperature || 0.7;
+      const modelId = testData.model || aiConfig.modelId || 'doubao-seed-1-8-251228';
+      const temperature = testData.temperature !== undefined ? testData.temperature : (aiConfig.temperature || 0.7);
+      const maxTokens = testData.maxTokens || aiConfig.maxTokens || 2000;
 
       // 调用 AI
       const response = await client.invoke(messages, {
         model: modelId,
         temperature: temperature,
+        maxTokens: maxTokens,
       });
 
       const duration = Date.now() - startTime;
       const aiOutput = response.content;
 
-      // 如果是意图识别场景，解析结果
+      // 如果有模板且是意图识别场景，解析结果
       let actualIntent = null;
       let isCorrect = null;
 
-      if (template.type === 'intentRecognition' && testData.expectedIntent) {
+      if (template && template.type === 'intentRecognition' && testData.expectedIntent) {
         try {
           const cleanContent = aiOutput.replace(/```json\n?|\n?```/g, '').trim();
           const result = JSON.parse(cleanContent);
@@ -163,47 +181,62 @@ class PromptService {
         }
       }
 
-      // 保存测试记录
-      const db = await getDb();
-      const testRecord = {
-        templateId: testData.templateId,
-        testName: testData.testName,
-        inputMessage: testData.inputMessage,
-        variables: testData.variables || {},
-        aiOutput,
-        expectedOutput: testData.expectedOutput,
-        expectedIntent: testData.expectedIntent,
-        actualIntent,
-        isCorrect,
+      // 只在有 templateId 时保存测试记录
+      let testRecord = null;
+      if (testData.templateId) {
+        const db = await getDb();
+        testRecord = {
+          templateId: testData.templateId,
+          testName: testData.testName,
+          inputMessage: userPrompt,
+          variables: testData.variables || {},
+          aiOutput,
+          expectedOutput: testData.expectedOutput,
+          expectedIntent: testData.expectedIntent,
+          actualIntent,
+          isCorrect,
+          modelId,
+          temperature,
+          requestDuration: duration,
+          status: 'success',
+          createdBy: testData.createdBy || 'system',
+          createdAt: new Date(),
+        };
+
+        await db.insert(prompt_tests).values(testRecord);
+      }
+
+      // 返回结果
+      return {
+        response: aiOutput,
+        latency: duration,
         modelId,
         temperature,
-        requestDuration: duration,
-        status: 'success',
-        createdBy: testData.createdBy || 'system',
+        actualIntent,
+        isCorrect,
       };
-
-      await db.insert(prompt_tests).values(testRecord);
-      
-      // 返回插入的记录
-      return testRecord;
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      // 保存失败记录
-      const db = await getDb();
-      const testRecord = {
-        templateId: testData.templateId,
-        testName: testData.testName,
-        inputMessage: testData.inputMessage,
-        variables: testData.variables || {},
-        status: 'error',
-        errorMessage: error.message,
-        requestDuration: duration,
-        createdBy: testData.createdBy || 'system',
-      };
+      // 只在有 templateId 时保存失败记录
+      if (testData.templateId) {
+        const db = await getDb();
+        const testRecord = {
+          templateId: testData.templateId,
+          testName: testData.testName,
+          inputMessage: testData.userPrompt || testData.inputMessage,
+          variables: testData.variables || {},
+          status: 'error',
+          errorMessage: error.message,
+          requestDuration: duration,
+          createdBy: testData.createdBy || 'system',
+          createdAt: new Date(),
+        };
 
-      await db.insert(prompt_tests).values(testRecord);
-      return testRecord;
+        await db.insert(prompt_tests).values(testRecord);
+      }
+
+      throw error;
     }
   }
 
@@ -231,7 +264,7 @@ class PromptService {
   }
 
   /**
-   * 获取测试记录详情
+   * 根据 ID 获取测试记录
    */
   async getTestById(id) {
     const db = await getDb();
@@ -250,8 +283,8 @@ class PromptService {
   async updateTest(id, data) {
     const db = await getDb();
     const updateData = {
-      rating: data.rating,
-      feedback: data.feedback,
+      ...data,
+      updatedAt: new Date(),
     };
 
     await db
@@ -276,105 +309,53 @@ class PromptService {
    */
   async getTestStatistics(templateId) {
     const db = await getDb();
-    let query = db.select().from(prompt_tests);
+
+    const query = db
+      .select({
+        total: count(),
+        success: count(sql`CASE WHEN ${prompt_tests.status} = 'success' THEN 1 END`),
+        error: count(sql`CASE WHEN ${prompt_tests.status} = 'error' THEN 1 END`),
+        correct: count(sql`CASE WHEN ${prompt_tests.isCorrect} = true THEN 1 END`),
+        avgDuration: sql`AVG(${prompt_tests.requestDuration})`,
+      })
+      .from(prompt_tests);
 
     if (templateId) {
-      query = query.where(eq(prompt_tests.templateId, templateId));
+      query.where(eq(prompt_tests.templateId, templateId));
     }
 
-    const tests = await query;
-
-    const stats = {
-      total: tests.length,
-      success: 0,
-      error: 0,
-      correct: 0,
-      incorrect: 0,
-      avgRating: 0,
-      avgDuration: 0,
-      byType: {
-        intentRecognition: { total: 0, correct: 0 },
-        serviceReply: { total: 0 },
-        report: { total: 0 },
-      },
-    };
-
-    let totalRating = 0;
-    let ratingCount = 0;
-    let totalDuration = 0;
-
-    for (const test of tests) {
-      if (test.status === 'success') {
-        stats.success++;
-      } else {
-        stats.error++;
-      }
-
-      if (test.isCorrect !== null) {
-        if (test.isCorrect) {
-          stats.correct++;
-        } else {
-          stats.incorrect++;
-        }
-      }
-
-      if (test.rating) {
-        totalRating += test.rating;
-        ratingCount++;
-      }
-
-      if (test.requestDuration) {
-        totalDuration += test.requestDuration;
-      }
-
-      // 按类型统计
-      const template = test.templateId ? await this.getTemplateById(test.templateId) : null;
-      if (template) {
-        if (stats.byType[template.type]) {
-          stats.byType[template.type].total++;
-          if (template.type === 'intentRecognition' && test.isCorrect) {
-            stats.byType[template.type].correct++;
-          }
-        }
-      }
-    }
-
-    if (ratingCount > 0) {
-      stats.avgRating = (totalRating / ratingCount).toFixed(2);
-    }
-
-    if (tests.length > 0) {
-      stats.avgDuration = Math.round(totalDuration / tests.length);
-    }
-
-    return stats;
+    const result = await query.limit(1);
+    return result[0] || {};
   }
 
   /**
    * 批量测试
    */
   async batchTest(templateId, testCases, aiConfig) {
-    const results = [];
+    const template = await this.getTemplateById(templateId);
+    if (!template) {
+      throw new Error('Template not found');
+    }
 
+    const results = [];
     for (const testCase of testCases) {
       try {
         const result = await this.runTest({
           templateId,
-          testName: testCase.testName,
-          inputMessage: testCase.inputMessage,
-          expectedOutput: testCase.expectedOutput,
-          expectedIntent: testCase.expectedIntent,
-          variables: testCase.variables || {},
+          ...testCase,
           aiConfig,
-          createdBy: testCase.createdBy || 'system',
         });
-        results.push(result);
-      } catch (error) {
-        console.error('Batch test failed for case:', testCase.testName, error.message);
         results.push({
-          testName: testCase.testName,
+          testCase,
+          result,
+          status: 'success',
+        });
+      } catch (error) {
+        results.push({
+          testCase,
+          result: null,
           status: 'error',
-          errorMessage: error.message,
+          error: error.message,
         });
       }
     }

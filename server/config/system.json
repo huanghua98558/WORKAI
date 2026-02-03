@@ -160,6 +160,17 @@
         "apiKey": "",
         "apiBase": ""
       }
+    },
+    "conversion": {
+      "useBuiltin": true,
+      "builtinModelId": "doubao-seed-1-8-251228",
+      "useCustom": false,
+      "customModel": {
+        "provider": "openai",
+        "model": "gpt-4o",
+        "apiKey": "",
+        "apiBase": ""
+      }
     }
   },
   "autoReply": {
