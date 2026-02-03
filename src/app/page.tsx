@@ -373,6 +373,7 @@ export default function AdminDashboard() {
   const loadSessionMessages = async (sessionId: string) => {
     console.log('[会话消息] 开始加载会话消息:', sessionId);
     setIsLoadingSessionMessages(true);
+    setSessionMessages([]); // 清空旧消息
     try {
       const res = await fetch(`/api/admin/sessions/${sessionId}/messages`);
       console.log('[会话消息] 请求状态:', res.status, res.ok);
@@ -2615,7 +2616,14 @@ ${callbacks.robotStatus}
       </footer>
 
       {/* 会话详情弹窗 */}
-      <Dialog open={showSessionDetail} onOpenChange={setShowSessionDetail}>
+      <Dialog open={showSessionDetail} onOpenChange={(open) => {
+        setShowSessionDetail(open);
+        // 关闭时清空消息和选中会话
+        if (!open) {
+          setSessionMessages([]);
+          setSelectedSession(null);
+        }
+      }}>
         <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
