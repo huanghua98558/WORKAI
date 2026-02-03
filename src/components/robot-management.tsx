@@ -114,7 +114,6 @@ export default function RobotManagement() {
   const [queryingRobotId, setQueryingRobotId] = useState<string | null>(null);
   const [refreshingRobotId, setRefreshingRobotId] = useState<string | null>(null);
   const [isRefreshingAll, setIsRefreshingAll] = useState(false);
-  const [syncingRobotId, setSyncingRobotId] = useState<string | null>(null);
 
   // 加载机器人列表
   const loadRobots = async () => {
@@ -425,29 +424,6 @@ export default function RobotManagement() {
       alert(`更新失败：网络错误`);
     } finally {
       setRefreshingRobotId(null);
-    }
-  };
-
-  // 同步机器人信息
-  const handleSync = async (robot: Robot) => {
-    setSyncingRobotId(robot.id);
-    try {
-      const res = await fetch(`/api/proxy/admin/robots/${robot.id}/sync`, {
-        method: 'GET'
-      });
-
-      const data = await res.json();
-      if (data.code === 0) {
-        loadRobots();
-        alert(`机器人 "${robot.name}" 信息已同步！`);
-      } else {
-        alert(`同步失败：${data.message || '未知错误'}`);
-      }
-    } catch (error) {
-      console.error('同步机器人信息失败:', error);
-      alert(`同步失败：网络错误`);
-    } finally {
-      setSyncingRobotId(null);
     }
   };
 
@@ -818,29 +794,16 @@ export default function RobotManagement() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => handleSync(robot)}
-                    disabled={syncingRobotId === robot.id}
-                    title="从 WorkTool API 同步机器人信息"
-                  >
-                    {syncingRobotId === robot.id ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Zap className="h-4 w-4" />
-                    )}
-                    同步
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
                     onClick={() => handleCheckStatus(robot)}
                     disabled={refreshingRobotId === robot.robotId}
-                    title="从 WorkTool API 更新信息"
+                    title="从 WorkTool API 同步机器人信息"
                   >
                     {refreshingRobotId === robot.robotId ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <RefreshCw className="h-4 w-4 animate-spin mr-1" />
                     ) : (
-                      <RefreshCw className="h-4 w-4" />
+                      <RefreshCw className="h-4 w-4 mr-1" />
                     )}
+                    同步信息
                   </Button>
                   <Button
                     size="sm"
