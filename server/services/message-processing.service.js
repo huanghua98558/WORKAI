@@ -316,7 +316,7 @@ class MessageProcessingService {
         status: 'success',
         decision,
         processingTime
-      });
+      }, messageData);
 
       console.log(`[消息处理] 处理完成:`, decision);
       return decision;
@@ -349,7 +349,7 @@ class MessageProcessingService {
         error: error.message,
         errorStack: error.stack,
         processingTime: Date.now() - startTime
-      });
+      }, messageData);
 
       throw error;
     }

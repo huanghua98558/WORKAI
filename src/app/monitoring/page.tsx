@@ -26,6 +26,8 @@ interface Execution {
   steps: any;
   decision: any;
   createdAt: string;
+  // 提取的消息内容（从steps.user_message中）
+  messageContent?: string;
 }
 
 interface AiLog {
@@ -294,34 +296,51 @@ export default function MonitoringPage() {
                       暂无执行记录
                     </div>
                   ) : (
-                    executions.map((execution) => (
-                      <div
-                        key={execution.processingId}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer"
-                        onClick={() => fetchExecutionDetail(execution.processingId)}
-                      >
-                        <div className="flex items-center gap-3">
-                          {getStatusIcon(execution.status)}
-                          <div>
-                            <div className="font-medium">{execution.userId || execution.groupId}</div>
+                    executions.map((execution) => {
+                      // 从steps中提取消息内容
+                      const messageContent = execution.steps?.user_message?.content || '';
+                      const isLong = messageContent.length > 50;
+                      const displayMessage = isLong ? messageContent.substring(0, 50) + '...' : messageContent;
+
+                      return (
+                        <div
+                          key={execution.processingId}
+                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                          onClick={() => fetchExecutionDetail(execution.processingId)}
+                        >
+                          <div className="flex items-center gap-3">
+                            {getStatusIcon(execution.status)}
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className="font-medium">{execution.userId || execution.groupId}</div>
+                                {messageContent && (
+                                  <span className="text-sm text-muted-foreground">发送消息：</span>
+                                )}
+                              </div>
+                              {messageContent && (
+                                <div className="text-sm text-muted-foreground bg-muted/50 px-2 py-1 rounded inline-block max-w-md">
+                                  {displayMessage}
+                                </div>
+                              )}
+                              <div className="text-xs text-muted-foreground mt-1">
+                                机器人: {execution.robotName} | 会话: {execution.sessionId?.slice(0, 8)}...
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {getStatusBadge(execution.status)}
+                            {execution.processingTime && (
+                              <div className="text-sm text-muted-foreground">
+                                {execution.processingTime}ms
+                              </div>
+                            )}
                             <div className="text-sm text-muted-foreground">
-                              机器人: {execution.robotName} | 会话: {execution.sessionId?.slice(0, 8)}...
+                              {execution.createdAt ? new Date(execution.createdAt).toLocaleTimeString() : new Date(execution.startTime).toLocaleTimeString()}
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          {getStatusBadge(execution.status)}
-                          {execution.processingTime && (
-                            <div className="text-sm text-muted-foreground">
-                              {execution.processingTime}ms
-                            </div>
-                          )}
-                          <div className="text-sm text-muted-foreground">
-                            {execution.createdAt ? new Date(execution.createdAt).toLocaleTimeString() : new Date(execution.startTime).toLocaleTimeString()}
-                          </div>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </ScrollArea>

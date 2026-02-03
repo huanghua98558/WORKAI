@@ -104,9 +104,12 @@ class ExecutionTrackerService {
   /**
    * 完成处理
    */
-  async completeProcessing(processingId, result) {
+  async completeProcessing(processingId, result, messageData = null) {
     const data = await this.redis.get(`execution:${processingId}`);
-    if (!data) return;
+    if (!data) {
+      console.warn(`[执行追踪] 未找到处理记录: ${processingId}`);
+      return;
+    }
 
     const processing = JSON.parse(data);
     processing.status = result.status || 'completed';
@@ -114,6 +117,17 @@ class ExecutionTrackerService {
     processing.error = result.error || null;
     processing.decision = result.decision || null;
     processing.processingTime = result.processingTime || 0;
+
+    // 如果没有用户消息步骤但有messageData，添加到steps中
+    if (!processing.steps.user_message && messageData) {
+      processing.steps.user_message = {
+        content: messageData.spoken || messageData.content || '',
+        userId: messageData.fromName,
+        groupId: messageData.groupName,
+        messageId: messageData.messageId,
+        timestamp: messageData.timestamp || new Date().toISOString()
+      };
+    }
 
     console.log(`[执行追踪] 完成处理: ${processingId}, processingTime: ${processing.processingTime}ms, status: ${processing.status}`);
 
