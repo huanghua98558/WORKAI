@@ -225,6 +225,22 @@ export default function AdminDashboard() {
     loadAiConfig(); // 只在组件挂载时加载一次 AI 配置
   }, []);
 
+  // 自动刷新：每隔 10 秒刷新一次会话数据
+  // 当打开会话详情时停止刷新，关闭会话详情后恢复刷新
+  useEffect(() => {
+    // 如果会话详情打开，不进行自动刷新
+    if (showSessionDetail) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      loadData();
+      loadRobots();
+    }, 10000); // 每 10 秒刷新一次
+
+    return () => clearInterval(interval);
+  }, [showSessionDetail]);
+
   // 加载机器人列表
   const loadRobots = async () => {
     try {
@@ -1537,6 +1553,10 @@ ${callbacks.robotStatus}
                   最近活跃会话
                 </CardTitle>
                 <Badge variant="secondary">{sessions.length} 个</Badge>
+                <Badge variant={showSessionDetail ? "secondary" : "outline"} className="gap-1">
+                  <RefreshCw className={`h-3 w-3 ${!showSessionDetail && 'animate-spin'}`} />
+                  {showSessionDetail ? '已暂停' : '刷新中'}
+                </Badge>
               </div>
               <Button variant="outline" size="sm" onClick={() => setActiveTab('sessions')}>
                 查看全部 <ExternalLink className="h-3 w-3 ml-1" />
@@ -1732,6 +1752,10 @@ ${callbacks.robotStatus}
               <Users className="h-3 w-3" />
               {sessions.length} 个活跃会话
             </Badge>
+            <Badge variant={showSessionDetail ? "secondary" : "outline"} className="gap-1">
+              <RefreshCw className={`h-3 w-3 ${!showSessionDetail && 'animate-spin'}`} />
+              {showSessionDetail ? '刷新暂停' : '自动刷新'}
+            </Badge>
             <Button 
               onClick={loadData} 
               variant="outline" 
@@ -1808,9 +1832,15 @@ ${callbacks.robotStatus}
                   <TrendingUp className="h-4 w-4 text-green-500" />
                   最近活跃会话
                 </CardTitle>
-                <Badge variant="outline" className="gap-1">
-                  {sessions.length} 个会话
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant={showSessionDetail ? "secondary" : "outline"} className="gap-1">
+                    <RefreshCw className={`h-3 w-3 ${!showSessionDetail && 'animate-spin'}`} />
+                    {showSessionDetail ? '已暂停' : '刷新中'}
+                  </Badge>
+                  <Badge variant="outline" className="gap-1">
+                    {sessions.length} 个会话
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
