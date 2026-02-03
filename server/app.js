@@ -26,6 +26,7 @@ const aiIoApiRoutes = require('./routes/ai-io.api');
 const systemLogsApiRoutes = require('./routes/system-logs.api');
 const operationLogsApiRoutes = require('./routes/operation-logs.api');
 const alertConfigApiRoutes = require('./routes/alert-config.api');
+// const alertEnhancedApiRoutes = require('./routes/alert-enhanced.api');
 
 const redisClient = require('./lib/redis');
 
@@ -77,6 +78,7 @@ fastify.register(aiIoApiRoutes, { prefix: '/api' });
 fastify.register(systemLogsApiRoutes, { prefix: '/api' });
 fastify.register(operationLogsApiRoutes, { prefix: '/api' });
 fastify.register(alertConfigApiRoutes, { prefix: '/api' });
+// fastify.register(alertEnhancedApiRoutes, { prefix: '/api' });
 
 // 健康检查
 fastify.get('/health', async (request, reply) => {

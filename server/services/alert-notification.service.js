@@ -297,6 +297,84 @@ class AlertNotificationService {
 
     return await this.sendNotification(methodType, testMessage, recipientConfig, {});
   }
+
+  /**
+   * 发送告警升级通知
+   */
+  async sendEscalationNotification(alert, fromLevel, toLevel, method, recipients, reason) {
+    const escalationMessage = this._formatEscalationMessage(alert, fromLevel, toLevel, reason);
+
+    // 构建接收人配置
+    const recipientConfig = {
+      methodType: method,
+      [method]: recipients
+    };
+
+    // 根据不同的方法构建不同的配置
+    if (method === 'robot') {
+      recipientConfig.receivers = recipients.map(r => ({
+        userId: r.userId || r,
+        name: r.name || r
+      }));
+    } else if (method === 'email') {
+      recipientConfig.emails = recipients.map(r => r.email || r);
+    } else if (method === 'sms') {
+      recipientConfig.phones = recipients.map(r => r.phone || r);
+    } else if (method === 'wechat' || method === 'dingtalk' || method === 'feishu') {
+      recipientConfig.webhookUrl = recipients[0]?.webhookUrl || recipients[0];
+    }
+
+    return await this.sendNotification(method, escalationMessage, recipientConfig, {
+      alertId: alert.id,
+      robotId: alert.robot_id
+    });
+  }
+
+  /**
+   * 格式化升级通知消息
+   */
+  _formatEscalationMessage(alert, fromLevel, toLevel, reason) {
+    const levelEmojis = {
+      0: '📢',
+      1: '⚠️',
+      2: '🔴',
+      3: '🚨'
+    };
+
+    return `${levelEmojis[toLevel] || '⚠️'} 告警升级通知
+
+━━━━━━━━━━━━━━━━━━━━━━
+【告警信息】
+━━━━━━━━━━━━━━━━━━━━━━
+
+告警ID: ${alert.id}
+告警级别: ${alert.alert_level}
+升级: Level ${fromLevel} → Level ${toLevel}
+升级原因: ${reason || '超时未处理'}
+
+━━━━━━━━━━━━━━━━━━━━━━
+【告警内容】
+━━━━━━━━━━━━━━━━━━━━━━
+
+意图类型: ${alert.intent_type}
+用户名称: ${alert.user_name}
+群组名称: ${alert.group_name}
+
+消息内容:
+${alert.message_content}
+
+━━━━━━━━━━━━━━━━━━━━━━
+【处理信息】
+━━━━━━━━━━━━━━━━━━━━━━
+
+创建时间: ${new Date(alert.created_at).toLocaleString('zh-CN')}
+已升级次数: ${alert.escalation_count + 1}
+状态: ${alert.status}
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+请及时处理！`;
+  }
 }
 
 module.exports = new AlertNotificationService();

@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dialog';
 import RobotManagement from '@/components/robot-management';
 import AlertConfigTab from '@/components/alert-config-tab';
+import EnhancedAlertManagement from '@/components/enhanced-alert-management';
 import { 
   BarChart3, 
   MessageSquare,
@@ -4632,6 +4633,10 @@ ${callbacks.robotStatus}
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">系统设置</span>
             </TabsTrigger>
+            <TabsTrigger value="alert-enhanced" className="gap-2 py-2">
+              <Sparkles className="h-4 w-4" />
+              <span className="hidden sm:inline">告警增强</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
@@ -4672,6 +4677,9 @@ ${callbacks.robotStatus}
 
           <TabsContent value="settings" className="space-y-6">
             <SettingsTab aiConfig={aiConfig} isLoadingAiConfig={isLoadingAiConfig} />
+          </TabsContent>
+          <TabsContent value="alert-enhanced" className="space-y-6">
+            <EnhancedAlertManagement />
           </TabsContent>
         </Tabs>
       </main>
