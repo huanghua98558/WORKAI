@@ -5148,7 +5148,7 @@ ${callbacks.robotStatus}
                       <p className="text-xs text-muted-foreground mb-1">机器人</p>
                       <p className="font-medium">
                         {selectedSession.robotName ||
-                          sessionMessages.find(m => m.robotName)?.robotName ||
+                          sessionMessages.find(m => m.robotName && m.robotName.trim() !== '')?.robotName ||
                           '未知机器人'}
                       </p>
                     </div>

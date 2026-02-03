@@ -404,7 +404,7 @@ class SessionService {
         console.log(`[会话服务] 从数据库查询到 ${result.rows.length} 个会话`);
         
         for (const row of result.rows) {
-          sessions.push({
+          const session = {
             sessionId: row.sessionId,
             userName: row.userName || '未知用户',
             groupName: row.groupName || '未知群组',
@@ -419,7 +419,12 @@ class SessionService {
             lastIntent: row.lastIntent,
             status: 'auto', // 数据库中的会话默认为自动模式
             startTime: row.lastActiveTime // 使用最后消息时间作为开始时间
-          });
+          };
+
+          // 尝试从数据库获取更准确的机器人信息
+          await this.enrichSessionWithRobotInfo(session);
+
+          sessions.push(session);
         }
       } else {
         console.log('[会话服务] 数据库中没有查询到会话数据');
@@ -447,12 +452,13 @@ class SessionService {
       const db = await getDb();
 
       // 查询该会话最近的机器人消息，获取 robotId 和 robotName
+      // 使用 OR 条件来查询有 robotId 或 robotName 的消息
       const robotMessage = await db.execute(sql`
         SELECT robot_id as "robotId", robot_name as "robotName"
         FROM session_messages
         WHERE session_id = ${session.sessionId}
-          AND robot_id IS NOT NULL
-          AND robot_name IS NOT NULL
+          AND (robot_id IS NOT NULL OR robot_name IS NOT NULL)
+          AND (robot_name != '' AND robot_name IS NOT NULL)
         ORDER BY created_at DESC
         LIMIT 1
       `);
@@ -460,6 +466,9 @@ class SessionService {
       if (robotMessage.rows && robotMessage.rows.length > 0) {
         session.robotId = robotMessage.rows[0].robotId;
         session.robotName = robotMessage.rows[0].robotName;
+        console.log(`[会话服务] 会话 ${session.sessionId} 机器人信息: robotId=${session.robotId}, robotName=${session.robotName}`);
+      } else {
+        console.warn(`[会话服务] 会话 ${session.sessionId} 未找到机器人信息`);
       }
 
       // 填充用户信息
