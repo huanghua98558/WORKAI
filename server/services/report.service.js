@@ -11,13 +11,23 @@ const { formatDate } = require('../lib/utils');
 
 class ReportService {
   constructor() {
-    this.redis = redisClient.getClient();
+    this.redisPromise = redisClient.getClient(); // 保存 Promise
+    this.redis = null; // 实际使用时再获取
+  }
+
+  async getRedis() {
+    if (!this.redis) {
+      this.redis = await this.redisPromise;
+    }
+    return this.redis;
   }
 
   /**
    * 记录单条数据
    */
   async recordRecord(data) {
+    const redis = await this.getRedis();
+
     const record = {
       id: this.generateId(),
       date: formatDate(),
@@ -26,8 +36,8 @@ class ReportService {
     };
 
     const key = `records:${record.date}`;
-    await this.redis.lpush(key, JSON.stringify(record));
-    await this.redis.expire(key, 90 * 24 * 3600); // 保留90天
+    await redis.lpush(key, JSON.stringify(record));
+    await redis.expire(key, 90 * 24 * 3600); // 保留90天
 
     return record;
   }
@@ -36,10 +46,11 @@ class ReportService {
    * 批量记录数据
    */
   async recordRecords(records) {
+    const redis = await this.getRedis();
     const date = formatDate();
     const key = `records:${date}`;
 
-    const pipeline = this.redis.pipeline();
+    const pipeline = redis.pipeline();
     for (const record of records) {
       const fullRecord = {
         id: this.generateId(),
@@ -118,7 +129,8 @@ class ReportService {
 
     // 保存报告
     const reportKey = `report:${date}`;
-    await this.redis.setex(reportKey, 180 * 24 * 3600, JSON.stringify(stats)); // 保存180天
+    const redis = await this.getRedis();
+    await redis.setex(reportKey, 180 * 24 * 3600, JSON.stringify(stats)); // 保存180天
 
     return stats;
   }
@@ -128,7 +140,8 @@ class ReportService {
    */
   async getRecordsByDate(date, filters = {}) {
     const key = `records:${date}`;
-    const records = await this.redis.lrange(key, 0, -1);
+    const redis = await this.getRedis();
+    const records = await redis.lrange(key, 0, -1);
     
     const parsed = records.map(r => JSON.parse(r));
 
@@ -243,8 +256,9 @@ class ReportService {
    */
   async getReport(date = formatDate()) {
     const key = `report:${date}`;
-    const data = await this.redis.get(key);
-    
+    const redis = await this.getRedis();
+    const data = await redis.get(key);
+
     if (!data) {
       return null;
     }
@@ -292,15 +306,16 @@ class ReportService {
     const cutoff = formatDate(cutoffDate);
 
     const pattern = 'records:*';
-    const keys = await this.redis.keys(pattern);
-    
+    const redis = await this.getRedis();
+    const keys = await redis.keys(pattern);
+
     let deletedCount = 0;
 
     for (const key of keys) {
       const keyDate = key.split(':')[1];
-      
+
       if (keyDate < cutoff) {
-        await this.redis.del(key);
+        await redis.del(key);
         deletedCount++;
       }
     }

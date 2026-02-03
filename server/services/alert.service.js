@@ -10,11 +10,11 @@ const redisClient = require('../lib/redis');
 
 class AlertService {
   constructor() {
-    this.redisPromise = redisClient.getClient();
+    // 不再缓存 redisPromise，每次都重新获取
   }
 
   async getRedis() {
-    return await this.redisPromise;
+    return await redisClient.getClient();
   }
 
   /**

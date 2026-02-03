@@ -29,7 +29,7 @@ class SessionMessageService {
       // 获取机器人名称：优先使用 nickname，其次 name，最后使用 robotId
       const robotName = robot?.nickname || robot?.name || robot?.robotId || '未知机器人';
 
-      // 处理 timestamp：确保是有效的日期对象或 ISO 字符串
+      // 处理 timestamp：确保是有效的日期对象
       let timestamp = messageContext.timestamp || new Date();
       if (typeof timestamp === 'string') {
         timestamp = new Date(timestamp);
@@ -38,8 +38,6 @@ class SessionMessageService {
       if (!(timestamp instanceof Date) || isNaN(timestamp.getTime())) {
         timestamp = new Date();
       }
-      // 转换为 ISO 字符串
-      const timestampISO = timestamp.toISOString();
 
       const message = {
         sessionId: sessionId,
@@ -54,7 +52,7 @@ class SessionMessageService {
         isHuman: false,
         robotId: robot?.robotId || null,
         robotName: robotName,
-        timestamp: timestampISO,
+        timestamp: timestamp,  // 使用 Date 对象而不是 ISO 字符串
       };
 
       // 验证字段长度
@@ -88,8 +86,8 @@ class SessionMessageService {
         robotName: message.robotName,
         robotNameLength: message.robotName.length,
         contentLength: message.content.length,
-        timestamp: timestampISO,
-        timestampValid: !isNaN(new Date(timestampISO).getTime())
+        timestamp: timestamp.toISOString(),
+        timestampValid: !isNaN(timestamp.getTime())
       });
 
       await db.insert(sessionMessages).values(message);
@@ -175,8 +173,8 @@ class SessionMessageService {
     // 获取机器人名称：优先使用 nickname，其次 name，最后使用 robotId
     const robotName = robot?.nickname || robot?.name || robot?.robotId || '未知机器人';
 
-    // 处理 timestamp：确保是有效的 ISO 字符串
-    const timestampISO = new Date().toISOString();
+    // 使用 Date 对象而不是 ISO 字符串
+    const timestamp = new Date();
 
     const message = {
       sessionId: sessionId,
@@ -192,7 +190,7 @@ class SessionMessageService {
       intent: intent,
       robotId: robot?.robotId || null,
       robotName: robotName,
-      timestamp: timestampISO,
+      timestamp: timestamp,  // 使用 Date 对象
     };
 
     await db.insert(sessionMessages).values(message);
@@ -208,8 +206,8 @@ class SessionMessageService {
     // 获取机器人名称：优先使用 nickname，其次 name，最后使用 robotId
     const robotName = robot?.nickname || robot?.name || robot?.robotId || '未知机器人';
 
-    // 处理 timestamp：确保是有效的 ISO 字符串
-    const timestampISO = new Date().toISOString();
+    // 使用 Date 对象而不是 ISO 字符串
+    const timestamp = new Date();
 
     const message = {
       sessionId: sessionId,
@@ -225,7 +223,7 @@ class SessionMessageService {
       robotId: robot?.robotId || null,
       robotName: robotName,
       extraData: { operator },
-      timestamp: timestampISO,
+      timestamp: timestamp,  // 使用 Date 对象
     };
 
     await db.insert(sessionMessages).values(message);

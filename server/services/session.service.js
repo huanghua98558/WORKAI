@@ -9,18 +9,15 @@ const { formatDate, generateRequestId } = require('../lib/utils');
 
 class SessionService {
   constructor() {
-    this.redis = null; // 延迟初始化
+    // 不再缓存 redis 客户端，每次都重新获取
     this.sessionPrefix = 'session:';
     this.sessionTTL = 3600 * 24; // 24小时过期
     this.contextPrefix = 'context:';
   }
 
-  // 获取 Redis 客户端（延迟初始化）
+  // 获取 Redis 客户端（每次都重新获取）
   async getRedis() {
-    if (!this.redis) {
-      this.redis = await redisClient.getClient();
-    }
-    return this.redis;
+    return await redisClient.getClient();
   }
 
   /**

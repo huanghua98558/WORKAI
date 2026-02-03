@@ -9,6 +9,7 @@ DEPLOY_RUN_PORT="${DEPLOY_RUN_PORT:-$FRONTEND_PORT}"
 # 设置环境变量
 export BACKEND_URL="http://localhost:${BACKEND_PORT}"
 export NODE_ENV=production
+export USE_MEMORY_MODE=false
 
 # 检测是否为只读文件系统
 IS_READONLY_FILESYSTEM=false

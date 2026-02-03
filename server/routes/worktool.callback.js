@@ -10,6 +10,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
     IdempotencyChecker,
     AuditLogger
   } = require('../lib/utils');
+  const { getDb } = require('coze-coding-dev-sdk');
   const redisClient = require('../lib/redis');
   const monitorService = require('../services/monitor.service');
   const reportService = require('../services/report.service');
@@ -17,9 +18,11 @@ const worktoolCallbackRoutes = async function (fastify, options) {
   const robotService = require('../services/robot.service');
   const worktoolService = require('../services/worktool.service');
   const messageProcessingService = require('../services/message-processing.service'); // 新的消息处理服务
-  const { db } = require('../database');
   const { callbackHistory } = require('../database/schema');
   const config = require('../lib/config');
+
+  // 获取数据库连接
+  const db = await getDb();
 
   // WorkTool 标准响应格式（按照 WorkTool 规范）
   const successResponse = (data = {}, message = 'success') => ({
