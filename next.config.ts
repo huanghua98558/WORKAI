@@ -24,7 +24,7 @@ const nextConfig: NextConfig = {
       },
       // 添加其他 API 路由的代理
       {
-        source: '/api/:path*',
+        source: '/api/:path((?!proxy).)*',
         destination: `${backendUrl}/api/:path*`,
       },
     ];

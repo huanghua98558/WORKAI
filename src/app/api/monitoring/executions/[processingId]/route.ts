@@ -4,10 +4,10 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { processingId: string } }
+  { params }: { params: Promise<{ processingId: string }> }
 ) {
   try {
-    const { processingId } = params;
+    const { processingId } = await params;
     
     const response = await fetch(`${BACKEND_URL}/api/monitoring/executions/${processingId}`, {
       method: 'GET',
