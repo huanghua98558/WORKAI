@@ -218,6 +218,7 @@ export default function AdminDashboard() {
   const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null); // 控制展开的会话
   const [sessionSearchQuery, setSessionSearchQuery] = useState('');
   const [sessionStatusFilter, setSessionStatusFilter] = useState<'all' | 'auto' | 'human'>('all');
+  const [alertStats, setAlertStats] = useState<AlertData | null>(null); // 新的告警统计数据
   const [isSearchingSessions, setIsSearchingSessions] = useState(false);
   const [showRobotDetail, setShowRobotDetail] = useState(false);
   const [selectedRobot, setSelectedRobot] = useState<Robot | null>(null);
@@ -254,7 +255,8 @@ export default function AdminDashboard() {
         fetch('/api/proxy/admin/monitor/summary'),
         fetch('/api/proxy/admin/alerts/stats'),
         fetch('/api/proxy/admin/sessions/active?limit=20'),
-        fetch('/api/proxy/health')
+        fetch('/api/proxy/health'),
+        fetch('http://localhost:5001/api/alerts/stats')
       ]);
 
       // 提取 Response 对象，如果是 rejected 则返回一个 mock Response
@@ -262,7 +264,7 @@ export default function AdminDashboard() {
         r.status === 'fulfilled' ? r.value : { ok: false, json: async () => ({}) } as Response
       );
 
-      const [callbacksRes, monitorRes, alertRes, sessionsRes, uptimeRes] = resultsWithFallback;
+      const [callbacksRes, monitorRes, alertRes, sessionsRes, uptimeRes, newAlertRes] = resultsWithFallback;
 
       // 检查连接状态
       if (uptimeRes.ok) {
@@ -305,6 +307,18 @@ export default function AdminDashboard() {
           setAlertData(data.data);
         } catch (e) {
           console.error('解析alert数据失败:', e);
+        }
+      }
+
+      // 处理新的告警系统API
+      if (newAlertRes.ok) {
+        try {
+          const data = await newAlertRes.json();
+          if (data.success) {
+            setAlertStats(data.data);
+          }
+        } catch (e) {
+          console.error('解析新告警数据失败:', e);
         }
       }
 
@@ -1636,7 +1650,7 @@ ${callbacks.robotStatus}
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{alertData?.total || 0}</div>
+            <div className="text-2xl font-bold">{alertStats?.total || 0}</div>
             <p className="text-xs text-muted-foreground mt-1">近 7 天告警</p>
           </CardContent>
         </Card>
@@ -2301,7 +2315,149 @@ ${callbacks.robotStatus}
   const DashboardTab = () => (
     <div className="space-y-6">
       <OverviewTab />
-      
+
+      {/* 监控告警信息 */}
+      {(alertStats && (alertStats.total > 0 || alertStats.byLevel.critical > 0)) && (
+        <Card className={`border-2 ${
+          alertStats.byLevel.critical > 0 
+            ? 'border-red-200 dark:border-red-900 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/20 dark:to-orange-950/20' 
+            : 'border-yellow-200 dark:border-yellow-900 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-950/20 dark:to-amber-950/20'
+        }`}>
+          <CardHeader className={`${
+            alertStats.byLevel.critical > 0
+              ? 'bg-gradient-to-r from-red-500 to-orange-500'
+              : 'bg-gradient-to-r from-yellow-500 to-amber-500'
+          } text-white`}>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                监控告警
+              </CardTitle>
+              <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+                {alertStats.total} 条告警
+              </Badge>
+            </div>
+            <CardDescription className="text-white/90">
+              系统监控告警信息
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="grid gap-4 md:grid-cols-3">
+              {/* 紧急告警 */}
+              <Card className={`${
+                alertStats.byLevel.critical > 0 
+                  ? 'border-red-500 bg-red-50 dark:bg-red-950/20' 
+                  : 'border-gray-200'
+              }`}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className={`h-5 w-5 ${
+                      alertStats.byLevel.critical > 0 ? 'text-red-500' : 'text-gray-400'
+                    }`} />
+                    <CardTitle className="text-sm font-medium">紧急告警</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-3xl font-bold ${
+                    alertStats.byLevel.critical > 0 ? 'text-red-600' : 'text-gray-500'
+                  }`}>
+                    {alertStats.byLevel.critical}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    需要立即处理
+                  </p>
+                  {alertStats.byLevel.critical > 0 && (
+                    <Button 
+                      size="sm" 
+                      variant="destructive" 
+                      className="mt-3 w-full gap-2"
+                      onClick={() => setActiveTab('monitor')}
+                    >
+                      <Eye className="h-4 w-4" />
+                      立即查看
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* 警告告警 */}
+              <Card className={`${
+                alertStats.byLevel.warning > 0 
+                  ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20' 
+                  : 'border-gray-200'
+              }`}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className={`h-5 w-5 ${
+                      alertStats.byLevel.warning > 0 ? 'text-yellow-500' : 'text-gray-400'
+                    }`} />
+                    <CardTitle className="text-sm font-medium">警告告警</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-3xl font-bold ${
+                    alertStats.byLevel.warning > 0 ? 'text-yellow-600' : 'text-gray-500'
+                  }`}>
+                    {alertStats.byLevel.warning}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    需要关注
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* 信息告警 */}
+              <Card className={`${
+                alertStats.byLevel.info > 0 
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' 
+                  : 'border-gray-200'
+              }`}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <Info className={`h-5 w-5 ${
+                      alertStats.byLevel.info > 0 ? 'text-blue-500' : 'text-gray-400'
+                    }`} />
+                    <CardTitle className="text-sm font-medium">信息告警</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-3xl font-bold ${
+                    alertStats.byLevel.info > 0 ? 'text-blue-600' : 'text-gray-500'
+                  }`}>
+                    {alertStats.byLevel.info}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    仅供参考
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* 操作按钮 */}
+            <div className="flex gap-2 mt-4">
+              <Button 
+                variant={alertStats.byLevel.critical > 0 ? "destructive" : "outline"}
+                size="sm"
+                onClick={() => setActiveTab('monitor')}
+                className="gap-2 flex-1"
+              >
+                <Eye className="h-4 w-4" />
+                查看详情
+              </Button>
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.href = '/alerts/rules'}
+                className="gap-2"
+              >
+                <Settings className="h-4 w-4" />
+                告警设置
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 在线机器人信息 */}
       {onlineRobots.length > 0 && (
         <Card className="border-2 border-indigo-200 dark:border-indigo-900">
