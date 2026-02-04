@@ -5,12 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  Bot, 
-  RefreshCw, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
+import {
+  Bot,
+  RefreshCw,
+  Clock,
+  CheckCircle,
+  XCircle,
   Activity,
   AlertTriangle,
   TrendingUp,
@@ -26,33 +26,7 @@ import {
   User
 } from 'lucide-react';
 
-interface AILog {
-  id: string;
-  processing_id: string;
-  robot_id: string;
-  robot_name?: string;
-  session_id: string;
-  user_id: string;
-  user_name?: string;
-  group_id?: string;
-  group_name?: string;
-  intent?: string;
-  prompt: string;
-  response: string;
-  model?: string;
-  provider?: string;
-  role?: string;
-  status: 'processing' | 'completed' | 'failed';
-  error_message?: string;
-  started_at: string;
-  completed_at?: string;
-  duration?: number;
-  tokens?: {
-    prompt_tokens?: number;
-    completion_tokens?: number;
-    total_tokens?: number;
-  };
-}
+import { adaptBackendAILogsToFrontend, AILog } from '@/lib/ai-log-adapter';
 
 interface AIStats {
   total: number;
@@ -80,34 +54,36 @@ export default function AIInteractionMonitor() {
     try {
       const url = new URL('/api/monitoring/ai-logs', window.location.origin);
       url.searchParams.append('limit', limit.toString());
-      
+
       const res = await fetch(url.toString());
       if (res.ok) {
         const data = await res.json();
         if (data.code === 0 && Array.isArray(data.data)) {
-          const logsData = data.data || [];
+          const backendLogs = data.data || [];
+          // 使用适配器转换数据格式
+          const logsData = adaptBackendAILogsToFrontend(backendLogs);
           setAiLogs(logsData);
-          
+
           // 计算统计数据
           const total = logsData.length;
           const processing = logsData.filter((log: AILog) => log.status === 'processing').length;
           const completed = logsData.filter((log: AILog) => log.status === 'completed').length;
           const failed = logsData.filter((log: AILog) => log.status === 'failed').length;
           const successRate = total > 0 ? ((completed / (completed + failed)) * 100).toFixed(1) : '0.0';
-          
+
           // 计算总token数
           const totalTokens = logsData.reduce((sum: number, log: AILog) => {
             return sum + (log.tokens?.total_tokens || 0);
           }, 0);
-          
+
           // 计算平均耗时
-          const completedWithDuration = logsData.filter((log: AILog) => 
+          const completedWithDuration = logsData.filter((log: AILog) =>
             log.status === 'completed' && log.duration
           );
           const avgDuration = completedWithDuration.length > 0
             ? completedWithDuration.reduce((sum: number, log: AILog) => sum + (log.duration || 0), 0) / completedWithDuration.length
             : 0;
-          
+
           setStats({
             total,
             processing,
