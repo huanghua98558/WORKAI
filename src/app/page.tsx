@@ -226,36 +226,6 @@ export default function AdminDashboard() {
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [replyResult, setReplyResult] = useState<{ success: boolean; message: string; timestamp?: Date } | null>(null);
 
-  // 初始化加载（只执行一次）
-  useEffect(() => {
-    loadData();
-    loadRobots();
-    checkConnection();
-    loadAiConfig(); // 只在组件挂载时加载一次 AI 配置
-  }, []);
-
-  // 自动刷新：每隔 60 秒刷新一次会话数据
-  // 当打开会话详情时停止刷新，关闭会话详情后恢复刷新
-  // 当切换到监控标签页时停止刷新（监控组件有自己的刷新机制）
-  useEffect(() => {
-    // 如果会话详情打开，不进行自动刷新
-    if (showSessionDetail) {
-      return;
-    }
-
-    // 如果当前是监控标签页，暂停自动刷新（避免与监控组件的刷新冲突）
-    if (activeTab === 'monitoring') {
-      return;
-    }
-
-    const interval = setInterval(() => {
-      loadData();
-      loadRobots();
-    }, 60000); // 每 60 秒刷新一次（优化性能）
-
-    return () => clearInterval(interval);
-  }, [showSessionDetail, activeTab]);
-
   // 加载机器人列表
   const loadRobots = async () => {
     try {
@@ -274,20 +244,6 @@ export default function AdminDashboard() {
       console.error('加载机器人列表失败:', error);
     }
   };
-
-  // 初始化回调测试状态（当回调地址加载完成后）
-  useEffect(() => {
-    if (callbacks) {
-      // 初始化所有回调状态为"未测试"
-      const initialResults: Record<string, { status: 'success' | 'error' | 'loading' | 'pending', message?: string, lastTest?: string }> = {};
-      Object.keys(callbacks).forEach(key => {
-        if (key !== 'baseUrl' && callbacks[key as keyof CallbackUrl]) {
-          initialResults[key] = { status: 'pending', message: '未测试' };
-        }
-      });
-      setCallbackTestResults(initialResults);
-    }
-  }, [!!callbacks]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -394,6 +350,42 @@ export default function AdminDashboard() {
       return `${seconds}s`;
     }
   };
+
+  // 自动刷新：每隔 60 秒刷新一次会话数据
+  // 当打开会话详情时停止刷新，关闭会话详情后恢复刷新
+  // 当切换到监控标签页时停止刷新（监控组件有自己的刷新机制）
+  useEffect(() => {
+    // 如果会话详情打开，不进行自动刷新
+    if (showSessionDetail) {
+      return;
+    }
+
+    // 如果当前是监控标签页，暂停自动刷新（避免与监控组件的刷新冲突）
+    if (activeTab === 'monitoring') {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      loadData();
+      loadRobots();
+    }, 60000); // 每 60 秒刷新一次（优化性能）
+
+    return () => clearInterval(interval);
+  }, [showSessionDetail, activeTab]);
+
+  // 初始化回调测试状态（当回调地址加载完成后）
+  useEffect(() => {
+    if (callbacks) {
+      // 初始化所有回调状态为"未测试"
+      const initialResults: Record<string, { status: 'success' | 'error' | 'loading' | 'pending', message?: string, lastTest?: string }> = {};
+      Object.keys(callbacks).forEach(key => {
+        if (key !== 'baseUrl' && callbacks[key as keyof CallbackUrl]) {
+          initialResults[key] = { status: 'pending', message: '未测试' };
+        }
+      });
+      setCallbackTestResults(initialResults);
+    }
+  }, [!!callbacks]);
 
   // 加载会话消息
   const loadSessionMessages = async (sessionId: string) => {
@@ -792,6 +784,14 @@ export default function AdminDashboard() {
       setConnectionStatus('disconnected');
     }
   };
+
+  // 初始化加载（只执行一次）
+  useEffect(() => {
+    loadData();
+    loadRobots();
+    checkConnection();
+    loadAiConfig(); // 只在组件挂载时加载一次 AI 配置
+  }, []);
 
   // 复制回调地址
   const copyCallback = async (type: string, url: string) => {
