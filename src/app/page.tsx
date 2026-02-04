@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
+import ProtectedRoute from '@/components/protected-route';
+import { useAuth } from '@/contexts/auth-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -194,6 +196,7 @@ interface Session {
 }
 
 export default function AdminDashboard() {
+  const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [callbacks, setCallbacks] = useState<CallbackUrl | null>(null);
   const [monitorData, setMonitorData] = useState<MonitorData | null>(null);
@@ -2573,9 +2576,8 @@ ${callbacks.robotStatus}
   );
 
   return (
-    <div className="min-h-screen bg-tech-grid dark:bg-tech-grid">
-      {/* 科幻风格标题栏 */}
-      <header className="border-b border-primary/20 glass sticky top-0 z-50">
+    <ProtectedRoute>
+      <div className="min-h-screen bg-tech-grid dark:bg-tech-grid">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             {/* 左侧 Logo 和标题 */}
@@ -2618,8 +2620,8 @@ ${callbacks.robotStatus}
               </div>
 
               {/* 刷新按钮 */}
-              <Button 
-                onClick={loadData} 
+              <Button
+                onClick={loadData}
                 variant="outline"
                 size="sm"
                 className="border-primary/30 hover:border-primary/60 hover:bg-primary/10 transition-all duration-300"
@@ -2627,13 +2629,34 @@ ${callbacks.robotStatus}
               >
                 <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''} text-primary`} />
               </Button>
+
+              {/* 用户信息和登出按钮 */}
+              <div className="flex items-center gap-3 px-3 py-1.5 bg-background/50 rounded-lg border border-primary/20">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-primary" />
+                  <div className="hidden sm:block">
+                    <p className="text-xs font-medium text-foreground">{user?.username || '未知用户'}</p>
+                    <p className="text-[10px] text-muted-foreground">{user?.role || 'user'}</p>
+                  </div>
+                </div>
+                <div className="w-px h-6 bg-primary/20"></div>
+                <Button
+                  onClick={logout}
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 hover:bg-red-500/10 hover:text-red-500 transition-all duration-300"
+                  title="登出"
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
 
           {/* 装饰线条 */}
           <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent opacity-50"></div>
         </div>
-      </header>
+      </div>
 
       {/* 主内容 */}
       <main className="container mx-auto px-4 py-6">
@@ -3407,7 +3430,11 @@ ${callbacks.robotStatus}
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+      </div>
+      </div>
+    </>
+      </ProtectedRoute>
   );
 }
 
