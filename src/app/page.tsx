@@ -35,6 +35,7 @@ import MonitorTab from '@/components/monitor-tab';
 import RealtimeIOTab from '@/components/realtime-io-tab';
 import UserManagement from '@/components/user-management';
 import SettingsTab from '@/components/settings-tab';
+import AlertRulesDialog from '@/components/monitoring/AlertRulesDialog';
 import { 
   BarChart3, 
   MessageSquare,
@@ -219,6 +220,7 @@ export default function AdminDashboard() {
   const [sessionSearchQuery, setSessionSearchQuery] = useState('');
   const [sessionStatusFilter, setSessionStatusFilter] = useState<'all' | 'auto' | 'human'>('all');
   const [alertStats, setAlertStats] = useState<AlertData | null>(null); // 新的告警统计数据
+  const [isAlertRulesDialogOpen, setIsAlertRulesDialogOpen] = useState(false); // 告警规则对话框状态
   const [isSearchingSessions, setIsSearchingSessions] = useState(false);
   const [showRobotDetail, setShowRobotDetail] = useState(false);
   const [selectedRobot, setSelectedRobot] = useState<Robot | null>(null);
@@ -2447,7 +2449,7 @@ ${callbacks.robotStatus}
               <Button 
                 variant="outline"
                 size="sm"
-                onClick={() => window.location.href = '/alerts/rules'}
+                onClick={() => setIsAlertRulesDialogOpen(true)}
                 className="gap-2"
               >
                 <Settings className="h-4 w-4" />
@@ -2561,6 +2563,12 @@ ${callbacks.robotStatus}
           </CardContent>
         </Card>
       )}
+
+      {/* 告警规则设置对话框 */}
+      <AlertRulesDialog 
+        open={isAlertRulesDialogOpen}
+        onOpenChange={setIsAlertRulesDialogOpen}
+      />
     </div>
   );
 

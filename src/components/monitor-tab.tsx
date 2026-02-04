@@ -22,6 +22,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import MonitoringAlertCompact from '@/components/monitoring/MonitoringAlertCompact';
+import AlertRulesDialog from '@/components/monitoring/AlertRulesDialog';
 
 interface HealthStatus {
   executions: {
@@ -54,6 +55,7 @@ export default function MonitorTab() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState('overview');
+  const [isAlertRulesDialogOpen, setIsAlertRulesDialogOpen] = useState(false);
 
   // 加载健康状态和告警数据
   const loadHealthData = async () => {
@@ -119,7 +121,7 @@ export default function MonitorTab() {
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => window.location.href = '/alerts/rules'}
+            onClick={() => setIsAlertRulesDialogOpen(true)}
             className="gap-2"
           >
             <Settings className="h-4 w-4" />
@@ -264,7 +266,7 @@ export default function MonitorTab() {
                       </Button>
                       <Button 
                         size="sm"
-                        onClick={() => window.location.href = '/alerts/rules'}
+                        onClick={() => setIsAlertRulesDialogOpen(true)}
                         className="gap-2"
                       >
                         <Settings className="h-4 w-4" />
@@ -408,6 +410,12 @@ export default function MonitorTab() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* 告警规则设置对话框 */}
+      <AlertRulesDialog 
+        open={isAlertRulesDialogOpen}
+        onOpenChange={setIsAlertRulesDialogOpen}
+      />
     </div>
   );
 }
