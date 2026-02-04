@@ -212,8 +212,9 @@ export function NotificationSettingsDialog({
       },
       robot: {
         robotId: '',
+        mode: 'private',
         userId: '',
-        conversationId: '',
+        groupId: '',
       },
     };
     return configs[methodType] || {};
