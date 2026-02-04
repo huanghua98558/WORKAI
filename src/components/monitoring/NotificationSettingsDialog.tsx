@@ -213,8 +213,8 @@ export function NotificationSettingsDialog({
       robot: {
         robotId: '',
         mode: 'private',
-        userId: '',
-        groupId: '',
+        userName: '',
+        groupName: '',
       },
     };
     return configs[methodType] || {};
@@ -822,39 +822,45 @@ export function NotificationSettingsDialog({
 
                         {method.recipientConfig.mode === 'private' && (
                           <div className="space-y-2">
-                            <Label htmlFor="robot-user-id">接收用户 ID</Label>
+                            <Label htmlFor="robot-user-name">接收人昵称</Label>
                             <Input
-                              id="robot-user-id"
-                              placeholder="输入接收通知的用户 ID"
-                              value={method.recipientConfig.userId || ''}
+                              id="robot-user-name"
+                              placeholder="输入接收人的微信昵称"
+                              value={method.recipientConfig.userName || ''}
                               onChange={(e) =>
                                 updateMethod(method.id, {
                                   recipientConfig: {
                                     ...method.recipientConfig,
-                                    userId: e.target.value,
+                                    userName: e.target.value,
                                   },
                                 })
                               }
                             />
+                            <p className="text-xs text-gray-500">
+                              请填写对方在微信中的昵称（如：张三）
+                            </p>
                           </div>
                         )}
 
                         {method.recipientConfig.mode === 'group' && (
                           <div className="space-y-2">
-                            <Label htmlFor="robot-group-id">群聊 ID</Label>
+                            <Label htmlFor="robot-group-name">群聊名称</Label>
                             <Input
-                              id="robot-group-id"
-                              placeholder="输入接收通知的群聊 ID"
-                              value={method.recipientConfig.groupId || ''}
+                              id="robot-group-name"
+                              placeholder="输入接收通知的群聊名称"
+                              value={method.recipientConfig.groupName || ''}
                               onChange={(e) =>
                                 updateMethod(method.id, {
                                   recipientConfig: {
                                     ...method.recipientConfig,
-                                    groupId: e.target.value,
+                                    groupName: e.target.value,
                                   },
                                 })
                               }
                             />
+                            <p className="text-xs text-gray-500">
+                              请填写群聊的完整名称（如：工作群）
+                            </p>
                           </div>
                         )}
 
@@ -862,8 +868,8 @@ export function NotificationSettingsDialog({
                           <p className="text-sm text-blue-800">
                             💡 提示：
                             {method.recipientConfig.mode === 'group'
-                              ? '机器人将向指定的群聊发送消息通知。请确保群聊 ID 正确。'
-                              : '机器人将向指定的用户发送私聊消息通知。请确保用户 ID 正确。'}
+                              ? '机器人将向指定名称的群聊发送消息通知。请确保群聊名称与微信中完全一致。'
+                              : '机器人将向指定昵称的用户发送私聊消息通知。请确保用户昵称与微信中完全一致。'}
                           </p>
                         </div>
                       </>

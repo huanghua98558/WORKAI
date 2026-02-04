@@ -273,21 +273,21 @@ class NotificationService {
       }
 
       // 确定接收者（私聊或群聊）
-      // 兼容前端字段名：mode/notificationMode, groupId/chatId
+      // 兼容前端字段名：mode/notificationMode, groupName/chatId/chatName, userName/userId
       const notificationMode = config.mode || config.notificationMode;
-      const groupId = config.groupId || config.chatId;
-      const userId = config.userId;
+      const groupName = config.groupName || config.chatId || config.chatName;
+      const userName = config.userName || config.userId;
 
       let recipient = null;
-      if (notificationMode === 'group' && groupId) {
-        recipient = groupId;
-        logger.info('发送机器人群聊通知', { robotId: config.robotId, groupId });
-      } else if ((notificationMode === 'private' || !notificationMode) && userId) {
-        recipient = userId;
-        logger.info('发送机器人私聊通知', { robotId: config.robotId, userId });
+      if (notificationMode === 'group' && groupName) {
+        recipient = groupName;
+        logger.info('发送机器人群聊通知', { robotId: config.robotId, groupName });
+      } else if ((notificationMode === 'private' || !notificationMode) && userName) {
+        recipient = userName;
+        logger.info('发送机器人私聊通知', { robotId: config.robotId, userName });
       } else {
         logger.error('未配置接收者', { config });
-        return { success: false, error: '未配置接收者（userId 或 groupId）' };
+        return { success: false, error: '未配置接收者（userName 或 groupName）' };
       }
 
       // 构建 WorkTool 规范的请求体
