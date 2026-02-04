@@ -2,53 +2,48 @@
  * 机器人分组管理 API 路由
  */
 
+const { getDb } = require('coze-coding-dev-sdk');
+const { sql } = require('drizzle-orm');
+
 const robotGroupsApiRoutes = async function (fastify, options) {
   console.log('[robot-groups.api.js] 机器人分组管理 API 路由已加载');
 
   // 获取所有机器人分组
   fastify.get('/admin/robot-groups', async (request, reply) => {
     try {
-      const groups = [
-        {
-          id: 'group-1',
-          name: '营销',
-          description: '负责营销推广的机器人',
-          color: '#ef4444',
-          icon: '🎯',
-          priority: 10,
-          routing_strategy: 'round_robin',
-          load_balancing_config: {},
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          robot_count: 3
-        },
-        {
-          id: 'group-2',
-          name: '服务',
-          description: '提供客户服务',
-          color: '#3b82f6',
-          icon: '💬',
-          priority: 8,
-          routing_strategy: 'least_loaded',
-          load_balancing_config: {},
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          robot_count: 5
-        },
-        {
-          id: 'group-3',
-          name: '技术支持',
-          description: '技术支持和问题排查',
-          color: '#10b981',
-          icon: '🔧',
-          priority: 6,
-          routing_strategy: 'priority_based',
-          load_balancing_config: {},
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          robot_count: 2
-        }
-      ];
+      const db = await getDb();
+      
+      // 从数据库查询所有分组，并统计每个分组的机器人数量
+      const result = await db.execute(sql`
+        SELECT 
+          rg.id,
+          rg.name,
+          rg.description,
+          rg.color,
+          rg.icon,
+          rg.priority,
+          rg.is_enabled,
+          rg.created_at,
+          rg.updated_at,
+          COUNT(r.id) as robot_count
+        FROM robot_groups rg
+        LEFT JOIN robots r ON r.group_id = rg.id
+        GROUP BY rg.id, rg.name, rg.description, rg.color, rg.icon, rg.priority, rg.is_enabled, rg.created_at, rg.updated_at
+        ORDER BY rg.priority DESC, rg.created_at DESC
+      `);
+
+      const groups = result.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        color: row.color,
+        icon: row.icon,
+        priority: row.priority,
+        is_enabled: row.is_enabled,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        robot_count: parseInt(row.robot_count) || 0
+      }));
 
       return reply.send({
         success: true,
@@ -69,31 +64,46 @@ const robotGroupsApiRoutes = async function (fastify, options) {
   fastify.get('/admin/robot-groups/:id', async (request, reply) => {
     try {
       const { id } = request.params;
+      const db = await getDb();
 
-      const groups = [
-        {
-          id: 'group-1',
-          name: '营销',
-          description: '负责营销推广的机器人',
-          color: '#ef4444',
-          icon: '🎯',
-          priority: 10,
-          routing_strategy: 'round_robin',
-          load_balancing_config: {},
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          robot_count: 3
-        }
-      ];
+      const result = await db.execute(sql`
+        SELECT 
+          rg.id,
+          rg.name,
+          rg.description,
+          rg.color,
+          rg.icon,
+          rg.priority,
+          rg.is_enabled,
+          rg.created_at,
+          rg.updated_at,
+          COUNT(r.id) as robot_count
+        FROM robot_groups rg
+        LEFT JOIN robots r ON r.group_id = rg.id
+        WHERE rg.id = ${id}
+        GROUP BY rg.id, rg.name, rg.description, rg.color, rg.icon, rg.priority, rg.is_enabled, rg.created_at, rg.updated_at
+      `);
 
-      const group = groups.find(g => g.id === id);
-
-      if (!group) {
+      if (result.rows.length === 0) {
         return reply.status(404).send({
           success: false,
           message: '分组不存在'
         });
       }
+
+      const row = result.rows[0];
+      const group = {
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        color: row.color,
+        icon: row.icon,
+        priority: row.priority,
+        is_enabled: row.is_enabled,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        robot_count: parseInt(row.robot_count) || 0
+      };
 
       return reply.send({
         success: true,
@@ -114,19 +124,29 @@ const robotGroupsApiRoutes = async function (fastify, options) {
   fastify.post('/admin/robot-groups', async (request, reply) => {
     try {
       const data = request.body;
+      const db = await getDb();
+      
       console.log('[robot-groups.api] 创建分组:', data);
 
+      const id = `group-${Date.now()}`;
+      const now = new Date();
+
+      await db.execute(sql`
+        INSERT INTO robot_groups (
+          id, name, description, color, icon, priority, is_enabled, created_at, updated_at
+        ) VALUES (${id}, ${data.name}, ${data.description || null}, ${data.color || '#3b82f6'}, ${data.icon || '🤖'}, ${data.priority || 10}, ${data.is_enabled !== undefined ? data.is_enabled : true}, ${now}, ${now})
+      `);
+
       const newGroup = {
-        id: `group-${Date.now()}`,
+        id,
         name: data.name,
-        description: data.description,
+        description: data.description || null,
         color: data.color || '#3b82f6',
         icon: data.icon || '🤖',
         priority: data.priority || 10,
-        routing_strategy: data.routing_strategy || 'round_robin',
-        load_balancing_config: data.load_balancing_config ? JSON.parse(data.load_balancing_config) : {},
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        is_enabled: data.is_enabled !== undefined ? data.is_enabled : true,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
         robot_count: 0
       };
 
@@ -152,18 +172,34 @@ const robotGroupsApiRoutes = async function (fastify, options) {
     try {
       const { id } = request.params;
       const data = request.body;
+      const db = await getDb();
+      
       console.log('[robot-groups.api] 更新分组:', id, data);
+
+      const now = new Date();
+
+      await db.execute(sql`
+        UPDATE robot_groups
+        SET 
+          name = ${data.name},
+          description = ${data.description || null},
+          color = ${data.color || '#3b82f6'},
+          icon = ${data.icon || '🤖'},
+          priority = ${data.priority || 10},
+          is_enabled = ${data.is_enabled !== undefined ? data.is_enabled : true},
+          updated_at = ${now}
+        WHERE id = ${id}
+      `);
 
       const updatedGroup = {
         id,
         name: data.name,
-        description: data.description,
+        description: data.description || null,
         color: data.color || '#3b82f6',
         icon: data.icon || '🤖',
         priority: data.priority || 10,
-        routing_strategy: data.routing_strategy || 'round_robin',
-        load_balancing_config: data.load_balancing_config ? JSON.parse(data.load_balancing_config) : {},
-        updated_at: new Date().toISOString()
+        is_enabled: data.is_enabled !== undefined ? data.is_enabled : true,
+        updated_at: now.toISOString()
       };
 
       console.log('[robot-groups.api] 更新成功:', updatedGroup);
@@ -187,7 +223,19 @@ const robotGroupsApiRoutes = async function (fastify, options) {
   fastify.delete('/admin/robot-groups/:id', async (request, reply) => {
     try {
       const { id } = request.params;
+      const db = await getDb();
+      
       console.log('[robot-groups.api] 删除分组:', id);
+
+      // 先将该分组下的机器人的 group_id 设置为 null
+      await db.execute(sql`
+        UPDATE robots SET group_id = NULL WHERE group_id = ${id}
+      `);
+
+      // 删除分组
+      await db.execute(sql`
+        DELETE FROM robot_groups WHERE id = ${id}
+      `);
 
       return reply.send({
         success: true,

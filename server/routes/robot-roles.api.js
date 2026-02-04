@@ -2,38 +2,45 @@
  * 机器人角色管理 API 路由
  */
 
+const { getDb } = require('coze-coding-dev-sdk');
+const { sql } = require('drizzle-orm');
+
 const robotRolesApiRoutes = async function (fastify, options) {
   console.log('[robot-roles.api.js] 机器人角色管理 API 路由已加载');
 
   // 获取所有机器人角色
   fastify.get('/admin/robot-roles', async (request, reply) => {
     try {
-      const roles = [
-        {
-          id: 'role-1',
-          name: '客服机器人',
-          description: '处理客户咨询和服务请求',
-          priority: 10,
-          permissions: ['message:send', 'message:receive', 'contact:read', 'room:read', 'session:manage', 'session:read'],
-          allowed_operations: ['send_text', 'send_image', 'get_contacts', 'get_rooms'],
-          rate_limits: { per_minute: 60, per_hour: 1000 },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          robot_count: 5
-        },
-        {
-          id: 'role-2',
-          name: '营销机器人',
-          description: '负责营销推广和用户转化',
-          priority: 8,
-          permissions: ['message:send', 'message:receive', 'contact:read', 'contact:write', 'room:read'],
-          allowed_operations: ['send_text', 'send_image', 'forward_message', 'get_contacts'],
-          rate_limits: { per_minute: 120, per_hour: 2000 },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          robot_count: 3
-        }
-      ];
+      const db = await getDb();
+      
+      // 从数据库查询所有角色，并统计每个角色的机器人数量
+      const result = await db.execute(sql`
+        SELECT 
+          rr.id,
+          rr.name,
+          rr.description,
+          rr.permissions,
+          rr.is_system,
+          rr.created_at,
+          rr.updated_at,
+          COUNT(r.id) as robot_count
+        FROM robot_roles rr
+        LEFT JOIN robots r ON r.role_id = rr.id
+        GROUP BY rr.id, rr.name, rr.description, rr.permissions, rr.is_system, rr.created_at, rr.updated_at
+        ORDER BY rr.is_system DESC, rr.created_at ASC
+      `);
+
+      const roles = result.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        priority: 10, // 默认优先级
+        permissions: typeof row.permissions === 'string' ? JSON.parse(row.permissions) : (row.permissions || []),
+        is_system: row.is_system,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        robot_count: parseInt(row.robot_count) || 0
+      }));
 
       return reply.send({
         success: true,
@@ -54,30 +61,43 @@ const robotRolesApiRoutes = async function (fastify, options) {
   fastify.get('/admin/robot-roles/:id', async (request, reply) => {
     try {
       const { id } = request.params;
+      const db = await getDb();
 
-      const roles = [
-        {
-          id: 'role-1',
-          name: '客服机器人',
-          description: '处理客户咨询和服务请求',
-          priority: 10,
-          permissions: ['message:send', 'message:receive', 'contact:read', 'room:read', 'session:manage', 'session:read'],
-          allowed_operations: ['send_text', 'send_image', 'get_contacts', 'get_rooms'],
-          rate_limits: { per_minute: 60, per_hour: 1000 },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          robot_count: 5
-        }
-      ];
+      const result = await db.execute(sql`
+        SELECT 
+          rr.id,
+          rr.name,
+          rr.description,
+          rr.permissions,
+          rr.is_system,
+          rr.created_at,
+          rr.updated_at,
+          COUNT(r.id) as robot_count
+        FROM robot_roles rr
+        LEFT JOIN robots r ON r.role_id = rr.id
+        WHERE rr.id = ${id}
+        GROUP BY rr.id, rr.name, rr.description, rr.permissions, rr.is_system, rr.created_at, rr.updated_at
+      `);
 
-      const role = roles.find(r => r.id === id);
-
-      if (!role) {
+      if (result.rows.length === 0) {
         return reply.status(404).send({
           success: false,
           message: '角色不存在'
         });
       }
+
+      const row = result.rows[0];
+      const role = {
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        priority: 10, // 默认优先级
+        permissions: typeof row.permissions === 'string' ? JSON.parse(row.permissions) : (row.permissions || []),
+        is_system: row.is_system,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        robot_count: parseInt(row.robot_count) || 0
+      };
 
       return reply.send({
         success: true,
@@ -98,18 +118,28 @@ const robotRolesApiRoutes = async function (fastify, options) {
   fastify.post('/admin/robot-roles', async (request, reply) => {
     try {
       const data = request.body;
+      const db = await getDb();
+      
       console.log('[robot-roles.api] 创建角色:', data);
 
+      const id = `role-${Date.now()}`;
+      const now = new Date();
+
+      await db.execute(sql`
+        INSERT INTO robot_roles (
+          id, name, description, permissions, is_system, created_at, updated_at
+        ) VALUES (${id}, ${data.name}, ${data.description || null}, ${JSON.stringify(Array.isArray(data.permissions) ? data.permissions : [])}, ${data.is_system || false}, ${now}, ${now})
+      `);
+
       const newRole = {
-        id: `role-${Date.now()}`,
+        id,
         name: data.name,
-        description: data.description,
+        description: data.description || null,
         priority: data.priority || 10,
         permissions: Array.isArray(data.permissions) ? data.permissions : [],
-        allowed_operations: Array.isArray(data.allowed_operations) ? data.allowed_operations : [],
-        rate_limits: data.rate_limits ? JSON.parse(data.rate_limits) : { per_minute: 60, per_hour: 1000 },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        is_system: data.is_system || false,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
         robot_count: 0
       };
 
@@ -135,17 +165,29 @@ const robotRolesApiRoutes = async function (fastify, options) {
     try {
       const { id } = request.params;
       const data = request.body;
+      const db = await getDb();
+      
       console.log('[robot-roles.api] 更新角色:', id, data);
+
+      const now = new Date();
+
+      await db.execute(sql`
+        UPDATE robot_roles
+        SET 
+          name = ${data.name},
+          description = ${data.description || null},
+          permissions = ${JSON.stringify(Array.isArray(data.permissions) ? data.permissions : [])},
+          updated_at = ${now}
+        WHERE id = ${id}
+      `);
 
       const updatedRole = {
         id,
         name: data.name,
-        description: data.description,
+        description: data.description || null,
         priority: data.priority || 10,
         permissions: Array.isArray(data.permissions) ? data.permissions : [],
-        allowed_operations: Array.isArray(data.allowed_operations) ? data.allowed_operations : [],
-        rate_limits: data.rate_limits ? JSON.parse(data.rate_limits) : { per_minute: 60, per_hour: 1000 },
-        updated_at: new Date().toISOString()
+        updated_at: now.toISOString()
       };
 
       console.log('[robot-roles.api] 更新成功:', updatedRole);
@@ -169,7 +211,19 @@ const robotRolesApiRoutes = async function (fastify, options) {
   fastify.delete('/admin/robot-roles/:id', async (request, reply) => {
     try {
       const { id } = request.params;
+      const db = await getDb();
+      
       console.log('[robot-roles.api] 删除角色:', id);
+
+      // 先将该角色下的机器人的 role_id 设置为 null
+      await db.execute(sql`
+        UPDATE robots SET role_id = NULL WHERE role_id = ${id}
+      `);
+
+      // 删除角色
+      await db.execute(sql`
+        DELETE FROM robot_roles WHERE id = ${id} AND is_system = false
+      `);
 
       return reply.send({
         success: true,
