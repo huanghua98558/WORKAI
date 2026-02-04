@@ -24,6 +24,7 @@ interface AlertRule {
   cooldownPeriod: number;
   isEnabled: boolean;
   messageTemplate: string;
+  keywords?: string; // 新增：关键词字段
   createdAt: string;
   updatedAt: string;
 }
@@ -50,6 +51,7 @@ export default function AlertRulesDialog({ open, onOpenChange }: AlertRulesDialo
     threshold: 5,
     cooldownPeriod: 300,
     messageTemplate: '',
+    keywords: '', // 新增：关键词字段
     isEnabled: true
   });
 
@@ -106,6 +108,7 @@ export default function AlertRulesDialog({ open, onOpenChange }: AlertRulesDialo
       threshold: 5,
       cooldownPeriod: 300,
       messageTemplate: '',
+      keywords: '',
       isEnabled: true
     });
     setIsFormDialogOpen(true);
@@ -122,6 +125,7 @@ export default function AlertRulesDialog({ open, onOpenChange }: AlertRulesDialo
       threshold: rule.threshold,
       cooldownPeriod: rule.cooldownPeriod,
       messageTemplate: rule.messageTemplate,
+      keywords: rule.keywords || '',
       isEnabled: rule.isEnabled
     });
     setIsFormDialogOpen(true);
@@ -436,6 +440,22 @@ export default function AlertRulesDialog({ open, onOpenChange }: AlertRulesDialo
                 rows={3}
               />
             </div>
+
+            {formData.intentType === 'keyword' && (
+              <div className="space-y-2">
+                <Label htmlFor="keywords">关键词 * <span className="text-xs text-gray-500">(多个关键词用逗号分隔)</span></Label>
+                <Textarea
+                  id="keywords"
+                  value={formData.keywords}
+                  onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
+                  placeholder="输入需要监控的关键词，如：订单,支付,退款"
+                  rows={2}
+                />
+                <p className="text-xs text-gray-500">
+                  💡 提示：当消息中包含这些关键词时，将触发告警。多个关键词请用逗号（中英文）分隔。
+                </p>
+              </div>
+            )}
 
             <div className="flex items-center space-x-2">
               <Switch

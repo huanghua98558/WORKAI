@@ -39,6 +39,7 @@ exports.alertRules = pgTable(
     threshold: integer("threshold").default(1), // 告警阈值（连续触发N次才告警）
     cooldownPeriod: integer("cooldown_period").default(300), // 冷却时间（秒），避免重复告警
     messageTemplate: text("message_template"), // 告警消息模板
+    keywords: text("keywords"), // 关键词（仅 intent_type 为 keyword 时使用，逗号分隔）
     groupId: varchar("group_id", { length: 36 }), // 关联的告警分组ID
     enableEscalation: boolean("enable_escalation").default(false), // 是否启用升级
     escalationLevel: integer("escalation_level").default(0), // 当前升级级别
