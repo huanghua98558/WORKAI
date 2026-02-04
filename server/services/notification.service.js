@@ -250,53 +250,50 @@ class NotificationService {
    */
   async sendRobotNotification(config, alertData, message) {
     try {
-      const db = getDb();
+      const db = await getDb();
 
       // 获取机器人信息
       const robot = await db
         .select()
         .from(robots)
-        .where(eq(robots.id, config.robotId))
+        .where(eq(robots.robotId, config.robotId))
         .limit(1);
 
       if (!robot || robot.length === 0) {
+        logger.error('机器人不存在，robotId:', config.robotId);
         return { success: false, error: '机器人不存在' };
       }
 
-      const robotConfig = robot[0].config || {};
+      const robotData = robot[0];
 
       // 构建私聊消息
       const chatMessage = {
         content: message,
-        conversation_id: config.conversationId || null,
         user_id: config.userId || null,
         msg_type: 'text'
       };
 
       // 调用机器人 API 发送消息
-      const apiUrl = `${robotConfig.apiBaseUrl || process.env.COZE_API_BASE_URL}/v3/chat`;
+      const apiUrl = robotData.sendMessageApi || `${robotData.apiBaseUrl}/sendMessage`;
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${robotConfig.botToken || process.env.COZE_BOT_TOKEN}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          bot_id: robot[0].robotId,
-          user_id: config.userId || 'admin',
-          additional_messages: [chatMessage],
-          stream: false
+          robot_id: robotData.robotId,
+          ...chatMessage
         })
       });
 
       const result = await response.json();
 
-      if (response.ok && result.code === 0) {
+      if (response.ok && (result.code === 0 || result.success === true)) {
         logger.info('机器人私聊通知发送成功');
-        return { success: true, method: 'robot', messageId: result.data?.id };
+        return { success: true, method: 'robot', messageId: result.data?.id || result.id };
       } else {
         logger.error('机器人私聊通知发送失败:', result);
-        return { success: false, error: result.msg || result.message };
+        return { success: false, error: result.msg || result.message || result.errmsg };
       }
     } catch (error) {
       logger.error('机器人私聊通知发送异常:', error);
