@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { 
   Plus, 
   Trash2, 
@@ -23,7 +24,11 @@ import {
   MessageSquare,
   TestTube2,
   FileText,
-  Layout
+  Layout,
+  Settings,
+  Info,
+  AlertCircle,
+  CheckCircle
 } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 
@@ -90,6 +95,10 @@ export default function PromptTraining() {
   const [activeTab, setActiveTab] = useState<'chat' | 'test'>('chat');
   const [isInitDefaults, setIsInitDefaults] = useState(false);
   const [defaultTemplateStatus, setDefaultTemplateStatus] = useState<{ total: number; existing: number; missing: number } | null>(null);
+  const [useSystemAiConfig, setUseSystemAiConfig] = useState(false);
+  const [systemAiConfig, setSystemAiConfig] = useState<any>(null);
+  const [isLoadingAiConfig, setIsLoadingAiConfig] = useState(false);
+  const [matchedAiProvider, setMatchedAiProvider] = useState<string | null>(null);
   
   // 模板编辑状态
   const [templateForm, setTemplateForm] = useState<Partial<PromptTemplate>>({
@@ -114,6 +123,7 @@ export default function PromptTraining() {
     loadTemplates();
     loadTestCases();
     checkDefaultTemplates();
+    loadSystemAiConfig();
   }, []);
 
   // 选择模板时加载表单
@@ -125,6 +135,20 @@ export default function PromptTraining() {
       }
     }
   }, [selectedTemplateId, templates]);
+
+  // 当模板类型或使用系统AI配置开关变化时，自动加载AI配置
+  useEffect(() => {
+    if (useSystemAiConfig && templateForm.type) {
+      const aiConfig = getAiConfigFromSystem(templateForm.type);
+      if (aiConfig) {
+        setTemplateForm(prev => ({
+          ...prev,
+          temperature: aiConfig.temperature,
+          maxTokens: aiConfig.maxTokens
+        }));
+      }
+    }
+  }, [useSystemAiConfig, templateForm.type, systemAiConfig]);
 
   const loadTemplates = async () => {
     try {
@@ -143,6 +167,62 @@ export default function PromptTraining() {
   const loadTestCases = async () => {
     // 暂时不使用测试用例 API，直接使用空数组
     setTestCases([]);
+  };
+
+  // 加载系统AI配置
+  const loadSystemAiConfig = async () => {
+    setIsLoadingAiConfig(true);
+    try {
+      const response = await fetch('/api/admin/config');
+      if (response.ok) {
+        const data = await response.json();
+        setSystemAiConfig(data.data?.ai || {});
+      }
+    } catch (error) {
+      console.error('加载系统AI配置失败:', error);
+    } finally {
+      setIsLoadingAiConfig(false);
+    }
+  };
+
+  // 根据模板类型映射到AI配置
+  const getAiProviderByTemplateType = (templateType: string): string | null => {
+    const mapping: { [key: string]: string } = {
+      'intentRecognition': 'intentRecognition',
+      'serviceReply': 'serviceReply',
+      'conversion': 'conversion',
+      'report': 'report'
+    };
+    return mapping[templateType] || null;
+  };
+
+  // 从系统AI配置中获取模型ID和参数
+  const getAiConfigFromSystem = (templateType: string) => {
+    const provider = getAiProviderByTemplateType(templateType);
+    if (!provider || !systemAiConfig) {
+      return null;
+    }
+
+    const config = systemAiConfig[provider];
+    setMatchedAiProvider(provider);
+
+    if (config?.useBuiltin && config?.builtinModelId) {
+      return {
+        model: config.builtinModelId,
+        temperature: config.temperature || 0.7,
+        maxTokens: config.maxTokens || 2000,
+        source: '系统内置模型'
+      };
+    } else if (config?.useCustom && config?.customModel) {
+      return {
+        model: config.customModel.model,
+        temperature: config.temperature || 0.7,
+        maxTokens: config.maxTokens || 2000,
+        source: '系统自定义模型'
+      };
+    }
+
+    return null;
   };
 
   const saveTemplate = async () => {
@@ -357,8 +437,25 @@ export default function PromptTraining() {
     setIsGenerating(true);
 
     try {
-      // 并行调用所有选中的模型
-      const promises = selectedModels.map(async (model) => {
+      // 确定要使用的模型
+      let modelsToTest: string[] = [];
+      
+      if (useSystemAiConfig) {
+        // 使用系统AI配置
+        const aiConfig = getAiConfigFromSystem(templateForm.type || 'serviceReply');
+        if (aiConfig) {
+          modelsToTest = [aiConfig.model];
+        } else {
+          // 如果没有找到匹配配置，使用默认模型
+          modelsToTest = ['doubao-seed-1-8-251228'];
+        }
+      } else {
+        // 手动选择的模型
+        modelsToTest = selectedModels;
+      }
+
+      // 并行调用所有要测试的模型
+      const promises = modelsToTest.map(async (model) => {
         const startTime = Date.now();
         try {
           const response = await fetch('/api/prompt-tests/run', {
@@ -596,10 +693,48 @@ export default function PromptTraining() {
 
       {/* 第二栏：编辑器 */}
       <Card className="w-[30%] flex flex-col p-4">
-        <h3 className="font-semibold mb-4 flex items-center gap-2">
-          <Edit3 size={18} />
-          Prompt 编辑器
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold flex items-center gap-2">
+            <Edit3 size={18} />
+            Prompt 编辑器
+          </h3>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={loadSystemAiConfig}
+            disabled={isLoadingAiConfig}
+            title="刷新AI配置"
+          >
+            <RefreshCw size={16} className={isLoadingAiConfig ? 'animate-spin' : ''} />
+          </Button>
+        </div>
+
+        {/* 使用系统AI配置开关 */}
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Settings size={16} className="text-blue-600" />
+              <Label className="text-sm font-medium">使用系统AI配置</Label>
+            </div>
+            <Switch
+              checked={useSystemAiConfig}
+              onCheckedChange={setUseSystemAiConfig}
+              disabled={isLoadingAiConfig}
+            />
+          </div>
+          {useSystemAiConfig && matchedAiProvider && (
+            <div className="mt-2 flex items-center gap-2 text-xs text-blue-700">
+              <CheckCircle size={12} />
+              <span>已匹配到系统配置: {matchedAiProvider}</span>
+            </div>
+          )}
+          {useSystemAiConfig && !matchedAiProvider && templateForm.type && (
+            <div className="mt-2 flex items-center gap-2 text-xs text-yellow-700">
+              <AlertCircle size={12} />
+              <span>暂无匹配的AI配置，将使用默认参数</span>
+            </div>
+          )}
+        </div>
 
         <div className="space-y-4 flex-1 overflow-y-auto">
           <div>
@@ -632,7 +767,15 @@ export default function PromptTraining() {
           </div>
 
           <div>
-            <Label>温度: {templateForm.temperature}</Label>
+            <div className="flex items-center justify-between mb-1">
+              <Label>温度: {templateForm.temperature}</Label>
+              {useSystemAiConfig && (
+                <span className="text-xs text-blue-600 flex items-center gap-1">
+                  <Info size={10} />
+                  来自系统配置
+                </span>
+              )}
+            </div>
             <input
               type="range"
               min="0"
@@ -640,7 +783,29 @@ export default function PromptTraining() {
               step="0.1"
               value={templateForm.temperature ?? 0.7}
               onChange={(e) => setTemplateForm({ ...templateForm, temperature: parseFloat(e.target.value) })}
-              className="w-full mt-1"
+              disabled={useSystemAiConfig}
+              className={`w-full mt-1 ${useSystemAiConfig ? 'opacity-50' : ''}`}
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <Label>最大Token: {templateForm.maxTokens}</Label>
+              {useSystemAiConfig && (
+                <span className="text-xs text-blue-600 flex items-center gap-1">
+                  <Info size={10} />
+                  来自系统配置
+                </span>
+              )}
+            </div>
+            <Input
+              type="number"
+              min="100"
+              max="8000"
+              value={templateForm.maxTokens ?? 2000}
+              onChange={(e) => setTemplateForm({ ...templateForm, maxTokens: parseInt(e.target.value) })}
+              disabled={useSystemAiConfig}
+              className={useSystemAiConfig ? 'opacity-50' : ''}
             />
           </div>
 
@@ -706,19 +871,57 @@ export default function PromptTraining() {
 
         {/* 模型选择 */}
         <div className="mb-4">
-          <Label className="text-sm">选择模型（可多选）</Label>
-          <div className="flex flex-wrap gap-2 mt-2">
-            {BUILTIN_MODELS.map(model => (
-              <Badge
-                key={model}
-                variant={selectedModels.includes(model) ? 'default' : 'outline'}
-                className="cursor-pointer hover:opacity-80"
-                onClick={() => toggleModel(model)}
-              >
-                {model}
+          <div className="flex items-center justify-between mb-2">
+            <Label className="text-sm">
+              {useSystemAiConfig ? '使用系统配置的模型' : '选择模型（可多选）'}
+            </Label>
+            {useSystemAiConfig && (
+              <Badge variant="outline" className="text-xs">
+                <Info size={10} className="mr-1" />
+                系统配置
               </Badge>
-            ))}
+            )}
           </div>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {useSystemAiConfig ? (
+              // 使用系统配置时，显示当前使用的模型
+              (() => {
+                const aiConfig = getAiConfigFromSystem(templateForm.type || 'serviceReply');
+                if (aiConfig) {
+                  return (
+                    <Badge variant="default" className="px-3 py-1">
+                      {aiConfig.model}
+                      {aiConfig.source && (
+                        <span className="ml-2 text-xs opacity-75">({aiConfig.source})</span>
+                      )}
+                    </Badge>
+                  );
+                }
+                return (
+                  <Badge variant="outline" className="text-muted-foreground">
+                    未找到匹配配置
+                  </Badge>
+                );
+              })()
+            ) : (
+              // 手动选择模型
+              BUILTIN_MODELS.map(model => (
+                <Badge
+                  key={model}
+                  variant={selectedModels.includes(model) ? 'default' : 'outline'}
+                  className="cursor-pointer hover:opacity-80"
+                  onClick={() => toggleModel(model)}
+                >
+                  {model}
+                </Badge>
+              ))
+            )}
+          </div>
+          {useSystemAiConfig && matchedAiProvider && (
+            <p className="text-xs text-muted-foreground mt-2">
+              模型参数（温度: {templateForm.temperature}, 最大Token: {templateForm.maxTokens}）来自系统AI设置
+            </p>
+          )}
         </div>
 
         {/* 对话区域 */}
