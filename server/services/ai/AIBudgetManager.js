@@ -4,9 +4,9 @@
  */
 
 const { getDb } = require('coze-coding-dev-sdk');
-const { aiBudgetSettings, aiModelUsage } = require('../database/schema');
+const { aiBudgetSettings, aiModelUsage } = require('../../database/schema');
 const { eq, and, sql, desc } = require('drizzle-orm');
-const { getLogger } = require('../lib/logger');
+const { getLogger } = require('../../lib/logger');
 
 const logger = getLogger('AI_BUDGET_MANAGER');
 
