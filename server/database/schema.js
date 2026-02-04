@@ -803,6 +803,7 @@ exports.aiModelUsage = pgTable(
     id: varchar("id", { length: 36 })
       .primaryKey()
       .default(sql`gen_random_uuid()`),
+    organizationId: varchar("organization_id", { length: 255 }).default("default"), // 组织ID（用于多租户）
     modelId: varchar("model_id", { length: 36 }).notNull(), // 使用的模型ID
     providerId: varchar("provider_id", { length: 36 }).notNull(), // 提供商ID
     sessionId: varchar("session_id", { length: 255 }), // 会话ID
@@ -822,6 +823,7 @@ exports.aiModelUsage = pgTable(
       .notNull(),
   },
   (table) => ({
+    organizationIdIdx: index("ai_model_usage_organization_id_idx").on(table.organizationId),
     modelIdIdx: index("ai_model_usage_model_id_idx").on(table.modelId),
     providerIdIdx: index("ai_model_usage_provider_id_idx").on(table.providerId),
     sessionIdIdx: index("ai_model_usage_session_id_idx").on(table.sessionId),
@@ -833,6 +835,36 @@ exports.aiModelUsage = pgTable(
 
 // AI模型使用记录表（下划线式导出）
 exports.ai_model_usage = exports.aiModelUsage;
+
+// AI预算设置表
+exports.aiBudgetSettings = pgTable(
+  "ai_budget_settings",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    organizationId: varchar("organization_id", { length: 255 }).notNull().unique(), // 组织ID（用于多租户）
+    monthlyBudget: numeric("monthly_budget", { precision: 10, scale: 2 }).notNull(), // 月度预算（元）
+    dailyBudget: numeric("daily_budget", { precision: 10, scale: 2 }).notNull(), // 日预算（元）
+    warningThreshold: numeric("warning_threshold", { precision: 5, scale: 2 }).notNull(), // 预警阈值（0-1）
+    criticalThreshold: numeric("critical_threshold", { precision: 5, scale: 2 }).notNull(), // 严重阈值（0-1）
+    enabled: boolean("enabled").notNull().default(true), // 是否启用预算控制
+    notificationEnabled: boolean("notification_enabled").notNull().default(true), // 是否启用通知
+    notificationMethods: jsonb("notification_methods").default("[]"), // 通知方式配置
+    metadata: jsonb("metadata").default("{}"), // 元数据
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    organizationIdIdx: index("ai_budget_settings_organization_id_idx").on(table.organizationId),
+    enabledIdx: index("ai_budget_settings_enabled_idx").on(table.enabled),
+  })
+);
+
+// AI预算设置表（下划线式导出）
+exports.ai_budget_settings = exports.aiBudgetSettings;
 
 
 
@@ -1972,6 +2004,7 @@ exports.aiModelUsage = pgTable(
     id: varchar("id", { length: 36 })
       .primaryKey()
       .default(sql`gen_random_uuid()`),
+    organizationId: varchar("organization_id", { length: 255 }).default("default"), // 组织ID（用于多租户）
     modelId: varchar("model_id", { length: 36 }).notNull(), // 使用的模型ID
     providerId: varchar("provider_id", { length: 36 }).notNull(), // 提供商ID
     sessionId: varchar("session_id", { length: 255 }), // 会话ID
@@ -1991,6 +2024,7 @@ exports.aiModelUsage = pgTable(
       .notNull(),
   },
   (table) => ({
+    organizationIdIdx: index("ai_model_usage_organization_id_idx").on(table.organizationId),
     modelIdIdx: index("ai_model_usage_model_id_idx").on(table.modelId),
     providerIdIdx: index("ai_model_usage_provider_id_idx").on(table.providerId),
     sessionIdIdx: index("ai_model_usage_session_id_idx").on(table.sessionId),
@@ -2002,5 +2036,35 @@ exports.aiModelUsage = pgTable(
 
 // AI模型使用记录表（下划线式导出）
 exports.ai_model_usage = exports.aiModelUsage;
+
+// AI预算设置表
+exports.aiBudgetSettings = pgTable(
+  "ai_budget_settings",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    organizationId: varchar("organization_id", { length: 255 }).notNull().unique(), // 组织ID（用于多租户）
+    monthlyBudget: numeric("monthly_budget", { precision: 10, scale: 2 }).notNull(), // 月度预算（元）
+    dailyBudget: numeric("daily_budget", { precision: 10, scale: 2 }).notNull(), // 日预算（元）
+    warningThreshold: numeric("warning_threshold", { precision: 5, scale: 2 }).notNull(), // 预警阈值（0-1）
+    criticalThreshold: numeric("critical_threshold", { precision: 5, scale: 2 }).notNull(), // 严重阈值（0-1）
+    enabled: boolean("enabled").notNull().default(true), // 是否启用预算控制
+    notificationEnabled: boolean("notification_enabled").notNull().default(true), // 是否启用通知
+    notificationMethods: jsonb("notification_methods").default("[]"), // 通知方式配置
+    metadata: jsonb("metadata").default("{}"), // 元数据
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    organizationIdIdx: index("ai_budget_settings_organization_id_idx").on(table.organizationId),
+    enabledIdx: index("ai_budget_settings_enabled_idx").on(table.enabled),
+  })
+);
+
+// AI预算设置表（下划线式导出）
+exports.ai_budget_settings = exports.aiBudgetSettings;
 
 

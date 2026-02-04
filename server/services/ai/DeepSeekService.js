@@ -14,6 +14,7 @@ class DeepSeekService {
     this.modelId = config.modelId;
     this.modelIdStr = config.modelIdStr;
     this.providerId = config.providerId;
+    this.organizationId = config.organizationId || 'default'; // 组织ID
     this.apiKey = config.apiKey;
     this.apiEndpoint = config.apiEndpoint;
     this.temperature = config.temperature || 0.7;
@@ -90,6 +91,7 @@ class DeepSeekService {
       // 记录使用情况
       if (this.modelIdStr && this.providerId) {
         AIUsageTracker.recordUsage({
+          organizationId: this.organizationId,
           modelId: this.modelIdStr,
           providerId: this.providerId,
           operationType: 'intent_recognition',
@@ -110,6 +112,7 @@ class DeepSeekService {
       // 记录失败的使用情况
       if (this.modelIdStr && this.providerId) {
         AIUsageTracker.recordUsage({
+          organizationId: this.organizationId,
           modelId: this.modelIdStr,
           providerId: this.providerId,
           operationType: 'intent_recognition',
@@ -157,6 +160,7 @@ class DeepSeekService {
       // 记录使用情况
       if (this.modelIdStr && this.providerId) {
         AIUsageTracker.recordUsage({
+          organizationId: this.organizationId,
           modelId: this.modelIdStr,
           providerId: this.providerId,
           operationType: context.operationType || 'chat',
@@ -177,6 +181,7 @@ class DeepSeekService {
       // 记录失败的使用情况
       if (this.modelIdStr && this.providerId) {
         AIUsageTracker.recordUsage({
+          organizationId: this.organizationId,
           modelId: this.modelIdStr,
           providerId: this.providerId,
           operationType: context.operationType || 'chat',

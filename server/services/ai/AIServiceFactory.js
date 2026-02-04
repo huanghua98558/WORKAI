@@ -22,15 +22,16 @@ class AIServiceFactory {
    * @param {string} config.modelId - 模型ID（API调用时使用）
    * @param {string} config.modelIdStr - 模型ID（数据库中的ID）
    * @param {string} config.providerId - 提供商ID（数据库中的ID）
+   * @param {string} config.organizationId - 组织ID（用于多租户）
    * @param {string} config.apiKey - API密钥
    * @param {string} config.apiEndpoint - API端点
    * @param {number} config.temperature - 温度参数
    * @param {number} config.maxTokens - 最大token数
    */
   createService(config) {
-    const { provider, modelId, modelIdStr, providerId, apiKey, apiEndpoint, temperature, maxTokens } = config;
+    const { provider, modelId, modelIdStr, providerId, organizationId, apiKey, apiEndpoint, temperature, maxTokens } = config;
 
-    const cacheKey = `${provider}:${modelId}`;
+    const cacheKey = `${provider}:${modelId}:${organizationId || 'default'}`;
     
     // 如果已缓存且配置未变，返回缓存实例
     if (this.serviceCache.has(cacheKey)) {
@@ -45,6 +46,7 @@ class AIServiceFactory {
           modelId,
           modelIdStr,
           providerId,
+          organizationId,
           apiKey,
           apiEndpoint,
           temperature,
@@ -57,6 +59,7 @@ class AIServiceFactory {
           modelId,
           modelIdStr,
           providerId,
+          organizationId,
           apiKey,
           apiEndpoint,
           temperature,
@@ -69,6 +72,7 @@ class AIServiceFactory {
           modelId,
           modelIdStr,
           providerId,
+          organizationId,
           apiKey,
           apiEndpoint,
           temperature,
@@ -81,7 +85,7 @@ class AIServiceFactory {
     }
 
     this.serviceCache.set(cacheKey, service);
-    logger.info('AI服务实例创建成功', { provider, modelId });
+    logger.info('AI服务实例创建成功', { provider, modelId, organizationId });
 
     return service;
   }

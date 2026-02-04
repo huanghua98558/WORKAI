@@ -25,6 +25,7 @@ class AIUsageTracker {
    * @param {string} data.errorMessage - 错误信息
    * @param {Object} data.metadata - 元数据
    * @param {string} data.sessionId - 会话ID（可选）
+   * @param {string} data.organizationId - 组织ID（用于多租户，可选）
    */
   static async recordUsage(data) {
     try {
@@ -39,7 +40,8 @@ class AIUsageTracker {
         status = 'success',
         errorMessage,
         metadata = {},
-        sessionId
+        sessionId,
+        organizationId = 'default'
       } = data;
 
       // 获取模型价格信息
@@ -59,6 +61,7 @@ class AIUsageTracker {
 
       // 插入使用记录
       await getDb().insert(aiModelUsage).values({
+        organizationId,
         modelId,
         providerId,
         sessionId,
@@ -76,6 +79,7 @@ class AIUsageTracker {
       });
 
       logger.info('AI使用记录已保存', {
+        organizationId,
         modelId,
         operationType,
         totalTokens,

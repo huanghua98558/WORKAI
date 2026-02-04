@@ -11,12 +11,14 @@ const {
   aiProviders,
   aiRoles,
   promptCategoryTemplates,
-  aiModelUsage
+  aiModelUsage,
+  aiBudgetSettings
 } = require('../database/schema');
 const { eq, asc, desc, and, sql } = require('drizzle-orm');
 const { getLogger } = require('../lib/logger');
 const AIUsageTracker = require('../services/ai/AIUsageTracker');
 const retryRateLimiter = require('../services/ai/AIRetryRateLimiter');
+const AIBudgetManager = require('../services/ai/AIBudgetManager');
 
 const logger = getLogger('AI_MODULE_API');
 
@@ -955,6 +957,94 @@ async function testProvider(request, reply) {
   }
 }
 
+/**
+ * GET /api/ai/budget/settings - 获取预算设置
+ */
+async function getBudgetSettings(request, reply) {
+  try {
+    const organizationId = request.headers['x-organization-id'] || 'default';
+    const settings = await AIBudgetManager.getBudgetSettings(organizationId);
+
+    return reply.send({
+      success: true,
+      data: settings
+    });
+  } catch (error) {
+    logger.error('获取预算设置失败:', error);
+    return reply.code(500).send({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * PUT /api/ai/budget/settings - 更新预算设置
+ */
+async function updateBudgetSettings(request, reply) {
+  try {
+    const organizationId = request.headers['x-organization-id'] || 'default';
+    const updates = request.body;
+
+    const settings = await AIBudgetManager.updateBudgetSettings(organizationId, updates);
+
+    return reply.send({
+      success: true,
+      data: settings,
+      message: '预算设置更新成功'
+    });
+  } catch (error) {
+    logger.error('更新预算设置失败:', error);
+    return reply.code(500).send({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * GET /api/ai/budget/status - 获取预算状态
+ */
+async function getBudgetStatus(request, reply) {
+  try {
+    const organizationId = request.headers['x-organization-id'] || 'default';
+    const status = await AIBudgetManager.checkBudgetStatus(organizationId);
+
+    return reply.send({
+      success: true,
+      data: status
+    });
+  } catch (error) {
+    logger.error('获取预算状态失败:', error);
+    return reply.code(500).send({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * GET /api/ai/budget/trend - 获取预算使用趋势
+ */
+async function getBudgetTrend(request, reply) {
+  try {
+    const organizationId = request.headers['x-organization-id'] || 'default';
+    const days = parseInt(request.query.days) || 7;
+    const trend = await AIBudgetManager.getBudgetTrend(organizationId, days);
+
+    return reply.send({
+      success: true,
+      data: trend
+    });
+  } catch (error) {
+    logger.error('获取预算趋势失败:', error);
+    return reply.code(500).send({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
 module.exports = async function (fastify, options) {
   // AI模型管理
   fastify.get('/models', getAIModels);
@@ -989,4 +1079,10 @@ module.exports = async function (fastify, options) {
   fastify.get('/providers', getProviders);
   fastify.put('/providers/:id', updateProvider);
   fastify.post('/providers/:id/test', testProvider);
+
+  // 预算管理
+  fastify.get('/budget/settings', getBudgetSettings);
+  fastify.put('/budget/settings', updateBudgetSettings);
+  fastify.get('/budget/status', getBudgetStatus);
+  fastify.get('/budget/trend', getBudgetTrend);
 };

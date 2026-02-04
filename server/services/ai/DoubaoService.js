@@ -16,6 +16,7 @@ class DoubaoService {
     this.modelIdStr = config.modelIdStr; // 数据库中的modelId
     this.providerId = config.providerId; // 数据库中的providerId
     this.providerName = config.providerName || 'doubao';
+    this.organizationId = config.organizationId || 'default'; // 组织ID
     this.apiKey = config.apiKey;
     this.apiEndpoint = config.apiEndpoint;
     this.temperature = config.temperature || 0.7;
@@ -135,6 +136,7 @@ class DoubaoService {
       // 记录使用情况
       if (this.modelIdStr && this.providerId) {
         AIUsageTracker.recordUsage({
+          organizationId: this.organizationId,
           modelId: this.modelIdStr,
           providerId: this.providerId,
           operationType: 'intent_recognition',
@@ -155,6 +157,7 @@ class DoubaoService {
       // 记录失败的使用情况
       if (this.modelIdStr && this.providerId) {
         AIUsageTracker.recordUsage({
+          organizationId: this.organizationId,
           modelId: this.modelIdStr,
           providerId: this.providerId,
           operationType: 'intent_recognition',
@@ -218,6 +221,7 @@ class DoubaoService {
       // 记录使用情况
       if (this.modelIdStr && this.providerId) {
         AIUsageTracker.recordUsage({
+          organizationId: this.organizationId,
           modelId: this.modelIdStr,
           providerId: this.providerId,
           operationType: context.operationType || 'chat',
@@ -238,6 +242,7 @@ class DoubaoService {
       // 记录失败的使用情况
       if (this.modelIdStr && this.providerId) {
         AIUsageTracker.recordUsage({
+          organizationId: this.organizationId,
           modelId: this.modelIdStr,
           providerId: this.providerId,
           operationType: context.operationType || 'chat',
