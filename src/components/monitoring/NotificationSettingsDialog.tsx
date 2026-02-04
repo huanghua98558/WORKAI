@@ -76,7 +76,7 @@ export function NotificationSettingsDialog({
 
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/notifications/methods/${alertRuleId}`, {
+      const response = await fetch(`/api/notifications/methods?alertRuleId=${alertRuleId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

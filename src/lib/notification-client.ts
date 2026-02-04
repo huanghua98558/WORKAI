@@ -32,7 +32,7 @@ export class NotificationClient {
    */
   async getMethods(alertRuleId: string): Promise<NotificationMethod[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/methods/${alertRuleId}`, {
+      const response = await fetch(`${this.baseUrl}/methods?alertRuleId=${alertRuleId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
