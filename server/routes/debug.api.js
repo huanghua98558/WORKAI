@@ -5,16 +5,11 @@
 const worktoolService = require('../services/worktool.service');
 const logger = require('../services/system-logger.service');
 
-// 认证中间件
-const { authMiddleware, requireRole, ROLES } = require('../middleware/auth');
-
 const debugApiRoutes = async function (fastify, options) {
   console.log('[debug.api.js] 调试功能 API 路由已加载');
 
-  // 发送消息 - 需要认证，仅管理员和操作员可操作
-  fastify.post('/debug/send-message', {
-    preHandler: [authMiddleware]
-  }, async (request, reply) => {
+  // 发送消息
+  fastify.post('/debug/send-message', async (request, reply) => {
     const startTime = Date.now();
     const debugId = `debug_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
@@ -170,10 +165,8 @@ const debugApiRoutes = async function (fastify, options) {
     }
   });
 
-  // 群操作 - 需要认证，仅管理员和操作员可操作
-  fastify.post('/debug/group-operation', {
-    preHandler: [authMiddleware]
-  }, async (request, reply) => {
+  // 群操作
+  fastify.post('/debug/group-operation', async (request, reply) => {
     const debugId = `group-op-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const startTime = Date.now();
     let robot = null;
@@ -390,10 +383,8 @@ const debugApiRoutes = async function (fastify, options) {
     }
   });
 
-  // 推送文件 - 需要认证，仅管理员和操作员可操作
-  fastify.post('/debug/push-file', {
-    preHandler: [authMiddleware]
-  }, async (request, reply) => {
+  // 推送文件
+  fastify.post('/debug/push-file', async (request, reply) => {
     try {
       const { robotId, recipient, fileType, fileName, fileUrl, remark } = request.body;
 

@@ -39,7 +39,6 @@ const robotGroupsApiRoutes = require('./routes/robot-groups.api');
 const documentApiRoutes = require('./routes/document.api');
 const notificationApiRoutes = require('./routes/notification.api');
 const intentConfigApiRoutes = require('./routes/intent-config.api');
-const authApiRoutes = require('./routes/auth.api');
 
 const redisClient = require('./lib/redis');
 const { getLogger, fastifyRequestLogger } = require('./lib/logger');
@@ -68,10 +67,8 @@ redisClient.connect().then(() => {
 
 // 注册插件
 fastify.register(cors, {
-  origin: ['http://localhost:5000', 'http://127.0.0.1:5000'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: true, // 生产环境建议配置具体域名
+  credentials: true
 });
 
 fastify.register(helmet, {
@@ -119,7 +116,6 @@ const heartbeatInterval = setInterval(() => {
 fastifyRequestLogger(fastify);
 
 // 注册路由
-fastify.register(authApiRoutes, { prefix: '/api/auth' });
 fastify.register(worktoolCallbackRoutes, { prefix: '/api/worktool/callback' });
 fastify.register(adminApiRoutes, { prefix: '/api/admin' });
 fastify.register(qaApiRoutes, { prefix: '/api/admin' });

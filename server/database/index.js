@@ -1,10 +1,8 @@
 const { userManager } = require("./userManager");
 const { systemSettingManager } = require("./systemSettingManager");
-const { auditLogManager } = require("./auditLogManager");
 
 exports.userManager = userManager;
 exports.systemSettingManager = systemSettingManager;
-exports.auditLogManager = auditLogManager;
 exports.users = require("./schema").users;
 exports.systemSettings = require("./schema").systemSettings;
 exports.qaDatabase = require("./schema").qaDatabase;
@@ -22,5 +20,3 @@ exports.updateRobotSchema = require("./schema").updateRobotSchema;
 exports.insertCallbackHistorySchema = require("./schema").insertCallbackHistorySchema;
 exports.documents = require("./schema").documents;
 exports.documentsTable = require("./schema").documentsTable;
-exports.auditLogs = require("./schema").auditLogs;
-exports.insertAuditLogSchema = require("./schema").insertAuditLogSchema;

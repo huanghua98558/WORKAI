@@ -25,8 +25,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import ProtectedRoute from '@/components/protected-route';
-import { useAuth } from '@/contexts/auth-context';
 import RobotManagement from '@/components/robot/robot-management-integrated';
 import AlertConfigTab from '@/components/alert-config-tab';
 import EnhancedAlertManagement from '@/components/enhanced-alert-management';
@@ -37,6 +35,7 @@ import MonitorTab from '@/components/monitor-tab';
 import RealtimeIOTab from '@/components/realtime-io-tab';
 import UserManagement from '@/components/user-management';
 import SettingsTab from '@/components/settings-tab';
+import AlertRulesDialog from '@/components/monitoring/AlertRulesDialog';
 import { 
   BarChart3, 
   MessageSquare,
@@ -54,9 +53,7 @@ import {
   TrendingUp,
   Users,
   User,
-  UserCheck,
-  Eye,
-  BarChart,
+  Shield,
   Database,
   Globe,
   Clock,
@@ -86,6 +83,9 @@ import {
   FileJson,
   LayoutDashboard,
   MessageCircle,
+  UserCheck,
+  Eye,
+  BarChart,
   Sparkles,
   Info,
   Sliders,
@@ -99,8 +99,7 @@ import {
   Mail,
   Building2,
   Send,
-  BookOpen,
-  LogOut
+  BookOpen
 } from 'lucide-react';
 
 // 类型定义
@@ -195,7 +194,6 @@ interface Session {
 }
 
 export default function AdminDashboard() {
-  const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [callbacks, setCallbacks] = useState<CallbackUrl | null>(null);
   const [monitorData, setMonitorData] = useState<MonitorData | null>(null);
@@ -222,6 +220,7 @@ export default function AdminDashboard() {
   const [sessionSearchQuery, setSessionSearchQuery] = useState('');
   const [sessionStatusFilter, setSessionStatusFilter] = useState<'all' | 'auto' | 'human'>('all');
   const [alertStats, setAlertStats] = useState<AlertData | null>(null); // 新的告警统计数据
+  const [isAlertRulesDialogOpen, setIsAlertRulesDialogOpen] = useState(false); // 告警规则对话框状态
   const [isSearchingSessions, setIsSearchingSessions] = useState(false);
   const [showRobotDetail, setShowRobotDetail] = useState(false);
   const [selectedRobot, setSelectedRobot] = useState<Robot | null>(null);
@@ -2450,7 +2449,7 @@ ${callbacks.robotStatus}
               <Button 
                 variant="outline"
                 size="sm"
-                onClick={() => window.location.href = '/alerts/rules'}
+                onClick={() => setIsAlertRulesDialogOpen(true)}
                 className="gap-2"
               >
                 <Settings className="h-4 w-4" />
@@ -2564,12 +2563,17 @@ ${callbacks.robotStatus}
           </CardContent>
         </Card>
       )}
+
+      {/* 告警规则设置对话框 */}
+      <AlertRulesDialog 
+        open={isAlertRulesDialogOpen}
+        onOpenChange={setIsAlertRulesDialogOpen}
+      />
     </div>
   );
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen bg-tech-grid dark:bg-tech-grid">
+    <div className="min-h-screen bg-tech-grid dark:bg-tech-grid">
       {/* 科幻风格标题栏 */}
       <header className="border-b border-primary/20 glass sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3">
@@ -2614,33 +2618,14 @@ ${callbacks.robotStatus}
               </div>
 
               {/* 刷新按钮 */}
-              <Button
-                onClick={loadData}
+              <Button 
+                onClick={loadData} 
                 variant="outline"
                 size="sm"
                 className="border-primary/30 hover:border-primary/60 hover:bg-primary/10 transition-all duration-300"
                 disabled={isLoading}
               >
                 <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''} text-primary`} />
-              </Button>
-
-              {/* 用户信息 */}
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-background/50 rounded-lg border border-primary/20">
-                <User className="h-4 w-4 text-primary" />
-                <div className="hidden sm:block">
-                  <p className="text-xs font-medium text-foreground">{user?.username}</p>
-                  <p className="text-xs text-muted-foreground">{user?.role}</p>
-                </div>
-              </div>
-
-              {/* 登出按钮 */}
-              <Button
-                onClick={logout}
-                variant="outline"
-                size="sm"
-                className="border-red-300 hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all duration-300"
-              >
-                <LogOut className="h-4 w-4 text-red-500" />
               </Button>
             </div>
           </div>
@@ -3422,8 +3407,7 @@ ${callbacks.robotStatus}
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      </div>
-    </ProtectedRoute>
+    </div>
   );
 }
 

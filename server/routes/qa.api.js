@@ -4,16 +4,11 @@
 
 const qaService = require('../services/qa.service');
 
-// 认证中间件
-const { authMiddleware, requireRole, ROLES } = require('../middleware/auth');
-
 const qaApiRoutes = async function (fastify, options) {
   console.log('[qa.api.js] QA API 路由已加载');
-
-  // 获取所有 QA 问答 - 需要认证
-  fastify.get('/qa', {
-    preHandler: [authMiddleware]
-  }, async (request, reply) => {
+  
+  // 获取所有 QA 问答
+  fastify.get('/qa', async (request, reply) => {
     try {
       const { groupName, isActive, receiverType } = request.query;
       const qaList = await qaService.getAllQAs({ groupName, isActive, receiverType });
@@ -33,10 +28,8 @@ const qaApiRoutes = async function (fastify, options) {
     }
   });
 
-  // 根据 ID 获取 QA 问答 - 需要认证
-  fastify.get('/qa/:id', {
-    preHandler: [authMiddleware]
-  }, async (request, reply) => {
+  // 根据 ID 获取 QA 问答
+  fastify.get('/qa/:id', async (request, reply) => {
     try {
       const { id } = request.params;
       const qa = await qaService.getQAById(id);
@@ -63,10 +56,8 @@ const qaApiRoutes = async function (fastify, options) {
     }
   });
 
-  // 添加 QA 问答 - 需要认证，仅管理员和操作员可操作
-  fastify.post('/qa', {
-    preHandler: [authMiddleware]
-  }, async (request, reply) => {
+  // 添加 QA 问答
+  fastify.post('/qa', async (request, reply) => {
     try {
       const data = request.body;
       const qa = await qaService.addQA(data);
@@ -86,10 +77,8 @@ const qaApiRoutes = async function (fastify, options) {
     }
   });
 
-  // 更新 QA 问答 - 需要认证
-  fastify.put('/qa/:id', {
-    preHandler: [authMiddleware]
-  }, async (request, reply) => {
+  // 更新 QA 问答
+  fastify.put('/qa/:id', async (request, reply) => {
     try {
       const { id } = request.params;
       const data = request.body;
@@ -117,10 +106,8 @@ const qaApiRoutes = async function (fastify, options) {
     }
   });
 
-  // 删除 QA 问答 - 需要认证，仅管理员和操作员可操作
-  fastify.delete('/qa/:id', {
-    preHandler: [authMiddleware]
-  }, async (request, reply) => {
+  // 删除 QA 问答
+  fastify.delete('/qa/:id', async (request, reply) => {
     try {
       const { id } = request.params;
       const qa = await qaService.deleteQA(id);

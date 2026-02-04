@@ -13,17 +13,12 @@ const adminApiRoutes = async function (fastify, options) {
   const worktoolService = require('../services/worktool.service');
 
   // 数据库管理器
-  const { userManager, systemSettingManager, auditLogManager } = require('../database');
-
-  // 认证中间件（暂时禁用审计日志）
-  const { authMiddleware, requireRole, ROLES } = require('../middleware/auth');
+  const { userManager, systemSettingManager } = require('../database');
 
   /**
-   * 获取系统配置 - 需要认证
+   * 获取系统配置
    */
-  fastify.get('/config', {
-    preHandler: [authMiddleware]
-  }, async (request, reply) => {
+  fastify.get('/config', async (request, reply) => {
     const aiConfig = config.get('ai');
     
     const safeConfig = {
@@ -98,12 +93,7 @@ const adminApiRoutes = async function (fastify, options) {
   /**
    * 更新系统配置
    */
-  /**
-   * 更新系统配置 - 需要认证，仅管理员可操作
-   */
-  fastify.post('/config', {
-    preHandler: [authMiddleware, requireRole(ROLES.ADMIN)]
-  }, async (request, reply) => {
+  fastify.post('/config', async (request, reply) => {
     console.log('📥 POST /api/admin/config 被调用，请求体:', JSON.stringify(request.body));
     try {
       const updateData = request.body;
@@ -896,11 +886,8 @@ const adminApiRoutes = async function (fastify, options) {
 
   /**
    * 获取系统用户列表
-   * 需要认证
    */
-  fastify.get('/users', { 
-    preHandler: [authMiddleware] 
-  }, async (request, reply) => {
+  fastify.get('/users', async (request, reply) => {
     try {
       const { skip, limit, filters } = request.query;
       const users = await userManager.getUsers({
@@ -919,11 +906,8 @@ const adminApiRoutes = async function (fastify, options) {
 
   /**
    * 添加系统用户
-   * 需要认证，仅管理员可操作
    */
-  fastify.post('/users', { 
-    preHandler: [authMiddleware, requireRole(ROLES.ADMIN)] 
-  }, async (request, reply) => {
+  fastify.post('/users', async (request, reply) => {
     try {
       const { username, password, role, email, isActive } = request.body;
       
@@ -980,11 +964,8 @@ const adminApiRoutes = async function (fastify, options) {
 
   /**
    * 更新系统用户
-   * 需要认证，仅管理员可操作
    */
-  fastify.put('/users/:id', { 
-    preHandler: [authMiddleware, requireRole(ROLES.ADMIN)] 
-  }, async (request, reply) => {
+  fastify.put('/users/:id', async (request, reply) => {
     try {
       const { id } = request.params;
       const { password, role, email, isActive } = request.body;
@@ -1045,11 +1026,8 @@ const adminApiRoutes = async function (fastify, options) {
 
   /**
    * 删除系统用户
-   * 需要认证，仅管理员可操作
    */
-  fastify.delete('/users/:id', { 
-    preHandler: [authMiddleware, requireRole(ROLES.ADMIN)] 
-  }, async (request, reply) => {
+  fastify.delete('/users/:id', async (request, reply) => {
     try {
       const { id } = request.params;
       

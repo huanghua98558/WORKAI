@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { Inspector } from 'react-dev-inspector';
-import { AuthProvider } from '@/contexts/auth-context';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -65,12 +64,10 @@ export default function RootLayout({
   const isDev = process.env.NODE_ENV === 'development';
 
   return (
-    <html lang="zh-CN">
+    <html lang="en">
       <body className={`antialiased`}>
         {isDev && <Inspector />}
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        {children}
       </body>
     </html>
   );

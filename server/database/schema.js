@@ -164,49 +164,6 @@ exports.users = pgTable(
   })
 );
 
-// 审计日志表
-exports.auditLogs = pgTable(
-  "audit_logs",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    userId: varchar("user_id", { length: 36 }), // 操作用户 ID
-    username: varchar("username", { length: 64 }), // 操作用户名
-    action: varchar("action", { length: 50 }).notNull(), // 操作类型: login, logout, create, update, delete, etc.
-    resource: varchar("resource", { length: 100 }), // 资源类型: user, robot, alert, etc.
-    resourceId: varchar("resource_id", { length: 36 }), // 资源 ID
-    details: jsonb("details").default("{}"), // 操作详情（JSON 格式）
-    ipAddress: varchar("ip_address", { length: 50 }), // IP 地址
-    userAgent: text("user_agent"), // User Agent
-    status: varchar("status", { length: 20 }).notNull().default("success"), // success, failure
-    errorMessage: text("error_message"), // 错误信息
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (table) => ({
-    userIdIdx: index("audit_logs_user_id_idx").on(table.userId),
-    actionIdx: index("audit_logs_action_idx").on(table.action),
-    resourceIdx: index("audit_logs_resource_idx").on(table.resource),
-    createdAtIdx: index("audit_logs_created_at_idx").on(table.createdAt),
-  })
-);
-
-// 审计日志插入 Schema
-exports.insertAuditLogSchema = z.object({
-  userId: z.string().uuid().optional(),
-  username: z.string().optional(),
-  action: z.string(),
-  resource: z.string().optional(),
-  resourceId: z.string().uuid().optional(),
-  details: z.any().optional(),
-  ipAddress: z.string().optional(),
-  userAgent: z.string().optional(),
-  status: z.enum(['success', 'failure']).default('success'),
-  errorMessage: z.string().optional()
-});
-
 // 系统设置表
 exports.systemSettings = pgTable(
   "system_settings",
@@ -611,49 +568,6 @@ exports.users = pgTable(
     emailIdx: index("users_email_idx").on(table.email),
   })
 );
-
-// 审计日志表
-exports.auditLogs = pgTable(
-  "audit_logs",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    userId: varchar("user_id", { length: 36 }), // 操作用户 ID
-    username: varchar("username", { length: 64 }), // 操作用户名
-    action: varchar("action", { length: 50 }).notNull(), // 操作类型: login, logout, create, update, delete, etc.
-    resource: varchar("resource", { length: 100 }), // 资源类型: user, robot, alert, etc.
-    resourceId: varchar("resource_id", { length: 36 }), // 资源 ID
-    details: jsonb("details").default("{}"), // 操作详情（JSON 格式）
-    ipAddress: varchar("ip_address", { length: 50 }), // IP 地址
-    userAgent: text("user_agent"), // User Agent
-    status: varchar("status", { length: 20 }).notNull().default("success"), // success, failure
-    errorMessage: text("error_message"), // 错误信息
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (table) => ({
-    userIdIdx: index("audit_logs_user_id_idx").on(table.userId),
-    actionIdx: index("audit_logs_action_idx").on(table.action),
-    resourceIdx: index("audit_logs_resource_idx").on(table.resource),
-    createdAtIdx: index("audit_logs_created_at_idx").on(table.createdAt),
-  })
-);
-
-// 审计日志插入 Schema
-exports.insertAuditLogSchema = z.object({
-  userId: z.string().uuid().optional(),
-  username: z.string().optional(),
-  action: z.string(),
-  resource: z.string().optional(),
-  resourceId: z.string().uuid().optional(),
-  details: z.any().optional(),
-  ipAddress: z.string().optional(),
-  userAgent: z.string().optional(),
-  status: z.enum(['success', 'failure']).default('success'),
-  errorMessage: z.string().optional()
-});
 
 // 系统设置表
 exports.systemSettings = pgTable(
