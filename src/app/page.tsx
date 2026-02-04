@@ -1947,13 +1947,13 @@ ${callbacks.robotStatus}
                   最近会话
                 </CardTitle>
                 <Badge variant="outline" className="text-xs">
-                  {Math.min(sessions.length, 5)} 个
+                  {Math.min(sessions.length, 10)} 个
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                {sessions.slice(0, 5).map((session) => (
+              <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                {sessions.slice(0, 10).map((session) => (
                   <div
                     key={session.sessionId}
                     className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
@@ -1977,12 +1977,22 @@ ${callbacks.robotStatus}
                         {session.lastMessage || '无消息'}
                       </div>
                       <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="outline" className="h-4 px-1 text-[9px]">
-                          {session.status === 'auto' ? '自动' : '人工'}
+                        <Badge
+                          variant={session.status === 'auto' ? 'default' : 'secondary'}
+                          className="gap-0.5 h-5 px-1.5 text-[10px]"
+                        >
+                          {session.status === 'auto' ? (
+                            <>
+                              <Bot className="h-2.5 w-2.5" />
+                              自动
+                            </>
+                          ) : (
+                            <>
+                              <Users className="h-2.5 w-2.5" />
+                              人工
+                            </>
+                          )}
                         </Badge>
-                        <span className="text-[9px] text-muted-foreground">
-                          {formatTime(session.lastActiveTime)}
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -2853,7 +2863,7 @@ ${callbacks.robotStatus}
 
       {/* 会话详情弹窗 */}
       <Dialog open={showSessionDetail} onOpenChange={setShowSessionDetail}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <MessageSquare className="h-6 w-6 text-blue-500" />
@@ -2865,7 +2875,7 @@ ${callbacks.robotStatus}
           </DialogHeader>
 
           {selectedSession && (
-            <div className="space-y-6">
+            <div className="flex-1 overflow-y-auto space-y-6">
               {/* 会话基本信息卡片 */}
               <Card>
                 <CardHeader>
@@ -3021,7 +3031,7 @@ ${callbacks.robotStatus}
               </Card>
 
               {/* 消息记录 */}
-              <Card>
+              <Card className="flex-1 flex flex-col">
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <MessageSquare className="h-4 w-4" />
@@ -3029,7 +3039,7 @@ ${callbacks.robotStatus}
                     <Badge variant="outline" className="ml-2">{sessionMessages.length} 条</Badge>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex-1 overflow-hidden">
                   {isLoadingSessionMessages ? (
                     <div className="flex items-center justify-center py-12">
                       <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
@@ -3041,7 +3051,7 @@ ${callbacks.robotStatus}
                       <p>暂无消息记录</p>
                     </div>
                   ) : (
-                    <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                    <div className="space-y-4 overflow-y-auto" style={{ maxHeight: '600px' }}>
                       {sessionMessages.map((msg: any) => (
                         <MessageBubble
                           key={msg.id || msg.timestamp || Math.random()}

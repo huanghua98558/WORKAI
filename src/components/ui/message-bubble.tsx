@@ -136,9 +136,17 @@ export function MessageBubble({
   const { containerClass, bubbleClass, textClass } = getBubbleStyle();
   const { icon, name } = getSenderInfo();
 
+  // 根据显示模式调整最大宽度
+  const getMaxWidth = () => {
+    if (displayMode === 'detail') {
+      return 'max-w-[90%]';
+    }
+    return 'max-w-[80%]';
+  };
+
   return (
     <div className={`flex ${containerClass} ${className}`}>
-      <div className={`max-w-[80%] ${bubbleClass} rounded-2xl p-4`}>
+      <div className={`${getMaxWidth()} ${bubbleClass} rounded-2xl p-4`}>
         {/* 发送者信息和时间 */}
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
           <span className={`text-sm font-bold ${textClass}`}>
@@ -151,7 +159,9 @@ export function MessageBubble({
         </div>
 
         {/* 消息内容 */}
-        <p className="text-sm whitespace-pre-wrap break-words">{content}</p>
+        <div className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+          {content}
+        </div>
 
         {/* 意图标签（可选） */}
         {intent && renderIntentBadge && (
