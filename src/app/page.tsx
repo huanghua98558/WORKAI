@@ -293,10 +293,10 @@ export default function AdminDashboard() {
     setIsLoading(true);
     try {
       const [callbacksRes, monitorRes, alertRes, sessionsRes, uptimeRes] = await Promise.all([
-        fetch('/api/admin/callbacks'),
-        fetch('/api/admin/monitor/summary'),
-        fetch('/api/admin/alerts/stats'),
-        fetch('/api/admin/sessions/active?limit=20'),
+        fetch('/api/proxy/admin/callbacks'),
+        fetch('/api/proxy/admin/monitor/summary'),
+        fetch('/api/proxy/admin/alerts/stats'),
+        fetch('/api/proxy/admin/sessions/active?limit=20'),
         fetch('/api/proxy/health') // 获取服务器运行时间
       ]);
 

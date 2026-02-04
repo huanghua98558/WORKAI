@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 /**
- * 获取机器人列表
+ * 获取告警统计
  */
 export async function GET(request: NextRequest) {
   try {
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
                          request.headers.get('host')?.includes('127.0.0.1');
     const baseUrl = isLocalhost ? BACKEND_URL : `${request.nextUrl.protocol}//${request.headers.get('host')}`;
 
-    const url = new URL('/api/admin/robots', baseUrl);
+    const url = new URL('/api/admin/alerts/stats', baseUrl);
 
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -24,9 +24,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
-    console.error('Get robots proxy error:', error);
+    console.error('Get alerts stats proxy error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch robots' },
+      { success: false, error: 'Failed to fetch alerts stats' },
       { status: 500 }
     );
   }
