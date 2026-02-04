@@ -36,9 +36,6 @@ const promptInitApiRoutes = require('./routes/prompt-init.api');
 const robotRolesApiRoutes = require('./routes/robot-roles.api');
 const robotGroupsApiRoutes = require('./routes/robot-groups.api');
 const documentApiRoutes = require('./routes/document.api');
-const fineTuneDatasetsApiRoutes = require('./routes/fine-tune-datasets.api');
-const fineTuneTasksApiRoutes = require('./routes/fine-tune-tasks.api');
-const fineTuneModelsApiRoutes = require('./routes/fine-tune-models.api');
 
 const redisClient = require('./lib/redis');
 const { getLogger, fastifyRequestLogger } = require('./lib/logger');
@@ -116,9 +113,6 @@ fastify.register(promptInitApiRoutes, { prefix: '/api' });
 fastify.register(robotRolesApiRoutes, { prefix: '/api' });
 fastify.register(robotGroupsApiRoutes, { prefix: '/api' });
 fastify.register(documentApiRoutes, { prefix: '/api/admin' });
-fastify.register(fineTuneDatasetsApiRoutes, { prefix: '/api/admin' });
-fastify.register(fineTuneTasksApiRoutes, { prefix: '/api/admin' });
-fastify.register(fineTuneModelsApiRoutes, { prefix: '/api' });
 
 // 健康检查
 fastify.get('/health', async (request, reply) => {
