@@ -36,6 +36,7 @@ import {
   FileText,
   Code,
   Terminal,
+  Activity,
 } from 'lucide-react';
 import {
   DropdownMenu,
