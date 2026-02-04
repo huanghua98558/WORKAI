@@ -1881,23 +1881,23 @@ ${callbacks.robotStatus}
     };
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-5">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h3 className="text-2xl font-bold flex items-center gap-2">
-              <Users className="h-6 w-6 text-green-500" />
+              <Users className="h-5 w-5 text-green-500" />
               会话管理
             </h3>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               查看和管理活跃的用户会话
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="gap-1">
+            <Badge variant="outline" className="gap-1 h-5 px-2">
               <Users className="h-3 w-3" />
               {sessions.length} 个活跃会话
             </Badge>
-            <Badge variant={showSessionDetail ? "secondary" : "outline"} className="gap-1">
+            <Badge variant={showSessionDetail ? "secondary" : "outline"} className="gap-1 h-5 px-2">
               <RefreshCw className={`h-3 w-3 ${!showSessionDetail && 'animate-spin'}`} />
               {showSessionDetail ? '刷新暂停' : '自动刷新'}
             </Badge>
@@ -1915,23 +1915,23 @@ ${callbacks.robotStatus}
 
         {/* 统计卡片 */}
         <Card>
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="text-center p-3 bg-muted/30 rounded-lg">
-                <div className="text-xl md:text-2xl font-bold">{stats.total}</div>
-                <div className="text-xs text-muted-foreground mt-1">总会话</div>
+          <CardContent className="p-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+              <div className="text-center p-3.5 bg-muted/30 rounded-lg">
+                <div className="text-lg md:text-xl font-bold">{stats.total}</div>
+                <div className="text-[11px] text-muted-foreground mt-1">总会话</div>
               </div>
-              <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <div className="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.auto}</div>
-                <div className="text-xs text-muted-foreground mt-1">自动模式</div>
+              <div className="text-center p-3.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div className="text-lg md:text-xl font-bold text-blue-600 dark:text-blue-400">{stats.auto}</div>
+                <div className="text-[11px] text-muted-foreground mt-1">自动模式</div>
               </div>
-              <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                <div className="text-xl md:text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.human}</div>
-                <div className="text-xs text-muted-foreground mt-1">人工模式</div>
+              <div className="text-center p-3.5 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                <div className="text-lg md:text-xl font-bold text-orange-600 dark:text-orange-400">{stats.human}</div>
+                <div className="text-[11px] text-muted-foreground mt-1">人工模式</div>
               </div>
-              <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                <div className="text-xl md:text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.totalMessages}</div>
-                <div className="text-xs text-muted-foreground mt-1">总消息</div>
+              <div className="text-center p-3.5 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                <div className="text-lg md:text-xl font-bold text-purple-600 dark:text-purple-400">{stats.totalMessages}</div>
+                <div className="text-[11px] text-muted-foreground mt-1">总消息</div>
               </div>
             </div>
           </CardContent>
@@ -1952,11 +1952,11 @@ ${callbacks.robotStatus}
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              <div className="grid gap-2.5 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                 {sessions.slice(0, 10).map((session) => (
                   <div
                     key={session.sessionId}
-                    className="flex items-start gap-2.5 p-2.5 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                    className="flex items-start gap-2.5 p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
                     onClick={() => {
                       setSelectedSession(session);
                       setShowSessionDetail(true);
@@ -1964,7 +1964,7 @@ ${callbacks.robotStatus}
                     }}
                   >
                     {/* 用户头像 */}
-                    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                    <div className="flex-shrink-0 w-6.5 h-6.5 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                       <User className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                     </div>
 
@@ -1977,16 +1977,16 @@ ${callbacks.robotStatus}
                         </span>
                         <Badge
                           variant={session.status === 'auto' ? 'default' : 'secondary'}
-                          className="gap-0.5 h-4 px-1 text-[9px] flex-shrink-0"
+                          className="gap-0.5 h-4.5 px-1.5 text-[10px] flex-shrink-0"
                         >
                           {session.status === 'auto' ? (
                             <>
-                              <Bot className="h-2 w-2" />
+                              <Bot className="h-2.5 w-2.5" />
                               自动
                             </>
                           ) : (
                             <>
-                              <Users className="h-2 w-2" />
+                              <Users className="h-2.5 w-2.5" />
                               人工
                             </>
                           )}
@@ -1994,11 +1994,11 @@ ${callbacks.robotStatus}
                       </div>
 
                       {/* 第二行：消息 + 时间 */}
-                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                         <span className="truncate flex-1">
                           {session.lastMessage || '无消息'}
                         </span>
-                        <span className="flex-shrink-0 opacity-60 text-[9px] whitespace-nowrap">
+                        <span className="flex-shrink-0 opacity-60 text-[10px] whitespace-nowrap">
                           {formatTime(session.lastActiveTime)}
                         </span>
                       </div>
@@ -2011,7 +2011,7 @@ ${callbacks.robotStatus}
         )}
 
         {/* 搜索和筛选 */}
-        <Card className="bg-muted/30 border-dashed">
+        <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
               <Filter className="h-4 w-4" />
@@ -2026,13 +2026,13 @@ ${callbacks.robotStatus}
                   placeholder="搜索用户或群组..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 h-9"
+                  className="pl-10 h-10"
                 />
               </div>
               
               <div className="flex gap-2 flex-wrap">
                 <Select value={filterStatus} onValueChange={(value: any) => setFilterStatus(value)}>
-                  <SelectTrigger className="w-full sm:w-[140px] h-9">
+                  <SelectTrigger className="w-full sm:w-[140px] h-10">
                     <SelectValue placeholder="状态" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2043,7 +2043,7 @@ ${callbacks.robotStatus}
                 </Select>
 
                 <Select value={filterIntent} onValueChange={setFilterIntent}>
-                  <SelectTrigger className="w-full sm:w-[140px] h-9">
+                  <SelectTrigger className="w-full sm:w-[140px] h-10">
                     <SelectValue placeholder="意图" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2089,27 +2089,27 @@ ${callbacks.robotStatus}
                 ) : null}
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {filteredSessions.map((session) => (
                   <div
                     key={session.sessionId}
-                    className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group"
+                    className="flex items-center gap-3 p-3.5 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group"
                     onClick={() => handleViewSessionDetail(session)}
                   >
                     {/* 用户头像 */}
-                    <div className="p-1.5 bg-blue-100 dark:bg-blue-900 rounded flex-shrink-0">
-                      <UserCheck className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded flex-shrink-0">
+                      <UserCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     
                     {/* 用户信息 */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                        <span className="font-medium text-sm truncate">{session.userName || '未知用户'}</span>
+                        <span className="font-medium text-base truncate">{session.userName || '未知用户'}</span>
                         
-                        {/* 状态Badge - 紧凑显示 */}
+                        {/* 状态Badge - 标准尺寸 */}
                         <Badge 
                           variant={session.status === 'auto' ? 'default' : 'secondary'}
-                          className="gap-0.5 h-5 px-1.5 text-[10px]"
+                          className="gap-0.5 h-5 px-2 text-[11px]"
                         >
                           {session.status === 'auto' ? (
                             <Bot className="h-2.5 w-2.5" />
@@ -2121,7 +2121,7 @@ ${callbacks.robotStatus}
                         
                         {/* 意图Badge - 仅在有值时显示 */}
                         {session.lastIntent && (
-                          <Badge variant="outline" className="gap-0.5 h-5 px-1.5 text-[10px]">
+                          <Badge variant="outline" className="gap-0.5 h-5 px-2 text-[11px]">
                             <Sparkles className="h-2.5 w-2.5" />
                             {session.lastIntent}
                           </Badge>
@@ -2134,17 +2134,17 @@ ${callbacks.robotStatus}
                       </div>
                       
                       {/* 群组和消息 - 合并在一行 */}
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <span className="truncate max-w-[150px]">{session.groupName || '未知群组'}</span>
                         <span className="hidden sm:inline">•</span>
                         {session.lastMessage && (
                           <span className="truncate max-w-[200px] hidden sm:inline">
                             {session.isFromUser ? (
-                              <><User className="h-2.5 w-2.5 inline mr-0.5 text-blue-500" /></>
+                              <><User className="h-3 w-3 inline mr-0.5 text-blue-500" /></>
                             ) : session.isHuman ? (
-                              <><UserCheck className="h-2.5 w-2.5 inline mr-0.5 text-orange-500" /></>
+                              <><UserCheck className="h-3 w-3 inline mr-0.5 text-orange-500" /></>
                             ) : (
-                              <><Bot className="h-2.5 w-2.5 inline mr-0.5 text-green-500" /></>
+                              <><Bot className="h-3 w-3 inline mr-0.5 text-green-500" /></>
                             )}
                             {session.lastMessage}
                           </span>
@@ -2152,22 +2152,22 @@ ${callbacks.robotStatus}
                       </div>
                       
                       {/* 底部信息 - 消息统计和公司 */}
-                      <div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground">
+                      <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
                         <span className="flex items-center gap-0.5">
-                          <MessageSquare className="h-2.5 w-2.5" />
+                          <MessageSquare className="h-3 w-3" />
                           {session.messageCount}
                         </span>
                         <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
-                          <Bot className="h-2.5 w-2.5" />
+                          <Bot className="h-3 w-3" />
                           {session.aiReplyCount}
                         </span>
                         <span className="flex items-center gap-0.5 text-orange-600 dark:text-orange-400">
-                          <User className="h-2.5 w-2.5" />
+                          <User className="h-3 w-3" />
                           {session.humanReplyCount}
                         </span>
                         {session.company && (
                           <span className="flex items-center gap-0.5 text-blue-600 dark:text-blue-400 hidden lg:inline">
-                            <Building2 className="h-2.5 w-2.5" />
+                            <Building2 className="h-3 w-3" />
                             {session.company}
                             {session.robotNickname && ` (${session.robotNickname})`}
                           </span>
@@ -2177,7 +2177,7 @@ ${callbacks.robotStatus}
                     
                     {/* 右侧时间和操作按钮 */}
                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
                         {formatTime(session.lastActiveTime)}
                       </span>
                       <Button
