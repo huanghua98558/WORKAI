@@ -234,7 +234,7 @@ export default function AdminDashboard() {
     loadAiConfig(); // 只在组件挂载时加载一次 AI 配置
   }, []);
 
-  // 自动刷新：每隔 10 秒刷新一次会话数据
+  // 自动刷新：每隔 30 秒刷新一次会话数据
   // 当打开会话详情时停止刷新，关闭会话详情后恢复刷新
   // 当切换到监控标签页时停止刷新（监控组件有自己的刷新机制）
   useEffect(() => {
@@ -251,7 +251,7 @@ export default function AdminDashboard() {
     const interval = setInterval(() => {
       loadData();
       loadRobots();
-    }, 10000); // 每 10 秒刷新一次
+    }, 30000); // 每 30 秒刷新一次
 
     return () => clearInterval(interval);
   }, [showSessionDetail, activeTab]);
