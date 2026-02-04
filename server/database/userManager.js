@@ -1,12 +1,18 @@
 const { eq, and, like, sql } = require("drizzle-orm");
 const { getDb } = require("coze-coding-dev-sdk");
 const { users, insertUserSchema, updateUserSchema } = require("./schema");
+const { getLogger } = require("../lib/logger");
 
 class UserManager {
+  constructor() {
+    this.logger = getLogger('DB_USER');
+  }
+
   async createUser(data) {
     const db = await getDb();
     const validated = insertUserSchema.parse(data);
     const [user] = await db.insert(users).values(validated).returning();
+    this.logger.info('创建用户成功', { userId: user.id, username: user.username });
     return user;
   }
 

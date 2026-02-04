@@ -7,8 +7,12 @@ const { getDb } = require('coze-coding-dev-sdk');
 const { robots, apiCallLogs } = require('../database/schema');
 const { eq, and, like, or } = require('drizzle-orm');
 const axios = require('axios');
+const { getLogger } = require('../lib/logger');
 
 class RobotService {
+  constructor() {
+    this.logger = getLogger('ROBOT');
+  }
   /**
    * 生成机器人的回调地址和通讯地址
    */
@@ -62,6 +66,13 @@ class RobotService {
     const startTime = Date.now();
     let responseStatus, responseData, errorMessage, success;
 
+    this.logger.debug('开始测试API接口', {
+      robotId,
+      apiType,
+      httpMethod,
+      url: apiUrl
+    });
+
     try {
       let response;
 
@@ -88,11 +99,26 @@ class RobotService {
       if (!success) {
         errorMessage = responseData?.message || 'API 返回错误';
       }
+
+      this.logger.debug('API接口测试成功', {
+        robotId,
+        apiType,
+        status: responseStatus,
+        success
+      });
     } catch (error) {
       responseStatus = error.response?.status || 0;
       errorMessage = error.message;
       success = false;
       responseData = error.response?.data || null;
+
+      this.logger.warn('API接口测试失败', {
+        robotId,
+        apiType,
+        httpMethod,
+        error: error.message,
+        status: responseStatus
+      });
     }
 
     const responseTime = Date.now() - startTime;
@@ -114,8 +140,21 @@ class RobotService {
         errorMessage,
         createdAt: new Date()
       });
+
+      // 记录性能日志
+      await this.logger.performance('API调用', responseTime, {
+        robotId,
+        apiType,
+        httpMethod,
+        success,
+        statusCode: responseStatus
+      });
     } catch (logError) {
-      console.error('记录API调用日志失败:', logError);
+      this.logger.error('记录API调用日志失败', {
+        error: logError.message,
+        robotId,
+        apiType
+      });
     }
 
     return {

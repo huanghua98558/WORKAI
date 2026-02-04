@@ -6,7 +6,16 @@
 
 const { LLMClient, Config } = require('coze-coding-dev-sdk');
 const config = require('../lib/config');
+const { getLogger } = require('../lib/logger');
 const aiIoLogService = require('./ai-io-log.service');
+
+class AIService {
+  constructor() {
+    this.clients = {};
+    this.builtinModelMap = {};
+    this.logger = getLogger('AI');
+    this.initializeClients();
+  }
 
 class AIService {
   constructor() {
@@ -32,7 +41,7 @@ class AIService {
     providers.forEach(provider => {
       const configItem = aiConfig[provider];
       if (!configItem) {
-        console.warn(`⚠️  ${provider} AI 配置未设置`);
+        this.logger.warn(`${provider} AI 配置未设置`, { provider });
         return;
       }
 
@@ -45,10 +54,17 @@ class AIService {
             temperature: configItem.temperature ?? this.getDefaultTemperature(provider),
             systemPrompt: configItem.systemPrompt ?? this.getDefaultSystemPrompt(provider)
           });
-          console.log(`✅ ${provider} 使用内置模型: ${builtinModel.name}`);
+          this.logger.info(`${provider} 使用内置模型`, {
+            provider,
+            model: builtinModel.name,
+            modelId: builtinModel.modelId
+          });
           return;
         } else {
-          console.warn(`⚠️  ${provider} 内置模型 ${configItem.builtinModelId} 未找到`);
+          this.logger.warn(`${provider} 内置模型未找到`, {
+            provider,
+            modelId: configItem.builtinModelId
+          });
         }
       }
 
@@ -59,7 +75,10 @@ class AIService {
           temperature: configItem.temperature ?? this.getDefaultTemperature(provider),
           systemPrompt: configItem.systemPrompt ?? this.getDefaultSystemPrompt(provider)
         });
-        console.log(`✅ ${provider} 使用自定义模型: ${configItem.customModel.model}`);
+        this.logger.info(`${provider} 使用自定义模型`, {
+          provider,
+          model: configItem.customModel.model
+        });
       }
     });
   }
@@ -71,15 +90,23 @@ class AIService {
     try {
       const sdkConfig = new Config();
       const client = new LLMClient(sdkConfig);
-      
+
       this.clients[provider] = {
         client,
         modelId: configItem.modelId,
         temperature: configItem.temperature,
         systemPrompt: configItem.systemPrompt
       };
+      this.logger.debug(`${provider} 客户端初始化成功`, {
+        provider,
+        modelId: configItem.modelId,
+        temperature: configItem.temperature
+      });
     } catch (error) {
-      console.error(`❌ ${provider} AI 客户端初始化失败:`, error.message);
+      this.logger.error(`${provider} AI 客户端初始化失败`, {
+        provider,
+        error: error.message
+      });
     }
   }
 
@@ -190,6 +217,15 @@ class AIService {
     const userName = context.userName || context.userId || '未知用户';
     const groupName = context.groupName || context.groupId || '未知群组';
 
+    this.logger.info('开始意图识别', {
+      sessionId,
+      messageId,
+      robotId,
+      userName,
+      groupName,
+      messageLength: message.length
+    });
+
     // 获取长期记忆配置
     const memoryConfig = config.get('ai.memory') || {
       enabled: true,
@@ -266,6 +302,13 @@ class AIService {
         status: 'success',
       });
 
+      // 记录性能日志
+      await this.logger.performance('意图识别', duration, {
+        modelId: clientConfig.modelId,
+        sessionId,
+        outputLength: content.length
+      });
+
       // 尝试解析 JSON
       let result;
       try {
@@ -273,7 +316,10 @@ class AIService {
         const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
         result = JSON.parse(cleanContent);
       } catch (e) {
-        console.warn('意图识别返回格式错误，使用默认值:', content);
+        this.logger.warn('意图识别返回格式错误，使用默认值', {
+          error: e.message,
+          content: content.substring(0, 200)
+        });
         result = {
           intent: 'chat',
           needReply: true,
@@ -286,7 +332,14 @@ class AIService {
       return result;
     } catch (error) {
       const duration = Date.now() - startTime;
-      console.error('意图识别失败:', error.message);
+      this.logger.error('意图识别失败', {
+        sessionId,
+        messageId,
+        robotId,
+        error: error.message,
+        stack: error.stack,
+        duration
+      });
 
       // 记录错误日志
       await aiIoLogService.saveLog({

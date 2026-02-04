@@ -45,9 +45,13 @@ const fineTuneTasksApiRoutes = require('./routes/fine-tune-tasks.api');
 const fineTuneModelsApiRoutes = require('./routes/fine-tune-models.api');
 
 const redisClient = require('./lib/redis');
+const { getLogger, fastifyRequestLogger } = require('./lib/logger');
 
 const robotService = require('./services/robot.service');
 const robotCommandService = require('./services/robot-command.service');
+
+// 获取主模块日志
+const logger = getLogger('APP');
 
 // 初始化 Fastify 实例
 const fastify = Fastify({
@@ -60,10 +64,9 @@ const fastify = Fastify({
 let redisAvailable = false;
 redisClient.connect().then(() => {
   redisAvailable = true;
-  console.log('📊 Redis 状态: 已连接');
+  logger.info('Redis 客户端已连接', { mode: 'redis' });
 }).catch((error) => {
-  console.warn('⚠️  Redis 不可用，系统将以内存模式运行');
-  console.log('📊 Redis 状态: 内存模式');
+  logger.warn('Redis 连接失败，切换到内存模式', { error: error.message, mode: 'memory' });
 });
 
 // 注册插件
@@ -94,6 +97,9 @@ fastify.register(multipart, {
     files: 1
   }
 });
+
+// 注册请求日志中间件
+fastifyRequestLogger(fastify);
 
 // 注册路由
 fastify.register(worktoolCallbackRoutes, { prefix: '/api/worktool/callback' });
@@ -136,53 +142,53 @@ const start = async () => {
     const HOST = process.env.HOST || '0.0.0.0';
 
     await fastify.listen({ port: PORT, host: HOST });
-    
+
+    logger.info('WorkTool AI 中枢系统启动成功', {
+      port: PORT,
+      host: HOST,
+      url: `http://${HOST}:${PORT}`,
+      adminUrl: `http://${HOST}:${PORT}/admin`,
+      healthUrl: `http://${HOST}:${PORT}/health`
+    });
+
     // 启动机器人状态定时检查任务（每5分钟检查一次）
-    console.log('🤖 启动机器人状态定时检查任务...');
+    logger.info('启动机器人状态定时检查任务', { interval: '5min' });
     const CHECK_INTERVAL = 5 * 60 * 1000; // 5分钟
-    
+
     const checkRobotsTask = async () => {
       try {
-        console.log(`[${new Date().toLocaleString('zh-CN')}] 开始检查所有机器人状态...`);
+        logger.info('开始检查所有机器人状态');
         const results = await robotService.checkAllActiveRobots();
         const onlineCount = results.filter(r => r.status === 'online').length;
         const offlineCount = results.filter(r => r.status === 'offline').length;
         const errorCount = results.filter(r => r.status === 'error').length;
-        console.log(`✅ 机器人状态检查完成: 在线 ${onlineCount}, 离线 ${offlineCount}, 错误 ${errorCount}`);
+        logger.info('机器人状态检查完成', {
+          online: onlineCount,
+          offline: offlineCount,
+          error: errorCount,
+          total: results.length
+        });
       } catch (error) {
-        console.error('❌ 机器人状态检查失败:', error.message);
+        logger.error('机器人状态检查失败', { error: error.message });
       }
     };
     
     // 立即执行一次
     checkRobotsTask();
-    
+
     // 设置定时任务
     const checkIntervalId = setInterval(checkRobotsTask, CHECK_INTERVAL);
-    
-    console.log(`⏰ 机器人状态检查已配置为每5分钟自动执行`);
+
+    logger.info('机器人状态检查已配置', { interval: '5min' });
 
     // 启动指令队列处理器
-    console.log('📦 启动指令队列处理器...');
+    logger.info('启动指令队列处理器', { interval: '3s' });
     robotCommandService.startQueueProcessor('main-worker', 3000); // 每3秒处理一次（优化后）
 
-    console.log(`⏰ 指令队列处理器已启动`);
-    
-    console.log(`
-╔═══════════════════════════════════════════════════════╗
-║   WorkTool AI 中枢系统已启动                         ║
-╠═══════════════════════════════════════════════════════╣
-║   🚀 服务地址: http://${HOST}:${PORT}                ║
-║   📊 管理后台: http://${HOST}:${PORT}/admin           ║
-║   🎯 健康检查: http://${HOST}:${PORT}/health         ║
-╠═══════════════════════════════════════════════════════╣
-║   🔐 回调签名校验: ${process.env.ENABLE_SIGNATURE_CHECK ? '✅ 已启用' : '⚠️  已禁用'}
-║   🔄 回调幂等处理: ✅ 已启用
-║   🧯 全局熔断开关: ${process.env.GLOBAL_CIRCUIT_BREAKER === 'true' ? '❌ 已熔断' : '✅ 正常'}
-╚═══════════════════════════════════════════════════════╝
-    `);
+    logger.info('指令队列处理器已启动');
+
   } catch (err) {
-    fastify.log.error(err);
+    logger.fatal('服务器启动失败', { error: err.message, stack: err.stack });
     process.exit(1);
   }
 };
@@ -191,30 +197,33 @@ start();
 
 // 全局错误处理 - 防止未捕获的异常导致服务崩溃
 process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', {
+  logger.fatal('Uncaught Exception', {
     message: error.message,
     stack: error.stack,
     errorName: error.name,
-    errorCode: error.code,
-    timestamp: new Date().toISOString()
+    errorCode: error.code
   });
-  // 不退出进程，记录日志后继续运行
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection:', {
+  logger.error('Unhandled Rejection', {
     reason: reason instanceof Error ? reason.message : String(reason),
     stack: reason instanceof Error ? reason.stack : undefined,
-    promise: String(promise),
-    timestamp: new Date().toISOString()
+    promise: String(promise)
   });
-  // 不退出进程，记录日志后继续运行
 });
 
 // 优雅关闭
 process.on('SIGTERM', async () => {
+  logger.info('收到 SIGTERM 信号，开始优雅关闭...');
   await fastify.close();
-  console.log('服务器已优雅关闭');
+  logger.info('服务器已优雅关闭');
+});
+
+process.on('SIGINT', async () => {
+  logger.info('收到 SIGINT 信号，开始优雅关闭...');
+  await fastify.close();
+  logger.info('服务器已优雅关闭');
 });
 
 module.exports = fastify;

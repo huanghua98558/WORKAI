@@ -133,9 +133,9 @@
     "intentRecognition": {
       "useBuiltin": true,
       "builtinModelId": "doubao-seed-1-6-251015",
-      "useCustom": false,
+      "useCustom": true,
       "customModel": {
-        "provider": "openai",
+        "provider": "azure",
         "model": "gpt-4o-mini",
         "apiKey": "",
         "apiBase": ""

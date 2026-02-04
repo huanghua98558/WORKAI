@@ -3,6 +3,8 @@
  * 支持内存模式降级
  */
 
+const { getLogger } = require('./logger');
+
 class RedisClient {
   constructor() {
     this.client = null;
@@ -11,13 +13,14 @@ class RedisClient {
     this.memoryStore = new Map(); // 内存存储
     this.useMemoryMode = false;
     this.memoryClient = null; // 缓存内存客户端
+    this.logger = getLogger('REDIS');
   }
 
   async connect() {
     // 检查是否强制使用内存模式
     if (process.env.USE_MEMORY_MODE === 'true') {
       this.useMemoryMode = true;
-      console.log('⚠️  使用内存模式（配置指定）');
+      this.logger.info('使用内存模式（配置指定）');
       return this.getMemoryClient();
     }
 
@@ -46,17 +49,25 @@ class RedisClient {
 
       // 尝试连接
       await this.client.connect();
-      
+
       // 简单的 ping 测试
       try {
         await this.client.ping();
-        console.log('✅ Redis 客户端已连接');
+        this.logger.info('Redis 客户端已连接', {
+          host: config.host,
+          port: config.port,
+          db: config.db
+        });
         return this.client;
       } catch (error) {
         throw error;
       }
     } catch (error) {
-      console.warn('⚠️  Redis 连接失败，切换到内存模式');
+      this.logger.warn('Redis 连接失败，切换到内存模式', {
+        error: error.message,
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || 6379)
+      });
       this.useMemoryMode = true;
       this.client = this.publisher = this.subscriber = null;
       return this.getMemoryClient();
