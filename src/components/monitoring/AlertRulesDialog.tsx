@@ -163,7 +163,7 @@ export default function AlertRulesDialog({ open, onOpenChange }: AlertRulesDialo
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...rule,
+          id: rule.id,
           isEnabled: !rule.isEnabled
         })
       });
