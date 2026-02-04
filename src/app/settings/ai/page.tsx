@@ -77,6 +77,7 @@ export default function AISettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('models');
+  const [fineTuneModels, setFineTuneModels] = useState<FineTuneModel[]>([]);
 
   const getBackendUrl = () => {
     if (typeof window !== 'undefined') {
@@ -90,13 +91,27 @@ export default function AISettingsPage() {
     try {
       const response = await fetch(`${getBackendUrl()}/api/admin/config`);
       if (!response.ok) throw new Error('获取配置失败');
-      
+
       const data = await response.json();
       setConfig(data.data);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '获取配置失败');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchFineTuneModels = async () => {
+    try {
+      const response = await fetch('/api/fine-tune/models/available');
+      if (!response.ok) throw new Error('获取微调模型失败');
+
+      const data = await response.json();
+      if (data.success) {
+        setFineTuneModels(data.data);
+      }
+    } catch (error) {
+      console.error('获取微调模型失败:', error);
     }
   };
 
@@ -166,6 +181,7 @@ export default function AISettingsPage() {
 
   useEffect(() => {
     fetchConfig();
+    fetchFineTuneModels();
   }, []);
 
   if (loading) {
@@ -246,6 +262,7 @@ export default function AISettingsPage() {
               <ModelConfigSection
                 config={config.ai.intentRecognition}
                 availableModels={getAvailableModels(['intent'])}
+                fineTuneModels={fineTuneModels}
                 onChange={(updates) => updateModelConfig('intentRecognition', updates)}
                 label="意图识别"
               />
@@ -267,6 +284,7 @@ export default function AISettingsPage() {
               <ModelConfigSection
                 config={config.ai.serviceReply}
                 availableModels={getAvailableModels(['service'])}
+                fineTuneModels={fineTuneModels}
                 onChange={(updates) => updateModelConfig('serviceReply', updates)}
                 label="服务回复"
               />
@@ -288,6 +306,7 @@ export default function AISettingsPage() {
               <ModelConfigSection
                 config={config.ai.conversion}
                 availableModels={getAvailableModels(['service', 'conversion'])}
+                fineTuneModels={fineTuneModels}
                 onChange={(updates) => updateModelConfig('conversion', updates)}
                 label="转化客服"
               />
@@ -479,11 +498,12 @@ export default function AISettingsPage() {
 interface ModelConfigSectionProps {
   config: AIConfig;
   availableModels: BuiltinModel[];
+  fineTuneModels: FineTuneModel[];
   onChange: (updates: Partial<AIConfig>) => void;
   label: string;
 }
 
-function ModelConfigSection({ config, availableModels, onChange, label }: ModelConfigSectionProps) {
+function ModelConfigSection({ config, availableModels, fineTuneModels, onChange, label }: ModelConfigSectionProps) {
   return (
     <div className="space-y-4">
       {/* 模型类型选择 */}
@@ -506,7 +526,7 @@ function ModelConfigSection({ config, availableModels, onChange, label }: ModelC
       {config.useBuiltin ? (
         /* 内置模型选择 */
         <div className="space-y-2">
-          <Label>选择内置模型</Label>
+          <Label>选择模型</Label>
           <Select
             value={config.builtinModelId}
             onValueChange={(value) => onChange({ builtinModelId: value })}
@@ -515,16 +535,56 @@ function ModelConfigSection({ config, availableModels, onChange, label }: ModelC
               <SelectValue placeholder="选择模型" />
             </SelectTrigger>
             <SelectContent>
-              {availableModels.map((model) => (
-                <SelectItem key={model.id} value={model.id}>
-                  <div className="flex flex-col">
-                    <span className="font-medium">{model.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {model.description} - 最大{model.maxTokens} tokens
-                    </span>
+              {/* 内置模型组 */}
+              {availableModels.length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                    内置模型
                   </div>
-                </SelectItem>
-              ))}
+                  {availableModels.map((model) => (
+                    <SelectItem key={model.id} value={model.id}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{model.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {model.description} - 最大{model.maxTokens} tokens
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </>
+              )}
+
+              {/* 微调模型组 */}
+              {fineTuneModels.length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-blue-600 flex items-center gap-2">
+                    <Bot className="h-3 w-3" />
+                    微调模型
+                  </div>
+                  {fineTuneModels.map((model) => (
+                    <SelectItem key={model.id} value={`finetune:${model.modelId}`}>
+                      <div className="flex flex-col">
+                        <span className="font-medium flex items-center gap-2">
+                          <Bot className="h-3 w-3 text-blue-500" />
+                          {model.modelName}
+                          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                            {model.fineTuneType.toUpperCase()}
+                          </span>
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          基于 {model.baseModel} - {new Date(model.createdAt).toLocaleDateString('zh-CN')}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </>
+              )}
+
+              {availableModels.length === 0 && fineTuneModels.length === 0 && (
+                <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                  暂无可用模型
+                </div>
+              )}
             </SelectContent>
           </Select>
         </div>
