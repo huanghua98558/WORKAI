@@ -69,6 +69,26 @@ export function NotificationSettingsDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('sound');
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [robots, setRobots] = useState<Array<{ id: string; robotId: string; robotName: string; isActive: boolean }>>([]);
+
+  // 加载机器人列表
+  const loadRobots = async () => {
+    try {
+      const response = await fetch('/api/robots', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      if (data.code === 0) {
+        setRobots(data.data || []);
+      }
+    } catch (error) {
+      console.error('加载机器人列表失败:', error);
+    }
+  };
 
   // 加载通知方式
   const loadMethods = async () => {
@@ -110,6 +130,12 @@ export function NotificationSettingsDialog({
       loadMethods();
     }
   }, [open, alertRuleId]);
+
+  useEffect(() => {
+    if (open) {
+      loadRobots();
+    }
+  }, [open]);
 
   // 添加通知方式
   const addMethod = async (methodType: 'sound' | 'desktop' | 'wechat' | 'robot') => {
@@ -215,6 +241,10 @@ export function NotificationSettingsDialog({
 
   // 删除通知方式
   const deleteMethod = async (methodId: string) => {
+    if (!confirm('确定要删除这个通知方式吗？')) {
+      return;
+    }
+
     try {
       const response = await fetch(`/api/notifications/methods/${methodId}`, {
         method: 'DELETE',
@@ -226,9 +256,22 @@ export function NotificationSettingsDialog({
       const data = await response.json();
       if (data.code === 0) {
         setMethods(methods.filter(m => m.id !== methodId));
+        setTestResult({
+          success: true,
+          message: '删除成功'
+        });
+      } else {
+        setTestResult({
+          success: false,
+          message: data.message || '删除失败'
+        });
       }
     } catch (error) {
       console.error('删除通知方式失败:', error);
+      setTestResult({
+        success: false,
+        message: error instanceof Error ? error.message : '删除失败'
+      });
     }
   };
 
@@ -350,19 +393,18 @@ export function NotificationSettingsDialog({
                       <TestTube className="h-4 w-4 mr-1" />
                       测试
                     </Button>
-                    {methods.find(m => m.methodType === 'sound') ? (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => {
-                          const method = methods.find(m => m.methodType === 'sound');
-                          if (method) deleteMethod(method.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        删除
-                      </Button>
-                    ) : (
+                    {(() => {
+                      const method = methods.find(m => m.methodType === 'sound');
+                      return method ? (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => deleteMethod(method.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          删除
+                        </Button>
+                      ) : (
                       <Button
                         variant="outline"
                         size="sm"
@@ -378,6 +420,7 @@ export function NotificationSettingsDialog({
                         {alertRuleId ? '添加' : '规则ID为空'}
                       </Button>
                     )}
+                    )()}
                   </div>
                 </CardTitle>
                 <CardDescription>配置告警声音提示</CardDescription>
@@ -472,19 +515,18 @@ export function NotificationSettingsDialog({
                       <TestTube className="h-4 w-4 mr-1" />
                       测试
                     </Button>
-                    {methods.find(m => m.methodType === 'desktop') ? (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => {
-                          const method = methods.find(m => m.methodType === 'desktop');
-                          if (method) deleteMethod(method.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        删除
-                      </Button>
-                    ) : (
+                    {(() => {
+                      const method = methods.find(m => m.methodType === 'desktop');
+                      return method ? (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => deleteMethod(method.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          删除
+                        </Button>
+                      ) : (
                       <Button
                         variant="outline"
                         size="sm"
@@ -500,6 +542,7 @@ export function NotificationSettingsDialog({
                         {alertRuleId ? '添加' : '规则ID为空'}
                       </Button>
                     )}
+                    )()}
                   </div>
                 </CardTitle>
                 <CardDescription>配置浏览器桌面通知</CardDescription>
@@ -568,19 +611,18 @@ export function NotificationSettingsDialog({
                       <TestTube className="h-4 w-4 mr-1" />
                       测试
                     </Button>
-                    {methods.find(m => m.methodType === 'wechat') ? (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => {
-                          const method = methods.find(m => m.methodType === 'wechat');
-                          if (method) deleteMethod(method.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        删除
-                      </Button>
-                    ) : (
+                    {(() => {
+                      const method = methods.find(m => m.methodType === 'wechat');
+                      return method ? (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => deleteMethod(method.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          删除
+                        </Button>
+                      ) : (
                       <Button
                         variant="outline"
                         size="sm"
@@ -596,6 +638,7 @@ export function NotificationSettingsDialog({
                         {alertRuleId ? '添加' : '规则ID为空'}
                       </Button>
                     )}
+                    )()}
                   </div>
                 </CardTitle>
                 <CardDescription>配置企业微信群机器人通知</CardDescription>
@@ -675,19 +718,18 @@ export function NotificationSettingsDialog({
                       <TestTube className="h-4 w-4 mr-1" />
                       测试
                     </Button>
-                    {methods.find(m => m.methodType === 'robot') ? (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => {
-                          const method = methods.find(m => m.methodType === 'robot');
-                          if (method) deleteMethod(method.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        删除
-                      </Button>
-                    ) : (
+                    {(() => {
+                      const method = methods.find(m => m.methodType === 'robot');
+                      return method ? (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => deleteMethod(method.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          删除
+                        </Button>
+                      ) : (
                       <Button
                         variant="outline"
                         size="sm"
@@ -703,6 +745,7 @@ export function NotificationSettingsDialog({
                         {alertRuleId ? '添加' : '规则ID为空'}
                       </Button>
                     )}
+                    )()}
                   </div>
                 </CardTitle>
                 <CardDescription>配置机器人私聊通知</CardDescription>
@@ -722,42 +765,104 @@ export function NotificationSettingsDialog({
                     {method.isEnabled && (
                       <>
                         <div className="space-y-2">
-                          <Label htmlFor="robot-id">机器人 ID</Label>
-                          <Input
-                            id="robot-id"
-                            placeholder="输入机器人 ID"
+                          <Label htmlFor="robot-select">选择机器人</Label>
+                          <Select
                             value={method.recipientConfig.robotId || ''}
-                            onChange={(e) =>
+                            onValueChange={(value) =>
                               updateMethod(method.id, {
                                 recipientConfig: {
                                   ...method.recipientConfig,
-                                  robotId: e.target.value,
+                                  robotId: value,
                                 },
                               })
                             }
-                          />
+                          >
+                            <SelectTrigger id="robot-select">
+                              <SelectValue placeholder="选择一个机器人" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {robots.length === 0 ? (
+                                <div className="p-2 text-sm text-gray-500">
+                                  暂无可用机器人
+                                </div>
+                              ) : (
+                                robots.map((robot) => (
+                                  <SelectItem key={robot.id} value={robot.robotId}>
+                                    {robot.robotName} ({robot.robotId})
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="robot-user-id">接收用户 ID</Label>
-                          <Input
-                            id="robot-user-id"
-                            placeholder="输入接收通知的用户 ID"
-                            value={method.recipientConfig.userId || ''}
-                            onChange={(e) =>
+                          <Label htmlFor="notification-mode">通知模式</Label>
+                          <Select
+                            value={method.recipientConfig.mode || 'private'}
+                            onValueChange={(value) =>
                               updateMethod(method.id, {
                                 recipientConfig: {
                                   ...method.recipientConfig,
-                                  userId: e.target.value,
+                                  mode: value,
                                 },
                               })
                             }
-                          />
+                          >
+                            <SelectTrigger id="notification-mode">
+                              <SelectValue placeholder="选择通知模式" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="private">私聊通知</SelectItem>
+                              <SelectItem value="group">群聊通知</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
+
+                        {method.recipientConfig.mode === 'private' && (
+                          <div className="space-y-2">
+                            <Label htmlFor="robot-user-id">接收用户 ID</Label>
+                            <Input
+                              id="robot-user-id"
+                              placeholder="输入接收通知的用户 ID"
+                              value={method.recipientConfig.userId || ''}
+                              onChange={(e) =>
+                                updateMethod(method.id, {
+                                  recipientConfig: {
+                                    ...method.recipientConfig,
+                                    userId: e.target.value,
+                                  },
+                                })
+                              }
+                            />
+                          </div>
+                        )}
+
+                        {method.recipientConfig.mode === 'group' && (
+                          <div className="space-y-2">
+                            <Label htmlFor="robot-group-id">群聊 ID</Label>
+                            <Input
+                              id="robot-group-id"
+                              placeholder="输入接收通知的群聊 ID"
+                              value={method.recipientConfig.groupId || ''}
+                              onChange={(e) =>
+                                updateMethod(method.id, {
+                                  recipientConfig: {
+                                    ...method.recipientConfig,
+                                    groupId: e.target.value,
+                                  },
+                                })
+                              }
+                            />
+                          </div>
+                        )}
 
                         <div className="p-4 bg-blue-50 rounded-lg">
                           <p className="text-sm text-blue-800">
-                            💡 提示：机器人将向指定的用户发送私聊消息通知。请确保用户 ID 正确。
+                            💡 提示：
+                            {method.recipientConfig.mode === 'group'
+                              ? '机器人将向指定的群聊发送消息通知。请确保群聊 ID 正确。'
+                              : '机器人将向指定的用户发送私聊消息通知。请确保用户 ID 正确。'}
                           </p>
                         </div>
                       </>
