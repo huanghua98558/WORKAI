@@ -246,7 +246,7 @@ class NotificationService {
   }
 
   /**
-   * 发送机器人私聊通知
+   * 发送机器人通知（支持私聊和群聊）
    */
   async sendRobotNotification(config, alertData, message) {
     try {
@@ -266,37 +266,76 @@ class NotificationService {
 
       const robotData = robot[0];
 
-      // 构建私聊消息
-      const chatMessage = {
-        content: message,
-        user_id: config.userId || null,
-        msg_type: 'text'
+      // 验证机器人是否启用
+      if (!robotData.isActive) {
+        logger.error('机器人未启用，robotId:', config.robotId);
+        return { success: false, error: '机器人未启用' };
+      }
+
+      // 确定接收者（私聊或群聊）
+      let recipient = null;
+      if (config.notificationMode === 'group' && config.chatId) {
+        recipient = config.chatId;
+        logger.info('发送机器人群聊通知', { robotId: config.robotId, chatId: config.chatId });
+      } else if (config.notificationMode === 'private' && config.userId) {
+        recipient = config.userId;
+        logger.info('发送机器人私聊通知', { robotId: config.robotId, userId: config.userId });
+      } else {
+        logger.error('未配置接收者', { config });
+        return { success: false, error: '未配置接收者（userId 或 chatId）' };
+      }
+
+      // 构建 WorkTool 规范的请求体
+      const requestBody = {
+        socketType: 2,
+        list: [
+          {
+            type: 203,  // 203 表示文本消息
+            titleList: [recipient],  // 接收者（用户ID或群聊ID）
+            receivedContent: message
+          }
+        ]
       };
 
+      // 从 sendMessageApi 中提取基础 URL
+      // sendMessageApi 格式: ${baseUrl}/wework/sendRawMessage?robotId=${robotId}
+      const sendMessageApi = robotData.sendMessageApi || `${robotData.apiBaseUrl}/wework/sendRawMessage?robotId=${robotData.robotId}`;
+      const urlObj = new URL(sendMessageApi);
+      const apiUrl = `${urlObj.origin}${urlObj.pathname}`;  // 去掉查询参数
+
+      logger.info('调用机器人 API', {
+        robotId: config.robotId,
+        apiUrl,
+        recipient,
+        messageLength: message.length
+      });
+
       // 调用机器人 API 发送消息
-      const apiUrl = robotData.sendMessageApi || `${robotData.apiBaseUrl}/sendMessage`;
-      const response = await fetch(apiUrl, {
+      const response = await fetch(`${apiUrl}?robotId=${robotData.robotId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          robot_id: robotData.robotId,
-          ...chatMessage
-        })
+        body: JSON.stringify(requestBody)
       });
 
       const result = await response.json();
 
-      if (response.ok && (result.code === 0 || result.success === true)) {
-        logger.info('机器人私聊通知发送成功');
-        return { success: true, method: 'robot', messageId: result.data?.id || result.id };
+      logger.info('机器人 API 响应', {
+        status: response.status,
+        result
+      });
+
+      // WorkTool API 返回 code=200 表示成功
+      if (response.ok && (result.code === 0 || result.code === 200 || result.success === true)) {
+        logger.info('机器人通知发送成功');
+        return { success: true, method: 'robot', messageId: result.data || result.id };
       } else {
-        logger.error('机器人私聊通知发送失败:', result);
-        return { success: false, error: result.msg || result.message || result.errmsg };
+        logger.error('机器人通知发送失败:', result);
+        return { success: false, error: result.msg || result.message || result.errmsg || '发送失败' };
       }
     } catch (error) {
-      logger.error('机器人私聊通知发送异常:', error);
+      logger.error('机器人通知发送异常:', error);
       return { success: false, error: error.message };
     }
   }
