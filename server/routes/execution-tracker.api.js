@@ -3,14 +3,19 @@
  * 提供执行结果追踪的查询接口
  */
 
+// 认证中间件
+const { authMiddleware, requireRole, ROLES } = require('../middleware/auth');
+
 const executionTrackerApiRoutes = async function (fastify, options) {
   const executionTrackerService = require('../services/execution-tracker.service');
   const messageProcessingService = require('../services/message-processing.service');
 
   /**
-   * 获取执行统计
+   * 获取执行统计 - 需要认证
    */
-  fastify.get('/stats', async (request, reply) => {
+  fastify.get('/stats', {
+    preHandler: [authMiddleware]
+  }, async (request, reply) => {
     try {
       const { timeRange = '24h' } = request.query;
       const stats = await messageProcessingService.getStats(timeRange);
@@ -29,9 +34,11 @@ const executionTrackerApiRoutes = async function (fastify, options) {
   });
 
   /**
-   * 获取最近执行记录
+   * 获取最近执行记录 - 需要认证
    */
-  fastify.get('/records', async (request, reply) => {
+  fastify.get('/records', {
+    preHandler: [authMiddleware]
+  }, async (request, reply) => {
     try {
       const { limit = 50 } = request.query;
       const records = await messageProcessingService.getRecentRecords(parseInt(limit));
@@ -50,9 +57,11 @@ const executionTrackerApiRoutes = async function (fastify, options) {
   });
 
   /**
-   * 获取执行详情
+   * 获取执行详情 - 需要认证
    */
-  fastify.get('/detail/:processingId', async (request, reply) => {
+  fastify.get('/detail/:processingId', {
+    preHandler: [authMiddleware]
+  }, async (request, reply) => {
     try {
       const { processingId } = request.params;
       const detail = await executionTrackerService.getProcessingDetail(processingId);
@@ -78,9 +87,11 @@ const executionTrackerApiRoutes = async function (fastify, options) {
   });
 
   /**
-   * 搜索执行记录
+   * 搜索执行记录 - 需要认证
    */
-  fastify.get('/search', async (request, reply) => {
+  fastify.get('/search', {
+    preHandler: [authMiddleware]
+  }, async (request, reply) => {
     try {
       const { q, limit = 20 } = request.query;
       

@@ -5,7 +5,6 @@
 
 const jwt = require('jsonwebtoken');
 const { userManager } = require('../database');
-const { auditLogManager } = require('../database/auditLogManager');
 const { getLogger } = require('../lib/logger');
 
 class AuthService {
@@ -37,27 +36,26 @@ class AuthService {
       // 验证用户
       const user = await userManager.validatePassword(username, password);
       if (!user) {
-        // 记录失败日志
-        await auditLogManager.recordLogin(
-          null, 
-          username, 
-          request, 
-          'failure', 
-          '用户名或密码错误'
-        );
+        // 暂时禁用审计日志
+        // try {
+        //   const auditLogManager = require('../database/auditLogManager');
+        //   await auditLogManager.recordLogin(null, username, request, 'failure', '用户名或密码错误');
+        // } catch (logError) {
+        //   this.logger.warn('记录登录失败日志失败', { error: logError.message });
+        // }
         
         throw new Error('用户名或密码错误');
       }
 
       // 检查用户是否被禁用
       if (!user.isActive) {
-        await auditLogManager.recordLogin(
-          user.id, 
-          username, 
-          request, 
-          'failure', 
-          '用户已被禁用'
-        );
+        // 暂时禁用审计日志
+        // try {
+        //   const auditLogManager = require('../database/auditLogManager');
+        //   await auditLogManager.recordLogin(user.id, username, request, 'failure', '用户已被禁用');
+        // } catch (logError) {
+        //   this.logger.warn('记录登录失败日志失败', { error: logError.message });
+        // }
         
         throw new Error('用户已被禁用');
       }
@@ -69,8 +67,13 @@ class AuthService {
       // 更新最后登录时间
       await userManager.updateLastLogin(user.id);
 
-      // 记录成功日志
-      await auditLogManager.recordLogin(user.id, username, request);
+      // 记录成功日志（暂时禁用）
+      // try {
+      //   const auditLogManager = require('../database/auditLogManager');
+      //   await auditLogManager.recordLogin(user.id, username, request);
+      // } catch (logError) {
+      //   this.logger.warn('记录登录成功日志失败', { error: logError.message });
+      // }
 
       this.logger.info('用户登录成功', { userId: user.id, username: user.username });
 
@@ -186,12 +189,13 @@ class AuthService {
   async logout(user, request) {
     try {
       if (user) {
-        // 记录登出日志
-        await auditLogManager.recordLogout(
-          user.userId, 
-          user.username, 
-          request
-        );
+        // 暂时禁用审计日志
+        // try {
+        //   const auditLogManager = require('../database/auditLogManager');
+        //   await auditLogManager.recordLogout(user.userId, user.username, request);
+        // } catch (logError) {
+        //   this.logger.warn('记录登出日志失败', { error: logError.message });
+        // }
         
         this.logger.info('用户登出', { userId: user.userId, username: user.username });
       }

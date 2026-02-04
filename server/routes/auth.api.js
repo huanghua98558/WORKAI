@@ -79,14 +79,16 @@ async function authApiRoutes(fastify, options) {
       
       return { success: true, data: result };
     } catch (error) {
-      logger.warn('用户登录失败', { 
-        username, 
-        error: error.message 
+      logger.error('用户登录失败', {
+        username,
+        error: error.message,
+        stack: error.stack
       });
-      
+
       return reply.code(401).send({
         success: false,
         error: error.message,
+        stack: error.stack,
         code: 'LOGIN_FAILED'
       });
     }

@@ -8,12 +8,17 @@ const { sql } = require('drizzle-orm');
 const { callbackHistory, robots } = require('../database/schema');
 const { eq, desc, and, gte, lte, count } = require('drizzle-orm');
 
+// 认证中间件
+const { authMiddleware, requireRole, ROLES } = require('../middleware/auth');
+
 const robotApiRoutes = async function (fastify, options) {
   console.log('[robot.api.js] 机器人管理 API 路由已加载');
   const config = require('../lib/config');
-  
-  // 获取所有机器人
-  fastify.get('/robots', async (request, reply) => {
+
+  // 获取所有机器人 - 需要认证
+  fastify.get('/robots', {
+    preHandler: [authMiddleware]
+  }, async (request, reply) => {
     try {
       const { isActive, status, search } = request.query;
       const robotList = await robotService.getAllRobots({ isActive, status, search });
@@ -33,8 +38,10 @@ const robotApiRoutes = async function (fastify, options) {
     }
   });
 
-  // 根据 ID 获取机器人
-  fastify.get('/robots/:id', async (request, reply) => {
+  // 根据 ID 获取机器人 - 需要认证
+  fastify.get('/robots/:id', {
+    preHandler: [authMiddleware]
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
       const robot = await robotService.getRobotById(id);
@@ -61,8 +68,10 @@ const robotApiRoutes = async function (fastify, options) {
     }
   });
 
-  // 根据 robotId 获取机器人
-  fastify.get('/robots/by-robot-id/:robotId', async (request, reply) => {
+  // 根据 robotId 获取机器人 - 需要认证
+  fastify.get('/robots/by-robot-id/:robotId', {
+    preHandler: [authMiddleware]
+  }, async (request, reply) => {
     try {
       const { robotId } = request.params;
       const robot = await robotService.getRobotByRobotId(robotId);
@@ -130,8 +139,10 @@ const robotApiRoutes = async function (fastify, options) {
     }
   });
 
-  // 更新机器人
-  fastify.put('/robots/:id', async (request, reply) => {
+  // 更新机器人 - 需要认证，仅管理员可操作
+  fastify.put('/robots/:id', {
+    preHandler: [authMiddleware, requireRole(ROLES.ADMIN)]
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
       const data = request.body;
@@ -208,8 +219,10 @@ const robotApiRoutes = async function (fastify, options) {
     }
   });
 
-  // 删除机器人
-  fastify.delete('/robots/:id', async (request, reply) => {
+  // 删除机器人 - 需要认证，仅管理员可操作
+  fastify.delete('/robots/:id', {
+    preHandler: [authMiddleware, requireRole(ROLES.ADMIN)]
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
       const robot = await robotService.deleteRobot(id);
@@ -236,8 +249,10 @@ const robotApiRoutes = async function (fastify, options) {
     }
   });
 
-  // 验证机器人配置
-  fastify.post('/robots/validate', async (request, reply) => {
+  // 验证机器人配置 - 需要认证
+  fastify.post('/robots/validate', {
+    preHandler: [authMiddleware]
+  }, async (request, reply) => {
     try {
       const { robotId, apiBaseUrl } = request.body;
       
@@ -266,8 +281,10 @@ const robotApiRoutes = async function (fastify, options) {
     }
   });
 
-  // 测试机器人连接
-  fastify.post('/robots/test', async (request, reply) => {
+  // 测试机器人连接 - 需要认证
+  fastify.post('/robots/test', {
+    preHandler: [authMiddleware]
+  }, async (request, reply) => {
     try {
       const { robotId, apiBaseUrl } = request.body;
       
