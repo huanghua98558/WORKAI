@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
 
-    const response = await fetch(`http://localhost:5001/api/alerts/rules/${params.id}`, {
+    console.log('[API PUT] Update alert rule:', id);
+
+    const response = await fetch(`http://localhost:5001/api/alerts/rules/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -35,14 +38,15 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const response = await fetch(`http://localhost:5001/api/alerts/rules/${params.id}`, {
+    const { id } = await params;
+
+    console.log('[API DELETE] Delete alert rule:', id);
+
+    const response = await fetch(`http://localhost:5001/api/alerts/rules/${id}`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
     });
 
     if (!response.ok) {

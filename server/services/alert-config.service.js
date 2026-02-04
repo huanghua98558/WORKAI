@@ -228,6 +228,46 @@ class AlertConfigService {
   }
 
   /**
+   * 通过 ID 删除告警规则
+   */
+  async deleteAlertRuleById(ruleId) {
+    const db = await getDb();
+
+    const result = await db
+      .delete(alertRules)
+      .where(sql`${alertRules.id} = ${ruleId}`)
+      .returning();
+
+    if (result.length > 0) {
+      console.log(`[告警配置] 删除告警规则: ${ruleId}`);
+    }
+    
+    return result[0] || null;
+  }
+
+  /**
+   * 通过 ID 更新告警规则
+   */
+  async updateAlertRuleById(ruleId, updates) {
+    const db = await getDb();
+
+    const result = await db
+      .update(alertRules)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(sql`${alertRules.id} = ${ruleId}`)
+      .returning();
+
+    if (result.length > 0) {
+      console.log(`[告警配置] 更新告警规则: ${ruleId}`);
+    }
+    
+    return result[0] || null;
+  }
+
+  /**
    * 获取完整的告警配置（包含通知方式）
    */
   async getCompleteAlertConfig(intentType) {

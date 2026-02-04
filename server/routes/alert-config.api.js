@@ -163,6 +163,63 @@ module.exports = async function (fastify) {
     }
   });
 
+  // 通过 ID 删除告警规则
+  fastify.delete('/alerts/rules/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const result = await alertConfigService.deleteAlertRuleById(id);
+
+      if (!result) {
+        reply.code(404);
+        return {
+          success: false,
+          error: '告警规则不存在',
+        };
+      }
+
+      return {
+        success: true,
+        data: result,
+      };
+    } catch (error) {
+      console.error('[API] 删除告警规则失败:', error);
+      reply.code(500);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  });
+
+  // 通过 ID 更新告警规则
+  fastify.put('/alerts/rules/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const updates = request.body;
+      const result = await alertConfigService.updateAlertRuleById(id, updates);
+
+      if (!result) {
+        reply.code(404);
+        return {
+          success: false,
+          error: '告警规则不存在',
+        };
+      }
+
+      return {
+        success: true,
+        data: result,
+      };
+    } catch (error) {
+      console.error('[API] 更新告警规则失败:', error);
+      reply.code(500);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  });
+
   // ==================== 通知方式管理 ====================
 
   // 获取告警规则的通知方式

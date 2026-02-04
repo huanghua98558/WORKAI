@@ -138,9 +138,6 @@ export default function AlertRulesDialog({ open, onOpenChange }: AlertRulesDialo
     try {
       const response = await fetch(`/api/alerts/rules/${ruleId}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
       });
 
       if (response.ok) {
