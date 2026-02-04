@@ -72,7 +72,14 @@ export function NotificationSettingsDialog({
 
   // 加载通知方式
   const loadMethods = async () => {
-    if (!alertRuleId) return;
+    if (!alertRuleId) {
+      console.error('[NotificationSettingsDialog] alertRuleId 为空，无法加载通知方式');
+      setTestResult({
+        success: false,
+        message: '告警规则 ID 为空'
+      });
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -84,11 +91,15 @@ export function NotificationSettingsDialog({
       });
 
       const data = await response.json();
+      console.log('[NotificationSettingsDialog] 加载通知方式响应:', data);
+
       if (data.code === 0) {
         setMethods(data.data || []);
+      } else {
+        console.error('[NotificationSettingsDialog] 加载通知方式失败:', data);
       }
     } catch (error) {
-      console.error('加载通知方式失败:', error);
+      console.error('[NotificationSettingsDialog] 加载通知方式失败:', error);
     } finally {
       setIsLoading(false);
     }
@@ -102,6 +113,17 @@ export function NotificationSettingsDialog({
 
   // 添加通知方式
   const addMethod = async (methodType: 'sound' | 'desktop' | 'wechat' | 'robot') => {
+    console.log('[NotificationSettingsDialog] 添加通知方式:', { methodType, alertRuleId });
+
+    if (!alertRuleId) {
+      console.error('[NotificationSettingsDialog] alertRuleId 为空，无法添加通知方式');
+      setTestResult({
+        success: false,
+        message: '告警规则 ID 为空，无法添加通知方式'
+      });
+      return;
+    }
+
     try {
       const response = await fetch('/api/notifications/methods', {
         method: 'POST',
@@ -118,11 +140,26 @@ export function NotificationSettingsDialog({
       });
 
       const data = await response.json();
+      console.log('[NotificationSettingsDialog] 添加通知方式响应:', data);
+
       if (data.code === 0) {
         setMethods([...methods, data.data]);
+        setTestResult({
+          success: true,
+          message: '添加成功'
+        });
+      } else {
+        setTestResult({
+          success: false,
+          message: data.message || '添加失败'
+        });
       }
     } catch (error) {
       console.error('添加通知方式失败:', error);
+      setTestResult({
+        success: false,
+        message: error instanceof Error ? error.message : '添加失败'
+      });
     }
   };
 
@@ -329,10 +366,16 @@ export function NotificationSettingsDialog({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => addMethod('sound')}
+                        disabled={!alertRuleId}
+                        onClick={(e) => {
+                          console.log('[NotificationSettingsDialog] 添加按钮被点击:', { methodType: 'sound', alertRuleId });
+                          e.preventDefault();
+                          e.stopPropagation();
+                          addMethod('sound');
+                        }}
                       >
                         <Plus className="h-4 w-4 mr-1" />
-                        添加
+                        {alertRuleId ? '添加' : '规则ID为空'}
                       </Button>
                     )}
                   </div>
@@ -445,10 +488,16 @@ export function NotificationSettingsDialog({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => addMethod('desktop')}
+                        disabled={!alertRuleId}
+                        onClick={(e) => {
+                          console.log('[NotificationSettingsDialog] 添加按钮被点击:', { methodType: 'desktop', alertRuleId });
+                          e.preventDefault();
+                          e.stopPropagation();
+                          addMethod('desktop');
+                        }}
                       >
                         <Plus className="h-4 w-4 mr-1" />
-                        添加
+                        {alertRuleId ? '添加' : '规则ID为空'}
                       </Button>
                     )}
                   </div>
@@ -535,10 +584,16 @@ export function NotificationSettingsDialog({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => addMethod('wechat')}
+                        disabled={!alertRuleId}
+                        onClick={(e) => {
+                          console.log('[NotificationSettingsDialog] 添加按钮被点击:', { methodType: 'wechat', alertRuleId });
+                          e.preventDefault();
+                          e.stopPropagation();
+                          addMethod('wechat');
+                        }}
                       >
                         <Plus className="h-4 w-4 mr-1" />
-                        添加
+                        {alertRuleId ? '添加' : '规则ID为空'}
                       </Button>
                     )}
                   </div>
@@ -636,10 +691,16 @@ export function NotificationSettingsDialog({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => addMethod('robot')}
+                        disabled={!alertRuleId}
+                        onClick={(e) => {
+                          console.log('[NotificationSettingsDialog] 添加按钮被点击:', { methodType: 'robot', alertRuleId });
+                          e.preventDefault();
+                          e.stopPropagation();
+                          addMethod('robot');
+                        }}
                       >
                         <Plus className="h-4 w-4 mr-1" />
-                        添加
+                        {alertRuleId ? '添加' : '规则ID为空'}
                       </Button>
                     )}
                   </div>

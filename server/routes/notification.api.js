@@ -49,7 +49,7 @@ module.exports = async function (fastify) {
   fastify.post('/notifications/methods', async (request, reply) => {
     try {
       const data = request.body;
-      const db = getDb();
+      const db = await getDb();
 
       // 验证告警规则是否存在
       const rule = await db
@@ -107,7 +107,7 @@ module.exports = async function (fastify) {
     try {
       const { id } = request.params;
       const data = request.body;
-      const db = getDb();
+      const db = await getDb();
 
       // 检查通知方式是否存在
       const existing = await db
@@ -160,7 +160,7 @@ module.exports = async function (fastify) {
   fastify.delete('/notifications/methods/:id', async (request, reply) => {
     try {
       const { id } = request.params;
-      const db = getDb();
+      const db = await getDb();
 
       // 获取通知方式信息（用于清除缓存）
       const existing = await db
@@ -208,7 +208,7 @@ module.exports = async function (fastify) {
     try {
       const { id } = request.params;
       const { enabled } = request.body;
-      const db = getDb();
+      const db = await getDb();
 
       const existing = await db
         .select()

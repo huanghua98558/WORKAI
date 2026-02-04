@@ -24,7 +24,7 @@ class NotificationService {
    */
   async getNotificationMethods(alertRuleId) {
     try {
-      const db = getDb();
+      const db = await getDb();
 
       // 检查缓存
       const cacheKey = `rule:${alertRuleId}`;
