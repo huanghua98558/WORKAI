@@ -3,9 +3,10 @@
  */
 
 const robotService = require('../services/robot.service');
-const { db } = require('../database');
+const { getDb } = require('coze-coding-dev-sdk');
+const { sql } = require('drizzle-orm');
 const { callbackHistory, robots } = require('../database/schema');
-const { eq, desc, and, gte, lte, sql, count } = require('drizzle-orm');
+const { eq, desc, and, gte, lte, count } = require('drizzle-orm');
 
 const robotApiRoutes = async function (fastify, options) {
   console.log('[robot.api.js] 机器人管理 API 路由已加载');
@@ -1167,6 +1168,180 @@ const robotApiRoutes = async function (fastify, options) {
       return reply.status(500).send({
         code: -1,
         message: '获取接口调用日志失败',
+        error: error.message
+      });
+    }
+  });
+
+  // 获取机器人监控数据（监控大屏）
+  fastify.get('/robot-monitoring', async (request, reply) => {
+    try {
+      const { period = '1h' } = request.query;
+      const db = await getDb();
+
+      // 计算时间范围
+      let startTime;
+      const now = new Date();
+      switch (period) {
+        case '1h':
+          startTime = new Date(now.getTime() - 60 * 60 * 1000);
+          break;
+        case '6h':
+          startTime = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+          break;
+        case '24h':
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case '7d':
+          startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startTime = new Date(now.getTime() - 60 * 60 * 1000);
+      }
+
+      const startTimeStr = startTime.toISOString();
+
+      // 查询所有机器人
+      const robotsResult = await db.execute(sql`
+        SELECT
+          r.robot_id,
+          r.name as robot_name,
+          rg.name as group_name,
+          r.is_active,
+          r.status as robot_status
+        FROM robots r
+        LEFT JOIN robot_groups rg ON r.group_id = rg.id
+        ORDER BY r.name
+      `);
+
+      // 查询所有机器人的执行统计
+      const statsResult = await db.execute(sql`
+        SELECT
+          robot_id,
+          COUNT(CASE WHEN status = 'success' THEN 1 END) as success_count,
+          COUNT(CASE WHEN status = 'error' THEN 1 END) as error_count,
+          COUNT(CASE WHEN status = 'processing' THEN 1 END) as processing_count,
+          COUNT(*) as total_count,
+          AVG(processing_time) as avg_processing_time,
+          MAX(created_at) as last_created_at
+        FROM execution_tracking
+        WHERE created_at >= ${startTimeStr}::timestamp
+        GROUP BY robot_id
+      `);
+
+      // 创建统计数据的映射
+      const statsMap = new Map();
+      statsResult.rows.forEach(row => {
+        statsMap.set(row.robot_id, row);
+      });
+
+      // 构建机器人监控列表
+      const robotMonitorList = robotsResult.rows.map(row => {
+        const stats = statsMap.get(row.robot_id) || {
+          success_count: 0,
+          error_count: 0,
+          processing_count: 0,
+          total_count: 0,
+          avg_processing_time: 0
+        };
+
+        const total = stats.total_count || 0;
+        const success = stats.success_count || 0;
+        const error = stats.error_count || 0;
+        const processing = stats.processing_count || 0;
+
+        // 计算成功率
+        const successRate = total > 0 ? Math.round((success / total) * 100) : 100;
+
+        // 计算健康分数
+        const healthScore = row.robot_status === 'online' 
+          ? Math.min(100, total > 0 ? successRate : 100)
+          : Math.min(100, total > 0 ? successRate - 20 : 80);
+
+        // 确定健康等级
+        let healthLevel = 'good';
+        if (healthScore >= 90) healthLevel = 'excellent';
+        else if (healthScore >= 70) healthLevel = 'good';
+        else if (healthScore >= 50) healthLevel = 'fair';
+        else healthLevel = 'poor';
+
+        // 计算利用率
+        const utilizationRate = total > 100 ? 80 : total > 10 ? 60 : 40;
+
+        return {
+          robot_id: row.robot_id,
+          robot_name: row.robot_name,
+          group_name: row.group_name,
+          is_active: row.is_active,
+          robot_status: row.robot_status,
+          health_score: healthScore,
+          success_rate: successRate,
+          current_sessions: processing,
+          max_sessions: 10,
+          avg_response_time: Math.round(stats.avg_processing_time || 0),
+          utilization_rate: utilizationRate,
+          health_level: healthLevel,
+          sessionStats: {
+            total: total,
+            active: processing,
+            completed: success,
+            failed: error,
+            avgDuration: Math.round(stats.avg_processing_time || 0)
+          },
+          commandStats: {
+            total: total,
+            pending: 0,
+            processing: processing,
+            completed: success,
+            failed: error,
+            avgProcessing: Math.round(stats.avg_processing_time || 0)
+          },
+          topErrors: []
+        };
+      });
+
+      // 计算总体统计
+      const totalRobots = robotMonitorList.length;
+      const activeRobots = robotMonitorList.filter(r => r.is_active).length;
+      const totalSessions = robotMonitorList.reduce((sum, r) => sum + r.sessionStats.total, 0);
+      const activeSessions = robotMonitorList.reduce((sum, r) => sum + r.sessionStats.active, 0);
+      const totalCommands = robotMonitorList.reduce((sum, r) => sum + r.commandStats.total, 0);
+      const avgHealthScore = totalRobots > 0 
+        ? Math.round(robotMonitorList.reduce((sum, r) => sum + r.health_score, 0) / totalRobots)
+        : 100;
+      const avgSuccessRate = totalRobots > 0 
+        ? Math.round(robotMonitorList.reduce((sum, r) => sum + r.success_rate, 0) / totalRobots)
+        : 100;
+      const overallUtilization = totalRobots > 0 
+        ? Math.round(robotMonitorList.reduce((sum, r) => sum + r.utilization_rate, 0) / totalRobots)
+        : 0;
+
+      return reply.send({
+        success: true,
+        message: 'success',
+        data: {
+          robots: robotMonitorList,
+          stats: {
+            totalRobots,
+            activeRobots,
+            totalSessions,
+            activeSessions,
+            totalCommands,
+            avgHealthScore,
+            avgSuccessRate,
+            overallUtilization
+          },
+          timeRange: {
+            start: startTime.toISOString(),
+            end: now.toISOString()
+          }
+        }
+      });
+    } catch (error) {
+      console.error('获取机器人监控数据失败:', error);
+      return reply.status(500).send({
+        success: false,
+        message: '获取机器人监控数据失败',
         error: error.message
       });
     }
