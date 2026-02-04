@@ -1937,6 +1937,61 @@ ${callbacks.robotStatus}
           </CardContent>
         </Card>
 
+        {/* 最近会话 - 显示最近活跃的会话 */}
+        {sessions.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  最近会话
+                </CardTitle>
+                <Badge variant="outline" className="text-xs">
+                  {Math.min(sessions.length, 5)} 个
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                {sessions.slice(0, 5).map((session) => (
+                  <div
+                    key={session.sessionId}
+                    className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                    onClick={() => {
+                      setSelectedSession(session);
+                      setShowSessionDetail(true);
+                      loadSessionMessages(session.sessionId);
+                    }}
+                  >
+                    {/* 用户头像 */}
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                      <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+
+                    {/* 用户信息 */}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-xs truncate">
+                        {session.userName || '未知用户'}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground truncate mt-0.5">
+                        {session.lastMessage || '无消息'}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="h-4 px-1 text-[9px]">
+                          {session.status === 'auto' ? '自动' : '人工'}
+                        </Badge>
+                        <span className="text-[9px] text-muted-foreground">
+                          {formatTime(session.lastActiveTime)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* 搜索和筛选 */}
         <Card className="bg-muted/30 border-dashed">
           <CardHeader className="pb-3">

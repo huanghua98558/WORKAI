@@ -180,6 +180,34 @@ export default function BusinessMessageMonitor({ onNavigateToSession }: Business
     return `${(ms / 1000).toFixed(2)}s`;
   };
 
+  // 获取决策类型显示
+  const getDecisionDisplay = (execution: UnifiedMessage) => {
+    const action = execution.extraData?.decision?.action;
+    if (action === 'auto_reply') {
+      return (
+        <Badge variant="outline" className="gap-1 border-green-500 text-green-500 text-xs">
+          <Bot className="h-3 w-3" />
+          自动回复
+        </Badge>
+      );
+    } else if (action === 'human_handover') {
+      return (
+        <Badge variant="outline" className="gap-1 border-blue-500 text-blue-500 text-xs">
+          <User className="h-3 w-3" />
+          人工接管
+        </Badge>
+      );
+    } else if (action === 'human_reply') {
+      return (
+        <Badge variant="outline" className="gap-1 border-purple-500 text-purple-500 text-xs">
+          <User className="h-3 w-3" />
+          人工回复
+        </Badge>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-6">
       {/* 页面头部 */}
@@ -390,13 +418,16 @@ export default function BusinessMessageMonitor({ onNavigateToSession }: Business
                               </div>
                             </div>
 
-                            {/* 机器人信息 */}
-                            {execution.robotName && (
-                              <Badge variant="secondary" className="text-xs flex-shrink-0">
-                                <Bot className="h-3 w-3 mr-1" />
-                                {execution.robotName}
-                              </Badge>
-                            )}
+                            {/* 决策类型和机器人信息 */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {getDecisionDisplay(execution)}
+                              {execution.robotName && (
+                                <Badge variant="secondary" className="text-xs flex-shrink-0">
+                                  <Bot className="h-3 w-3 mr-1" />
+                                  {execution.robotName}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
 
                           {/* 状态和时间 */}
