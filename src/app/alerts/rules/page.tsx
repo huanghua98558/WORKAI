@@ -36,7 +36,7 @@ export default function AlertRulesPage() {
   const [formData, setFormData] = useState({
     ruleName: '',
     description: '',
-    intentType: '',
+    intentType: 'spam',
     alertLevel: 'warning' as 'info' | 'warning' | 'critical',
     threshold: 5,
     cooldownPeriod: 300,
@@ -124,8 +124,8 @@ export default function AlertRulesPage() {
   // 切换规则启用状态
   const handleToggleEnable = async (rule: AlertRule) => {
     try {
-      const response = await fetch(`http://localhost:5001/api/alerts/rules/${rule.id}`, {
-        method: 'PUT',
+      const response = await fetch(`http://localhost:5001/api/alerts/rules`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...rule, isEnabled: !rule.isEnabled })
       });
@@ -147,12 +147,8 @@ export default function AlertRulesPage() {
     }
 
     try {
-      const url = editingRule
-        ? `http://localhost:5001/api/alerts/rules/${editingRule.id}`
-        : 'http://localhost:5001/api/alerts/rules';
-
-      const response = await fetch(url, {
-        method: editingRule ? 'PUT' : 'POST',
+      const response = await fetch('http://localhost:5001/api/alerts/rules', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });

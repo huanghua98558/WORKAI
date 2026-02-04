@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Activity, MessageSquare, Bot, AlertCircle, CheckCircle, Clock, RefreshCw, ArrowLeft } from 'lucide-react';
+import MonitoringAlertCard from '@/components/monitoring/MonitoringAlertCard';
 
 interface Execution {
   id: string;
@@ -299,6 +300,9 @@ export default function MonitoringPage() {
           </Card>
         </div>
       )}
+
+      {/* 告警监控 */}
+      <MonitoringAlertCard maxItems={5} />
 
       {/* 主内容区域 */}
       <Tabs defaultValue="executions" className="space-y-4">

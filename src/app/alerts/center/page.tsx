@@ -12,17 +12,19 @@ import { Bell, CheckCircle2, XCircle, Eye, AlertTriangle, Info, AlertOctagon } f
 interface AlertHistory {
   id: string;
   ruleId: string;
-  ruleName: string;
+  ruleName?: string;
   intentType: string;
   alertLevel: 'info' | 'warning' | 'critical';
-  message: string;
+  message?: string;
+  alertMessage: string;
   details?: any;
-  status: 'pending' | 'acknowledged' | 'closed';
-  isAcknowledged: boolean;
-  isClosed: boolean;
-  acknowledgedAt?: string;
+  status: 'pending' | 'handled' | 'ignored' | 'sent';
+  isHandled: boolean;
+  isClosed?: boolean;
+  handledAt?: string;
   closedAt?: string;
   createdAt: string;
+  notificationStatus?: string;
 }
 
 export default function AlertCenterPage() {
@@ -60,8 +62,8 @@ export default function AlertCenterPage() {
   // 确认告警
   const handleAcknowledge = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:5001/api/alerts/${id}/acknowledge`, {
-        method: 'POST'
+      const response = await fetch(`http://localhost:5001/api/alerts/history/${id}/handle`, {
+        method: 'PUT'
       });
 
       if (response.ok) {
@@ -77,8 +79,8 @@ export default function AlertCenterPage() {
   // 关闭告警
   const handleClose = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:5001/api/alerts/${id}/close`, {
-        method: 'POST'
+      const response = await fetch(`http://localhost:5001/api/alerts/history/${id}/handle`, {
+        method: 'PUT'
       });
 
       if (response.ok) {
@@ -129,10 +131,12 @@ export default function AlertCenterPage() {
     switch (status) {
       case 'pending':
         return <Badge variant="outline">待处理</Badge>;
-      case 'acknowledged':
-        return <Badge className="bg-blue-500 text-white">已确认</Badge>;
-      case 'closed':
-        return <Badge className="bg-gray-500 text-white">已关闭</Badge>;
+      case 'handled':
+        return <Badge className="bg-blue-500 text-white">已处理</Badge>;
+      case 'ignored':
+        return <Badge className="bg-gray-500 text-white">已忽略</Badge>;
+      case 'sent':
+        return <Badge className="bg-green-500 text-white">已发送</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -213,8 +217,9 @@ export default function AlertCenterPage() {
                 <SelectContent>
                   <SelectItem value="all">全部</SelectItem>
                   <SelectItem value="pending">待处理</SelectItem>
-                  <SelectItem value="acknowledged">已确认</SelectItem>
-                  <SelectItem value="closed">已关闭</SelectItem>
+                  <SelectItem value="handled">已处理</SelectItem>
+                  <SelectItem value="ignored">已忽略</SelectItem>
+                  <SelectItem value="sent">已发送</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -251,7 +256,7 @@ export default function AlertCenterPage() {
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <CardTitle className="flex items-center gap-2 text-lg">
-                          {alert.ruleName}
+                          {alert.ruleName || alert.intentType}
                           {getLevelBadge(alert.alertLevel)}
                           {getStatusBadge(alert.status)}
                         </CardTitle>
@@ -266,7 +271,7 @@ export default function AlertCenterPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm">{alert.message}</p>
+                    <p className="text-sm">{alert.alertMessage || alert.message}</p>
                   </CardContent>
                 </Card>
               ))
@@ -282,7 +287,7 @@ export default function AlertCenterPage() {
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
-                  {selectedAlert.ruleName}
+                  {selectedAlert.ruleName || selectedAlert.intentType}
                   {getLevelBadge(selectedAlert.alertLevel)}
                 </DialogTitle>
                 <DialogDescription>
@@ -322,7 +327,7 @@ export default function AlertCenterPage() {
                     <CardTitle className="text-base">告警消息</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm">{selectedAlert.message}</p>
+                    <p className="text-sm">{selectedAlert.alertMessage || selectedAlert.message}</p>
                   </CardContent>
                 </Card>
 
@@ -351,10 +356,10 @@ export default function AlertCenterPage() {
                         <Bell className="h-4 w-4 text-gray-500" />
                         <span className="text-sm">创建于 {new Date(selectedAlert.createdAt).toLocaleString('zh-CN')}</span>
                       </div>
-                      {selectedAlert.acknowledgedAt && (
+                      {selectedAlert.handledAt && (
                         <div className="flex items-center gap-2">
                           <CheckCircle2 className="h-4 w-4 text-blue-500" />
-                          <span className="text-sm">确认于 {new Date(selectedAlert.acknowledgedAt).toLocaleString('zh-CN')}</span>
+                          <span className="text-sm">处理于 {new Date(selectedAlert.handledAt).toLocaleString('zh-CN')}</span>
                         </div>
                       )}
                       {selectedAlert.closedAt && (
@@ -369,17 +374,15 @@ export default function AlertCenterPage() {
               </div>
 
               <DialogFooter>
-                {selectedAlert.status !== 'closed' && (
+                {selectedAlert.status === 'pending' && (
                   <>
-                    {selectedAlert.status === 'pending' && (
-                      <Button
-                        variant="outline"
-                        onClick={() => handleAcknowledge(selectedAlert.id)}
-                      >
-                        <CheckCircle2 className="mr-2 h-4 w-4" />
-                        确认告警
-                      </Button>
-                    )}
+                    <Button
+                      variant="outline"
+                      onClick={() => handleAcknowledge(selectedAlert.id)}
+                    >
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      处理告警
+                    </Button>
                     <Button
                       variant="destructive"
                       onClick={() => handleClose(selectedAlert.id)}
