@@ -199,7 +199,99 @@ class OperationLogService {
       .where(sql`${operationLogs.createdAt} < ${cutoffDate.toISOString()}`)
       .returning();
 
-    console.log(`[运营日志] 清理 ${days} 天前的日志，删除 ${result.length} 条`);
+    console.log(`[运营日志] 清理完成，删除 ${result.length} 条 ${days} 天前的日志`);
+    return result.length;
+  }
+
+  /**
+   * 根据ID删除单条日志
+   */
+  async deleteById(id) {
+    const db = await getDb();
+
+    const result = await db
+      .delete(operationLogs)
+      .where(sql`${operationLogs.id} = ${id}`)
+      .returning();
+
+    console.log(`[运营日志] 删除单条日志: ${id}`);
+    return result.length > 0;
+  }
+
+  /**
+   * 批量删除日志
+   */
+  async batchDelete(ids) {
+    const db = await getDb();
+
+    let whereClause = sql`1=0`; // 初始为假条件
+    ids.forEach((id, index) => {
+      if (index === 0) {
+        whereClause = sql`${operationLogs.id} = ${id}`;
+      } else {
+        whereClause = sql`${whereClause} OR ${operationLogs.id} = ${id}`;
+      }
+    });
+
+    const result = await db
+      .delete(operationLogs)
+      .where(whereClause)
+      .returning();
+
+    console.log(`[运营日志] 批量删除日志: ${result.length} 条`);
+    return result.length;
+  }
+
+  /**
+   * 按条件删除日志
+   */
+  async deleteByFilters(filters = {}) {
+    const db = await getDb();
+
+    let whereClause = sql`1=1`;
+
+    if (filters.userId) {
+      whereClause = sql`${whereClause} AND ${operationLogs.userId} = ${filters.userId}`;
+    }
+    if (filters.username) {
+      whereClause = sql`${whereClause} AND ${operationLogs.username} ILIKE ${'%' + filters.username + '%'}`;
+    }
+    if (filters.module) {
+      whereClause = sql`${whereClause} AND ${operationLogs.module} = ${filters.module}`;
+    }
+    if (filters.action) {
+      whereClause = sql`${whereClause} AND ${operationLogs.action} ILIKE ${'%' + filters.action + '%'}`;
+    }
+    if (filters.status) {
+      whereClause = sql`${whereClause} AND ${operationLogs.status} = ${filters.status}`;
+    }
+    if (filters.startTime) {
+      whereClause = sql`${whereClause} AND ${operationLogs.createdAt} >= ${filters.startTime}`;
+    }
+    if (filters.endTime) {
+      whereClause = sql`${whereClause} AND ${operationLogs.createdAt} <= ${filters.endTime}`;
+    }
+
+    const result = await db
+      .delete(operationLogs)
+      .where(whereClause)
+      .returning();
+
+    console.log(`[运营日志] 按条件删除日志: ${result.length} 条`);
+    return result.length;
+  }
+
+  /**
+   * 清空所有日志
+   */
+  async clearAll() {
+    const db = await getDb();
+
+    const result = await db
+      .delete(operationLogs)
+      .returning();
+
+    console.log(`[运营日志] 清空所有日志: ${result.length} 条`);
     return result.length;
   }
 }

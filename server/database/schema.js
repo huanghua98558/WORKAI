@@ -515,24 +515,30 @@ exports.operationLogs = pgTable(
     id: varchar("id", { length: 36 })
       .primaryKey()
       .default(sql`gen_random_uuid()`),
+    userId: varchar("user_id", { length: 36 }), // 用户ID (兼容性字段)
+    username: varchar("username", { length: 255 }), // 用户名 (兼容性字段)
+    action: varchar("action", { length: 50 }).notNull(), // 操作: create, update, delete, start, stop, etc.
     module: varchar("module", { length: 50 }).notNull(), // 模块: robots, callbacks, ai, sessions, etc.
-    operation: varchar("operation", { length: 50 }).notNull(), // 操作: create, update, delete, start, stop, etc.
-    operatorId: varchar("operator_id", { length: 36 }), // 操作人ID
-    operatorName: varchar("operator_name", { length: 255 }), // 操作人名称
     targetId: varchar("target_id", { length: 36 }), // 目标对象ID
     targetType: varchar("target_type", { length: 50 }), // 目标对象类型: robot, callback, ai_config, etc.
     description: text("description"), // 操作描述
-    extraData: jsonb("extra_data"), // 额外数据（JSON格式）
     ipAddress: varchar("ip_address", { length: 45 }), // 操作IP地址
+    userAgent: text("user_agent"), // 用户代理
+    requestData: jsonb("request_data"), // 请求数据
+    responseData: jsonb("response_data"), // 响应数据
+    status: varchar("status", { length: 20 }).notNull().default("success"), // 状态: success, error
+    errorMessage: text("error_message"), // 错误信息
+    duration: integer("duration"), // 请求耗时（毫秒）
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
   (table) => ({
     moduleIdx: index("operation_logs_module_idx").on(table.module),
-    operationIdx: index("operation_logs_operation_idx").on(table.operation),
-    operatorIdIdx: index("operation_logs_operator_id_idx").on(table.operatorId),
+    actionIdx: index("operation_logs_action_idx").on(table.action),
+    userIdIdx: index("operation_logs_user_id_idx").on(table.userId),
     targetIdIdx: index("operation_logs_target_id_idx").on(table.targetId),
+    statusIdx: index("operation_logs_status_idx").on(table.status),
     createdAtIdx: index("operation_logs_created_at_idx").on(table.createdAt),
   })
 );

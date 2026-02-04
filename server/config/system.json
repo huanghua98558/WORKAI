@@ -155,7 +155,8 @@
         "model": "gpt-4o-mini",
         "apiKey": "",
         "apiBase": ""
-      }
+      },
+      "systemPrompt": "你是一个数据分析师。请根据以下数据生成日终总结报告。\n\n报告要求：\n1. 包含关键指标统计（消息数、回复数、人工介入数等）\n2. 识别问题和风险\n3. 提出改进建议\n4. 语言简洁专业"
     },
     "conversion": {
       "useBuiltin": true,
