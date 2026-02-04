@@ -131,8 +131,7 @@
     ],
     "customModels": [],
     "intentRecognition": {
-      "useBuiltin": true,
-      "builtinModelId": "doubao-seed-1-6-251015"
+      "useBuiltin": true
     },
     "serviceReply": {
       "useBuiltin": true,
