@@ -30,7 +30,10 @@ import {
   MessageCircle,
   FileText,
   Activity,
-  Zap
+  Zap,
+  Clock,
+  Cpu,
+  ShieldCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -38,13 +41,20 @@ import { toast } from 'sonner';
 interface AIModel {
   id: string;
   name: string;
+  displayName: string;
   provider: string;
+  providerDisplayName: string;
   modelId: string;
+  type?: string;
+  description?: string;
+  maxTokens?: number;
   status: 'active' | 'inactive';
   healthStatus: 'healthy' | 'degraded' | 'down';
   responseTime?: number;
   capabilities: string[];
+  priority?: number;
   createdAt: string;
+  isBuiltin?: boolean;
 }
 
 interface AIPersona {
@@ -68,6 +78,42 @@ interface MessageTemplate {
   isActive: boolean;
 }
 
+// 中文映射函数
+const getHealthStatusText = (status: string) => {
+  const map: Record<string, { text: string; icon: React.ReactNode }> = {
+    healthy: { text: '健康', icon: <CheckCircle className="h-3 w-3 mr-1" /> },
+    degraded: { text: '降级', icon: <Zap className="h-3 w-3 mr-1" /> },
+    down: { text: '离线', icon: <XCircle className="h-3 w-3 mr-1" /> }
+  };
+  return map[status] || { text: status, icon: null };
+};
+
+const getStatusText = (status: string) => {
+  return status === 'active' ? '启用' : '禁用';
+};
+
+const getModelTypeText = (type?: string) => {
+  const map: Record<string, string> = {
+    intent: '意图识别',
+    chat: '对话生成',
+    text: '文本处理',
+    embedding: '向量化'
+  };
+  return map[type || ''] || type || '未知';
+};
+
+const getCapabilityText = (cap: string) => {
+  const map: Record<string, string> = {
+    intent_recognition: '意图识别',
+    text_generation: '文本生成',
+    conversation: '对话',
+    code_generation: '代码生成',
+    image_recognition: '图像识别',
+    embedding: '向量化'
+  };
+  return map[cap] || cap;
+};
+
 export default function AIModule() {
   const [activeTab, setActiveTab] = useState('models');
   const [loading, setLoading] = useState(true);
@@ -76,6 +122,7 @@ export default function AIModule() {
   const [models, setModels] = useState<AIModel[]>([]);
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
   const [showModelDialog, setShowModelDialog] = useState(false);
+  const [showModelDetail, setShowModelDetail] = useState(false);
   const [testingModel, setTestingModel] = useState<string | null>(null);
 
   // AI角色管理
@@ -106,21 +153,29 @@ export default function AIModule() {
     try {
       const response = await fetch('/api/proxy/ai/models');
       const data = await response.json();
-      
+
       if (data.success) {
         const formattedModels = data.data.map((model: any) => ({
           id: model.id,
-          name: model.displayName || model.display_name || model.name,
-          provider: model.providerDisplayName || model.provider_display_name || model.providerName || model.provider_name,
+          name: model.name || model.displayName || model.display_name,
+          displayName: model.displayName || model.display_name || model.name,
+          provider: model.providerName || model.provider_name || model.provider,
+          providerDisplayName: model.providerDisplayName || model.provider_display_name || model.providerName || model.provider_name,
           modelId: model.modelId || model.model_id,
+          type: model.type,
+          description: model.description,
+          maxTokens: model.maxTokens || model.max_tokens,
           status: model.isEnabled || model.is_enabled ? 'active' : 'inactive',
           healthStatus: 'healthy' as const,
           capabilities: model.capabilities || [],
-          createdAt: model.createdAt || model.created_at
+          priority: model.priority,
+          createdAt: model.createdAt || model.created_at,
+          isBuiltin: true // 所有从API加载的都是内置模型
         }));
         setModels(formattedModels);
       }
     } catch (error) {
+      console.error('加载AI模型失败:', error);
       toast.error('加载AI模型失败');
     } finally {
       setLoading(false);
@@ -131,7 +186,7 @@ export default function AIModule() {
     try {
       const response = await fetch('/api/proxy/ai/personas');
       const data = await response.json();
-      
+
       if (data.success) {
         const formattedPersonas = data.data.map((persona: any) => ({
           id: persona.id,
@@ -146,6 +201,7 @@ export default function AIModule() {
         setPersonas(formattedPersonas);
       }
     } catch (error) {
+      console.error('加载AI角色失败:', error);
       toast.error('加载AI角色失败');
     }
   };
@@ -159,7 +215,7 @@ export default function AIModule() {
         const formattedTemplates = data.data.map((template: any) => ({
           id: template.id,
           category: template.category,
-          name: template.category_name,
+          name: template.category_name || template.name,
           description: template.description || '',
           template: template.template,
           variables: template.variables || [],
@@ -168,75 +224,58 @@ export default function AIModule() {
         setTemplates(formattedTemplates);
       }
     } catch (error) {
+      console.error('加载话术模板失败:', error);
       toast.error('加载话术模板失败');
     }
   };
 
-  // AI模型CRUD操作
-  const handleSaveModel = async () => {
+  // 模型启用/禁用
+  const handleToggleModelStatus = async (modelId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'active' ? 'disable' : 'enable';
     try {
-      const payload = {
-        name: selectedModel?.name || '',
-        displayName: selectedModel?.name || '',
-        modelId: selectedModel?.modelId || '',
-        type: 'chat',
-        capabilities: ['text'],
-        providerId: selectedModel?.providerId || '',
-        description: selectedModel?.description || '',
-        maxTokens: selectedModel?.maxTokens || 2000,
-        isEnabled: true,
-        priority: 10
-      };
-
-      const url = selectedModel?.id
-        ? `/api/ai/models/${selectedModel.id}`
-        : '/api/ai/models';
-
-      const response = await fetch(url, {
-        method: selectedModel?.id ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      const response = await fetch(`/api/proxy/ai/models/${modelId}/${newStatus}`, {
+        method: 'POST'
       });
 
       const data = await response.json();
-
       if (data.success) {
-        toast.success(selectedModel?.id ? '模型更新成功' : '模型创建成功');
-        setShowModelDialog(false);
-        setSelectedModel(null);
+        toast.success(`模型已${newStatus === 'enable' ? '启用' : '禁用'}`);
         loadAIModels();
       } else {
         toast.error(data.error || '操作失败');
       }
     } catch (error) {
+      console.error('操作失败:', error);
       toast.error('操作失败');
     }
   };
 
-  const handleDeleteModel = async (id: string) => {
-    if (!confirm('确定要删除这个模型吗？')) return;
-
+  // 模型健康检查
+  const handleHealthCheck = async (modelId: string) => {
+    setTestingModel(modelId);
     try {
-      const response = await fetch(`/api/ai/models/${id}`, {
-        method: 'DELETE'
+      const response = await fetch(`/api/proxy/ai/models/${modelId}/health`, {
+        method: 'POST'
       });
 
       const data = await response.json();
-
       if (data.success) {
-        toast.success('模型删除成功');
-        loadAIModels();
+        toast.success('模型健康检查通过');
       } else {
-        toast.error(data.error || '删除失败');
+        toast.error(data.error || '健康检查失败');
       }
     } catch (error) {
-      toast.error('删除失败');
+      console.error('健康检查失败:', error);
+      toast.error('健康检查失败');
+    } finally {
+      setTestingModel(null);
     }
   };
 
-  const handleEditModel = (model: AIModel) => {
+  // 查看模型详情
+  const handleViewModelDetail = (model: AIModel) => {
     setSelectedModel(model);
-    setShowModelDialog(true);
+    setShowModelDetail(true);
   };
 
   // AI角色CRUD操作
@@ -275,6 +314,7 @@ export default function AIModule() {
         toast.error(data.error || '操作失败');
       }
     } catch (error) {
+      console.error('操作失败:', error);
       toast.error('操作失败');
     }
   };
@@ -296,6 +336,7 @@ export default function AIModule() {
         toast.error(data.error || '删除失败');
       }
     } catch (error) {
+      console.error('删除失败:', error);
       toast.error('删除失败');
     }
   };
@@ -309,13 +350,12 @@ export default function AIModule() {
   const handleSaveTemplate = async () => {
     try {
       const payload = {
-        category: selectedTemplate?.category || 'general',
-        categoryName: selectedTemplate?.name || '通用',
+        category: selectedTemplate?.category || '',
+        categoryName: selectedTemplate?.name || '',
+        description: selectedTemplate?.description || '',
         template: selectedTemplate?.template || '',
         variables: selectedTemplate?.variables || [],
-        description: selectedTemplate?.description || '',
-        isActive: selectedTemplate?.isActive ?? true,
-        priority: 10
+        isActive: selectedTemplate?.isActive ?? true
       };
 
       const url = selectedTemplate?.id
@@ -339,6 +379,7 @@ export default function AIModule() {
         toast.error(data.error || '操作失败');
       }
     } catch (error) {
+      console.error('操作失败:', error);
       toast.error('操作失败');
     }
   };
@@ -360,6 +401,7 @@ export default function AIModule() {
         toast.error(data.error || '删除失败');
       }
     } catch (error) {
+      console.error('删除失败:', error);
       toast.error('删除失败');
     }
   };
@@ -369,64 +411,67 @@ export default function AIModule() {
     setShowTemplateDialog(true);
   };
 
-  const handleTestAI = async () => {
-    if (!testInput.trim()) {
-      toast.error('请输入测试内容');
-      return;
-    }
-
-    if (!testModel) {
-      toast.error('请选择测试模型');
+  // AI测试
+  const handleAITest = async () => {
+    if (!testModel || !testInput) {
+      toast.error('请选择模型并输入测试内容');
       return;
     }
 
     setIsTesting(true);
     try {
-      const response = await fetch('/api/proxy/ai/test', {
+      const response = await fetch('/api/ai/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          input: testInput,
-          model_id: testModel,
-          type: 'intent'
+          modelId: testModel,
+          input: testInput
         })
       });
+
       const data = await response.json();
-      
       if (data.success) {
         setTestResult(data.data);
+        toast.success('测试完成');
       } else {
-        toast.error(data.error || 'AI测试失败');
+        toast.error(data.error || '测试失败');
       }
     } catch (error) {
-      toast.error('AI测试失败');
+      console.error('测试失败:', error);
+      toast.error('测试失败');
     } finally {
       setIsTesting(false);
     }
   };
 
+  if (loading && models.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold flex items-center gap-3">
-            <Brain className="h-8 w-8 text-primary" />
+          <h3 className="text-2xl font-bold flex items-center gap-2">
+            <Brain className="h-6 w-6 text-blue-500" />
             AI 模块
-          </h2>
-          <p className="text-muted-foreground mt-2">
-            AI服务管理、角色配置、话术模板和调试工具
+          </h3>
+          <p className="text-muted-foreground mt-1">
+            管理 AI 模型、角色、话术模板和调试功能
           </p>
         </div>
-        <Button onClick={() => window.location.reload()}>
+        <Button variant="outline" onClick={() => { loadAIModels(); loadAIPersonas(); loadMessageTemplates(); }}>
           <RefreshCw className="h-4 w-4 mr-2" />
           刷新
         </Button>
       </div>
 
-      {/* 主内容 */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="models" className="gap-2">
             <Bot className="h-4 w-4" />
             AI模型
@@ -456,78 +501,121 @@ export default function AIModule() {
                     AI 模型管理
                   </CardTitle>
                   <CardDescription className="mt-2">
-                    管理AI模型配置、健康检查和性能监控
+                    管理 {models.length} 个内置 AI 模型，支持健康检查和启用/禁用
                   </CardDescription>
                 </div>
-                <Button onClick={() => setShowModelDialog(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  添加模型
-                </Button>
               </div>
             </CardHeader>
             <CardContent>
+              <Alert className="mb-4 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900/50">
+                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <AlertDescription className="text-blue-800 dark:text-blue-300">
+                  这些是系统内置的 AI 模型，内置模型不支持编辑和删除。您可以启用/禁用模型，或进行健康检查。
+                </AlertDescription>
+              </Alert>
+
               <div className="space-y-4">
                 {models.map((model) => (
-                  <div key={model.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <Bot className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold">{model.name}</h3>
-                          <Badge variant={model.status === 'active' ? 'default' : 'secondary'}>
-                            {model.status === 'active' ? '启用' : '禁用'}
-                          </Badge>
+                  <div key={model.id} className="border rounded-lg hover:shadow-md transition-all">
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        {/* 左侧：模型基本信息 */}
+                        <div className="flex items-start gap-4 flex-1">
+                          <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg">
+                            <Bot className="h-6 w-6 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-semibold text-lg">{model.displayName}</h3>
+                              <Badge variant={model.status === 'active' ? 'default' : 'secondary'}>
+                                {getStatusText(model.status)}
+                              </Badge>
+                              {model.type && (
+                                <Badge variant="outline" className="text-xs">
+                                  {getModelTypeText(model.type)}
+                                </Badge>
+                              )}
+                              {model.isBuiltin && (
+                                <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                                  <ShieldCheck className="h-3 w-3 mr-1" />
+                                  内置
+                                </Badge>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Bot className="h-3 w-3" />
+                                {model.providerDisplayName}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Cpu className="h-3 w-3" />
+                                {model.modelId.slice(0, 20)}{model.modelId.length > 20 ? '...' : ''}
+                              </span>
+                            </div>
+
+                            {model.description && (
+                              <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                                {model.description}
+                              </p>
+                            )}
+
+                            {/* 能力标签 */}
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {model.capabilities.map((cap) => (
+                                <Badge key={cap} variant="outline" className="text-xs">
+                                  {getCapabilityText(cap)}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {model.provider} / {model.modelId}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <div className="flex items-center gap-2 justify-end">
-                          <Badge
-                            variant={
-                              model.healthStatus === 'healthy' ? 'default' :
-                              model.healthStatus === 'degraded' ? 'warning' : 'destructive'
-                            }
-                          >
-                            {model.healthStatus === 'healthy' && <CheckCircle className="h-3 w-3 mr-1" />}
-                            {model.healthStatus === 'degraded' && <Zap className="h-3 w-3 mr-1" />}
-                            {model.healthStatus === 'down' && <XCircle className="h-3 w-3 mr-1" />}
-                            {model.healthStatus}
-                          </Badge>
-                          {model.responseTime && (
-                            <span className="text-sm text-muted-foreground">
-                              {model.responseTime}ms
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex gap-1 mt-1">
-                          {model.capabilities.slice(0, 3).map((cap) => (
-                            <Badge key={cap} variant="outline" className="text-xs">
-                              {cap}
+
+                        {/* 右侧：状态和操作 */}
+                        <div className="flex flex-col items-end gap-3">
+                          {/* 健康状态 */}
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={
+                                model.healthStatus === 'healthy' ? 'default' :
+                                model.healthStatus === 'degraded' ? 'warning' : 'destructive'
+                              }
+                            >
+                              {getHealthStatusText(model.healthStatus).icon}
+                              {getHealthStatusText(model.healthStatus).text}
                             </Badge>
-                          ))}
+                          </div>
+
+                          {/* 操作按钮 */}
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={model.status === 'active'}
+                              onCheckedChange={() => handleToggleModelStatus(model.id, model.status)}
+                              disabled={testingModel === model.id}
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleHealthCheck(model.id)}
+                              disabled={testingModel === model.id}
+                            >
+                              {testingModel === model.id ? (
+                                <RefreshCw className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Activity className="h-4 w-4" />
+                              )}
+                              健康检查
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleViewModelDetail(model)}
+                            >
+                              <Info className="h-4 w-4" />
+                              详情
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditModel(model)}
-                        >
-                          <Settings className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDeleteModel(model.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </div>
                     </div>
                   </div>
@@ -548,7 +636,7 @@ export default function AIModule() {
                     AI 角色管理
                   </CardTitle>
                   <CardDescription className="mt-2">
-                    管理7个预设AI角色和自定义角色
+                    管理 {personas.length} 个预设 AI 角色和自定义角色
                   </CardDescription>
                 </div>
                 <Button onClick={() => setShowPersonaDialog(true)}>
@@ -568,7 +656,7 @@ export default function AIModule() {
                       <div>
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold">{persona.name}</h3>
-                          <Badge variant="outline">{persona.roleType}</Badge>
+                          <Badge variant="outline">{persona.roleType === 'preset' ? '预设角色' : '自定义角色'}</Badge>
                           {persona.isActive && <Badge variant="default">启用</Badge>}
                         </div>
                         <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
@@ -612,7 +700,7 @@ export default function AIModule() {
                     话术模板
                   </CardTitle>
                   <CardDescription className="mt-2">
-                    管理100+话术模板，覆盖24类场景
+                    管理 {templates.length} 个话术模板，覆盖各类场景
                   </CardDescription>
                 </div>
                 <Button onClick={() => setShowTemplateDialog(true)}>
@@ -625,7 +713,7 @@ export default function AIModule() {
               <Alert className="mb-4">
                 <Info className="h-4 w-4" />
                 <AlertDescription>
-                  目前已加载 {templates.length} 个话术模板示例，完整版本包含100+模板，覆盖24类场景。
+                  目前已加载 {templates.length} 个话术模板示例，完整版本包含更多模板。
                 </AlertDescription>
               </Alert>
               <div className="space-y-4">
@@ -680,7 +768,7 @@ export default function AIModule() {
                 AI 调试
               </CardTitle>
               <CardDescription className="mt-2">
-                测试AI意图识别和回复生成能力
+                测试 AI 意图识别和回复生成能力
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -689,34 +777,28 @@ export default function AIModule() {
                   <Label htmlFor="test-model">选择模型</Label>
                   <Select value={testModel} onValueChange={setTestModel}>
                     <SelectTrigger id="test-model">
-                      <SelectValue placeholder="选择AI模型" />
+                      <SelectValue placeholder="选择 AI 模型" />
                     </SelectTrigger>
                     <SelectContent>
                       {models.map((model) => (
                         <SelectItem key={model.id} value={model.id}>
-                          {model.name}
+                          {model.displayName}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-
                 <div>
-                  <Label htmlFor="test-input">测试内容</Label>
+                  <Label htmlFor="test-input">测试输入</Label>
                   <Textarea
                     id="test-input"
-                    placeholder="输入要测试的内容，例如：你好，请问这个产品多少钱？"
                     value={testInput}
                     onChange={(e) => setTestInput(e.target.value)}
+                    placeholder="输入要测试的内容..."
                     rows={4}
                   />
                 </div>
-
-                <Button
-                  onClick={handleTestAI}
-                  disabled={isTesting || !testModel}
-                  className="w-full"
-                >
+                <Button onClick={handleAITest} disabled={isTesting}>
                   {isTesting ? (
                     <>
                       <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
@@ -729,94 +811,101 @@ export default function AIModule() {
                     </>
                   )}
                 </Button>
-
-                {testResult && (
-                  <div className="space-y-4 mt-6">
-                    <div className="p-4 border rounded-lg bg-muted/50">
-                      <h4 className="font-semibold mb-2">测试结果</h4>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">意图：</span>
-                          <span className="font-medium">{testResult.intent}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">置信度：</span>
-                          <span className="font-medium">{(testResult.confidence * 100).toFixed(1)}%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">耗时：</span>
-                          <span className="font-medium">{testResult.latency}ms</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-4 border rounded-lg bg-muted/50">
-                      <h4 className="font-semibold mb-2">AI回复</h4>
-                      <p className="text-sm">{testResult.reply}</p>
-                    </div>
-                  </div>
-                )}
               </div>
+
+              {testResult && (
+                <Card className="bg-muted/50">
+                  <CardHeader>
+                    <CardTitle className="text-lg">测试结果</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <pre className="whitespace-pre-wrap text-sm">
+                      {JSON.stringify(testResult, null, 2)}
+                    </pre>
+                  </CardContent>
+                </Card>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* AI模型对话框 */}
-      <Dialog open={showModelDialog} onOpenChange={setShowModelDialog}>
+      {/* 模型详情对话框 */}
+      <Dialog open={showModelDetail} onOpenChange={setShowModelDetail}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {selectedModel ? '编辑AI模型' : '添加AI模型'}
+            <DialogTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5" />
+              模型详情
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="model-name">模型名称</Label>
-              <Input
-                id="model-name"
-                value={selectedModel?.name || ''}
-                onChange={(e) => setSelectedModel({ ...selectedModel, name: e.target.value } as AIModel)}
-                placeholder="例如：豆包Pro 32K"
-              />
+          {selectedModel && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">模型名称</Label>
+                  <p className="font-semibold">{selectedModel.displayName}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">提供商</Label>
+                  <p className="font-semibold">{selectedModel.providerDisplayName}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">模型 ID</Label>
+                  <p className="font-mono text-sm">{selectedModel.modelId}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">模型类型</Label>
+                  <p className="font-semibold">{getModelTypeText(selectedModel.type)}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">最大 Token</Label>
+                  <p className="font-semibold">{selectedModel.maxTokens || '未设置'}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">状态</Label>
+                  <p className="font-semibold">{getStatusText(selectedModel.status)}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">健康状态</Label>
+                  <p className="font-semibold">{getHealthStatusText(selectedModel.healthStatus).text}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">创建时间</Label>
+                  <p className="text-sm">{new Date(selectedModel.createdAt).toLocaleString('zh-CN')}</p>
+                </div>
+              </div>
+
+              {selectedModel.description && (
+                <div>
+                  <Label className="text-muted-foreground">描述</Label>
+                  <p className="text-sm mt-1">{selectedModel.description}</p>
+                </div>
+              )}
+
+              <div>
+                <Label className="text-muted-foreground">能力</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {selectedModel.capabilities.map((cap) => (
+                    <Badge key={cap} variant="outline">
+                      {getCapabilityText(cap)}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              {selectedModel.isBuiltin && (
+                <Alert className="bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900/50">
+                  <ShieldCheck className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  <AlertDescription className="text-purple-800 dark:text-purple-300">
+                    这是系统内置模型，不支持编辑和删除操作。
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
-            <div>
-              <Label htmlFor="model-id">模型ID</Label>
-              <Input
-                id="model-id"
-                value={selectedModel?.modelId || ''}
-                onChange={(e) => setSelectedModel({ ...selectedModel, modelId: e.target.value } as AIModel)}
-                placeholder="例如：doubao-pro-32k"
-              />
-            </div>
-            <div>
-              <Label htmlFor="model-provider">提供商ID</Label>
-              <Input
-                id="model-provider"
-                value={selectedModel?.providerId || ''}
-                onChange={(e) => setSelectedModel({ ...selectedModel, providerId: e.target.value } as AIModel)}
-                placeholder="提供商ID"
-              />
-            </div>
-            <div>
-              <Label htmlFor="model-description">描述</Label>
-              <Textarea
-                id="model-description"
-                value={selectedModel?.description || ''}
-                onChange={(e) => setSelectedModel({ ...selectedModel, description: e.target.value } as AIModel)}
-                placeholder="模型描述"
-                rows={3}
-              />
-            </div>
-          </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowModelDialog(false)}>
-              取消
-            </Button>
-            <Button onClick={handleSaveModel}>
-              <Save className="h-4 w-4 mr-2" />
-              保存
-            </Button>
+            <Button onClick={() => setShowModelDetail(false)}>关闭</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -826,7 +915,7 @@ export default function AIModule() {
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {selectedPersona ? '编辑AI角色' : '添加AI角色'}
+              {selectedPersona ? '编辑 AI 角色' : '添加 AI 角色'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -888,7 +977,7 @@ export default function AIModule() {
                 />
               </div>
               <div>
-                <Label htmlFor="persona-maxtokens">最大Token</Label>
+                <Label htmlFor="persona-maxtokens">最大 Token</Label>
                 <Input
                   id="persona-maxtokens"
                   type="number"
@@ -903,7 +992,7 @@ export default function AIModule() {
                 checked={selectedPersona?.isActive ?? true}
                 onCheckedChange={(checked) => setSelectedPersona({ ...selectedPersona, isActive: checked } as AIPersona)}
               />
-              <Label htmlFor="persona-active">启用角色</Label>
+              <Label htmlFor="persona-active">启用此角色</Label>
             </div>
           </div>
           <DialogFooter>
@@ -933,7 +1022,7 @@ export default function AIModule() {
                 id="template-category"
                 value={selectedTemplate?.category || ''}
                 onChange={(e) => setSelectedTemplate({ ...selectedTemplate, category: e.target.value } as MessageTemplate)}
-                placeholder="例如：welcome、after_sales、faq"
+                placeholder="分类代码"
               />
             </div>
             <div>
@@ -942,17 +1031,7 @@ export default function AIModule() {
                 id="template-name"
                 value={selectedTemplate?.name || ''}
                 onChange={(e) => setSelectedTemplate({ ...selectedTemplate, name: e.target.value } as MessageTemplate)}
-                placeholder="例如：新用户欢迎、售后咨询"
-              />
-            </div>
-            <div>
-              <Label htmlFor="template-content">模板内容</Label>
-              <Textarea
-                id="template-content"
-                value={selectedTemplate?.template || ''}
-                onChange={(e) => setSelectedTemplate({ ...selectedTemplate, template: e.target.value } as MessageTemplate)}
-                placeholder="使用 {{变量名}} 格式定义变量"
-                rows={6}
+                placeholder="模板名称"
               />
             </div>
             <div>
@@ -965,13 +1044,32 @@ export default function AIModule() {
                 rows={2}
               />
             </div>
+            <div>
+              <Label htmlFor="template-content">模板内容</Label>
+              <Textarea
+                id="template-content"
+                value={selectedTemplate?.template || ''}
+                onChange={(e) => setSelectedTemplate({ ...selectedTemplate, template: e.target.value } as MessageTemplate)}
+                placeholder="模板内容，可以使用 {变量名} 格式"
+                rows={6}
+              />
+            </div>
+            <div>
+              <Label htmlFor="template-variables">变量（逗号分隔）</Label>
+              <Input
+                id="template-variables"
+                value={selectedTemplate?.variables?.join(', ') || ''}
+                onChange={(e) => setSelectedTemplate({ ...selectedTemplate, variables: e.target.value.split(',').map(v => v.trim()) } as MessageTemplate)}
+                placeholder="变量1, 变量2, 变量3"
+              />
+            </div>
             <div className="flex items-center gap-2">
               <Switch
                 id="template-active"
                 checked={selectedTemplate?.isActive ?? true}
                 onCheckedChange={(checked) => setSelectedTemplate({ ...selectedTemplate, isActive: checked } as MessageTemplate)}
               />
-              <Label htmlFor="template-active">启用模板</Label>
+              <Label htmlFor="template-active">启用此模板</Label>
             </div>
           </div>
           <DialogFooter>
