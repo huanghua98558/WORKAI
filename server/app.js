@@ -17,6 +17,7 @@ const cors = require('@fastify/cors');
 const helmet = require('@fastify/helmet');
 const rateLimit = require('@fastify/rate-limit');
 const multipart = require('@fastify/multipart');
+const websocket = require('@fastify/websocket');
 
 const worktoolCallbackRoutes = require('./routes/worktool.callback');
 const adminApiRoutes = require('./routes/admin.api');
@@ -91,6 +92,24 @@ fastify.register(multipart, {
   }
 });
 
+// 注册 WebSocket 插件
+fastify.register(websocket);
+
+// WebSocket 连接管理
+const wsClients = new Set();
+
+// WebSocket 心跳定时器
+const heartbeatInterval = setInterval(() => {
+  wsClients.forEach(ws => {
+    if (ws.isAlive === false) {
+      ws.close();
+      return;
+    }
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, 30000); // 每30秒心跳一次
+
 // 注册请求日志中间件
 fastifyRequestLogger(fastify);
 
@@ -113,6 +132,57 @@ fastify.register(promptInitApiRoutes, { prefix: '/api' });
 fastify.register(robotRolesApiRoutes, { prefix: '/api' });
 fastify.register(robotGroupsApiRoutes, { prefix: '/api' });
 fastify.register(documentApiRoutes, { prefix: '/api/admin' });
+
+// WebSocket 路由
+fastify.register(async function (fastify) {
+  fastify.get('/ws', { websocket: true }, (connection, req) => {
+    logger.info('WebSocket 客户端已连接', { ip: req.ip });
+    wsClients.add(connection);
+    connection.isAlive = true;
+
+    // 发送欢迎消息
+    connection.socket.send(JSON.stringify({
+      type: 'connected',
+      timestamp: new Date().toISOString(),
+      message: 'WebSocket 连接已建立'
+    }));
+
+    // 处理消息
+    connection.socket.on('message', message => {
+      try {
+        const data = JSON.parse(message.toString());
+        logger.info('收到 WebSocket 消息', { type: data.type });
+
+        // 处理 ping
+        if (data.type === 'ping') {
+          connection.socket.send(JSON.stringify({ type: 'pong' }));
+        }
+      } catch (error) {
+        logger.error('WebSocket 消息处理失败', { error: error.message });
+      }
+    });
+
+    // 处理 pong
+    connection.socket.on('pong', () => {
+      connection.isAlive = true;
+    });
+
+    // 连接关闭
+    connection.socket.on('close', () => {
+      logger.info('WebSocket 客户端已断开');
+      wsClients.delete(connection);
+    });
+
+    // 错误处理
+    connection.socket.on('error', (error) => {
+      logger.error('WebSocket 连接错误', { error: error.message });
+      wsClients.delete(connection);
+    });
+  });
+});
+
+// 导出 WebSocket 客户端管理器（供其他服务使用）
+global.wsClients = wsClients;
 
 // 健康检查
 fastify.get('/health', async (request, reply) => {

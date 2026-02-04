@@ -1026,7 +1026,7 @@ exports.alertDedupRecords = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: time }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     dedupKeyIdx: index("alert_dedup_records_dedup_key_idx").on(table.dedupKey),
@@ -1052,11 +1052,7 @@ exports.userNotificationPreferences = pgTable(
     systemNotificationEnabled: boolean("system_notification_enabled").notNull().default(true),
     soundEnabled: boolean("sound_enabled").notNull().default(true),
     soundVolume: numeric("sound_volume", { precision: 3, scale: 2 }).default(0.8),
-    levelFilters: jsonb("level_filters").notNull().default('{
-      "info": {"enabled": false, "sound": false},
-      "warning": {"enabled": true, "sound": true},
-      "critical": {"enabled": true, "sound": true}
-    }'),
+    levelFilters: jsonb("level_filters").notNull().default(sql`'{"info": {"enabled": false, "sound": false}, "warning": {"enabled": true, "sound": true}, "critical": {"enabled": true, "sound": true}}'::jsonb`),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
