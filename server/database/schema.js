@@ -508,6 +508,121 @@ exports.documents = pgTable(
 // 文档表（驼峰式导出）
 exports.documentsTable = exports.documents;
 
+// ============================================
+// 流程引擎相关表 (Flow Engine 2.1)
+// ============================================
+
+// 流程定义表
+exports.flowDefinitions = pgTable(
+  "flow_definitions",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    name: varchar("name", { length: 255 }).notNull(), // 流程名称
+    description: text("description"), // 流程描述
+    version: varchar("version", { length: 50 }).default("1.0"), // 流程版本
+    isActive: boolean("is_active").notNull().default(true), // 是否启用
+    triggerType: varchar("trigger_type", { length: 50 }).notNull(), // 触发类型: webhook, manual, scheduled
+    triggerConfig: jsonb("trigger_config").default("{}"), // 触发配置
+    nodes: jsonb("nodes").notNull().default("[]"), // 节点配置列表（JSON数组）
+    edges: jsonb("edges").notNull().default("[]"), // 边配置列表（JSON数组，定义节点间的连接关系）
+    variables: jsonb("variables").default("{}"), // 流程变量（JSON对象）
+    timeout: integer("timeout").default(30000), // 超时时间（毫秒）
+    retryConfig: jsonb("retry_config").default("{\"maxRetries\": 3, \"retryInterval\": 1000}"), // 重试配置
+    createdBy: varchar("created_by", { length: 36 }), // 创建者ID
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    isActiveIdx: index("flow_definitions_is_active_idx").on(table.isActive),
+    triggerTypeIdx: index("flow_definitions_trigger_type_idx").on(table.triggerType),
+    createdAtIdx: index("flow_definitions_created_at_idx").on(table.createdAt),
+  })
+);
+
+// 流程定义表（驼峰式导出）
+exports.flow_definitions = exports.flowDefinitions;
+
+// 流程实例表
+exports.flowInstances = pgTable(
+  "flow_instances",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    flowDefinitionId: varchar("flow_definition_id", { length: 36 }).notNull(), // 关联的流程定义ID
+    flowName: varchar("flow_name", { length: 255 }), // 流程名称（冗余字段，便于查询）
+    status: varchar("status", { length: 50 }).notNull().default("running"), // 状态: pending, running, completed, failed, cancelled, timeout
+    triggerType: varchar("trigger_type", { length: 50 }).notNull(), // 触发类型
+    triggerData: jsonb("trigger_data").default("{}"), // 触发数据（如webhook消息内容）
+    currentNodeId: varchar("current_node_id", { length: 36 }), // 当前节点ID
+    executionPath: jsonb("execution_path").default("[]"), // 执行路径（节点ID列表）
+    context: jsonb("context").default("{}"), // 流程上下文（变量、状态等）
+    result: jsonb("result").default("{}"), // 执行结果
+    errorMessage: text("error_message"), // 错误消息
+    errorStack: text("error_stack"), // 错误堆栈
+    startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(), // 开始时间
+    completedAt: timestamp("completed_at", { withTimezone: true }), // 完成时间
+    processingTime: integer("processing_time"), // 处理时间（毫秒）
+    retryCount: integer("retry_count").default(0), // 重试次数
+    metadata: jsonb("metadata").default("{}"), // 元数据（如sessionId, messageId等）
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    flowDefinitionIdIdx: index("flow_instances_flow_definition_id_idx").on(table.flowDefinitionId),
+    statusIdx: index("flow_instances_status_idx").on(table.status),
+    currentNodeIdIdx: index("flow_instances_current_node_id_idx").on(table.currentNodeId),
+    startedAtIdx: index("flow_instances_started_at_idx").on(table.startedAt),
+    createdAtIdx: index("flow_instances_created_at_idx").on(table.createdAt),
+  })
+);
+
+// 流程实例表（下划线式导出）
+exports.flow_instances = exports.flowInstances;
+
+// 流程执行日志表
+exports.flowExecutionLogs = pgTable(
+  "flow_execution_logs",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    flowInstanceId: varchar("flow_instance_id", { length: 36 }).notNull(), // 关联的流程实例ID
+    flowDefinitionId: varchar("flow_definition_id", { length: 36 }), // 关联的流程定义ID
+    nodeId: varchar("node_id", { length: 36 }).notNull(), // 节点ID
+    nodeType: varchar("node_type", { length: 50 }).notNull(), // 节点类型: start, end, condition, ai_chat, intent, service, human_handover, notification
+    nodeName: varchar("node_name", { length: 255 }), // 节点名称
+    status: varchar("status", { length: 50 }).notNull(), // 状态: pending, running, completed, failed, skipped
+    inputData: jsonb("input_data").default("{}"), // 输入数据
+    outputData: jsonb("output_data").default("{}"), // 输出数据
+    errorMessage: text("error_message"), // 错误消息
+    startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(), // 开始时间
+    completedAt: timestamp("completed_at", { withTimezone: true }), // 完成时间
+    processingTime: integer("processing_time"), // 处理时间（毫秒）
+    retryCount: integer("retry_count").default(0), // 重试次数
+    metadata: jsonb("metadata").default("{}"), // 元数据
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    flowInstanceIdIdx: index("flow_execution_logs_flow_instance_id_idx").on(table.flowInstanceId),
+    flowDefinitionIdIdx: index("flow_execution_logs_flow_definition_id_idx").on(table.flowDefinitionId),
+    nodeIdIdx: index("flow_execution_logs_node_id_idx").on(table.nodeId),
+    statusIdx: index("flow_execution_logs_status_idx").on(table.status),
+    startedAtIdx: index("flow_execution_logs_started_at_idx").on(table.startedAt),
+    createdAtIdx: index("flow_execution_logs_created_at_idx").on(table.createdAt),
+  })
+);
+
+// 流程执行日志表（下划线式导出）
+exports.flow_execution_logs = exports.flowExecutionLogs;
+
 
 // 运营日志表
 exports.operationLogs = pgTable(
@@ -1349,4 +1464,119 @@ exports.documents = pgTable(
 
 // 文档表（驼峰式导出）
 exports.documentsTable = exports.documents;
+
+// ============================================
+// 流程引擎相关表 (Flow Engine 2.1)
+// ============================================
+
+// 流程定义表
+exports.flowDefinitions = pgTable(
+  "flow_definitions",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    name: varchar("name", { length: 255 }).notNull(), // 流程名称
+    description: text("description"), // 流程描述
+    version: varchar("version", { length: 50 }).default("1.0"), // 流程版本
+    isActive: boolean("is_active").notNull().default(true), // 是否启用
+    triggerType: varchar("trigger_type", { length: 50 }).notNull(), // 触发类型: webhook, manual, scheduled
+    triggerConfig: jsonb("trigger_config").default("{}"), // 触发配置
+    nodes: jsonb("nodes").notNull().default("[]"), // 节点配置列表（JSON数组）
+    edges: jsonb("edges").notNull().default("[]"), // 边配置列表（JSON数组，定义节点间的连接关系）
+    variables: jsonb("variables").default("{}"), // 流程变量（JSON对象）
+    timeout: integer("timeout").default(30000), // 超时时间（毫秒）
+    retryConfig: jsonb("retry_config").default("{\"maxRetries\": 3, \"retryInterval\": 1000}"), // 重试配置
+    createdBy: varchar("created_by", { length: 36 }), // 创建者ID
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    isActiveIdx: index("flow_definitions_is_active_idx").on(table.isActive),
+    triggerTypeIdx: index("flow_definitions_trigger_type_idx").on(table.triggerType),
+    createdAtIdx: index("flow_definitions_created_at_idx").on(table.createdAt),
+  })
+);
+
+// 流程定义表（驼峰式导出）
+exports.flow_definitions = exports.flowDefinitions;
+
+// 流程实例表
+exports.flowInstances = pgTable(
+  "flow_instances",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    flowDefinitionId: varchar("flow_definition_id", { length: 36 }).notNull(), // 关联的流程定义ID
+    flowName: varchar("flow_name", { length: 255 }), // 流程名称（冗余字段，便于查询）
+    status: varchar("status", { length: 50 }).notNull().default("running"), // 状态: pending, running, completed, failed, cancelled, timeout
+    triggerType: varchar("trigger_type", { length: 50 }).notNull(), // 触发类型
+    triggerData: jsonb("trigger_data").default("{}"), // 触发数据（如webhook消息内容）
+    currentNodeId: varchar("current_node_id", { length: 36 }), // 当前节点ID
+    executionPath: jsonb("execution_path").default("[]"), // 执行路径（节点ID列表）
+    context: jsonb("context").default("{}"), // 流程上下文（变量、状态等）
+    result: jsonb("result").default("{}"), // 执行结果
+    errorMessage: text("error_message"), // 错误消息
+    errorStack: text("error_stack"), // 错误堆栈
+    startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(), // 开始时间
+    completedAt: timestamp("completed_at", { withTimezone: true }), // 完成时间
+    processingTime: integer("processing_time"), // 处理时间（毫秒）
+    retryCount: integer("retry_count").default(0), // 重试次数
+    metadata: jsonb("metadata").default("{}"), // 元数据（如sessionId, messageId等）
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    flowDefinitionIdIdx: index("flow_instances_flow_definition_id_idx").on(table.flowDefinitionId),
+    statusIdx: index("flow_instances_status_idx").on(table.status),
+    currentNodeIdIdx: index("flow_instances_current_node_id_idx").on(table.currentNodeId),
+    startedAtIdx: index("flow_instances_started_at_idx").on(table.startedAt),
+    createdAtIdx: index("flow_instances_created_at_idx").on(table.createdAt),
+  })
+);
+
+// 流程实例表（下划线式导出）
+exports.flow_instances = exports.flowInstances;
+
+// 流程执行日志表
+exports.flowExecutionLogs = pgTable(
+  "flow_execution_logs",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    flowInstanceId: varchar("flow_instance_id", { length: 36 }).notNull(), // 关联的流程实例ID
+    flowDefinitionId: varchar("flow_definition_id", { length: 36 }), // 关联的流程定义ID
+    nodeId: varchar("node_id", { length: 36 }).notNull(), // 节点ID
+    nodeType: varchar("node_type", { length: 50 }).notNull(), // 节点类型: start, end, condition, ai_chat, intent, service, human_handover, notification
+    nodeName: varchar("node_name", { length: 255 }), // 节点名称
+    status: varchar("status", { length: 50 }).notNull(), // 状态: pending, running, completed, failed, skipped
+    inputData: jsonb("input_data").default("{}"), // 输入数据
+    outputData: jsonb("output_data").default("{}"), // 输出数据
+    errorMessage: text("error_message"), // 错误消息
+    startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(), // 开始时间
+    completedAt: timestamp("completed_at", { withTimezone: true }), // 完成时间
+    processingTime: integer("processing_time"), // 处理时间（毫秒）
+    retryCount: integer("retry_count").default(0), // 重试次数
+    metadata: jsonb("metadata").default("{}"), // 元数据
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    flowInstanceIdIdx: index("flow_execution_logs_flow_instance_id_idx").on(table.flowInstanceId),
+    flowDefinitionIdIdx: index("flow_execution_logs_flow_definition_id_idx").on(table.flowDefinitionId),
+    nodeIdIdx: index("flow_execution_logs_node_id_idx").on(table.nodeId),
+    statusIdx: index("flow_execution_logs_status_idx").on(table.status),
+    startedAtIdx: index("flow_execution_logs_started_at_idx").on(table.startedAt),
+    createdAtIdx: index("flow_execution_logs_created_at_idx").on(table.createdAt),
+  })
+);
+
+// 流程执行日志表（下划线式导出）
+exports.flow_execution_logs = exports.flowExecutionLogs;
 

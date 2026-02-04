@@ -18,7 +18,8 @@ const worktoolCallbackRoutes = async function (fastify, options) {
   const robotService = require('../services/robot.service');
   const worktoolService = require('../services/worktool.service');
   const messageProcessingService = require('../services/message-processing.service'); // 新的消息处理服务
-  const { callbackHistory } = require('../database/schema');
+  const { flowEngine, TriggerType } = require('../services/flow-engine.service'); // 流程引擎服务
+  const { callbackHistory, flowDefinitions } = require('../database/schema');
   const config = require('../lib/config');
 
   // 获取数据库连接
@@ -482,6 +483,112 @@ const worktoolCallbackRoutes = async function (fastify, options) {
         timestamp: message.timestamp
       });
 
+      // 查找Webhook触发的流程定义
+      console.log('[流程引擎] 查找Webhook触发的流程定义', {
+        robotId: robot.robotId,
+        triggerType: TriggerType.WEBHOOK
+      });
+
+      const webhookFlows = await flowEngine.listFlowDefinitions({
+        isActive: true,
+        triggerType: TriggerType.WEBHOOK
+      });
+
+      console.log('[流程引擎] 查找到的流程定义', {
+        count: webhookFlows.length,
+        flows: webhookFlows.map(f => ({ id: f.id, name: f.name, triggerConfig: f.triggerConfig }))
+      });
+
+      // 优先使用流程引擎处理
+      if (webhookFlows.length > 0) {
+        console.log('[流程引擎] 使用流程引擎处理消息', {
+          flowCount: webhookFlows.length
+        });
+
+        // 为每个匹配的流程创建实例并执行
+        for (const flowDef of webhookFlows) {
+          try {
+            // 检查触发条件（如果配置了robotId，则只匹配该机器人）
+            const triggerConfig = flowDef.triggerConfig || {};
+            if (triggerConfig.robotId && triggerConfig.robotId !== robot.robotId) {
+              console.log('[流程引擎] 流程定义不匹配当前机器人，跳过', {
+                flowId: flowDef.id,
+                flowName: flowDef.name,
+                triggerRobotId: triggerConfig.robotId,
+                currentRobotId: robot.robotId
+              });
+              continue;
+            }
+
+            console.log('[流程引擎] 创建流程实例', {
+              flowDefinitionId: flowDef.id,
+              flowName: flowDef.name,
+              messageId: message.messageId
+            });
+
+            const instance = await flowEngine.createFlowInstance(
+              flowDef.id,
+              {
+                message,
+                robot,
+                requestId
+              },
+              {
+                messageId: message.messageId,
+                robotId: robot.robotId,
+                groupName: message.groupName
+              }
+            );
+
+            console.log('[流程引擎] 流程实例创建成功，开始执行', {
+              instanceId: instance.id,
+              flowName: flowDef.name
+            });
+
+            // 异步执行流程
+            flowEngine.executeFlow(instance.id).catch(error => {
+              console.error('[流程引擎] 流程执行失败', {
+                instanceId: instance.id,
+                flowName: flowDef.name,
+                error: error.message,
+                stack: error.stack
+              });
+            });
+
+            console.log('[流程引擎] 流程执行已启动', {
+              instanceId: instance.id
+            });
+          } catch (flowError) {
+            console.error('[流程引擎] 创建或执行流程失败', {
+              flowDefinitionId: flowDef.id,
+              flowName: flowDef.name,
+              error: flowError.message,
+              stack: flowError.stack
+            });
+          }
+        }
+
+        // 记录决策结果（流程引擎模式）
+        await monitorService.recordSystemMetric('callback_processed', 1, {
+          type: 'message',
+          robotId: robot.robotId,
+          action: 'flow_engine',
+          flowCount: webhookFlows.length
+        });
+
+        console.log('[流程引擎] ===== handleMessageAsync 完成（流程引擎模式） =====', {
+          requestId,
+          robotId: robot.robotId,
+          flowCount: webhookFlows.length
+        });
+        return;
+      }
+
+      // 如果没有找到匹配的流程定义，使用原有的消息处理服务
+      console.log('[回调处理] 未找到匹配的流程定义，使用原有消息处理服务', {
+        robotId: robot.robotId
+      });
+      
       // 使用新的消息处理服务
       console.log('[回调处理] 准备调用 messageProcessingService.processMessage', {
         robotId: robot.robotId,
@@ -517,7 +624,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
         createdAt: new Date()
       });
 
-      console.log('[回调处理] ===== handleMessageAsync 完成 =====', {
+      console.log('[回调处理] ===== handleMessageAsync 完成（原有模式） =====', {
         requestId,
         robotId: robot.robotId,
         action: decision.action
