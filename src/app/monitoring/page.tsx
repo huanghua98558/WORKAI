@@ -244,6 +244,14 @@ export default function MonitoringPage() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => window.location.href = '/alerts/rules'}
+          >
+            <AlertCircle className="w-4 h-4 mr-2" />
+            告警设置
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setAutoRefresh(!autoRefresh)}
           >
             <Activity className="w-4 h-4 mr-2" />
@@ -331,7 +339,8 @@ export default function MonitoringPage() {
           </Card>
 
           {/* 告警统计 */}
-          <Card>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => window.location.href = '/alerts/center'}>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium">待处理告警</CardTitle>
             </CardHeader>
@@ -372,13 +381,22 @@ export default function MonitoringPage() {
                   <span className="text-blue-600 font-medium">信息:</span> {health.alerts.info}
                 </div>
               </div>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => window.location.href = '/alerts/center'}
-              >
-                查看所有告警
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => window.location.href = '/alerts/center'}
+                >
+                  查看所有告警
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.location.href = '/alerts/rules'}
+                >
+                  告警设置
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -580,6 +598,16 @@ export default function MonitoringPage() {
 
         {/* 告警中心 */}
         <TabsContent value="alerts" className="space-y-4">
+          <div className="flex justify-end mb-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.location.href = '/alerts/rules'}
+            >
+              <AlertCircle className="w-4 h-4 mr-2" />
+              告警规则设置
+            </Button>
+          </div>
           <MonitoringAlertCompact maxItems={20} showViewAll={true} />
         </TabsContent>
 
