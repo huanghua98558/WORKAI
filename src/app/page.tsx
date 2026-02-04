@@ -2146,7 +2146,8 @@ ${callbacks.robotStatus}
           </CardContent>
         </Card>
       </div>
-    );
+    </div>
+  );
   };
 
   // 计算运行时间
