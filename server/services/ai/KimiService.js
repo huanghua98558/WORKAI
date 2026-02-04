@@ -63,11 +63,12 @@ class KimiService {
         { role: 'user', content: input }
       ];
 
-      const response = await client.chat(messages);
+      const response = await client.invoke(messages);
 
       let result;
       try {
-        result = JSON.parse(response.content || response.message?.content || '{}');
+        const content = typeof response === 'string' ? response : response.content || response.text || '';
+        result = JSON.parse(content);
       } catch (e) {
         result = {
           intent: 'chat',
@@ -99,14 +100,17 @@ class KimiService {
     try {
       const client = this.createClient();
 
-      const response = await client.chat(messages);
+      const response = await client.invoke(messages);
+
+      const content = typeof response === 'string' ? response : response.content || response.text || '';
+      const usage = response.usage || {};
 
       const result = {
-        content: response.content || response.message?.content || '',
+        content,
         usage: {
-          inputTokens: response.usage?.inputTokens || response.usage?.prompt_tokens || 0,
-          outputTokens: response.usage?.outputTokens || response.usage?.completion_tokens || 0,
-          totalTokens: response.usage?.totalTokens || response.usage?.total_tokens || 0
+          inputTokens: usage.inputTokens || usage.prompt_tokens || 0,
+          outputTokens: usage.outputTokens || usage.completion_tokens || 0,
+          totalTokens: usage.totalTokens || usage.total_tokens || 0
         }
       };
 
@@ -132,7 +136,7 @@ class KimiService {
       const client = this.createClient();
 
       const startTime = Date.now();
-      await client.chat([
+      await client.invoke([
         { role: 'user', content: '你好' }
       ]);
       const responseTime = Date.now() - startTime;

@@ -66,6 +66,7 @@ async function getAIModels(request, reply) {
 async function createAIModel(request, reply) {
   const {
     providerId,
+    provider_id,
     name,
     displayName,
     modelId,
@@ -81,7 +82,7 @@ async function createAIModel(request, reply) {
     const db = await getDb();
 
     const result = await db.insert(aiModels).values({
-      providerId,
+      providerId: providerId || provider_id,
       name,
       displayName,
       modelId,
@@ -222,10 +223,10 @@ async function healthCheckAIModel(request, reply) {
     // 调用AI服务进行健康检查
     const AIServiceFactory = require('../services/ai/AIServiceFactory');
     const aiService = AIServiceFactory.createService({
-      provider: model.provider_name,
-      modelId: model.modelId,
-      apiKey: model.ai_providers_api_key,
-      apiEndpoint: model.ai_providers_api_endpoint
+      provider: model.ai_providers?.name,
+      modelId: model.ai_models?.modelId,
+      apiKey: model.ai_providers?.apiKey,
+      apiEndpoint: model.ai_providers?.apiEndpoint
     });
 
     const startTime = Date.now();
@@ -626,9 +627,9 @@ async function deleteMessageTemplate(request, reply) {
  * POST /api/ai/test - AI调试接口
  */
 async function testAI(request, reply) {
-  const { input, modelId, type = 'intent' } = request.body;
+  const { input, modelId, model_id, type = 'intent' } = request.body;
 
-  if (!input || !modelId) {
+  if (!input || (!modelId && !model_id)) {
     return reply.code(400).send({
       success: false,
       error: '缺少必要参数: input 和 modelId'
@@ -643,7 +644,7 @@ async function testAI(request, reply) {
       .select()
       .from(aiModels)
       .leftJoin(aiProviders, eq(aiModels.providerId, aiProviders.id))
-      .where(eq(aiModels.id, modelId))
+      .where(eq(aiModels.id, modelId || model_id))
       .limit(1);
 
     if (modelResult.length === 0) {
@@ -658,12 +659,12 @@ async function testAI(request, reply) {
     // 调用AI服务
     const AIServiceFactory = require('../services/ai/AIServiceFactory');
     const aiService = AIServiceFactory.createService({
-      provider: model.provider_name,
-      modelId: model.modelId,
-      apiKey: model.ai_providers_api_key,
-      apiEndpoint: model.ai_providers_api_endpoint,
+      provider: model.ai_providers?.name,
+      modelId: model.ai_models?.modelId,
+      apiKey: model.ai_providers?.apiKey,
+      apiEndpoint: model.ai_providers?.apiEndpoint,
       temperature: 0.7,
-      maxTokens: model.maxTokens
+      maxTokens: model.ai_models?.maxTokens
     });
 
     let result;
@@ -694,7 +695,7 @@ async function testAI(request, reply) {
       data: {
         type,
         input,
-        model: model.displayName,
+        model: model.ai_models?.displayName,
         result,
         latency,
         timestamp: new Date().toISOString()
