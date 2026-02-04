@@ -301,9 +301,12 @@ export default function AdminDashboard() {
         fetch('/api/proxy/health')
       ]);
 
-      const [callbacksRes, monitorRes, alertRes, sessionsRes, uptimeRes] = results.map(r => 
-        r.status === 'fulfilled' ? r.value : { ok: false }
+      // 提取 Response 对象，如果是 rejected 则返回一个 mock Response
+      const resultsWithFallback = results.map(r => 
+        r.status === 'fulfilled' ? r.value : { ok: false, json: async () => ({}) } as Response
       );
+
+      const [callbacksRes, monitorRes, alertRes, sessionsRes, uptimeRes] = resultsWithFallback;
 
       // 检查连接状态
       if (uptimeRes.ok) {
