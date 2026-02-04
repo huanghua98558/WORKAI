@@ -48,9 +48,6 @@ export async function DELETE(request: NextRequest) {
 
     const response = await fetch(backendUrl.toString(), {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
     });
 
     const data = await response.json();
