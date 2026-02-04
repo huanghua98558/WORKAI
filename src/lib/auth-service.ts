@@ -2,7 +2,8 @@
  * 认证 API 服务
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+// 使用 Next.js API 路由作为代理，避免 CORS 问题
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export interface LoginRequest {
   username: string;
