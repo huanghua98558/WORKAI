@@ -110,13 +110,13 @@ export default function AIModule() {
       if (data.success) {
         const formattedModels = data.data.map((model: any) => ({
           id: model.id,
-          name: model.display_name,
-          provider: model.provider_display_name || model.provider_name,
-          modelId: model.model_id,
-          status: model.is_enabled ? 'active' : 'inactive',
+          name: model.displayName || model.display_name || model.name,
+          provider: model.providerDisplayName || model.provider_display_name || model.providerName || model.provider_name,
+          modelId: model.modelId || model.model_id,
+          status: model.isEnabled || model.is_enabled ? 'active' : 'inactive',
           healthStatus: 'healthy' as const,
           capabilities: model.capabilities || [],
-          createdAt: model.created_at
+          createdAt: model.createdAt || model.created_at
         }));
         setModels(formattedModels);
       }
