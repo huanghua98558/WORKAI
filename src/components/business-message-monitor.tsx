@@ -20,8 +20,11 @@ import {
   Filter,
   Search,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  ExternalLink
 } from 'lucide-react';
+
+import { adaptExecutionsToUnifiedMessages, UnifiedMessage } from '@/lib/message-adapter';
 
 interface MessageExecution {
   id: string;
@@ -52,8 +55,13 @@ interface MessageStats {
   success_rate: string;
 }
 
-export default function BusinessMessageMonitor() {
-  const [executions, setExecutions] = useState<MessageExecution[]>([]);
+interface BusinessMessageMonitorProps {
+  /** 跳转到会话管理的回调函数 */
+  onNavigateToSession?: (sessionId: string) => void;
+}
+
+export default function BusinessMessageMonitor({ onNavigateToSession }: BusinessMessageMonitorProps) {
+  const [executions, setExecutions] = useState<UnifiedMessage[]>([]);
   const [stats, setStats] = useState<MessageStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -73,13 +81,16 @@ export default function BusinessMessageMonitor() {
         const data = await res.json();
         if (data.code === 0 && Array.isArray(data.data)) {
           const executionsData = data.data || [];
-          setExecutions(executionsData);
+          
+          // 使用适配器转换数据格式
+          const unifiedMessages = adaptExecutionsToUnifiedMessages(executionsData);
+          setExecutions(unifiedMessages);
           
           // 计算统计数据
-          const total = executionsData.length;
-          const processing = executionsData.filter((e: MessageExecution) => e.status === 'processing').length;
-          const completed = executionsData.filter((e: MessageExecution) => e.status === 'completed').length;
-          const failed = executionsData.filter((e: MessageExecution) => e.status === 'failed').length;
+          const total = unifiedMessages.length;
+          const processing = unifiedMessages.filter((e: UnifiedMessage) => e.status === 'processing').length;
+          const completed = unifiedMessages.filter((e: UnifiedMessage) => e.status === 'completed').length;
+          const failed = unifiedMessages.filter((e: UnifiedMessage) => e.status === 'failed').length;
           const successRate = total > 0 ? ((completed / (completed + failed)) * 100).toFixed(1) : '0.0';
           
           setStats({
@@ -111,10 +122,10 @@ export default function BusinessMessageMonitor() {
   // 过滤执行记录
   const filteredExecutions = executions.filter(exec => {
     const matchesSearch = !searchQuery || 
-      exec.message_content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      exec.user_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      exec.group_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      exec.robot_name?.toLowerCase().includes(searchQuery.toLowerCase());
+      exec.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      exec.userName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      exec.groupName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      exec.robotName?.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || exec.status === statusFilter;
     
@@ -354,25 +365,36 @@ export default function BusinessMessageMonitor() {
                             
                             {/* 用户/群组信息 */}
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                {execution.user_name && (
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {execution.userName && (
                                   <Badge variant="outline" className="text-xs">
-                                    {execution.user_name}
+                                    {execution.userName}
                                   </Badge>
                                 )}
-                                {execution.group_name && (
+                                {execution.groupName && (
                                   <Badge variant="outline" className="text-xs">
-                                    {execution.group_name}
+                                    {execution.groupName}
                                   </Badge>
+                                )}
+                                {onNavigateToSession && execution.sessionId && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 text-xs gap-1"
+                                    onClick={() => onNavigateToSession(execution.sessionId)}
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                    查看会话
+                                  </Button>
                                 )}
                               </div>
                             </div>
 
                             {/* 机器人信息 */}
-                            {execution.robot_name && (
+                            {execution.robotName && (
                               <Badge variant="secondary" className="text-xs flex-shrink-0">
                                 <Bot className="h-3 w-3 mr-1" />
-                                {execution.robot_name}
+                                {execution.robotName}
                               </Badge>
                             )}
                           </div>
@@ -383,7 +405,7 @@ export default function BusinessMessageMonitor() {
                             <div className="text-right text-sm text-muted-foreground">
                               <div className="flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
-                                {formatTime(execution.started_at)}
+                                {formatTime(execution.startedAt)}
                               </div>
                               {execution.duration && (
                                 <div className="text-xs mt-0.5">
@@ -399,13 +421,13 @@ export default function BusinessMessageMonitor() {
                           <div className="bg-muted/50 rounded-lg p-3">
                             <div className="text-sm font-medium mb-1">用户消息:</div>
                             <div className="text-sm text-foreground break-words">
-                              {execution.message_content || '(空消息)'}
+                              {execution.content || '(空消息)'}
                             </div>
                           </div>
                         </div>
 
                         {/* 可展开的详细信息 */}
-                        {(execution.ai_response || execution.intent || execution.error_message || execution.node_type) && (
+                        {(execution.aiResponse || execution.intent || execution.errorMessage || execution.nodeType) && (
                           <div className="pl-8">
                             <button
                               onClick={() => setExpandedExecutionId(
@@ -424,14 +446,14 @@ export default function BusinessMessageMonitor() {
                             {expandedExecutionId === execution.id && (
                               <div className="mt-3 space-y-2">
                                 {/* AI响应 */}
-                                {execution.ai_response && (
+                                {execution.aiResponse && (
                                   <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
                                     <div className="text-sm font-medium mb-1 text-blue-700 dark:text-blue-300">
                                       <Bot className="h-3 w-3 inline mr-1" />
                                       AI回复:
                                     </div>
                                     <div className="text-sm break-words">
-                                      {execution.ai_response}
+                                      {execution.aiResponse}
                                     </div>
                                   </div>
                                 )}
@@ -442,23 +464,23 @@ export default function BusinessMessageMonitor() {
                                     <Badge variant="outline" className="text-xs">
                                       意图: {execution.intent}
                                     </Badge>
-                                    {execution.node_type && (
+                                    {execution.nodeType && (
                                       <Badge variant="secondary" className="text-xs">
-                                        节点: {execution.node_type}
+                                        节点: {execution.nodeType}
                                       </Badge>
                                     )}
                                   </div>
                                 )}
 
                                 {/* 错误信息 */}
-                                {execution.error_message && (
+                                {execution.errorMessage && (
                                   <div className="bg-red-50 dark:bg-red-950/20 rounded-lg p-3 border border-red-200 dark:border-red-800">
                                     <div className="text-sm font-medium mb-1 text-red-700 dark:text-red-300">
                                       <AlertCircle className="h-3 w-3 inline mr-1" />
                                       错误信息:
                                     </div>
                                     <div className="text-sm break-words text-red-600 dark:text-red-400">
-                                      {execution.error_message}
+                                      {execution.errorMessage}
                                     </div>
                                   </div>
                                 )}
