@@ -39,6 +39,7 @@ const robotGroupsApiRoutes = require('./routes/robot-groups.api');
 const documentApiRoutes = require('./routes/document.api');
 const notificationApiRoutes = require('./routes/notification.api');
 const intentConfigApiRoutes = require('./routes/intent-config.api');
+const authApiRoutes = require('./routes/auth.api');
 
 const redisClient = require('./lib/redis');
 const { getLogger, fastifyRequestLogger } = require('./lib/logger');
@@ -116,6 +117,7 @@ const heartbeatInterval = setInterval(() => {
 fastifyRequestLogger(fastify);
 
 // 注册路由
+fastify.register(authApiRoutes, { prefix: '/api/auth' });
 fastify.register(worktoolCallbackRoutes, { prefix: '/api/worktool/callback' });
 fastify.register(adminApiRoutes, { prefix: '/api/admin' });
 fastify.register(qaApiRoutes, { prefix: '/api/admin' });

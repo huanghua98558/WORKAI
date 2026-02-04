@@ -13,7 +13,10 @@ const adminApiRoutes = async function (fastify, options) {
   const worktoolService = require('../services/worktool.service');
 
   // 数据库管理器
-  const { userManager, systemSettingManager } = require('../database');
+  const { userManager, systemSettingManager, auditLogManager } = require('../database');
+
+  // 认证中间件
+  const { authMiddleware, requireRole, withAuditLog, ROLES } = require('../middleware/auth');
 
   /**
    * 获取系统配置
@@ -886,8 +889,11 @@ const adminApiRoutes = async function (fastify, options) {
 
   /**
    * 获取系统用户列表
+   * 需要认证
    */
-  fastify.get('/users', async (request, reply) => {
+  fastify.get('/users', { 
+    preHandler: [authMiddleware, withAuditLog('read', 'user')] 
+  }, async (request, reply) => {
     try {
       const { skip, limit, filters } = request.query;
       const users = await userManager.getUsers({
@@ -906,8 +912,11 @@ const adminApiRoutes = async function (fastify, options) {
 
   /**
    * 添加系统用户
+   * 需要认证，仅管理员可操作
    */
-  fastify.post('/users', async (request, reply) => {
+  fastify.post('/users', { 
+    preHandler: [authMiddleware, requireRole(ROLES.ADMIN), withAuditLog('create', 'user')] 
+  }, async (request, reply) => {
     try {
       const { username, password, role, email, isActive } = request.body;
       
@@ -964,8 +973,11 @@ const adminApiRoutes = async function (fastify, options) {
 
   /**
    * 更新系统用户
+   * 需要认证，仅管理员可操作
    */
-  fastify.put('/users/:id', async (request, reply) => {
+  fastify.put('/users/:id', { 
+    preHandler: [authMiddleware, requireRole(ROLES.ADMIN), withAuditLog('update', 'user')] 
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
       const { password, role, email, isActive } = request.body;
@@ -1026,8 +1038,11 @@ const adminApiRoutes = async function (fastify, options) {
 
   /**
    * 删除系统用户
+   * 需要认证，仅管理员可操作
    */
-  fastify.delete('/users/:id', async (request, reply) => {
+  fastify.delete('/users/:id', { 
+    preHandler: [authMiddleware, requireRole(ROLES.ADMIN), withAuditLog('delete', 'user')] 
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
       

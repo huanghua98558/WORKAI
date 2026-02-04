@@ -2,16 +2,40 @@ const { eq, and, like, sql } = require("drizzle-orm");
 const { getDb } = require("coze-coding-dev-sdk");
 const { users, insertUserSchema, updateUserSchema } = require("./schema");
 const { getLogger } = require("../lib/logger");
+const bcrypt = require('bcrypt');
+
+const SALT_ROUNDS = 10;
 
 class UserManager {
   constructor() {
     this.logger = getLogger('DB_USER');
   }
 
+  /**
+   * 加密密码
+   */
+  async hashPassword(password) {
+    return await bcrypt.hash(password, SALT_ROUNDS);
+  }
+
+  /**
+   * 验证密码
+   */
+  async verifyPassword(plainPassword, hashedPassword) {
+    return await bcrypt.compare(plainPassword, hashedPassword);
+  }
+
   async createUser(data) {
     const db = await getDb();
     const validated = insertUserSchema.parse(data);
-    const [user] = await db.insert(users).values(validated).returning();
+    
+    // 加密密码
+    const hashedPassword = await this.hashPassword(validated.password);
+    
+    const [user] = await db.insert(users).values({
+      ...validated,
+      password: hashedPassword
+    }).returning();
     this.logger.info('创建用户成功', { userId: user.id, username: user.username });
     return user;
   }
@@ -67,11 +91,15 @@ class UserManager {
 
   async updateUser(id, data) {
     const db = await getDb();
-    // 过滤掉空字符串的 password 字段
     const updateData = { ...data };
-    if (updateData.password === "" || updateData.password?.trim() === "") {
+    
+    // 如果需要更新密码，进行加密
+    if (updateData.password && updateData.password.trim()) {
+      updateData.password = await this.hashPassword(updateData.password);
+    } else {
       delete updateData.password;
     }
+    
     const validated = updateUserSchema.parse(updateData);
     const [user] = await db
       .update(users)
@@ -101,8 +129,9 @@ class UserManager {
       return null;
     }
 
-    // 这里应该使用密码哈希比较，暂时简单比较
-    if (user.password === password) {
+    // 使用 bcrypt 验证密码
+    const isValid = await this.verifyPassword(password, user.password);
+    if (isValid) {
       return user;
     }
     
