@@ -38,41 +38,29 @@ export function CallbackConfigPanel({ robotId, robotName }: CallbackConfigPanelP
   const [replyAll, setReplyAll] = useState('1');
   const [backendUrl, setBackendUrl] = useState('');
 
-  // 获取后端 URL
-  const getBackendUrl = () => {
-    if (typeof window !== 'undefined') {
-      return window.location.origin.replace(':5000', ':5001');
-    }
-    return 'http://localhost:5001';
-  };
-
   const fetchConfig = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(
-        `${getBackendUrl()}/api/robots/${robotId}/callback-config`,
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
+      const response = await fetch(`/api/proxy/robots/${robotId}/callback-config`, {
+        headers: {
+          'Content-Type': 'application/json'
         }
-      );
+      });
 
       if (!response.ok) {
         throw new Error('获取回调配置失败');
       }
 
       const data = await response.json();
-      
+
       if (data.code !== 0) {
         throw new Error(data.message || '获取回调配置失败');
       }
 
       setConfig(data.data);
-      setBackendUrl(getBackendUrl());
-      
+
       // 设置 replyAll 默认值
       if (data.data.callbackConfigList) {
         const messageCallback = data.data.callbackConfigList.find((c: CallbackConfig) => c.callbackType === '11');
@@ -103,16 +91,9 @@ export function CallbackConfigPanel({ robotId, robotName }: CallbackConfigPanelP
     setSuccess(null);
 
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-
-      // 传递后端 URL
-      headers['x-backend-url'] = getBackendUrl();
-
-      const endpoint = callbackType === '11' 
-        ? `${getBackendUrl()}/api/robots/${robotId}/config-callback`
-        : `${getBackendUrl()}/api/robots/${robotId}/config-callback-type`;
+      const endpoint = callbackType === '11'
+        ? `/api/proxy/robots/${robotId}/config-callback`
+        : `/api/proxy/robots/${robotId}/config-callback-type`;
 
       const body = callbackType === '11'
         ? { replyAll }
@@ -120,7 +101,9 @@ export function CallbackConfigPanel({ robotId, robotName }: CallbackConfigPanelP
 
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(body)
       });
 
@@ -154,20 +137,13 @@ export function CallbackConfigPanel({ robotId, robotName }: CallbackConfigPanelP
     setSuccess(null);
 
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-
-      headers['x-backend-url'] = getBackendUrl();
-
-      const response = await fetch(
-        `${getBackendUrl()}/api/robots/${robotId}/delete-callback-type`,
-        {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ callbackType })
-        }
-      );
+      const response = await fetch(`/api/proxy/robots/${robotId}/delete-callback-type`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ callbackType })
+      });
 
       if (!response.ok) {
         throw new Error('删除回调配置失败');

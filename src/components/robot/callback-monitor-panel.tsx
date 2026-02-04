@@ -42,34 +42,23 @@ export function CallbackMonitorPanel({ robotId }: CallbackMonitorPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState('24h');
 
-  // 获取后端 URL
-  const getBackendUrl = () => {
-    if (typeof window !== 'undefined') {
-      return window.location.origin.replace(':5000', ':5001');
-    }
-    return 'http://localhost:5001';
-  };
-
   const fetchStats = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(
-        `${getBackendUrl()}/api/robots/${robotId}/callback-stats?timeRange=${timeRange}`,
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
+      const response = await fetch(`/api/proxy/robots/${robotId}/callback-stats?timeRange=${timeRange}`, {
+        headers: {
+          'Content-Type': 'application/json'
         }
-      );
+      });
 
       if (!response.ok) {
         throw new Error('获取统计数据失败');
       }
 
       const data = await response.json();
-      
+
       if (data.code !== 0) {
         throw new Error(data.message || '获取统计数据失败');
       }

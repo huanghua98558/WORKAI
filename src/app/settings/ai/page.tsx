@@ -39,6 +39,22 @@ interface BuiltinModel {
   supportStream: boolean;
 }
 
+interface FineTuneModel {
+  id: string;
+  name: string;
+  modelName: string;
+  modelId: string;
+  fineTuneType: string;
+  baseModel: string;
+  status: 'training' | 'completed' | 'failed';
+  createdAt: string;
+  completedAt?: string;
+  metrics?: {
+    loss?: number;
+    accuracy?: number;
+  };
+}
+
 interface AIConfig {
   useBuiltin: boolean;
   builtinModelId?: string;
@@ -81,17 +97,10 @@ export default function AISettingsPage() {
   const [activeTab, setActiveTab] = useState('models');
   const [fineTuneModels, setFineTuneModels] = useState<FineTuneModel[]>([]);
 
-  const getBackendUrl = () => {
-    if (typeof window !== 'undefined') {
-      return window.location.origin.replace(':5000', ':5001');
-    }
-    return 'http://localhost:5001';
-  };
-
   const fetchConfig = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${getBackendUrl()}/api/admin/config`);
+      const response = await fetch('/api/proxy/admin/config');
       if (!response.ok) throw new Error('获取配置失败');
 
       const data = await response.json();
@@ -119,17 +128,17 @@ export default function AISettingsPage() {
 
   const saveConfig = async () => {
     if (!config) return;
-    
+
     setSaving(true);
     try {
-      const response = await fetch(`${getBackendUrl()}/api/admin/config`, {
+      const response = await fetch('/api/proxy/admin/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ai: config.ai })
       });
-      
+
       if (!response.ok) throw new Error('保存配置失败');
-      
+
       const data = await response.json();
       if (data.success) {
         toast.success('配置已保存');

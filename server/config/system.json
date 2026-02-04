@@ -132,14 +132,7 @@
     "customModels": [],
     "intentRecognition": {
       "useBuiltin": true,
-      "builtinModelId": "doubao-seed-1-6-251015",
-      "useCustom": true,
-      "customModel": {
-        "provider": "azure",
-        "model": "gpt-4o-mini",
-        "apiKey": "",
-        "apiBase": ""
-      }
+      "builtinModelId": "doubao-seed-1-6-251015"
     },
     "serviceReply": {
       "useBuiltin": true,

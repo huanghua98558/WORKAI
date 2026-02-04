@@ -58,14 +58,6 @@ export function CallbackHistoryPanel({ robotId }: CallbackHistoryPanelProps) {
   const [startTime, setStartTime] = useState<string>('');
   const [endTime, setEndTime] = useState<string>('');
 
-  // 获取后端 URL
-  const getBackendUrl = () => {
-    if (typeof window !== 'undefined') {
-      return window.location.origin.replace(':5000', ':5001');
-    }
-    return 'http://localhost:5001';
-  };
-
   const fetchHistory = async () => {
     setLoading(true);
     setError(null);
@@ -88,21 +80,17 @@ export function CallbackHistoryPanel({ robotId }: CallbackHistoryPanelProps) {
         params.append('endTime', endTime);
       }
 
-      const response = await fetch(
-        `${getBackendUrl()}/api/robots/${robotId}/callback-history?${params.toString()}`,
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
+      const response = await fetch(`/api/proxy/robots/${robotId}/callback-history?${params.toString()}`, {
+        headers: {
+          'Content-Type': 'application/json'
         }
-      );
+      });
 
       if (!response.ok) {
         throw new Error('获取回调历史失败');
       }
 
       const data = await response.json();
-      
       if (data.code !== 0) {
         throw new Error(data.message || '获取回调历史失败');
       }

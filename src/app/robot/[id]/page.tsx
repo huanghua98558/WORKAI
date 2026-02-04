@@ -79,27 +79,16 @@ export default function RobotDetailPage() {
   const [testingConnection, setTestingConnection] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
 
-  // 获取后端 URL
-  const getBackendUrl = () => {
-    if (typeof window !== 'undefined') {
-      return window.location.origin.replace(':5000', ':5001');
-    }
-    return 'http://localhost:5001';
-  };
-
   const fetchRobotDetail = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(
-        `${getBackendUrl()}/api/robots/${robotId}`,
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
+      const response = await fetch(`/api/proxy/robots/${robotId}`, {
+        headers: {
+          'Content-Type': 'application/json'
         }
-      );
+      });
 
       if (!response.ok) {
         throw new Error('获取机器人详情失败');
@@ -128,15 +117,12 @@ export default function RobotDetailPage() {
 
     try {
       // 使用新的测试并保存API
-      const response = await fetch(
-        `${getBackendUrl()}/api/robots/${robotId}/test-and-save`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
+      const response = await fetch(`/api/proxy/robots/${robotId}/test-and-save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
         }
-      );
+      });
 
       const data = await response.json();
       
