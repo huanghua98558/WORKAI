@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -71,6 +71,12 @@ export function NotificationSettingsDialog({
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [robots, setRobots] = useState<Array<{ id: string; robotId: string; robotName: string; isActive: boolean }>>([]);
 
+  // 临时编辑状态，避免频繁更新服务器
+  const [editingConfigs, setEditingConfigs] = useState<Record<string, Record<string, any>>>({});
+
+  // 防抖定时器
+  const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
+
   // 加载机器人列表
   const loadRobots = async () => {
     try {
@@ -136,6 +142,14 @@ export function NotificationSettingsDialog({
       loadRobots();
     }
   }, [open]);
+
+  // 清理防抖定时器
+  useEffect(() => {
+    return () => {
+      Object.values(debounceTimers.current).forEach(timer => clearTimeout(timer));
+      debounceTimers.current = {};
+    };
+  }, []);
 
   // 添加通知方式
   const addMethod = async (methodType: 'sound' | 'desktop' | 'wechat' | 'robot') => {
@@ -221,8 +235,49 @@ export function NotificationSettingsDialog({
     return configs[methodType] || {};
   };
 
-  // 更新通知方式
-  const updateMethod = async (methodId: string, updates: Partial<NotificationMethod>) => {
+  // 防抖更新方法
+  const debouncedUpdateMethod = (methodId: string, updates: Partial<NotificationMethod>) => {
+    // 清除之前的定时器
+    if (debounceTimers.current[methodId]) {
+      clearTimeout(debounceTimers.current[methodId]);
+    }
+
+    // 立即更新本地状态（提升响应速度）
+    setMethods(methods.map(m => m.id === methodId ? { ...m, ...updates } : m));
+
+    // 设置新的定时器，500ms 后调用 API
+    debounceTimers.current[methodId] = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/notifications/methods/${methodId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updates),
+        });
+
+        const data = await response.json();
+        if (data.code === 0) {
+          console.log('[NotificationSettingsDialog] 保存成功:', methodId);
+        } else {
+          console.error('[NotificationSettingsDialog] 保存失败:', data);
+        }
+      } catch (error) {
+        console.error('[NotificationSettingsDialog] 更新通知方式失败:', error);
+      } finally {
+        delete debounceTimers.current[methodId];
+      }
+    }, 500);
+  };
+
+  // 立即保存（用于失去焦点时）
+  const immediateUpdateMethod = async (methodId: string, updates: Partial<NotificationMethod>) => {
+    // 清除防抖定时器
+    if (debounceTimers.current[methodId]) {
+      clearTimeout(debounceTimers.current[methodId]);
+      delete debounceTimers.current[methodId];
+    }
+
     try {
       const response = await fetch(`/api/notifications/methods/${methodId}`, {
         method: 'PUT',
@@ -237,9 +292,12 @@ export function NotificationSettingsDialog({
         setMethods(methods.map(m => m.id === methodId ? { ...m, ...updates } : m));
       }
     } catch (error) {
-      console.error('更新通知方式失败:', error);
+      console.error('[NotificationSettingsDialog] 更新通知方式失败:', error);
     }
   };
+
+  // 兼容旧代码
+  const updateMethod = debouncedUpdateMethod;
 
   // 删除通知方式
   const deleteMethod = async (methodId: string) => {
@@ -836,6 +894,14 @@ export function NotificationSettingsDialog({
                                   },
                                 })
                               }
+                              onBlur={() =>
+                                immediateUpdateMethod(method.id, {
+                                  recipientConfig: {
+                                    ...method.recipientConfig,
+                                    userName: method.recipientConfig.userName,
+                                  },
+                                })
+                              }
                             />
                             <p className="text-xs text-gray-500">
                               请填写对方在微信中的昵称（如：张三）
@@ -859,6 +925,14 @@ export function NotificationSettingsDialog({
                                     },
                                   })
                                 }
+                                onBlur={() =>
+                                  immediateUpdateMethod(method.id, {
+                                    recipientConfig: {
+                                      ...method.recipientConfig,
+                                      groupName: method.recipientConfig.groupName,
+                                    },
+                                  })
+                                }
                               />
                               <p className="text-xs text-gray-500">
                                 请填写群聊的完整名称（如：工作群）
@@ -876,6 +950,14 @@ export function NotificationSettingsDialog({
                                     recipientConfig: {
                                       ...method.recipientConfig,
                                       atList: e.target.value,
+                                    },
+                                  })
+                                }
+                                onBlur={() =>
+                                  immediateUpdateMethod(method.id, {
+                                    recipientConfig: {
+                                      ...method.recipientConfig,
+                                      atList: method.recipientConfig.atList,
                                     },
                                   })
                                 }
