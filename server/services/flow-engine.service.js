@@ -8,6 +8,7 @@ const { getDb } = require('coze-coding-dev-sdk');
 const { flowDefinitions, flowInstances, flowExecutionLogs } = require('../database/schema');
 const { eq, and, or, desc, lt, gt, inArray } = require('drizzle-orm');
 const { getLogger } = require('../lib/logger');
+const { aiCoreService } = require('./ai-core.service'); // AI核心服务
 
 const logger = getLogger('FLOW_ENGINE');
 
@@ -577,71 +578,229 @@ class FlowEngine {
   }
 
   /**
-   * 处理AI对话节点（Mock）
+   * 处理AI对话节点（使用真实AI）
    */
   async handleAIChatNode(node, context) {
     logger.info('执行AI对话节点', { node, context });
 
     const { data } = node;
-    const { prompt, model, temperature } = data || {};
+    const { prompt, modelId, roleId, temperature, maxTokens } = data || {};
 
-    // Mock AI响应
-    const mockResponses = [
-      '您好，请问有什么可以帮助您的？',
-      '我理解您的需求，让我为您处理。',
-      '这是AI生成的回复内容。',
-      '根据您的问题，我的回答是...'
-    ];
+    try {
+      // 构建消息列表
+      const messages = [];
 
-    const aiResponse = mockResponses[Math.floor(Math.random() * mockResponses.length)];
-
-    // 模拟延迟
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    return {
-      success: true,
-      aiResponse,
-      model: model || 'mock-model',
-      context: {
-        ...context,
-        aiResponse,
-        lastNodeType: 'ai_chat'
+      // 如果有prompt，添加为系统消息
+      if (prompt) {
+        messages.push({ role: 'system', content: prompt });
       }
-    };
+
+      // 添加用户消息
+      if (context.message?.spoken) {
+        messages.push({ role: 'user', content: context.message.spoken });
+      } else if (context.userMessage) {
+        messages.push({ role: 'user', content: context.userMessage });
+      }
+
+      // 如果没有消息，返回空响应
+      if (messages.length === 0) {
+        logger.warn('AI对话节点没有可用的消息', { context });
+        return {
+          success: true,
+          aiResponse: '',
+          model: modelId || 'unknown',
+          context: {
+            ...context,
+            aiResponse: '',
+            lastNodeType: 'ai_chat'
+          }
+        };
+      }
+
+      // 调用AI服务
+      const result = await aiCoreService.chat({
+        messages,
+        modelId,
+        roleId,
+        temperature,
+        maxTokens,
+        sessionId: context.sessionId || context.metadata?.sessionId,
+        operationType: 'ai_chat'
+      });
+
+      logger.info('AI对话节点执行成功', {
+        model: modelId,
+        responseLength: result.content.length,
+        usage: result.usage
+      });
+
+      return {
+        success: true,
+        aiResponse: result.content,
+        model: modelId || 'ai-core',
+        usage: result.usage,
+        context: {
+          ...context,
+          aiResponse: result.content,
+          lastNodeType: 'ai_chat'
+        }
+      };
+    } catch (error) {
+      logger.error('AI对话节点执行失败', {
+        error: error.message,
+        node: node.id
+      });
+
+      // 返回错误响应，但不中断流程
+      return {
+        success: false,
+        aiResponse: '抱歉，AI服务暂时不可用。',
+        error: error.message,
+        context: {
+          ...context,
+          aiResponse: '抱歉，AI服务暂时不可用。',
+          lastNodeType: 'ai_chat'
+        }
+      };
+    }
   }
 
   /**
-   * 处理意图识别节点（Mock）
+   * 处理意图识别节点（使用真实AI）
    */
   async handleIntentNode(node, context) {
     logger.info('执行意图识别节点', { node, context });
 
     const { data } = node;
-    const { supportedIntents } = data || {};
+    const { supportedIntents, modelId, roleId } = data || {};
 
-    // Mock意图识别
-    const mockIntents = ['service', 'help', 'chat', 'admin', 'risk', 'spam'];
-
-    // 优先使用context中的intent（如果存在），否则随机选择
-    let detectedIntent;
-    if (context.intent && mockIntents.includes(context.intent)) {
-      detectedIntent = context.intent;
-    } else {
-      detectedIntent = supportedIntents?.[0] || mockIntents[Math.floor(Math.random() * mockIntents.length)];
+    // 如果context中已经有intent，直接返回
+    if (context.intent) {
+      logger.info('意图已存在于context中', { intent: context.intent });
+      return {
+        success: true,
+        intent: context.intent,
+        confidence: 100,
+        context: {
+          ...context,
+          lastNodeType: 'intent'
+        }
+      };
     }
 
-    logger.info('意图识别结果', { detectedIntent });
+    try {
+      // 获取用户消息
+      const userMessage = context.message?.spoken || context.userMessage;
 
-    return {
-      success: true,
-      intent: detectedIntent,
-      confidence: Math.floor(Math.random() * 20) + 80, // 80-99
-      context: {
-        ...context,
-        intent: detectedIntent,
-        lastNodeType: 'intent'
+      if (!userMessage) {
+        logger.warn('意图识别节点没有可用的消息', { context });
+        return {
+          success: true,
+          intent: 'chat',
+          confidence: 50,
+          context: {
+            ...context,
+            intent: 'chat',
+            lastNodeType: 'intent'
+          }
+        };
       }
-    };
+
+      // 构建意图识别提示词
+      const intentList = supportedIntents?.join(', ') || 'service, help, chat, admin, risk, spam';
+
+      const systemPrompt = `你是一个意图识别专家。请分析用户的输入，识别其意图。
+可用的意图包括：${intentList}
+
+请只返回JSON格式，包含以下字段：
+- intent: 识别出的意图（必须从上述意图列表中选择）
+- confidence: 置信度（0-100的整数）
+- reason: 识别理由（简短说明）
+
+示例：
+用户："我需要帮助"
+响应：{"intent": "help", "confidence": 95, "reason": "用户明确表示需要帮助"}`;
+
+      // 调用AI服务
+      const result = await aiCoreService.chat({
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage }
+        ],
+        modelId,
+        roleId,
+        sessionId: context.sessionId || context.metadata?.sessionId,
+        operationType: 'intent_recognition'
+      });
+
+      // 解析AI响应
+      let detectedIntent = 'chat';
+      let confidence = 70;
+      let reason = '';
+
+      try {
+        // 尝试解析JSON
+        const parsed = JSON.parse(result.content);
+        detectedIntent = parsed.intent || 'chat';
+        confidence = parsed.confidence || 70;
+        reason = parsed.reason || '';
+
+        // 验证意图是否在支持的列表中
+        if (supportedIntents && supportedIntents.length > 0 && !supportedIntents.includes(detectedIntent)) {
+          detectedIntent = supportedIntents[0];
+          confidence = 50;
+          reason = '识别的意图不在支持的列表中，使用默认意图';
+        }
+      } catch (parseError) {
+        logger.warn('解析意图识别响应失败', { content: result.content, error: parseError.message });
+        // 简单的关键词匹配
+        const content = result.content.toLowerCase();
+        if (content.includes('service') || content.includes('服务')) {
+          detectedIntent = 'service';
+        } else if (content.includes('help') || content.includes('帮助')) {
+          detectedIntent = 'help';
+        } else if (content.includes('chat') || content.includes('聊天') || content.includes('闲聊')) {
+          detectedIntent = 'chat';
+        }
+      }
+
+      logger.info('意图识别节点执行成功', {
+        detectedIntent,
+        confidence,
+        reason,
+        userMessage: userMessage.substring(0, 50)
+      });
+
+      return {
+        success: true,
+        intent: detectedIntent,
+        confidence,
+        reason,
+        context: {
+          ...context,
+          intent: detectedIntent,
+          lastNodeType: 'intent'
+        }
+      };
+    } catch (error) {
+      logger.error('意图识别节点执行失败', {
+        error: error.message,
+        node: node.id
+      });
+
+      // 返回默认意图，避免中断流程
+      return {
+        success: false,
+        intent: 'chat',
+        confidence: 50,
+        error: error.message,
+        context: {
+          ...context,
+          intent: 'chat',
+          lastNodeType: 'intent'
+        }
+      };
+    }
   }
 
   /**

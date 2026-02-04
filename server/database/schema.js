@@ -623,6 +623,218 @@ exports.flowExecutionLogs = pgTable(
 // 流程执行日志表（下划线式导出）
 exports.flow_execution_logs = exports.flowExecutionLogs;
 
+// ============================================
+// AI 核心能力相关表 (AI Core 2.1)
+// ============================================
+
+// AI提供商配置表
+exports.aiProviders = pgTable(
+  "ai_providers",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    name: varchar("name", { length: 100 }).notNull(), // 提供商名称: alibaba, openai, claude, custom
+    displayName: varchar("display_name", { length: 255 }).notNull(), // 显示名称
+    type: varchar("type", { length: 50 }).notNull(), // 类型: builtin, custom
+    apiKey: text("api_key"), // API密钥（加密存储）
+    apiEndpoint: varchar("api_endpoint", { length: 500 }), // API端点
+    apiVersion: varchar("api_version", { length: 50 }), // API版本
+    config: jsonb("config").default("{}"), // 额外配置（如region, timeout等）
+    isEnabled: boolean("is_enabled").notNull().default(true), // 是否启用
+    priority: integer("priority").notNull().default(10), // 优先级（1-10，1最高）
+    rateLimit: integer("rate_limit").default(60), // 速率限制（每分钟请求数）
+    description: text("description"), // 描述
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    nameIdx: index("ai_providers_name_idx").on(table.name),
+    typeIdx: index("ai_providers_type_idx").on(table.type),
+    isEnabledIdx: index("ai_providers_is_enabled_idx").on(table.isEnabled),
+    priorityIdx: index("ai_providers_priority_idx").on(table.priority),
+  })
+);
+
+// AI提供商配置表（下划线式导出）
+exports.ai_providers = exports.aiProviders;
+
+// AI模型配置表
+exports.aiModels = pgTable(
+  "ai_models",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    providerId: varchar("provider_id", { length: 36 }).notNull(), // 关联的提供商ID
+    name: varchar("name", { length: 255 }).notNull(), // 模型名称: qwen-turbo, qwen-plus, gpt-4, claude-3
+    displayName: varchar("display_name", { length: 255 }).notNull(), // 显示名称
+    modelId: varchar("model_id", { length: 255 }).notNull(), // 模型ID（API调用时使用）
+    type: varchar("type", { length: 50 }).notNull(), // 类型: chat, embedding, image, video
+    capabilities: jsonb("capabilities").default("[]"), // 能力列表（如text, image, video等）
+    maxTokens: integer("max_tokens"), // 最大token数
+    inputPrice: numeric("input_price", { precision: 10, scale: 6 }), // 输入价格（每1K tokens）
+    outputPrice: numeric("output_price", { precision: 10, scale: 6 }), // 输出价格（每1K tokens）
+    isEnabled: boolean("is_enabled").notNull().default(true), // 是否启用
+    priority: integer("priority").notNull().default(10), // 优先级
+    config: jsonb("config").default("{}"), // 额外配置（如temperature, top_p等）
+    description: text("description"), // 描述
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    providerIdIdx: index("ai_models_provider_id_idx").on(table.providerId),
+    nameIdx: index("ai_models_name_idx").on(table.name),
+    typeIdx: index("ai_models_type_idx").on(table.type),
+    isEnabledIdx: index("ai_models_is_enabled_idx").on(table.isEnabled),
+  })
+);
+
+// AI模型配置表（下划线式导出）
+exports.ai_models = exports.aiModels;
+
+// AI角色配置表
+exports.aiRoles = pgTable(
+  "ai_roles",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    name: varchar("name", { length: 255 }).notNull(), // 角色名称: 社群运营, 售后处理, 转化客服等
+    type: varchar("type", { length: 50 }).notNull(), // 类型: preset, custom
+    category: varchar("category", { length: 50 }), // 分类: operation, service, sales, support
+    description: text("description"), // 描述
+    systemPrompt: text("system_prompt").notNull(), // 系统提示词
+    temperature: numeric("temperature", { precision: 5, scale: 2 }).default(0.7), // 温度参数
+    maxTokens: integer("max_tokens").default(2000), // 最大token数
+    modelId: varchar("model_id", { length: 36 }), // 使用的模型ID
+    promptTemplateId: varchar("prompt_template_id", { length: 36 }), // 关联的话术模板ID
+    variables: jsonb("variables").default("{}"), // 支持的变量列表
+    isActive: boolean("is_active").notNull().default(true), // 是否启用
+    isDefault: boolean("is_default").notNull().default(false), // 是否为默认角色
+    currentVersion: varchar("current_version", { length: 50 }).default("1.0"), // 当前版本号
+    createdBy: varchar("created_by", { length: 36 }), // 创建者ID
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    nameIdx: index("ai_roles_name_idx").on(table.name),
+    typeIdx: index("ai_roles_type_idx").on(table.type),
+    categoryIdx: index("ai_roles_category_idx").on(table.category),
+    isActiveIdx: index("ai_roles_is_active_idx").on(table.isActive),
+    isDefaultIdx: index("ai_roles_is_default_idx").on(table.isDefault),
+  })
+);
+
+// AI角色配置表（下划线式导出）
+exports.ai_roles = exports.aiRoles;
+
+// AI角色版本表
+exports.aiRoleVersions = pgTable(
+  "ai_role_versions",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    roleId: varchar("role_id", { length: 36 }).notNull(), // 关联的角色ID
+    version: varchar("version", { length: 50 }).notNull(), // 版本号: 1.0, 1.1, 2.0等
+    systemPrompt: text("system_prompt").notNull(), // 该版本的系统提示词
+    temperature: numeric("temperature", { precision: 5, scale: 2 }), // 该版本的温度参数
+    maxTokens: integer("max_tokens"), // 该版本的最大token数
+    modelId: varchar("model_id", { length: 36 }), // 该版本使用的模型ID
+    variables: jsonb("variables").default("{}"), // 该版本支持的变量列表
+    changeReason: text("change_reason"), // 变更原因
+    changeLog: text("change_log"), // 变更日志
+    createdBy: varchar("created_by", { length: 36 }), // 创建者ID
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    roleIdIdx: index("ai_role_versions_role_id_idx").on(table.roleId),
+    versionIdx: index("ai_role_versions_version_idx").on(table.version),
+    createdAtIdx: index("ai_role_versions_created_at_idx").on(table.createdAt),
+  })
+);
+
+// AI角色版本表（下划线式导出）
+exports.ai_role_versions = exports.aiRoleVersions;
+
+// 话术分类模板表
+exports.promptCategoryTemplates = pgTable(
+  "prompt_category_templates",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    category: varchar("category", { length: 50 }).notNull(), // 分类: 24类场景之一
+    categoryName: varchar("category_name", { length: 255 }).notNull(), // 分类名称
+    template: text("template").notNull(), // 话术模板
+    variables: jsonb("variables").default("[]"), // 支持的变量列表
+    examples: jsonb("examples").default("[]"), // 示例列表
+    isActive: boolean("is_active").notNull().default(true), // 是否启用
+    priority: integer("priority").notNull().default(5), // 优先级
+    description: text("description"), // 描述
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    categoryIdx: index("prompt_category_templates_category_idx").on(table.category),
+    isActiveIdx: index("prompt_category_templates_is_active_idx").on(table.isActive),
+    priorityIdx: index("prompt_category_templates_priority_idx").on(table.priority),
+  })
+);
+
+// 话术分类模板表（下划线式导出）
+exports.prompt_category_templates = exports.promptCategoryTemplates;
+
+// AI模型使用记录表
+exports.aiModelUsage = pgTable(
+  "ai_model_usage",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    modelId: varchar("model_id", { length: 36 }).notNull(), // 使用的模型ID
+    providerId: varchar("provider_id", { length: 36 }).notNull(), // 提供商ID
+    sessionId: varchar("session_id", { length: 255 }), // 会话ID
+    operationType: varchar("operation_type", { length: 50 }).notNull(), // 操作类型: intent_recognition, chat, service, image_generation等
+    inputTokens: integer("input_tokens").default(0), // 输入token数
+    outputTokens: integer("output_tokens").default(0), // 输出token数
+    totalTokens: integer("total_tokens").default(0), // 总token数
+    inputCost: numeric("input_cost", { precision: 10, scale: 6 }), // 输入成本
+    outputCost: numeric("output_cost", { precision: 10, scale: 6 }), // 输出成本
+    totalCost: numeric("total_cost", { precision: 10, scale: 6 }), // 总成本
+    responseTime: integer("response_time"), // 响应时间（毫秒）
+    status: varchar("status", { length: 20 }).notNull(), // 状态: success, error, timeout
+    errorMessage: text("error_message"), // 错误信息
+    metadata: jsonb("metadata").default("{}"), // 元数据
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    modelIdIdx: index("ai_model_usage_model_id_idx").on(table.modelId),
+    providerIdIdx: index("ai_model_usage_provider_id_idx").on(table.providerId),
+    sessionIdIdx: index("ai_model_usage_session_id_idx").on(table.sessionId),
+    operationTypeIdx: index("ai_model_usage_operation_type_idx").on(table.operationType),
+    statusIdx: index("ai_model_usage_status_idx").on(table.status),
+    createdAtIdx: index("ai_model_usage_created_at_idx").on(table.createdAt),
+  })
+);
+
+// AI模型使用记录表（下划线式导出）
+exports.ai_model_usage = exports.aiModelUsage;
+
+
 
 // 运营日志表
 exports.operationLogs = pgTable(
@@ -1579,4 +1791,216 @@ exports.flowExecutionLogs = pgTable(
 
 // 流程执行日志表（下划线式导出）
 exports.flow_execution_logs = exports.flowExecutionLogs;
+
+// ============================================
+// AI 核心能力相关表 (AI Core 2.1)
+// ============================================
+
+// AI提供商配置表
+exports.aiProviders = pgTable(
+  "ai_providers",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    name: varchar("name", { length: 100 }).notNull(), // 提供商名称: alibaba, openai, claude, custom
+    displayName: varchar("display_name", { length: 255 }).notNull(), // 显示名称
+    type: varchar("type", { length: 50 }).notNull(), // 类型: builtin, custom
+    apiKey: text("api_key"), // API密钥（加密存储）
+    apiEndpoint: varchar("api_endpoint", { length: 500 }), // API端点
+    apiVersion: varchar("api_version", { length: 50 }), // API版本
+    config: jsonb("config").default("{}"), // 额外配置（如region, timeout等）
+    isEnabled: boolean("is_enabled").notNull().default(true), // 是否启用
+    priority: integer("priority").notNull().default(10), // 优先级（1-10，1最高）
+    rateLimit: integer("rate_limit").default(60), // 速率限制（每分钟请求数）
+    description: text("description"), // 描述
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    nameIdx: index("ai_providers_name_idx").on(table.name),
+    typeIdx: index("ai_providers_type_idx").on(table.type),
+    isEnabledIdx: index("ai_providers_is_enabled_idx").on(table.isEnabled),
+    priorityIdx: index("ai_providers_priority_idx").on(table.priority),
+  })
+);
+
+// AI提供商配置表（下划线式导出）
+exports.ai_providers = exports.aiProviders;
+
+// AI模型配置表
+exports.aiModels = pgTable(
+  "ai_models",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    providerId: varchar("provider_id", { length: 36 }).notNull(), // 关联的提供商ID
+    name: varchar("name", { length: 255 }).notNull(), // 模型名称: qwen-turbo, qwen-plus, gpt-4, claude-3
+    displayName: varchar("display_name", { length: 255 }).notNull(), // 显示名称
+    modelId: varchar("model_id", { length: 255 }).notNull(), // 模型ID（API调用时使用）
+    type: varchar("type", { length: 50 }).notNull(), // 类型: chat, embedding, image, video
+    capabilities: jsonb("capabilities").default("[]"), // 能力列表（如text, image, video等）
+    maxTokens: integer("max_tokens"), // 最大token数
+    inputPrice: numeric("input_price", { precision: 10, scale: 6 }), // 输入价格（每1K tokens）
+    outputPrice: numeric("output_price", { precision: 10, scale: 6 }), // 输出价格（每1K tokens）
+    isEnabled: boolean("is_enabled").notNull().default(true), // 是否启用
+    priority: integer("priority").notNull().default(10), // 优先级
+    config: jsonb("config").default("{}"), // 额外配置（如temperature, top_p等）
+    description: text("description"), // 描述
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    providerIdIdx: index("ai_models_provider_id_idx").on(table.providerId),
+    nameIdx: index("ai_models_name_idx").on(table.name),
+    typeIdx: index("ai_models_type_idx").on(table.type),
+    isEnabledIdx: index("ai_models_is_enabled_idx").on(table.isEnabled),
+  })
+);
+
+// AI模型配置表（下划线式导出）
+exports.ai_models = exports.aiModels;
+
+// AI角色配置表
+exports.aiRoles = pgTable(
+  "ai_roles",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    name: varchar("name", { length: 255 }).notNull(), // 角色名称: 社群运营, 售后处理, 转化客服等
+    type: varchar("type", { length: 50 }).notNull(), // 类型: preset, custom
+    category: varchar("category", { length: 50 }), // 分类: operation, service, sales, support
+    description: text("description"), // 描述
+    systemPrompt: text("system_prompt").notNull(), // 系统提示词
+    temperature: numeric("temperature", { precision: 5, scale: 2 }).default(0.7), // 温度参数
+    maxTokens: integer("max_tokens").default(2000), // 最大token数
+    modelId: varchar("model_id", { length: 36 }), // 使用的模型ID
+    promptTemplateId: varchar("prompt_template_id", { length: 36 }), // 关联的话术模板ID
+    variables: jsonb("variables").default("{}"), // 支持的变量列表
+    isActive: boolean("is_active").notNull().default(true), // 是否启用
+    isDefault: boolean("is_default").notNull().default(false), // 是否为默认角色
+    currentVersion: varchar("current_version", { length: 50 }).default("1.0"), // 当前版本号
+    createdBy: varchar("created_by", { length: 36 }), // 创建者ID
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    nameIdx: index("ai_roles_name_idx").on(table.name),
+    typeIdx: index("ai_roles_type_idx").on(table.type),
+    categoryIdx: index("ai_roles_category_idx").on(table.category),
+    isActiveIdx: index("ai_roles_is_active_idx").on(table.isActive),
+    isDefaultIdx: index("ai_roles_is_default_idx").on(table.isDefault),
+  })
+);
+
+// AI角色配置表（下划线式导出）
+exports.ai_roles = exports.aiRoles;
+
+// AI角色版本表
+exports.aiRoleVersions = pgTable(
+  "ai_role_versions",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    roleId: varchar("role_id", { length: 36 }).notNull(), // 关联的角色ID
+    version: varchar("version", { length: 50 }).notNull(), // 版本号: 1.0, 1.1, 2.0等
+    systemPrompt: text("system_prompt").notNull(), // 该版本的系统提示词
+    temperature: numeric("temperature", { precision: 5, scale: 2 }), // 该版本的温度参数
+    maxTokens: integer("max_tokens"), // 该版本的最大token数
+    modelId: varchar("model_id", { length: 36 }), // 该版本使用的模型ID
+    variables: jsonb("variables").default("{}"), // 该版本支持的变量列表
+    changeReason: text("change_reason"), // 变更原因
+    changeLog: text("change_log"), // 变更日志
+    createdBy: varchar("created_by", { length: 36 }), // 创建者ID
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    roleIdIdx: index("ai_role_versions_role_id_idx").on(table.roleId),
+    versionIdx: index("ai_role_versions_version_idx").on(table.version),
+    createdAtIdx: index("ai_role_versions_created_at_idx").on(table.createdAt),
+  })
+);
+
+// AI角色版本表（下划线式导出）
+exports.ai_role_versions = exports.aiRoleVersions;
+
+// 话术分类模板表
+exports.promptCategoryTemplates = pgTable(
+  "prompt_category_templates",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    category: varchar("category", { length: 50 }).notNull(), // 分类: 24类场景之一
+    categoryName: varchar("category_name", { length: 255 }).notNull(), // 分类名称
+    template: text("template").notNull(), // 话术模板
+    variables: jsonb("variables").default("[]"), // 支持的变量列表
+    examples: jsonb("examples").default("[]"), // 示例列表
+    isActive: boolean("is_active").notNull().default(true), // 是否启用
+    priority: integer("priority").notNull().default(5), // 优先级
+    description: text("description"), // 描述
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    categoryIdx: index("prompt_category_templates_category_idx").on(table.category),
+    isActiveIdx: index("prompt_category_templates_is_active_idx").on(table.isActive),
+    priorityIdx: index("prompt_category_templates_priority_idx").on(table.priority),
+  })
+);
+
+// 话术分类模板表（下划线式导出）
+exports.prompt_category_templates = exports.promptCategoryTemplates;
+
+// AI模型使用记录表
+exports.aiModelUsage = pgTable(
+  "ai_model_usage",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    modelId: varchar("model_id", { length: 36 }).notNull(), // 使用的模型ID
+    providerId: varchar("provider_id", { length: 36 }).notNull(), // 提供商ID
+    sessionId: varchar("session_id", { length: 255 }), // 会话ID
+    operationType: varchar("operation_type", { length: 50 }).notNull(), // 操作类型: intent_recognition, chat, service, image_generation等
+    inputTokens: integer("input_tokens").default(0), // 输入token数
+    outputTokens: integer("output_tokens").default(0), // 输出token数
+    totalTokens: integer("total_tokens").default(0), // 总token数
+    inputCost: numeric("input_cost", { precision: 10, scale: 6 }), // 输入成本
+    outputCost: numeric("output_cost", { precision: 10, scale: 6 }), // 输出成本
+    totalCost: numeric("total_cost", { precision: 10, scale: 6 }), // 总成本
+    responseTime: integer("response_time"), // 响应时间（毫秒）
+    status: varchar("status", { length: 20 }).notNull(), // 状态: success, error, timeout
+    errorMessage: text("error_message"), // 错误信息
+    metadata: jsonb("metadata").default("{}"), // 元数据
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    modelIdIdx: index("ai_model_usage_model_id_idx").on(table.modelId),
+    providerIdIdx: index("ai_model_usage_provider_id_idx").on(table.providerId),
+    sessionIdIdx: index("ai_model_usage_session_id_idx").on(table.sessionId),
+    operationTypeIdx: index("ai_model_usage_operation_type_idx").on(table.operationType),
+    statusIdx: index("ai_model_usage_status_idx").on(table.status),
+    createdAtIdx: index("ai_model_usage_created_at_idx").on(table.createdAt),
+  })
+);
+
+// AI模型使用记录表（下划线式导出）
+exports.ai_model_usage = exports.aiModelUsage;
+
 

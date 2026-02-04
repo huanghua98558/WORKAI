@@ -1,0 +1,31 @@
+const fs = require('fs');
+const path = require('path');
+const { Pool } = require('pg');
+
+async function runMigration() {
+  const databaseUrl = process.env.DATABASE_URL || 'postgresql://user_7602223693946847251:c433b5c4-bfd9-4d56-96ff-0c1ebe281064@cp-magic-foam-59c291ea.pg4.aidap-global.cn-beijing.volces.com:5432/Database_1770032307116?sslmode=require';
+
+  const pool = new Pool({
+    connectionString: databaseUrl,
+  });
+
+  try {
+    const sqlPath = path.join(__dirname, '../database/migrations/010_create_ai_core_tables.sql');
+    const sql = fs.readFileSync(sqlPath, 'utf8');
+
+    console.log('开始执行迁移: 010_create_ai_core_tables.sql');
+    console.log('SQL路径:', sqlPath);
+
+    await pool.query(sql);
+
+    console.log('✅ AI核心能力相关表创建成功！');
+  } catch (error) {
+    console.error('❌ 迁移执行失败:', error.message);
+    console.error('错误详情:', error);
+    throw error;
+  } finally {
+    await pool.end();
+  }
+}
+
+runMigration();
