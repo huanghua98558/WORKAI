@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { 
+import {
   Bot,
   Plus,
   RefreshCw,
@@ -34,7 +34,8 @@ import {
   PlayCircle,
   History,
   Link2,
-  Copy
+  Copy,
+  Trash2
 } from 'lucide-react';
 
 // 导入子组件
@@ -277,6 +278,40 @@ export default function RobotManagement() {
     } catch (error: any) {
       console.error('同步机器人信息失败:', error);
       alert('同步机器人信息失败：' + error.message);
+    }
+  };
+
+  // 删除机器人
+  const handleDelete = async (robot: Robot) => {
+    if (!robot) return;
+
+    // 确认对话框
+    const confirmed = confirm(
+      `确定要删除机器人 "${robot.name || robot.nickname || robot.robotId}" 吗？\n\n此操作不可撤销，删除后将无法恢复。`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/proxy/admin/robots/${robot.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await res.json();
+
+      if (res.ok && result.code === 0) {
+        // 刷新机器人列表
+        await loadRobots();
+        alert('机器人删除成功！');
+      } else {
+        alert('机器人删除失败：' + (result.message || '未知错误'));
+      }
+    } catch (error: any) {
+      console.error('删除机器人失败:', error);
+      alert('删除机器人失败：' + error.message);
     }
   };
 
@@ -799,6 +834,14 @@ export default function RobotManagement() {
                         >
                           <RefreshCw className="h-4 w-4 mr-2" />
                           同步信息
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={() => handleDelete(robot)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          删除
                         </Button>
                       </div>
                     </div>
