@@ -18,13 +18,6 @@ class AIService {
     this.initializeClients();
   }
 
-class AIService {
-  constructor() {
-    this.clients = {};
-    this.builtinModelMap = {};
-    this.initializeClients();
-  }
-
   /**
    * 初始化所有 AI 客户端
    */
