@@ -949,6 +949,130 @@ exports.alertBatchOperations = pgTable(
   })
 );
 
+// ==================== 告警通知增强功能表 ====================
+
+// 告警接收者表
+exports.alertRecipients = pgTable(
+  "alert_recipients",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    name: varchar("name", { length: 100 }).notNull(),
+    nickname: varchar("nickname", { length: 100 }).notNull(),
+    robotIds: text("robot_ids").notNull(), // JSON数组：["wr_xxx", "wr_yyy"]
+    alertLevels: jsonb("alert_levels").notNull().default('[]'),
+    enabled: boolean("enabled").notNull().default(true),
+    notes: text("notes"),
+    lastTestAt: timestamp("last_test_at", { withTimezone: true }),
+    testStatus: varchar("test_status", { length: 20 }).default('pending'), // pending, success, failed
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    nameIdx: index("alert_recipients_name_idx").on(table.name),
+    enabledIdx: index("alert_recipients_enabled_idx").on(table.enabled),
+    createdAtIdx: index("alert_recipients_created_at_idx").on(table.createdAt),
+  })
+);
+
+// 告警通知记录表
+exports.alertNotifications = pgTable(
+  "alert_notifications",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    alertId: varchar("alert_id", { length: 36 }).notNull(),
+    recipientId: varchar("recipient_id", { length: 36 }).notNull(),
+    ruleId: varchar("rule_id", { length: 36 }),
+    commandId: varchar("command_id", { length: 36 }),
+    notificationMethod: varchar("notification_method", { length: 50 }).notNull(),
+    status: varchar("status", { length: 20 }).notNull().default('pending'),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    alertIdIdx: index("alert_notifications_alert_id_idx").on(table.alertId),
+    recipientIdIdx: index("alert_notifications_recipient_id_idx").on(table.recipientId),
+    ruleIdIdx: index("alert_notifications_rule_id_idx").on(table.ruleId),
+    statusIdx: index("alert_notifications_status_idx").on(table.status),
+    createdAtIdx: index("alert_notifications_created_at_idx").on(table.createdAt),
+  })
+);
+
+// 告警去重记录表
+exports.alertDedupRecords = pgTable(
+  "alert_dedup_records",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    dedupKey: varchar("dedup_key", { length: 255 }).notNull().unique(),
+    ruleId: varchar("rule_id", { length: 36 }),
+    robotId: varchar("robot_id", { length: 64 }),
+    recipientId: varchar("recipient_id", { length: 36 }),
+    alertType: varchar("alert_type", { length: 50 }),
+    firstTriggerTime: timestamp("first_trigger_time", { withTimezone: true }).notNull(),
+    lastTriggerTime: timestamp("last_trigger_time", { withTimezone: true }).notNull(),
+    triggerCount: integer("trigger_count").default(1),
+    cooldownPeriod: integer("cooldown_period").default(300),
+    status: varchar("status", { length: 20 }).notNull().default('active'),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: time }).defaultNow().notNull(),
+  },
+  (table) => ({
+    dedupKeyIdx: index("alert_dedup_records_dedup_key_idx").on(table.dedupKey),
+    ruleIdIdx: index("alert_dedup_records_rule_id_idx").on(table.ruleId),
+    statusIdx: index("alert_dedup_records_status_idx").on(table.status),
+    createdAtIdx: index("alert_dedup_records_created_at_idx").on(table.createdAt),
+  })
+);
+
+// 用户通知偏好表
+exports.userNotificationPreferences = pgTable(
+  "user_notification_preferences",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: varchar("user_id", { length: 64 }).notNull().unique(),
+    webNotificationEnabled: boolean("web_notification_enabled").notNull().default(true),
+    toastEnabled: boolean("toast_enabled").notNull().default(true),
+    toastAutoClose: boolean("toast_auto_close").notNull().default(true),
+    toastAutoCloseDuration: integer("toast_auto_close_duration").default(5000),
+    modalEnabled: boolean("modal_enabled").notNull().default(true),
+    systemNotificationEnabled: boolean("system_notification_enabled").notNull().default(true),
+    soundEnabled: boolean("sound_enabled").notNull().default(true),
+    soundVolume: numeric("sound_volume", { precision: 3, scale: 2 }).default(0.8),
+    levelFilters: jsonb("level_filters").notNull().default('{
+      "info": {"enabled": false, "sound": false},
+      "warning": {"enabled": true, "sound": true},
+      "critical": {"enabled": true, "sound": true}
+    }'),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdIdx: index("user_notification_preferences_user_id_idx").on(table.userId),
+  })
+);
+
+// 兼容性导出
+exports.alert_recipients = exports.alertRecipients;
+exports.alert_notifications = exports.alertNotifications;
+exports.alert_dedup_records = exports.alertDedupRecords;
+exports.user_notification_preferences = exports.userNotificationPreferences;
+
 // 告警统计快照表（用于趋势分析）
 exports.alertStatsSnapshots = pgTable(
   "alert_stats_snapshots",
