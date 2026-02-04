@@ -81,28 +81,90 @@ export interface MessageExecution {
 /**
  * 将业务消息监控的执行数据转换为统一的消息格式
  */
-export function adaptExecutionToUnifiedMessage(execution: MessageExecution): UnifiedMessage {
+export function adaptExecutionToUnifiedMessage(execution: any): UnifiedMessage {
+  // 处理两种数据结构：
+  // 1. 旧结构：直接包含 message_content 和 ai_response 字段
+  // 2. 新结构：包含 steps 对象，用户消息和 AI 响应在 steps 中
+
+  const userContent = execution.message_content ||
+                     execution.steps?.user_message?.content ||
+                     '';
+
+  const aiResponse = execution.ai_response ||
+                    execution.steps?.ai_response?.response ||
+                    '';
+
+  const intent = execution.intent ||
+                execution.steps?.intent_recognition?.result ||
+                '';
+
+  const errorMessage = execution.error_message ||
+                     execution.errorMessage ||
+                     '';
+
+  const startTime = execution.started_at ||
+                   execution.start_time ||
+                   execution.createdAt ||
+                   execution.created_at ||
+                   '';
+
+  const endTime = execution.completed_at ||
+                 execution.end_time ||
+                 '';
+
+  const duration = execution.duration ||
+                  execution.processing_time ||
+                  0;
+
+  const nodeType = execution.node_type ||
+                  execution.steps?.node_type ||
+                  '';
+
+  const robotName = execution.robot_name ||
+                   execution.robotName ||
+                   '';
+
+  const userName = execution.user_name ||
+                  execution.userId ||
+                  '';
+
+  const groupName = execution.group_name ||
+                   execution.groupId ||
+                   '';
+
+  const groupId = execution.group_id ||
+                 execution.groupId ||
+                 '';
+
+  const userId = execution.user_id ||
+                execution.userId ||
+                '';
+
+  const sessionId = execution.session_id ||
+                   execution.sessionId ||
+                   '';
+
   return {
-    id: execution.id || execution.processing_id,
-    processingId: execution.processing_id,
-    robotId: execution.robot_id,
-    robotName: execution.robot_name,
-    sessionId: execution.session_id,
-    userId: execution.user_id,
-    userName: execution.user_name,
-    groupId: execution.group_id,
-    groupName: execution.group_name,
-    content: execution.message_content,
+    id: execution.id || execution.processing_id || execution.processingId || '',
+    processingId: execution.processing_id || execution.processingId,
+    robotId: execution.robot_id || execution.robotId,
+    robotName: robotName,
+    sessionId: sessionId,
+    userId: userId,
+    userName: userName,
+    groupId: groupId,
+    groupName: groupName,
+    content: userContent,
     source: 'user',
     isFromUser: true,
-    intent: execution.intent,
-    status: execution.status,
-    errorMessage: execution.error_message,
-    aiResponse: execution.ai_response,
-    startedAt: execution.started_at || execution.created_at || execution.started_at,
-    completedAt: execution.completed_at,
-    duration: execution.duration,
-    nodeType: execution.node_type,
+    intent: intent,
+    status: execution.status as any,
+    errorMessage: errorMessage,
+    aiResponse: aiResponse,
+    startedAt: startTime,
+    completedAt: endTime,
+    duration: duration,
+    nodeType: nodeType,
     extraData: {
       steps: execution.steps,
       decision: execution.decision
