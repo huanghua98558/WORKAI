@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   Settings, 
   Save, 
@@ -24,7 +25,9 @@ import {
   Database,
   CheckCircle,
   XCircle,
-  Info
+  Info,
+  Eye,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -96,6 +99,95 @@ export default function AISettingsPage() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('models');
   const [fineTuneModels, setFineTuneModels] = useState<FineTuneModel[]>([]);
+  const [viewingDefaultPrompt, setViewingDefaultPrompt] = useState<{
+    title: string;
+    prompt: string;
+  } | null>(null);
+
+  // 获取默认提示词
+  const getDefaultPrompt = (label: string): string => {
+    switch (label) {
+      case '意图识别':
+        return `# 角色
+你是一个专业的意图识别专家，负责分析用户消息并判断用户的真实意图。
+
+# 任务
+分析用户的输入，判断用户的意图属于以下哪一类：
+
+## 意图分类
+1. **咨询** - 用户询问产品、服务、价格、功能等信息
+2. **投诉** - 用户表达不满、抱怨、要求解决问题
+3. **售后** - 用户提出退换货、维修、客服等需求
+4. **互动** - 用户进行闲聊、点赞、评论等社交行为
+5. **购买** - 用户表现出购买意向或直接下单
+6. **其他** - 无法明确分类的其他意图
+
+# 输出格式
+请直接输出意图类型，不要添加任何额外说明。
+
+# 示例
+用户：这个产品多少钱？ → 意图：咨询
+用户：我要退货！ → 意图：投诉
+用户：今天天气真好 → 意图：互动`;
+
+      case '服务回复':
+        return `# 角色
+你是一个专业的客服代表，负责为用户提供友好、专业、高效的回复。
+
+# 任务
+根据用户的提问和意图，提供准确、友好、有帮助的回复。
+
+# 原则
+1. **友好专业** - 使用礼貌用语，保持专业态度
+2. **准确清晰** - 回答要准确、清晰，避免模糊
+3. **简洁高效** - 回复要简洁，不啰嗦
+4. **解决问题** - 以解决用户问题为目标
+5. **引导转化** - 适时引导用户进行购买或进一步咨询
+
+# 注意事项
+- 避免使用过于复杂的术语
+- 不要承诺无法兑现的内容
+- 对于无法回答的问题，及时转接人工客服
+- 保持积极正向的态度
+
+# 回复格式
+直接给出回复内容，无需添加额外说明。`;
+
+      case '转化客服':
+        return `# 角色
+你是一个专业的转化客服专家，负责引导用户完成购买转化。
+
+# 任务
+通过有效的沟通技巧，引导用户从咨询、关注转化为实际购买。
+
+# 转化策略
+1. **建立信任** - 通过专业解答建立用户信任
+2. **挖掘需求** - 了解用户的真实需求和痛点
+3. **产品匹配** - 根据需求推荐最合适的产品
+4. **消除疑虑** - 主动解答用户的疑虑和担忧
+5. **促成交易** - 使用合适的技巧促成交易
+
+# 沟通技巧
+- **提问技巧** - 使用开放式问题了解需求
+- **倾听技巧** - 认真倾听用户的需求和反馈
+- **共情技巧** - 理解和认同用户的感受
+- **紧迫感** - 适时制造购买紧迫感
+- **社会认同** - 引用其他用户的成功案例
+
+# 禁忌
+- 不要过度推销
+- 不要隐瞒产品信息
+- 不要给用户施加过大的压力
+- 不要承诺无法兑现的内容
+- 不要使用误导性语言
+
+# 回复格式
+直接给出回复内容，重点在于引导用户完成转化。`;
+
+      default:
+        return '暂无默认提示词';
+    }
+  };
 
   const fetchConfig = async () => {
     setLoading(true);
@@ -276,6 +368,7 @@ export default function AISettingsPage() {
                 fineTuneModels={fineTuneModels}
                 onChange={(updates) => updateModelConfig('intentRecognition', updates)}
                 label="意图识别"
+                onViewDefaultPrompt={(label) => setViewingDefaultPrompt({ title: label, prompt: getDefaultPrompt(label) })}
               />
             </CardContent>
           </Card>
@@ -298,6 +391,7 @@ export default function AISettingsPage() {
                 fineTuneModels={fineTuneModels}
                 onChange={(updates) => updateModelConfig('serviceReply', updates)}
                 label="服务回复"
+                onViewDefaultPrompt={(label) => setViewingDefaultPrompt({ title: label, prompt: getDefaultPrompt(label) })}
               />
             </CardContent>
           </Card>
@@ -320,6 +414,7 @@ export default function AISettingsPage() {
                 fineTuneModels={fineTuneModels}
                 onChange={(updates) => updateModelConfig('conversion', updates)}
                 label="转化客服"
+                onViewDefaultPrompt={(label) => setViewingDefaultPrompt({ title: label, prompt: getDefaultPrompt(label) })}
               />
             </CardContent>
           </Card>
@@ -330,22 +425,22 @@ export default function AISettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <MemoryStick className="h-5 w-5 text-indigo-500" />
+                <MemoryStick className="h-5 w-5 text-primary" />
                 长期记忆配置
               </CardTitle>
               <CardDescription>
-                配置AI如何记忆和使用用户的历史信息
+                配置AI的长期记忆能力，记住用户偏好和历史
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* 总开关 */}
+              {/* 启用开关 */}
               <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                 <div className="flex items-center gap-3">
-                  <Database className="h-5 w-5 text-indigo-500" />
+                  <Database className="h-5 w-5" />
                   <div>
                     <div className="font-semibold">启用长期记忆</div>
                     <div className="text-sm text-muted-foreground">
-                      开启后，AI将记住用户的历史对话和偏好
+                      让AI记住用户偏好和历史对话
                     </div>
                   </div>
                 </div>
@@ -355,68 +450,54 @@ export default function AISettingsPage() {
                 />
               </div>
 
-              {!config.ai.memory.enabled && (
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription>
-                    长期记忆已禁用，AI将不会记住用户的历史对话和偏好信息
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              <div className={`space-y-4 ${!config.ai.memory.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
-                {/* 记忆保留天数 */}
-                <div className="space-y-2">
-                  <Label className="text-base font-medium flex items-center gap-2">
-                    <History className="h-4 w-4" />
-                    记忆保留天数
-                  </Label>
-                  <div className="flex items-center gap-4">
-                    <Input
-                      type="number"
-                      min={1}
-                      max={365}
-                      value={config.ai.memory.retentionDays}
-                      onChange={(e) => updateMemoryConfig({ retentionDays: parseInt(e.target.value) || 30 })}
-                      className="w-32"
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      超过此天数的历史记录将被自动清理
-                    </span>
+              {config.ai.memory.enabled && (
+                <div className="space-y-4">
+                  {/* 记忆保留天数 */}
+                  <div className="space-y-2">
+                    <Label className="text-base font-medium flex items-center gap-2">
+                      <History className="h-4 w-4" />
+                      记忆保留天数
+                    </Label>
+                    <div className="flex items-center gap-4">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={365}
+                        value={config.ai.memory.retentionDays}
+                        onChange={(e) => updateMemoryConfig({ retentionDays: parseInt(e.target.value) || 30 })}
+                        className="w-32"
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        超过此天数的历史记录将被自动清理
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                {/* 最大上下文消息数 */}
-                <div className="space-y-2">
-                  <Label className="text-base font-medium flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4" />
-                    最大上下文消息数
-                  </Label>
-                  <div className="flex items-center gap-4">
-                    <Input
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={config.ai.memory.maxContextMessages}
-                      onChange={(e) => updateMemoryConfig({ maxContextMessages: parseInt(e.target.value) || 20 })}
-                      className="w-32"
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      每次AI调用时携带的历史消息数量（值越大消耗token越多）
-                    </span>
+                  {/* 最大上下文消息数 */}
+                  <div className="space-y-2">
+                    <Label className="text-base font-medium flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4" />
+                      最大上下文消息数
+                    </Label>
+                    <div className="flex items-center gap-4">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={config.ai.memory.maxContextMessages}
+                        onChange={(e) => updateMemoryConfig({ maxContextMessages: parseInt(e.target.value) || 20 })}
+                        className="w-32"
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        每次AI调用时携带的历史消息数量（值越大消耗token越多）
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                <div className="border-t pt-4 space-y-4">
-                  <h3 className="font-semibold text-lg flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    记忆选项
-                  </h3>
-
-                  {/* 对话摘要 */}
+                  {/* 启用对话摘要 */}
                   <div className="flex items-center justify-between p-3 border rounded-lg">
                     <div>
-                      <div className="font-medium">对话摘要</div>
+                      <div className="font-medium">启用对话摘要</div>
                       <div className="text-sm text-muted-foreground">
                         自动生成长对话的摘要，节省token消耗
                       </div>
@@ -427,81 +508,126 @@ export default function AISettingsPage() {
                     />
                   </div>
 
-                  {/* 用户画像 */}
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <div className="font-medium">用户画像</div>
-                      <div className="text-sm text-muted-foreground">
-                        分析用户特征，生成个性化用户画像
-                      </div>
+                  {/* 记忆类型 */}
+                  <div className="space-y-3 pt-2">
+                    <div className="text-sm font-medium flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      记忆内容类型
                     </div>
-                    <Switch
-                      checked={config.ai.memory.userProfileEnabled}
-                      onCheckedChange={(checked) => updateMemoryConfig({ userProfileEnabled: checked })}
-                    />
-                  </div>
 
-                  {/* 用户偏好 */}
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <div className="font-medium">记住用户偏好</div>
-                      <div className="text-sm text-muted-foreground">
-                        记住用户的语言风格、沟通偏好等
+                    {/* 用户画像 */}
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <div className="font-medium">用户画像</div>
+                        <div className="text-sm text-muted-foreground">
+                          记住用户的基本信息和偏好
+                        </div>
                       </div>
+                      <Switch
+                        checked={config.ai.memory.userProfileEnabled}
+                        onCheckedChange={(checked) => updateMemoryConfig({ userProfileEnabled: checked })}
+                      />
                     </div>
-                    <Switch
-                      checked={config.ai.memory.rememberUserPreferences}
-                      onCheckedChange={(checked) => updateMemoryConfig({ rememberUserPreferences: checked })}
-                    />
-                  </div>
 
-                  {/* 用户历史 */}
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <div className="font-medium">记住用户历史</div>
-                      <div className="text-sm text-muted-foreground">
-                        保存用户的历史对话记录
+                    {/* 用户偏好 */}
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <div className="font-medium">用户偏好</div>
+                        <div className="text-sm text-muted-foreground">
+                          记住用户的喜好和习惯
+                        </div>
                       </div>
+                      <Switch
+                        checked={config.ai.memory.rememberUserPreferences}
+                        onCheckedChange={(checked) => updateMemoryConfig({ rememberUserPreferences: checked })}
+                      />
                     </div>
-                    <Switch
-                      checked={config.ai.memory.rememberUserHistory}
-                      onCheckedChange={(checked) => updateMemoryConfig({ rememberUserHistory: checked })}
-                    />
-                  </div>
 
-                  {/* 用户问题 */}
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <div className="font-medium">记住用户问题</div>
-                      <div className="text-sm text-muted-foreground">
-                        记住用户经常询问的问题，用于优化回复
+                    {/* 用户历史 */}
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <div className="font-medium">对话历史</div>
+                        <div className="text-sm text-muted-foreground">
+                          记住用户的历史对话记录
+                        </div>
                       </div>
+                      <Switch
+                        checked={config.ai.memory.rememberUserHistory}
+                        onCheckedChange={(checked) => updateMemoryConfig({ rememberUserHistory: checked })}
+                      />
                     </div>
-                    <Switch
-                      checked={config.ai.memory.rememberUserQuestions}
-                      onCheckedChange={(checked) => updateMemoryConfig({ rememberUserQuestions: checked })}
-                    />
-                  </div>
 
-                  {/* 用户反馈 */}
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <div className="font-medium">记住用户反馈</div>
-                      <div className="text-sm text-muted-foreground">
-                        记住用户对回复的反馈，用于改进AI表现
+                    {/* 常见问题 */}
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <div className="font-medium">常见问题</div>
+                        <div className="text-sm text-muted-foreground">
+                          记住用户经常询问的问题
+                        </div>
                       </div>
+                      <Switch
+                        checked={config.ai.memory.rememberUserQuestions}
+                        onCheckedChange={(checked) => updateMemoryConfig({ rememberUserQuestions: checked })}
+                      />
                     </div>
-                    <Switch
-                      checked={config.ai.memory.rememberUserFeedback}
-                      onCheckedChange={(checked) => updateMemoryConfig({ rememberUserFeedback: checked })}
-                    />
+
+                    {/* 用户反馈 */}
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <div className="font-medium">用户反馈</div>
+                        <div className="text-sm text-muted-foreground">
+                          记住用户对回复的反馈，用于改进AI表现
+                        </div>
+                      </div>
+                      <Switch
+                        checked={config.ai.memory.rememberUserFeedback}
+                        onCheckedChange={(checked) => updateMemoryConfig({ rememberUserFeedback: checked })}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* 默认提示词查看对话框 */}
+      <Dialog open={!!viewingDefaultPrompt} onOpenChange={(open) => !open && setViewingDefaultPrompt(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <Brain className="h-5 w-5" />
+                {viewingDefaultPrompt?.title} - 默认提示词
+              </DialogTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setViewingDefaultPrompt(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </DialogHeader>
+          <div className="mt-4">
+            <Textarea
+              value={viewingDefaultPrompt?.prompt || ''}
+              readOnly
+              className="min-h-[400px] font-mono text-sm bg-muted"
+            />
+            <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <Info className="h-4 w-4" />
+                <span>这是系统优化的默认提示词，留空将自动使用此提示词</span>
+              </div>
+              {viewingDefaultPrompt && (
+                <span>{viewingDefaultPrompt.prompt.length} 字符</span>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -512,9 +638,10 @@ interface ModelConfigSectionProps {
   fineTuneModels: FineTuneModel[];
   onChange: (updates: Partial<AIConfig>) => void;
   label: string;
+  onViewDefaultPrompt: (label: string) => void;
 }
 
-function ModelConfigSection({ config, availableModels, fineTuneModels, onChange, label }: ModelConfigSectionProps) {
+function ModelConfigSection({ config, availableModels, fineTuneModels, onChange, label, onViewDefaultPrompt }: ModelConfigSectionProps) {
   return (
     <div className="space-y-4">
       {/* 模型类型选择 */}
@@ -625,16 +752,27 @@ function ModelConfigSection({ config, availableModels, fineTuneModels, onChange,
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">自定义提示词（留空使用默认）</span>
-                {config.systemPrompt && (
+                <div className="flex items-center gap-2">
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    onClick={() => onChange({ systemPrompt: undefined })}
+                    onClick={() => onViewDefaultPrompt(label)}
                     className="h-6 text-xs"
                   >
-                    恢复默认
+                    <Eye className="h-3 w-3 mr-1" />
+                    查看默认提示词
                   </Button>
-                )}
+                  {config.systemPrompt && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onChange({ systemPrompt: undefined })}
+                      className="h-6 text-xs"
+                    >
+                      恢复默认
+                    </Button>
+                  )}
+                </div>
               </div>
               <Textarea
                 value={config.systemPrompt || ''}
@@ -668,98 +806,46 @@ function ModelConfigSection({ config, availableModels, fineTuneModels, onChange,
               <Label>提供商</Label>
               <Select
                 value={config.customModel?.provider}
-                onValueChange={(value) => onChange({
-                  customModel: { ...config.customModel!, provider: value }
-                })}
+                onValueChange={(value) => onChange({ customModel: { ...config.customModel, provider: value } })}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="选择提供商" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="openai">OpenAI</SelectItem>
                   <SelectItem value="anthropic">Anthropic</SelectItem>
+                  <SelectItem value="coze">Coze</SelectItem>
                   <SelectItem value="custom">自定义</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="space-y-2">
               <Label>模型名称</Label>
               <Input
                 value={config.customModel?.model || ''}
-                onChange={(e) => onChange({
-                  customModel: { ...config.customModel!, model: e.target.value }
-                })}
-                placeholder="gpt-4o"
+                onChange={(e) => onChange({ customModel: { ...config.customModel, model: e.target.value } })}
+                placeholder="例如: gpt-4, claude-3-opus"
               />
             </div>
-            
+
             <div className="space-y-2">
-              <Label>API密钥</Label>
+              <Label>API 密钥</Label>
               <Input
                 type="password"
                 value={config.customModel?.apiKey || ''}
-                onChange={(e) => onChange({
-                  customModel: { ...config.customModel!, apiKey: e.target.value }
-                })}
-                placeholder="sk-..."
+                onChange={(e) => onChange({ customModel: { ...config.customModel, apiKey: e.target.value } })}
+                placeholder="输入 API 密钥"
               />
             </div>
-            
+
             <div className="space-y-2">
-              <Label>API地址</Label>
+              <Label>API 地址</Label>
               <Input
                 value={config.customModel?.apiBase || ''}
-                onChange={(e) => onChange({
-                  customModel: { ...config.customModel!, apiBase: e.target.value }
-                })}
-                placeholder="https://api.openai.com/v1"
+                onChange={(e) => onChange({ customModel: { ...config.customModel, apiBase: e.target.value } })}
+                placeholder="例如: https://api.openai.com/v1"
               />
-            </div>
-          </div>
-
-          {/* 提示词配置 */}
-          <div className="space-y-3 mt-4 pt-4 border-t">
-            <div className="flex items-center gap-2">
-              <Brain className="h-4 w-4 text-primary" />
-              <Label className="text-base font-medium">系统提示词</Label>
-            </div>
-
-            <Alert className="bg-blue-50 border-blue-200">
-              <Info className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-blue-800">
-                系统提示词定义了AI的行为和角色。留空则使用经过优化的默认提示词。
-              </AlertDescription>
-            </Alert>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">自定义提示词（留空使用默认）</span>
-                {config.systemPrompt && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onChange({ systemPrompt: undefined })}
-                    className="h-6 text-xs"
-                  >
-                    恢复默认
-                  </Button>
-                )}
-              </div>
-              <Textarea
-                value={config.systemPrompt || ''}
-                onChange={(e) => onChange({ systemPrompt: e.target.value })}
-                placeholder="留空使用系统默认提示词..."
-                className="min-h-[150px] font-mono text-sm"
-              />
-              {config.systemPrompt && (
-                <div className="text-xs text-muted-foreground flex items-center gap-2">
-                  <CheckCircle className="h-3 w-3 text-green-500" />
-                  <span>已配置自定义提示词</span>
-                  <span>•</span>
-                  <span>{config.systemPrompt.length} 字符</span>
-                </div>
-              )}
             </div>
           </div>
         </div>
