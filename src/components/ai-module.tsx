@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
 import {
   Brain,
   Bot,
@@ -33,7 +34,9 @@ import {
   Zap,
   Clock,
   Cpu,
-  ShieldCheck
+  ShieldCheck,
+  Edit,
+  AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -55,6 +58,32 @@ interface AIModel {
   priority?: number;
   createdAt: string;
   isBuiltin?: boolean;
+  config?: AIModelConfig;
+}
+
+interface AIModelConfig {
+  temperature?: number;
+  topP?: number;
+  topK?: number;
+  presencePenalty?: number;
+  frequencyPenalty?: number;
+  timeout?: number;
+  memory?: {
+    enabled: boolean;
+    retentionDays: number;
+    maxContextMessages: number;
+    summaryEnabled: boolean;
+    userProfileEnabled: boolean;
+  };
+  rateLimit?: {
+    enabled: boolean;
+    maxRequestsPerMinute: number;
+  };
+  retry?: {
+    enabled: boolean;
+    maxRetries: number;
+    retryDelay: number;
+  };
 }
 
 interface AIPersona {
@@ -66,6 +95,7 @@ interface AIPersona {
   temperature: number;
   maxTokens: number;
   isActive: boolean;
+  modelId?: string;
 }
 
 interface MessageTemplate {
@@ -97,7 +127,8 @@ const getModelTypeText = (type?: string) => {
     intent: '意图识别',
     chat: '对话生成',
     text: '文本处理',
-    embedding: '向量化'
+    embedding: '向量化',
+    reasoning: '推理'
   };
   return map[type || ''] || type || '未知';
 };
@@ -124,6 +155,7 @@ export default function AIModule() {
   const [showModelDialog, setShowModelDialog] = useState(false);
   const [showModelDetail, setShowModelDetail] = useState(false);
   const [testingModel, setTestingModel] = useState<string | null>(null);
+  const [isDeletingModel, setIsDeletingModel] = useState(false);
 
   // AI角色管理
   const [personas, setPersonas] = useState<AIPersona[]>([]);
@@ -170,7 +202,8 @@ export default function AIModule() {
           capabilities: model.capabilities || [],
           priority: model.priority,
           createdAt: model.createdAt || model.created_at,
-          isBuiltin: true // 所有从API加载的都是内置模型
+          isBuiltin: true,
+          config: model.config || {}
         }));
         setModels(formattedModels);
       }
@@ -196,7 +229,8 @@ export default function AIModule() {
           systemPrompt: persona.system_prompt,
           temperature: persona.temperature,
           maxTokens: persona.max_tokens,
-          isActive: persona.is_active
+          isActive: persona.is_active,
+          modelId: persona.model_id
         }));
         setPersonas(formattedPersonas);
       }
@@ -272,10 +306,102 @@ export default function AIModule() {
     }
   };
 
+  // 编辑模型
+  const handleEditModel = (model: AIModel) => {
+    setSelectedModel(model);
+    setShowModelDialog(true);
+  };
+
+  // 添加模型
+  const handleAddModel = () => {
+    setSelectedModel(null);
+    setShowModelDialog(true);
+  };
+
+  // 删除模型
+  const handleDeleteModel = async (modelId: string, isBuiltin: boolean) => {
+    if (isBuiltin) {
+      if (!confirm('这是一个内置模型，删除可能影响系统功能。确定要删除吗？')) {
+        return;
+      }
+    } else {
+      if (!confirm('确定要删除这个模型吗？')) {
+        return;
+      }
+    }
+
+    setIsDeletingModel(true);
+    try {
+      const response = await fetch(`/api/proxy/ai/models/${modelId}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success('模型删除成功');
+        loadAIModels();
+      } else {
+        toast.error(data.error || '删除失败');
+      }
+    } catch (error) {
+      console.error('删除失败:', error);
+      toast.error('删除失败');
+    } finally {
+      setIsDeletingModel(false);
+    }
+  };
+
+  // 保存模型
+  const handleSaveModel = async () => {
+    try {
+      const payload = {
+        name: selectedModel?.name || '',
+        displayName: selectedModel?.displayName || '',
+        modelId: selectedModel?.modelId || '',
+        type: selectedModel?.type || 'chat',
+        capabilities: selectedModel?.capabilities || ['text_generation'],
+        providerId: selectedModel?.providerId || '',
+        description: selectedModel?.description || '',
+        maxTokens: selectedModel?.maxTokens || 2000,
+        priority: selectedModel?.priority || 10,
+        config: selectedModel?.config || {},
+        isEnabled: selectedModel?.status === 'active'
+      };
+
+      const url = selectedModel?.id
+        ? `/api/proxy/ai/models/${selectedModel.id}`
+        : '/api/proxy/ai/models';
+
+      const response = await fetch(url, {
+        method: selectedModel?.id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success(selectedModel?.id ? '模型更新成功' : '模型创建成功');
+        setShowModelDialog(false);
+        setSelectedModel(null);
+        loadAIModels();
+      } else {
+        toast.error(data.error || '操作失败');
+      }
+    } catch (error) {
+      console.error('操作失败:', error);
+      toast.error('操作失败');
+    }
+  };
+
   // 查看模型详情
   const handleViewModelDetail = (model: AIModel) => {
     setSelectedModel(model);
     setShowModelDetail(true);
+  };
+
+  // 获取关联的角色
+  const getRelatedPersonas = (modelId: string) => {
+    return personas.filter(p => p.modelId === modelId);
   };
 
   // AI角色CRUD操作
@@ -501,16 +627,20 @@ export default function AIModule() {
                     AI 模型管理
                   </CardTitle>
                   <CardDescription className="mt-2">
-                    管理 {models.length} 个内置 AI 模型，支持健康检查和启用/禁用
+                    管理 {models.length} 个 AI 模型，支持编辑配置、健康检查和启用/禁用
                   </CardDescription>
                 </div>
+                <Button onClick={handleAddModel}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  添加模型
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
               <Alert className="mb-4 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900/50">
                 <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 <AlertDescription className="text-blue-800 dark:text-blue-300">
-                  这些是系统内置的 AI 模型，内置模型不支持编辑和删除。您可以启用/禁用模型，或进行健康检查。
+                  模型名称（系统标识）不可编辑，其他配置均可调整。您可以通过「编辑」按钮修改模型的参数、记忆功能等配置。
                 </AlertDescription>
               </Alert>
 
@@ -552,6 +682,12 @@ export default function AIModule() {
                                 <Cpu className="h-3 w-3" />
                                 {model.modelId.slice(0, 20)}{model.modelId.length > 20 ? '...' : ''}
                               </span>
+                              {model.priority && (
+                                <span className="flex items-center gap-1">
+                                  <Zap className="h-3 w-3" />
+                                  优先级: {model.priority}
+                                </span>
+                              )}
                             </div>
 
                             {model.description && (
@@ -587,7 +723,7 @@ export default function AIModule() {
                           </div>
 
                           {/* 操作按钮 */}
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2 justify-end">
                             <Switch
                               checked={model.status === 'active'}
                               onCheckedChange={() => handleToggleModelStatus(model.id, model.status)}
@@ -613,6 +749,22 @@ export default function AIModule() {
                             >
                               <Info className="h-4 w-4" />
                               详情
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditModel(model)}
+                            >
+                              <Edit className="h-4 w-4" />
+                              编辑
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteModel(model.id, !!model.isBuiltin)}
+                              disabled={isDeletingModel}
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
@@ -830,6 +982,492 @@ export default function AIModule() {
         </TabsContent>
       </Tabs>
 
+      {/* 模型编辑对话框 */}
+      <Dialog open={showModelDialog} onOpenChange={setShowModelDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5" />
+              {selectedModel?.id ? '编辑 AI 模型' : '添加 AI 模型'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <Tabs defaultValue="basic" className="mt-4">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="basic">基本配置</TabsTrigger>
+              <TabsTrigger value="params">参数配置</TabsTrigger>
+              <TabsTrigger value="memory">记忆配置</TabsTrigger>
+              <TabsTrigger value="roles">角色关联</TabsTrigger>
+              <TabsTrigger value="rate">速率限制</TabsTrigger>
+            </TabsList>
+
+            {/* 基本配置 */}
+            <TabsContent value="basic" className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="model-name">模型名称（不可编辑）</Label>
+                  <Input
+                    id="model-name"
+                    value={selectedModel?.name || ''}
+                    disabled={!!selectedModel?.id}
+                    className={selectedModel?.id ? 'bg-muted' : ''}
+                    placeholder="模型唯一标识"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {selectedModel?.id ? '系统标识，创建后不可修改' : '创建后不可修改'}
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="model-display-name">显示名称</Label>
+                  <Input
+                    id="model-display-name"
+                    value={selectedModel?.displayName || ''}
+                    onChange={(e) => setSelectedModel({ ...selectedModel, displayName: e.target.value } as AIModel)}
+                    placeholder="模型显示名称"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="model-provider">提供商</Label>
+                  <Select
+                    value={selectedModel?.provider || ''}
+                    onValueChange={(value) => setSelectedModel({ ...selectedModel, provider: value } as AIModel)}
+                  >
+                    <SelectTrigger id="model-provider">
+                      <SelectValue placeholder="选择提供商" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="doubao">豆包</SelectItem>
+                      <SelectItem value="deepseek">DeepSeek</SelectItem>
+                      <SelectItem value="kimi">Kimi</SelectItem>
+                      <SelectItem value="openai">OpenAI</SelectItem>
+                      <SelectItem value="custom">自定义</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="model-id">模型 ID</Label>
+                  <Input
+                    id="model-id"
+                    value={selectedModel?.modelId || ''}
+                    onChange={(e) => setSelectedModel({ ...selectedModel, modelId: e.target.value } as AIModel)}
+                    placeholder="API 调用时的模型 ID"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="model-type">模型类型</Label>
+                  <Select
+                    value={selectedModel?.type || 'chat'}
+                    onValueChange={(value) => setSelectedModel({ ...selectedModel, type: value } as AIModel)}
+                  >
+                    <SelectTrigger id="model-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="intent">意图识别</SelectItem>
+                      <SelectItem value="chat">对话生成</SelectItem>
+                      <SelectItem value="text">文本处理</SelectItem>
+                      <SelectItem value="embedding">向量化</SelectItem>
+                      <SelectItem value="reasoning">推理</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="model-priority">优先级</Label>
+                  <Input
+                    id="model-priority"
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={selectedModel?.priority || 10}
+                    onChange={(e) => setSelectedModel({ ...selectedModel, priority: parseInt(e.target.value) } as AIModel)}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    数字越小优先级越高（1-100）
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="model-description">描述</Label>
+                <Textarea
+                  id="model-description"
+                  value={selectedModel?.description || ''}
+                  onChange={(e) => setSelectedModel({ ...selectedModel, description: e.target.value } as AIModel)}
+                  placeholder="模型描述"
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <Label>能力标签</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {['intent_recognition', 'text_generation', 'conversation', 'code_generation', 'image_recognition', 'embedding'].map((cap) => (
+                    <div key={cap} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id={`cap-${cap}`}
+                        checked={(selectedModel?.capabilities || []).includes(cap)}
+                        onChange={(e) => {
+                          const caps = selectedModel?.capabilities || [];
+                          if (e.target.checked) {
+                            setSelectedModel({ ...selectedModel, capabilities: [...caps, cap] } as AIModel);
+                          } else {
+                            setSelectedModel({ ...selectedModel, capabilities: caps.filter(c => c !== cap) } as AIModel);
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`cap-${cap}`} className="text-sm">{getCapabilityText(cap)}</Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* 参数配置 */}
+            <TabsContent value="params" className="space-y-6 py-4">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="temperature">温度参数（Temperature）</Label>
+                  <span className="text-sm font-mono">{selectedModel?.config?.temperature?.toFixed(2) || 0.70}</span>
+                </div>
+                <Slider
+                  id="temperature"
+                  min={0}
+                  max={2}
+                  step={0.1}
+                  value={[selectedModel?.config?.temperature || 0.7]}
+                  onValueChange={([value]) => setSelectedModel({
+                    ...selectedModel,
+                    config: { ...selectedModel?.config, temperature: value }
+                  } as AIModel)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  控制输出的随机性。值越高，输出越随机；值越低，输出越确定性。
+                </p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="topP">Top P</Label>
+                  <span className="text-sm font-mono">{selectedModel?.config?.topP?.toFixed(2) || 0.90}</span>
+                </div>
+                <Slider
+                  id="topP"
+                  min={0}
+                  max={1}
+                  step={0.1}
+                  value={[selectedModel?.config?.topP || 0.9]}
+                  onValueChange={([value]) => setSelectedModel({
+                    ...selectedModel,
+                    config: { ...selectedModel?.config, topP: value }
+                  } as AIModel)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  核采样参数。控制从概率最高的前 P 个 token 中采样。
+                </p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="topK">Top K</Label>
+                  <span className="text-sm font-mono">{selectedModel?.config?.topK || 40}</span>
+                </div>
+                <Input
+                  id="topK"
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={selectedModel?.config?.topK || 40}
+                  onChange={(e) => setSelectedModel({
+                    ...selectedModel,
+                    config: { ...selectedModel?.config, topK: parseInt(e.target.value) }
+                  } as AIModel)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  从概率最高的 K 个 token 中随机选择一个。
+                </p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="presencePenalty">存在惩罚（Presence Penalty）</Label>
+                  <span className="text-sm font-mono">{selectedModel?.config?.presencePenalty?.toFixed(2) || 0.00}</span>
+                </div>
+                <Slider
+                  id="presencePenalty"
+                  min={-2}
+                  max={2}
+                  step={0.1}
+                  value={[selectedModel?.config?.presencePenalty || 0]}
+                  onValueChange={([value]) => setSelectedModel({
+                    ...selectedModel,
+                    config: { ...selectedModel?.config, presencePenalty: value }
+                  } as AIModel)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  控制模型重复讨论相同话题的倾向（-2 到 2）。
+                </p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="frequencyPenalty">频率惩罚（Frequency Penalty）</Label>
+                  <span className="text-sm font-mono">{selectedModel?.config?.frequencyPenalty?.toFixed(2) || 0.00}</span>
+                </div>
+                <Slider
+                  id="frequencyPenalty"
+                  min={-2}
+                  max={2}
+                  step={0.1}
+                  value={[selectedModel?.config?.frequencyPenalty || 0]}
+                  onValueChange={([value]) => setSelectedModel({
+                    ...selectedModel,
+                    config: { ...selectedModel?.config, frequencyPenalty: value }
+                  } as AIModel)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  控制模型重复使用相同单词的倾向（-2 到 2）。
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="maxTokens">最大 Token 数</Label>
+                  <Input
+                    id="maxTokens"
+                    type="number"
+                    min={1}
+                    max={128000}
+                    value={selectedModel?.maxTokens || 2000}
+                    onChange={(e) => setSelectedModel({ ...selectedModel, maxTokens: parseInt(e.target.value) } as AIModel)}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    单次响应的最大 token 数量
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="timeout">超时时间（毫秒）</Label>
+                  <Input
+                    id="timeout"
+                    type="number"
+                    min={1000}
+                    max={300000}
+                    value={selectedModel?.config?.timeout || 30000}
+                    onChange={(e) => setSelectedModel({
+                      ...selectedModel,
+                      config: { ...selectedModel?.config, timeout: parseInt(e.target.value) }
+                    } as AIModel)}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    API 请求超时时间
+                  </p>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* 记忆配置 */}
+            <TabsContent value="memory" className="space-y-4 py-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <Label htmlFor="memory-enabled">启用记忆功能</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    开启后 AI 将记住用户的历史对话和偏好
+                  </p>
+                </div>
+                <Switch
+                  id="memory-enabled"
+                  checked={selectedModel?.config?.memory?.enabled || false}
+                  onCheckedChange={(checked) => setSelectedModel({
+                    ...selectedModel,
+                    config: {
+                      ...selectedModel?.config,
+                      memory: { ...selectedModel?.config?.memory, enabled: checked }
+                    }
+                  } as AIModel)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="memory-retention">记忆保留天数</Label>
+                  <Input
+                    id="memory-retention"
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={selectedModel?.config?.memory?.retentionDays || 30}
+                    onChange={(e) => setSelectedModel({
+                      ...selectedModel,
+                      config: {
+                        ...selectedModel?.config,
+                        memory: { ...selectedModel?.config?.memory, retentionDays: parseInt(e.target.value) }
+                      }
+                    } as AIModel)}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    超过此时间将自动清理记忆
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="memory-context">最大上下文消息数</Label>
+                  <Input
+                    id="memory-context"
+                    type="number"
+                    min={5}
+                    max={100}
+                    value={selectedModel?.config?.memory?.maxContextMessages || 20}
+                    onChange={(e) => setSelectedModel({
+                      ...selectedModel,
+                      config: {
+                        ...selectedModel?.config,
+                        memory: { ...selectedModel?.config?.memory, maxContextMessages: parseInt(e.tokenValue) }
+                      }
+                    } as AIModel)}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    发送给 AI 的历史消息数量
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 border rounded">
+                  <Label htmlFor="memory-summary">启用记忆摘要</Label>
+                  <Switch
+                    id="memory-summary"
+                    checked={selectedModel?.config?.memory?.summaryEnabled || false}
+                    onCheckedChange={(checked) => setSelectedModel({
+                      ...selectedModel,
+                      config: {
+                        ...selectedModel?.config,
+                        memory: { ...selectedModel?.config?.memory, summaryEnabled: checked }
+                      }
+                    } as AIModel)}
+                  />
+                  <p className="text-xs text-muted-foreground col-span-2">
+                    对长期记忆进行摘要压缩，节省 token 消耗
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 border rounded">
+                  <Label htmlFor="memory-profile">启用用户画像</Label>
+                  <Switch
+                    id="memory-profile"
+                    checked={selectedModel?.config?.memory?.userProfileEnabled || false}
+                    onCheckedChange={(checked) => setSelectedModel({
+                      ...selectedModel,
+                      config: {
+                        ...selectedModel?.config,
+                        memory: { ...selectedModel?.config?.memory, userProfileEnabled: checked }
+                      }
+                    } as AIModel)}
+                  />
+                  <p className="text-xs text-muted-foreground col-span-2">
+                    自动构建用户画像，记住用户的偏好和习惯
+                  </p>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* 角色关联 */}
+            <TabsContent value="roles" className="space-y-4 py-4">
+              {selectedModel?.id ? (
+                <>
+                  <Alert>
+                    <Users className="h-4 w-4" />
+                    <AlertDescription>
+                      使用此模型的 AI 角色列表
+                    </AlertDescription>
+                  </Alert>
+                  <div className="space-y-2">
+                    {getRelatedPersonas(selectedModel.id).length > 0 ? (
+                      getRelatedPersonas(selectedModel.id).map((persona) => (
+                        <div key={persona.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <MessageSquare className="h-4 w-4 text-primary" />
+                            <div>
+                              <div className="font-medium">{persona.name}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {persona.roleType === 'preset' ? '预设角色' : '自定义角色'}
+                              </div>
+                            </div>
+                          </div>
+                          <Badge variant={persona.isActive ? 'default' : 'secondary'}>
+                            {persona.isActive ? '启用' : '禁用'}
+                          </Badge>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        暂无角色使用此模型
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  请先保存模型，然后才能查看关联的角色
+                </div>
+              )}
+            </TabsContent>
+
+            {/* 速率限制 */}
+            <TabsContent value="rate" className="space-y-4 py-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <Label htmlFor="rate-limit-enabled">启用速率限制</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    限制每分钟的 API 调用次数
+                  </p>
+                </div>
+                <Switch
+                  id="rate-limit-enabled"
+                  checked={selectedModel?.config?.rateLimit?.enabled || false}
+                  onCheckedChange={(checked) => setSelectedModel({
+                    ...selectedModel,
+                    config: {
+                      ...selectedModel?.config,
+                      rateLimit: { ...selectedModel?.config?.rateLimit, enabled: checked }
+                    }
+                  } as AIModel)}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="rate-limit-max">每分钟最大请求数</Label>
+                <Input
+                  id="rate-limit-max"
+                  type="number"
+                  min={1}
+                  max={1000}
+                  value={selectedModel?.config?.rateLimit?.maxRequestsPerMinute || 60}
+                  onChange={(e) => setSelectedModel({
+                    ...selectedModel,
+                    config: {
+                      ...selectedModel?.config,
+                      rateLimit: { ...selectedModel?.config?.rateLimit, maxRequestsPerMinute: parseInt(e.target.value) }
+                    }
+                  } as AIModel)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  超过此限制将拒绝新的请求
+                </p>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowModelDialog(false)}>
+              取消
+            </Button>
+            <Button onClick={handleSaveModel}>
+              <Save className="h-4 w-4 mr-2" />
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* 模型详情对话框 */}
       <Dialog open={showModelDetail} onOpenChange={setShowModelDetail}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -844,6 +1482,10 @@ export default function AIModule() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-muted-foreground">模型名称</Label>
+                  <p className="font-semibold">{selectedModel.name}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">显示名称</Label>
                   <p className="font-semibold">{selectedModel.displayName}</p>
                 </div>
                 <div>
@@ -874,6 +1516,12 @@ export default function AIModule() {
                   <Label className="text-muted-foreground">创建时间</Label>
                   <p className="text-sm">{new Date(selectedModel.createdAt).toLocaleString('zh-CN')}</p>
                 </div>
+                {selectedModel.priority && (
+                  <div>
+                    <Label className="text-muted-foreground">优先级</Label>
+                    <p className="font-semibold">{selectedModel.priority}</p>
+                  </div>
+                )}
               </div>
 
               {selectedModel.description && (
@@ -898,14 +1546,40 @@ export default function AIModule() {
                 <Alert className="bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900/50">
                   <ShieldCheck className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                   <AlertDescription className="text-purple-800 dark:text-purple-300">
-                    这是系统内置模型，不支持编辑和删除操作。
+                    这是系统内置模型，模型名称不可编辑，但其他配置可以调整。
                   </AlertDescription>
                 </Alert>
+              )}
+
+              {/* 关联角色 */}
+              {selectedModel.id && getRelatedPersonas(selectedModel.id).length > 0 && (
+                <div>
+                  <Label className="text-muted-foreground">关联的角色</Label>
+                  <div className="space-y-2 mt-2">
+                    {getRelatedPersonas(selectedModel.id).map((persona) => (
+                      <div key={persona.id} className="flex items-center justify-between p-2 border rounded">
+                        <span>{persona.name}</span>
+                        <Badge variant={persona.isActive ? 'default' : 'secondary'}>
+                          {persona.isActive ? '启用' : '禁用'}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )}
           <DialogFooter>
-            <Button onClick={() => setShowModelDetail(false)}>关闭</Button>
+            <Button variant="outline" onClick={() => setShowModelDetail(false)}>
+              关闭
+            </Button>
+            <Button onClick={() => {
+              setShowModelDetail(false);
+              handleEditModel(selectedModel!);
+            }}>
+              <Edit className="h-4 w-4 mr-2" />
+              编辑配置
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
