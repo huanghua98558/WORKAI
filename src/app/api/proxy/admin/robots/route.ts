@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
 
 /**
  * 获取机器人列表
  */
 export async function GET(request: NextRequest) {
   try {
-    const isLocalhost = request.headers.get('host')?.includes('localhost') ||
-                         request.headers.get('host')?.includes('127.0.0.1');
-    const baseUrl = isLocalhost ? BACKEND_URL : `${request.nextUrl.protocol}//${request.headers.get('host')}`;
-
-    const url = new URL('/api/admin/robots', baseUrl);
+    const url = new URL('/api/admin/robots', BACKEND_URL);
 
     const response = await fetch(url.toString(), {
       method: 'GET',
