@@ -68,8 +68,10 @@ redisClient.connect().then(() => {
 
 // 注册插件
 fastify.register(cors, {
-  origin: true, // 生产环境建议配置具体域名
-  credentials: true
+  origin: ['http://localhost:5000', 'http://127.0.0.1:5000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 });
 
 fastify.register(helmet, {
