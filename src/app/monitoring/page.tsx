@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Activity, MessageSquare, Bot, AlertCircle, CheckCircle, Clock, RefreshCw, ArrowLeft } from 'lucide-react';
+import MonitoringAlertCompact from '@/components/monitoring/MonitoringAlertCompact';
 import MonitoringAlertCard from '@/components/monitoring/MonitoringAlertCard';
 
 interface Execution {
@@ -65,6 +66,13 @@ interface HealthStatus {
     active: number;
   };
   timestamp: string;
+  alerts?: {
+    total: number;
+    pending: number;
+    critical: number;
+    warning: number;
+    info: number;
+  };
 }
 
 export default function MonitoringPage() {
@@ -81,6 +89,29 @@ export default function MonitoringPage() {
       const res = await fetch('/api/monitoring/health');
       const data = await res.json();
       if (data.code === 0) {
+        // 获取告警统计
+        try {
+          const alertRes = await fetch('http://localhost:5001/api/alerts/stats');
+          const alertData = await alertRes.json();
+          if (alertData.success) {
+            data.data.alerts = {
+              total: parseInt(alertData.data.total) || 0,
+              pending: parseInt(alertData.data.pending) || 0,
+              critical: parseInt(alertData.data.critical) || 0,
+              warning: parseInt(alertData.data.warning) || 0,
+              info: parseInt(alertData.data.info) || 0
+            };
+          }
+        } catch (alertError) {
+          console.error('获取告警统计失败:', alertError);
+          data.data.alerts = {
+            total: 0,
+            pending: 0,
+            critical: 0,
+            warning: 0,
+            info: 0
+          };
+        }
         setHealth(data.data);
       }
     } catch (error) {
@@ -298,11 +329,65 @@ export default function MonitoringPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* 告警统计 */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">待处理告警</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">
+                {health.alerts?.pending || 0}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                紧急: {health.alerts?.critical || 0} | 警告: {health.alerts?.warning || 0}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
-      {/* 告警监控 */}
-      <MonitoringAlertCard maxItems={5} />
+      {/* 告警监控 - 突出显示 */}
+      {(health?.alerts && health.alerts.pending > 0) && (
+        <div className="relative">
+          <Card className="border-red-200 bg-red-50/50">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-red-700">
+                <AlertCircle className="h-5 w-5" />
+                告警通知
+                <Badge variant="destructive" className="ml-2 animate-pulse">
+                  {health.alerts.critical > 0 ? `${health.alerts.critical} 紧急` : `${health.alerts.pending} 待处理`}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-4 mb-3">
+                <div className="text-sm">
+                  <span className="text-red-600 font-medium">紧急:</span> {health.alerts.critical}
+                </div>
+                <div className="text-sm">
+                  <span className="text-yellow-600 font-medium">警告:</span> {health.alerts.warning}
+                </div>
+                <div className="text-sm">
+                  <span className="text-blue-600 font-medium">信息:</span> {health.alerts.info}
+                </div>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => window.location.href = '/alerts/center'}
+              >
+                查看所有告警
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* 告警监控 - 正常状态 */}
+      {(!health?.alerts || health.alerts.pending === 0) && (
+        <MonitoringAlertCompact maxItems={3} showViewAll={false} />
+      )}
 
       {/* 主内容区域 */}
       <Tabs defaultValue="executions" className="space-y-4">
@@ -314,6 +399,10 @@ export default function MonitoringPage() {
           <TabsTrigger value="ai-logs">
             <Bot className="w-4 h-4 mr-2" />
             AI 对话
+          </TabsTrigger>
+          <TabsTrigger value="alerts">
+            <AlertCircle className="w-4 h-4 mr-2" />
+            告警中心
           </TabsTrigger>
           <TabsTrigger value="detail">
             <MessageSquare className="w-4 h-4 mr-2" />
@@ -487,6 +576,11 @@ export default function MonitoringPage() {
               </ScrollArea>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* 告警中心 */}
+        <TabsContent value="alerts" className="space-y-4">
+          <MonitoringAlertCompact maxItems={20} showViewAll={true} />
         </TabsContent>
 
         {/* 执行详情 */}
