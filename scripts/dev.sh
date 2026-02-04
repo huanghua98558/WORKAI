@@ -5,7 +5,6 @@ FRONTEND_PORT=5000
 BACKEND_PORT=5001
 COZE_WORKSPACE_PATH="${COZE_WORKSPACE_PATH:-$(pwd)}"
 NODE_ENV=development
-USE_MEMORY_MODE=false
 
 cd "${COZE_WORKSPACE_PATH}"
 
@@ -38,7 +37,7 @@ mkdir -p logs
 # 启动后端服务
 echo "Starting backend service on port ${BACKEND_PORT}..."
 cd server
-USE_MEMORY_MODE=${USE_MEMORY_MODE} PORT=${BACKEND_PORT} node app.js > ../logs/backend.log 2>&1 &
+PORT=${BACKEND_PORT} node app.js > ../logs/backend.log 2>&1 &
 BACKEND_PID=$!
 cd ..
 
