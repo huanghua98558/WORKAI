@@ -88,6 +88,8 @@ export default function PromptTraining() {
   const [modelResponses, setModelResponses] = useState<ModelResponse[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'chat' | 'test'>('chat');
+  const [isInitDefaults, setIsInitDefaults] = useState(false);
+  const [defaultTemplateStatus, setDefaultTemplateStatus] = useState<{ total: number; existing: number; missing: number } | null>(null);
   
   // 模板编辑状态
   const [templateForm, setTemplateForm] = useState<Partial<PromptTemplate>>({
@@ -111,6 +113,7 @@ export default function PromptTraining() {
   useEffect(() => {
     loadTemplates();
     loadTestCases();
+    checkDefaultTemplates();
   }, []);
 
   // 选择模板时加载表单
@@ -191,6 +194,49 @@ export default function PromptTraining() {
       temperature: 0.7,
       maxTokens: 2000
     });
+  };
+
+  // 检查默认模板是否存在
+  const checkDefaultTemplates = async () => {
+    try {
+      const response = await fetch('/api/prompt-templates/check-default');
+      const data = await response.json();
+      if (data.code === 0) {
+        setDefaultTemplateStatus(data.data);
+        return data.data;
+      }
+    } catch (error) {
+      console.error('检查默认模板失败:', error);
+    }
+    return null;
+  };
+
+  // 初始化默认模板
+  const initDefaultTemplates = async (force: boolean = false) => {
+    if (!confirm(force ? '确定要强制覆盖现有默认模板吗？' : '确定要添加缺失的默认模板吗？')) return;
+
+    setIsInitDefaults(true);
+    try {
+      const response = await fetch('/api/prompt-templates/init-default', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force })
+      });
+
+      const data = await response.json();
+      if (data.code === 0) {
+        alert(`初始化完成：新建 ${data.data.created} 个，跳过 ${data.data.skipped} 个`);
+        await loadTemplates();
+        await checkDefaultTemplates();
+      } else {
+        alert(data.message || '初始化失败');
+      }
+    } catch (error) {
+      console.error('初始化默认模板失败:', error);
+      alert('初始化失败');
+    } finally {
+      setIsInitDefaults(false);
+    }
   };
 
   const deleteTemplate = async (id: string) => {
@@ -452,6 +498,15 @@ export default function PromptTraining() {
               className="hidden"
               id="import-template"
             />
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              onClick={() => initDefaultTemplates(false)}
+              disabled={isInitDefaults}
+              title="恢复默认模板"
+            >
+              <RefreshCw size={16} className={isInitDefaults ? 'animate-spin' : ''} />
+            </Button>
             <Button size="sm" variant="ghost" asChild>
               <label htmlFor="import-template" className="cursor-pointer">
                 <Copy size={16} />
@@ -518,6 +573,24 @@ export default function PromptTraining() {
               </div>
             ))}
           </div>
+          
+          {/* 默认模板状态提示 */}
+          {defaultTemplateStatus && defaultTemplateStatus.missing > 0 && (
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="text-sm text-yellow-800 mb-2">
+                ⚠️ 缺少 {defaultTemplateStatus.missing} 个默认模板
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => initDefaultTemplates(false)}
+                disabled={isInitDefaults}
+                className="w-full"
+              >
+                {isInitDefaults ? '初始化中...' : '点击恢复默认模板'}
+              </Button>
+            </div>
+          )}
         </ScrollArea>
       </Card>
 
