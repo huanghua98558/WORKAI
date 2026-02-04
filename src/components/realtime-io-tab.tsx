@@ -182,7 +182,7 @@ export default function RealtimeIOTab() {
     if (autoRefresh) {
       interval = setInterval(() => {
         loadMessages();
-      }, 3000); // 每3秒刷新一次
+      }, 10000); // 优化：从3秒增加到10秒
     }
 
     return () => {

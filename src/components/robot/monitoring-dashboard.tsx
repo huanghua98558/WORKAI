@@ -102,7 +102,7 @@ export default function MonitoringDashboard() {
     fetchData();
 
     if (autoRefresh) {
-      const interval = setInterval(fetchData, 10000); // 10秒刷新一次
+      const interval = setInterval(fetchData, 30000); // 优化：从10秒增加到30秒
       return () => clearInterval(interval);
     }
   }, [period, autoRefresh]);

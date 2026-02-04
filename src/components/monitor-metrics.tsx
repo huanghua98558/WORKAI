@@ -113,7 +113,7 @@ export default function MonitorMetrics({ className }: MonitorMetricsProps) {
 
     const interval = setInterval(() => {
       loadMetrics(false);
-    }, 30000);
+    }, 60000); // 优化：从30秒增加到60秒
 
     return () => {
       console.log('🧹 清理 effect');

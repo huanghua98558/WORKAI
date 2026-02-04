@@ -155,7 +155,7 @@ export default function MonitoringPage() {
         fetchHealth();
         fetchExecutions();
         fetchAiLogs();
-      }, 5000); // 每5秒刷新一次
+      }, 15000); // 优化：从5秒增加到15秒
 
       return () => clearInterval(interval);
     }

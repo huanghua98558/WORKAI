@@ -216,8 +216,8 @@ export default function CommandSender() {
 
   // 定时刷新（只执行一次，持续运行）- 不显示加载状态，避免闪烁
   useEffect(() => {
-    const commandsInterval = setInterval(fetchCommands, 5000);
-    const historyInterval = setInterval(() => fetchMessageHistory(false), 5000);
+    const commandsInterval = setInterval(fetchCommands, 10000); // 优化：从5秒增加到10秒
+    const historyInterval = setInterval(() => fetchMessageHistory(false), 10000); // 优化：从5秒增加到10秒
     return () => {
       clearInterval(commandsInterval);
       clearInterval(historyInterval);

@@ -234,7 +234,7 @@ export default function AdminDashboard() {
     loadAiConfig(); // 只在组件挂载时加载一次 AI 配置
   }, []);
 
-  // 自动刷新：每隔 30 秒刷新一次会话数据
+  // 自动刷新：每隔 60 秒刷新一次会话数据
   // 当打开会话详情时停止刷新，关闭会话详情后恢复刷新
   // 当切换到监控标签页时停止刷新（监控组件有自己的刷新机制）
   useEffect(() => {
@@ -251,7 +251,7 @@ export default function AdminDashboard() {
     const interval = setInterval(() => {
       loadData();
       loadRobots();
-    }, 30000); // 每 30 秒刷新一次
+    }, 60000); // 每 60 秒刷新一次（优化性能）
 
     return () => clearInterval(interval);
   }, [showSessionDetail, activeTab]);
@@ -292,58 +292,80 @@ export default function AdminDashboard() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [callbacksRes, monitorRes, alertRes, sessionsRes, uptimeRes] = await Promise.all([
+      // 使用 Promise.allSettled 而不是 Promise.all，确保单个API失败不会影响其他API
+      const results = await Promise.allSettled([
         fetch('/api/proxy/admin/callbacks'),
         fetch('/api/proxy/admin/monitor/summary'),
         fetch('/api/proxy/admin/alerts/stats'),
         fetch('/api/proxy/admin/sessions/active?limit=20'),
-        fetch('/api/proxy/health') // 获取服务器运行时间
+        fetch('/api/proxy/health')
       ]);
 
-      // 检查连接状态（每次加载数据时都检查）
+      const [callbacksRes, monitorRes, alertRes, sessionsRes, uptimeRes] = results.map(r => 
+        r.status === 'fulfilled' ? r.value : { ok: false }
+      );
+
+      // 检查连接状态
       if (uptimeRes.ok) {
         setConnectionStatus('connected');
+        try {
+          const data = await uptimeRes.json();
+          if (data.startTime) {
+            const uptimeMs = Date.now() - data.startTime;
+            setServerUptime(formatUptime(uptimeMs));
+          }
+        } catch (e) {
+          console.error('解析uptime数据失败:', e);
+        }
       } else {
         setConnectionStatus('disconnected');
       }
 
+      // 独立处理每个API响应
       if (callbacksRes.ok) {
-        const data = await callbacksRes.json();
-        setCallbacks(data.data);
+        try {
+          const data = await callbacksRes.json();
+          setCallbacks(data.data);
+        } catch (e) {
+          console.error('解析callbacks数据失败:', e);
+        }
       }
 
       if (monitorRes.ok) {
-        const data = await monitorRes.json();
-        setMonitorData(data.data);
+        try {
+          const data = await monitorRes.json();
+          setMonitorData(data.data);
+        } catch (e) {
+          console.error('解析monitor数据失败:', e);
+        }
       }
 
       if (alertRes.ok) {
-        const data = await alertRes.json();
-        setAlertData(data.data);
+        try {
+          const data = await alertRes.json();
+          setAlertData(data.data);
+        } catch (e) {
+          console.error('解析alert数据失败:', e);
+        }
       }
 
       if (sessionsRes.ok) {
-        const data = await sessionsRes.json();
-        // 去重：确保sessionId唯一
-        const uniqueSessions = (data.data || []).reduce((acc: Session[], session: Session) => {
-          if (!acc.find(s => s.sessionId === session.sessionId)) {
-            acc.push(session);
-          }
-          return acc;
-        }, []);
-        setSessions(uniqueSessions);
-      }
-
-      if (uptimeRes.ok) {
-        const data = await uptimeRes.json();
-        // 更新服务器运行时间（假设返回的是启动时间戳）
-        if (data.startTime) {
-          const uptimeMs = Date.now() - data.startTime;
-          setServerUptime(formatUptime(uptimeMs));
+        try {
+          const data = await sessionsRes.json();
+          // 去重：确保sessionId唯一
+          const uniqueSessions = (data.data || []).reduce((acc: Session[], session: Session) => {
+            if (!acc.find(s => s.sessionId === session.sessionId)) {
+              acc.push(session);
+            }
+            return acc;
+          }, []);
+          setSessions(uniqueSessions);
+        } catch (e) {
+          console.error('解析sessions数据失败:', e);
         }
       }
     } catch (error) {
-      // 加载数据失败时，设置连接状态为未连接
+      // 整体加载数据失败
       setConnectionStatus('disconnected');
       console.error('加载数据失败:', error);
     } finally {

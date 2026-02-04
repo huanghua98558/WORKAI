@@ -185,7 +185,7 @@ export default function MonitoringTab() {
       const interval = setInterval(() => {
         // 自动刷新时不显示加载状态，避免页面闪烁
         loadAllData(false);
-      }, 5000); // 每5秒刷新一次
+      }, 15000); // 优化：从5秒增加到15秒
 
       return () => clearInterval(interval);
     }
