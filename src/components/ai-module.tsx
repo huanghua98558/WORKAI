@@ -154,7 +154,7 @@ export default function AIModule() {
     try {
       const response = await fetch('/api/proxy/ai/templates');
       const data = await response.json();
-      
+
       if (data.success) {
         const formattedTemplates = data.data.map((template: any) => ({
           id: template.id,
@@ -170,6 +170,203 @@ export default function AIModule() {
     } catch (error) {
       toast.error('加载话术模板失败');
     }
+  };
+
+  // AI模型CRUD操作
+  const handleSaveModel = async () => {
+    try {
+      const payload = {
+        name: selectedModel?.name || '',
+        displayName: selectedModel?.name || '',
+        modelId: selectedModel?.modelId || '',
+        type: 'chat',
+        capabilities: ['text'],
+        providerId: selectedModel?.providerId || '',
+        description: selectedModel?.description || '',
+        maxTokens: selectedModel?.maxTokens || 2000,
+        isEnabled: true,
+        priority: 10
+      };
+
+      const url = selectedModel?.id
+        ? `/api/ai/models/${selectedModel.id}`
+        : '/api/ai/models';
+
+      const response = await fetch(url, {
+        method: selectedModel?.id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(selectedModel?.id ? '模型更新成功' : '模型创建成功');
+        setShowModelDialog(false);
+        setSelectedModel(null);
+        loadAIModels();
+      } else {
+        toast.error(data.error || '操作失败');
+      }
+    } catch (error) {
+      toast.error('操作失败');
+    }
+  };
+
+  const handleDeleteModel = async (id: string) => {
+    if (!confirm('确定要删除这个模型吗？')) return;
+
+    try {
+      const response = await fetch(`/api/ai/models/${id}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('模型删除成功');
+        loadAIModels();
+      } else {
+        toast.error(data.error || '删除失败');
+      }
+    } catch (error) {
+      toast.error('删除失败');
+    }
+  };
+
+  const handleEditModel = (model: AIModel) => {
+    setSelectedModel(model);
+    setShowModelDialog(true);
+  };
+
+  // AI角色CRUD操作
+  const handleSavePersona = async () => {
+    try {
+      const payload = {
+        name: selectedPersona?.name || '',
+        type: selectedPersona?.roleType || 'custom',
+        category: 'service',
+        description: selectedPersona?.description || '',
+        systemPrompt: selectedPersona?.systemPrompt || '',
+        temperature: selectedPersona?.temperature || 0.7,
+        maxTokens: selectedPersona?.maxTokens || 2000,
+        isActive: selectedPersona?.isActive ?? true,
+        isDefault: false
+      };
+
+      const url = selectedPersona?.id
+        ? `/api/ai/personas/${selectedPersona.id}`
+        : '/api/ai/personas';
+
+      const response = await fetch(url, {
+        method: selectedPersona?.id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(selectedPersona?.id ? '角色更新成功' : '角色创建成功');
+        setShowPersonaDialog(false);
+        setSelectedPersona(null);
+        loadAIPersonas();
+      } else {
+        toast.error(data.error || '操作失败');
+      }
+    } catch (error) {
+      toast.error('操作失败');
+    }
+  };
+
+  const handleDeletePersona = async (id: string) => {
+    if (!confirm('确定要删除这个角色吗？')) return;
+
+    try {
+      const response = await fetch(`/api/ai/personas/${id}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('角色删除成功');
+        loadAIPersonas();
+      } else {
+        toast.error(data.error || '删除失败');
+      }
+    } catch (error) {
+      toast.error('删除失败');
+    }
+  };
+
+  const handleEditPersona = (persona: AIPersona) => {
+    setSelectedPersona(persona);
+    setShowPersonaDialog(true);
+  };
+
+  // 话术模板CRUD操作
+  const handleSaveTemplate = async () => {
+    try {
+      const payload = {
+        category: selectedTemplate?.category || 'general',
+        categoryName: selectedTemplate?.name || '通用',
+        template: selectedTemplate?.template || '',
+        variables: selectedTemplate?.variables || [],
+        description: selectedTemplate?.description || '',
+        isActive: selectedTemplate?.isActive ?? true,
+        priority: 10
+      };
+
+      const url = selectedTemplate?.id
+        ? `/api/ai/templates/${selectedTemplate.id}`
+        : '/api/ai/templates';
+
+      const response = await fetch(url, {
+        method: selectedTemplate?.id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(selectedTemplate?.id ? '模板更新成功' : '模板创建成功');
+        setShowTemplateDialog(false);
+        setSelectedTemplate(null);
+        loadMessageTemplates();
+      } else {
+        toast.error(data.error || '操作失败');
+      }
+    } catch (error) {
+      toast.error('操作失败');
+    }
+  };
+
+  const handleDeleteTemplate = async (id: string) => {
+    if (!confirm('确定要删除这个模板吗？')) return;
+
+    try {
+      const response = await fetch(`/api/ai/templates/${id}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('模板删除成功');
+        loadMessageTemplates();
+      } else {
+        toast.error(data.error || '删除失败');
+      }
+    } catch (error) {
+      toast.error('删除失败');
+    }
+  };
+
+  const handleEditTemplate = (template: MessageTemplate) => {
+    setSelectedTemplate(template);
+    setShowTemplateDialog(true);
   };
 
   const handleTestAI = async () => {
@@ -316,13 +513,22 @@ export default function AIModule() {
                           ))}
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setTestingModel(model.id)}
-                      >
-                        <Activity className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditModel(model)}
+                        >
+                          <Settings className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteModel(model.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -345,6 +551,10 @@ export default function AIModule() {
                     管理7个预设AI角色和自定义角色
                   </CardDescription>
                 </div>
+                <Button onClick={() => setShowPersonaDialog(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  添加角色
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -367,13 +577,21 @@ export default function AIModule() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm">
-                        <FileText className="h-4 w-4 mr-1" />
-                        查看
-                      </Button>
-                      <Button variant="outline" size="sm">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditPersona(persona)}
+                      >
                         <Settings className="h-4 w-4 mr-1" />
                         编辑
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeletePersona(persona.id)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        删除
                       </Button>
                     </div>
                   </div>
@@ -429,13 +647,21 @@ export default function AIModule() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm">
-                        <FileText className="h-4 w-4 mr-1" />
-                        查看
-                      </Button>
-                      <Button variant="outline" size="sm">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditTemplate(template)}
+                      >
                         <Settings className="h-4 w-4 mr-1" />
                         编辑
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteTemplate(template.id)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        删除
                       </Button>
                     </div>
                   </div>
@@ -535,6 +761,230 @@ export default function AIModule() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* AI模型对话框 */}
+      <Dialog open={showModelDialog} onOpenChange={setShowModelDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedModel ? '编辑AI模型' : '添加AI模型'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="model-name">模型名称</Label>
+              <Input
+                id="model-name"
+                value={selectedModel?.name || ''}
+                onChange={(e) => setSelectedModel({ ...selectedModel, name: e.target.value } as AIModel)}
+                placeholder="例如：豆包Pro 32K"
+              />
+            </div>
+            <div>
+              <Label htmlFor="model-id">模型ID</Label>
+              <Input
+                id="model-id"
+                value={selectedModel?.modelId || ''}
+                onChange={(e) => setSelectedModel({ ...selectedModel, modelId: e.target.value } as AIModel)}
+                placeholder="例如：doubao-pro-32k"
+              />
+            </div>
+            <div>
+              <Label htmlFor="model-provider">提供商ID</Label>
+              <Input
+                id="model-provider"
+                value={selectedModel?.providerId || ''}
+                onChange={(e) => setSelectedModel({ ...selectedModel, providerId: e.target.value } as AIModel)}
+                placeholder="提供商ID"
+              />
+            </div>
+            <div>
+              <Label htmlFor="model-description">描述</Label>
+              <Textarea
+                id="model-description"
+                value={selectedModel?.description || ''}
+                onChange={(e) => setSelectedModel({ ...selectedModel, description: e.target.value } as AIModel)}
+                placeholder="模型描述"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowModelDialog(false)}>
+              取消
+            </Button>
+            <Button onClick={handleSaveModel}>
+              <Save className="h-4 w-4 mr-2" />
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI角色对话框 */}
+      <Dialog open={showPersonaDialog} onOpenChange={setShowPersonaDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedPersona ? '编辑AI角色' : '添加AI角色'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="persona-name">角色名称</Label>
+              <Input
+                id="persona-name"
+                value={selectedPersona?.name || ''}
+                onChange={(e) => setSelectedPersona({ ...selectedPersona, name: e.target.value } as AIPersona)}
+                placeholder="例如：客服助手"
+              />
+            </div>
+            <div>
+              <Label htmlFor="persona-type">角色类型</Label>
+              <Select
+                value={selectedPersona?.roleType || 'custom'}
+                onValueChange={(value) => setSelectedPersona({ ...selectedPersona, roleType: value } as AIPersona)}
+              >
+                <SelectTrigger id="persona-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="preset">预设角色</SelectItem>
+                  <SelectItem value="custom">自定义角色</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="persona-description">描述</Label>
+              <Textarea
+                id="persona-description"
+                value={selectedPersona?.description || ''}
+                onChange={(e) => setSelectedPersona({ ...selectedPersona, description: e.target.value } as AIPersona)}
+                placeholder="角色描述"
+                rows={2}
+              />
+            </div>
+            <div>
+              <Label htmlFor="persona-prompt">系统提示词</Label>
+              <Textarea
+                id="persona-prompt"
+                value={selectedPersona?.systemPrompt || ''}
+                onChange={(e) => setSelectedPersona({ ...selectedPersona, systemPrompt: e.target.value } as AIPersona)}
+                placeholder="系统提示词"
+                rows={6}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="persona-temperature">温度参数</Label>
+                <Input
+                  id="persona-temperature"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="2"
+                  value={selectedPersona?.temperature || 0.7}
+                  onChange={(e) => setSelectedPersona({ ...selectedPersona, temperature: parseFloat(e.target.value) } as AIPersona)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="persona-maxtokens">最大Token</Label>
+                <Input
+                  id="persona-maxtokens"
+                  type="number"
+                  value={selectedPersona?.maxTokens || 2000}
+                  onChange={(e) => setSelectedPersona({ ...selectedPersona, maxTokens: parseInt(e.target.value) } as AIPersona)}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="persona-active"
+                checked={selectedPersona?.isActive ?? true}
+                onCheckedChange={(checked) => setSelectedPersona({ ...selectedPersona, isActive: checked } as AIPersona)}
+              />
+              <Label htmlFor="persona-active">启用角色</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPersonaDialog(false)}>
+              取消
+            </Button>
+            <Button onClick={handleSavePersona}>
+              <Save className="h-4 w-4 mr-2" />
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 话术模板对话框 */}
+      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedTemplate ? '编辑话术模板' : '添加话术模板'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="template-category">分类</Label>
+              <Input
+                id="template-category"
+                value={selectedTemplate?.category || ''}
+                onChange={(e) => setSelectedTemplate({ ...selectedTemplate, category: e.target.value } as MessageTemplate)}
+                placeholder="例如：welcome、after_sales、faq"
+              />
+            </div>
+            <div>
+              <Label htmlFor="template-name">模板名称</Label>
+              <Input
+                id="template-name"
+                value={selectedTemplate?.name || ''}
+                onChange={(e) => setSelectedTemplate({ ...selectedTemplate, name: e.target.value } as MessageTemplate)}
+                placeholder="例如：新用户欢迎、售后咨询"
+              />
+            </div>
+            <div>
+              <Label htmlFor="template-content">模板内容</Label>
+              <Textarea
+                id="template-content"
+                value={selectedTemplate?.template || ''}
+                onChange={(e) => setSelectedTemplate({ ...selectedTemplate, template: e.target.value } as MessageTemplate)}
+                placeholder="使用 {{变量名}} 格式定义变量"
+                rows={6}
+              />
+            </div>
+            <div>
+              <Label htmlFor="template-description">描述</Label>
+              <Textarea
+                id="template-description"
+                value={selectedTemplate?.description || ''}
+                onChange={(e) => setSelectedTemplate({ ...selectedTemplate, description: e.target.value } as MessageTemplate)}
+                placeholder="模板描述"
+                rows={2}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="template-active"
+                checked={selectedTemplate?.isActive ?? true}
+                onCheckedChange={(checked) => setSelectedTemplate({ ...selectedTemplate, isActive: checked } as MessageTemplate)}
+              />
+              <Label htmlFor="template-active">启用模板</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTemplateDialog(false)}>
+              取消
+            </Button>
+            <Button onClick={handleSaveTemplate}>
+              <Save className="h-4 w-4 mr-2" />
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

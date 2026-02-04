@@ -6,6 +6,7 @@
 const { LLMClient } = require('coze-coding-dev-sdk');
 const { getLogger } = require('../../lib/logger');
 const AIUsageTracker = require('./AIUsageTracker');
+const retryRateLimiter = require('./AIRetryRateLimiter');
 
 const logger = getLogger('DOUBAO_SERVICE');
 
@@ -14,6 +15,7 @@ class DoubaoService {
     this.modelId = config.modelId;
     this.modelIdStr = config.modelIdStr; // 数据库中的modelId
     this.providerId = config.providerId; // 数据库中的providerId
+    this.providerName = config.providerName || 'doubao';
     this.apiKey = config.apiKey;
     this.apiEndpoint = config.apiEndpoint;
     this.temperature = config.temperature || 0.7;
@@ -70,7 +72,23 @@ class DoubaoService {
 
       let response;
       try {
-        response = await client.invoke(messages);
+        // 使用重试和限流保护
+        if (this.providerId && this.modelIdStr) {
+          response = await retryRateLimiter.executeWithProtection(
+            this.providerId,
+            this.modelIdStr,
+            () => client.invoke(messages),
+            {
+              maxRetries: 3,
+              shouldRetry: (error) => {
+                // 网络错误、超时、5xx错误时重试
+                return !error.message.includes('401') && !error.message.includes('403');
+              }
+            }
+          );
+        } else {
+          response = await client.invoke(messages);
+        }
       } catch (apiError) {
         // 如果API Key缺失或API调用失败，返回模拟结果用于测试
         logger.warn('AI API调用失败，返回模拟结果', { error: apiError.message });
@@ -161,7 +179,23 @@ class DoubaoService {
     try {
       const client = this.createClient();
 
-      const response = await client.invoke(messages);
+      // 使用重试和限流保护
+      let response;
+      if (this.providerId && this.modelIdStr) {
+        response = await retryRateLimiter.executeWithProtection(
+          this.providerId,
+          this.modelIdStr,
+          () => client.invoke(messages),
+          {
+            maxRetries: 3,
+            shouldRetry: (error) => {
+              return !error.message.includes('401') && !error.message.includes('403');
+            }
+          }
+        );
+      } else {
+        response = await client.invoke(messages);
+      }
 
       const content = typeof response === 'string' ? response : response.content || response.text || '';
       const usage = response.usage || {};

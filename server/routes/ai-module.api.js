@@ -6,16 +6,17 @@
 console.log('[ai-module.api.js] AI模块API路由文件已加载');
 
 const { getDb } = require('coze-coding-dev-sdk');
-const { 
-  aiModels, 
-  aiProviders, 
-  aiRoles, 
+const {
+  aiModels,
+  aiProviders,
+  aiRoles,
   promptCategoryTemplates,
   aiModelUsage
 } = require('../database/schema');
 const { eq, asc, desc, and, sql } = require('drizzle-orm');
 const { getLogger } = require('../lib/logger');
 const AIUsageTracker = require('../services/ai/AIUsageTracker');
+const retryRateLimiter = require('../services/ai/AIRetryRateLimiter');
 
 const logger = getLogger('AI_MODULE_API');
 
@@ -220,12 +221,14 @@ async function healthCheckAIModel(request, reply) {
     }
 
     const model = modelResult[0];
-    
+
     // 调用AI服务进行健康检查
     const AIServiceFactory = require('../services/ai/AIServiceFactory');
     const aiService = AIServiceFactory.createService({
       provider: model.ai_providers?.name,
       modelId: model.ai_models?.modelId,
+      modelIdStr: model.ai_models?.id, // 数据库中的ID
+      providerId: model.ai_providers?.id, // 数据库中的提供商ID
       apiKey: model.ai_providers?.apiKey,
       apiEndpoint: model.ai_providers?.apiEndpoint
     });
@@ -238,6 +241,8 @@ async function healthCheckAIModel(request, reply) {
       success: true,
       data: {
         modelId: id,
+        modelName: model.ai_models?.displayName,
+        providerName: model.ai_providers?.displayName,
         healthy: healthResult.healthy,
         responseTime: responseTime,
         error: healthResult.error,
@@ -770,6 +775,186 @@ async function getModelRanking(request, reply) {
   }
 }
 
+/**
+ * GET /api/ai/protection/stats - 获取限流和熔断器统计
+ */
+async function getProtectionStats(request, reply) {
+  try {
+    const stats = retryRateLimiter.getStats();
+
+    return reply.send({
+      success: true,
+      data: {
+        rateLimit: stats.rateLimit,
+        circuitBreaker: stats.circuitBreaker,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('获取保护统计失败:', error);
+    return reply.code(500).send({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * GET /api/ai/providers - 获取所有提供商
+ */
+async function getProviders(request, reply) {
+  try {
+    const db = await getDb();
+
+    const result = await db
+      .select()
+      .from(aiProviders)
+      .orderBy(asc(aiProviders.priority));
+
+    return reply.send({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    logger.error('获取提供商失败:', error);
+    return reply.code(500).send({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * PUT /api/ai/providers/:id - 更新提供商配置
+ */
+async function updateProvider(request, reply) {
+  const { id } = request.params;
+  const { apiKey, apiEndpoint } = request.body;
+
+  try {
+    const db = await getDb();
+
+    const updateData = {};
+    if (apiKey !== undefined) updateData.apiKey = apiKey;
+    if (apiEndpoint !== undefined) updateData.apiEndpoint = apiEndpoint;
+    updateData.updatedAt = new Date();
+
+    const result = await db
+      .update(aiProviders)
+      .set(updateData)
+      .where(eq(aiProviders.id, id))
+      .returning();
+
+    return reply.send({
+      success: true,
+      data: result[0],
+      message: '提供商配置更新成功'
+    });
+  } catch (error) {
+    logger.error('更新提供商失败:', error);
+    return reply.code(500).send({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * POST /api/ai/providers/:id/test - 测试提供商API Key
+ */
+async function testProvider(request, reply) {
+  const { id } = request.params;
+
+  try {
+    const db = await getDb();
+
+    const provider = await db
+      .select()
+      .from(aiProviders)
+      .where(eq(aiProviders.id, id))
+      .limit(1);
+
+    if (provider.length === 0) {
+      return reply.code(404).send({
+        success: false,
+        error: '提供商不存在'
+      });
+    }
+
+    const providerData = provider[0];
+
+    if (!providerData.apiKey) {
+      return reply.code(400).send({
+        success: false,
+        error: 'API Key未配置'
+      });
+    }
+
+    // 简单测试：使用AI服务工厂创建一个测试调用
+    const AIServiceFactory = require('../services/ai/AIServiceFactory');
+    const aiService = AIServiceFactory.createService({
+      provider: providerData.name,
+      modelId: 'test',
+      apiKey: providerData.apiKey,
+      apiEndpoint: providerData.apiEndpoint
+    });
+
+    // 获取该提供商的第一个模型进行测试
+    const model = await db
+      .select()
+      .from(aiModels)
+      .where(eq(aiModels.providerId, id))
+      .limit(1);
+
+    if (model.length > 0) {
+      // 使用真实模型进行测试
+      const testService = AIServiceFactory.createService({
+        provider: providerData.name,
+        modelId: model[0].modelId,
+        apiKey: providerData.apiKey,
+        apiEndpoint: providerData.apiEndpoint
+      });
+
+      const healthResult = await testService.healthCheck();
+
+      if (healthResult.healthy) {
+        return reply.send({
+          success: true,
+          data: {
+            healthy: true,
+            responseTime: healthResult.responseTime
+          },
+          message: 'API Key测试成功'
+        });
+      } else {
+        return reply.code(400).send({
+          success: false,
+          error: healthResult.error || 'API Key测试失败'
+        });
+      }
+    }
+
+    // 如果没有模型，仅验证API Key格式
+    if (providerData.apiKey.length < 10) {
+      return reply.code(400).send({
+        success: false,
+        error: 'API Key格式不正确'
+      });
+    }
+
+    return reply.send({
+      success: true,
+      message: 'API Key格式验证通过'
+    });
+  } catch (error) {
+    logger.error('测试提供商失败:', error);
+    return reply.code(500).send({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
 module.exports = async function (fastify, options) {
   // AI模型管理
   fastify.get('/models', getAIModels);
@@ -796,4 +981,12 @@ module.exports = async function (fastify, options) {
   // AI使用统计
   fastify.get('/usage/stats', getUsageStats);
   fastify.get('/usage/ranking', getModelRanking);
+
+  // 限流和熔断统计
+  fastify.get('/protection/stats', getProtectionStats);
+
+  // 提供商管理
+  fastify.get('/providers', getProviders);
+  fastify.put('/providers/:id', updateProvider);
+  fastify.post('/providers/:id/test', testProvider);
 };

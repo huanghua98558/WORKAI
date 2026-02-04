@@ -129,17 +129,17 @@ class AIUsageTracker {
         conditions.push(eq(aiModelUsage.operationType, operationType));
       }
 
-      // 聚合查询
+      // 聚合查询 - 使用更兼容的语法
       const stats = await db
         .select({
           totalCalls: sql`COUNT(*)`,
-          totalTokens: sql`SUM(total_tokens)`,
-          totalInputTokens: sql`SUM(input_tokens)`,
-          totalOutputTokens: sql`SUM(output_tokens)`,
-          totalCost: sql`SUM(total_cost::numeric)`,
-          avgResponseTime: sql`AVG(response_time)`,
-          successRate: sql`COUNT(*) FILTER (WHERE status = 'success')::numeric / COUNT(*) * 100`,
-          errorCount: sql`COUNT(*) FILTER (WHERE status = 'error')`
+          totalTokens: sql`COALESCE(SUM(total_tokens), 0)`,
+          totalInputTokens: sql`COALESCE(SUM(input_tokens), 0)`,
+          totalOutputTokens: sql`COALESCE(SUM(output_tokens), 0)`,
+          totalCost: sql`COALESCE(SUM(CAST(total_cost AS NUMERIC)), 0)`,
+          avgResponseTime: sql`COALESCE(AVG(response_time), 0)`,
+          successCount: sql`COUNT(CASE WHEN status = 'success' THEN 1 END)`,
+          errorCount: sql`COUNT(CASE WHEN status = 'error' THEN 1 END)`
         })
         .from(aiModelUsage)
         .where(conditions.length > 0 ? sql`${sql.join(conditions, sql` AND `)}` : sql`1=1`);
@@ -168,7 +168,12 @@ class AIUsageTracker {
       return {
         success: true,
         data: {
-          stats: stats[0] || {},
+          stats: {
+            ...stats[0],
+            successRate: stats[0]?.totalCalls > 0
+              ? (stats[0].successCount / stats[0].totalCalls) * 100
+              : 0
+          } || {},
           details
         }
       };
@@ -205,7 +210,7 @@ class AIUsageTracker {
           providerName: aiProviders.displayName,
           totalCalls: sql`COUNT(*)`,
           totalTokens: sql`SUM(total_tokens)`,
-          totalCost: sql`SUM(total_cost::numeric)`,
+          totalCost: sql`SUM(CAST(total_cost AS NUMERIC))`,
           avgResponseTime: sql`AVG(response_time)`
         })
         .from(aiModelUsage)

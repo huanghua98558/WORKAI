@@ -5,12 +5,15 @@
 
 const { LLMClient } = require('coze-coding-dev-sdk');
 const { getLogger } = require('../../lib/logger');
+const AIUsageTracker = require('./AIUsageTracker');
 
 const logger = getLogger('DEEPSEEK_SERVICE');
 
 class DeepSeekService {
   constructor(config) {
     this.modelId = config.modelId;
+    this.modelIdStr = config.modelIdStr;
+    this.providerId = config.providerId;
     this.apiKey = config.apiKey;
     this.apiEndpoint = config.apiEndpoint;
     this.temperature = config.temperature || 0.7;
@@ -37,6 +40,7 @@ class DeepSeekService {
    * @returns {Promise<Object>} 意图识别结果
    */
   async recognizeIntent(input, context = {}) {
+    const startTime = Date.now();
     try {
       const client = this.createClient();
 
@@ -77,15 +81,44 @@ class DeepSeekService {
         };
       }
 
-      logger.info('DeepSeek意图识别成功', { 
-        intent: result.intent, 
+      logger.info('DeepSeek意图识别成功', {
+        intent: result.intent,
         confidence: result.confidence,
-        robotId: context.robotId 
+        robotId: context.robotId
       });
+
+      // 记录使用情况
+      if (this.modelIdStr && this.providerId) {
+        AIUsageTracker.recordUsage({
+          modelId: this.modelIdStr,
+          providerId: this.providerId,
+          operationType: 'intent_recognition',
+          inputTokens: input.length,
+          outputTokens: JSON.stringify(result).length,
+          totalTokens: input.length + JSON.stringify(result).length,
+          responseTime: Date.now() - startTime,
+          status: 'success',
+          sessionId: context.sessionId,
+          metadata: { intent: result.intent, confidence: result.confidence }
+        });
+      }
 
       return result;
     } catch (error) {
       logger.error('DeepSeek意图识别失败', { error: error.message, input });
+
+      // 记录失败的使用情况
+      if (this.modelIdStr && this.providerId) {
+        AIUsageTracker.recordUsage({
+          modelId: this.modelIdStr,
+          providerId: this.providerId,
+          operationType: 'intent_recognition',
+          status: 'error',
+          errorMessage: error.message,
+          sessionId: context.sessionId
+        });
+      }
+
       throw error;
     }
   }
@@ -97,6 +130,7 @@ class DeepSeekService {
    * @returns {Promise<Object>} 生成结果
    */
   async generateReply(messages, context = {}) {
+    const startTime = Date.now();
     try {
       const client = this.createClient();
 
@@ -120,9 +154,38 @@ class DeepSeekService {
         robotId: context.robotId
       });
 
+      // 记录使用情况
+      if (this.modelIdStr && this.providerId) {
+        AIUsageTracker.recordUsage({
+          modelId: this.modelIdStr,
+          providerId: this.providerId,
+          operationType: context.operationType || 'chat',
+          inputTokens: result.usage.inputTokens,
+          outputTokens: result.usage.outputTokens,
+          totalTokens: result.usage.totalTokens,
+          responseTime: Date.now() - startTime,
+          status: 'success',
+          sessionId: context.sessionId,
+          metadata: { ...context, contentLength: result.content.length }
+        });
+      }
+
       return result;
     } catch (error) {
       logger.error('DeepSeek生成回复失败', { error: error.message });
+
+      // 记录失败的使用情况
+      if (this.modelIdStr && this.providerId) {
+        AIUsageTracker.recordUsage({
+          modelId: this.modelIdStr,
+          providerId: this.providerId,
+          operationType: context.operationType || 'chat',
+          status: 'error',
+          errorMessage: error.message,
+          sessionId: context.sessionId
+        });
+      }
+
       throw error;
     }
   }

@@ -19,14 +19,16 @@ class AIServiceFactory {
    * 创建AI服务实例
    * @param {Object} config - 配置对象
    * @param {string} config.provider - 提供商名称 (doubao, deepseek, kimi)
-   * @param {string} config.modelId - 模型ID
+   * @param {string} config.modelId - 模型ID（API调用时使用）
+   * @param {string} config.modelIdStr - 模型ID（数据库中的ID）
+   * @param {string} config.providerId - 提供商ID（数据库中的ID）
    * @param {string} config.apiKey - API密钥
    * @param {string} config.apiEndpoint - API端点
    * @param {number} config.temperature - 温度参数
    * @param {number} config.maxTokens - 最大token数
    */
   createService(config) {
-    const { provider, modelId, apiKey, apiEndpoint, temperature, maxTokens } = config;
+    const { provider, modelId, modelIdStr, providerId, apiKey, apiEndpoint, temperature, maxTokens } = config;
 
     const cacheKey = `${provider}:${modelId}`;
     
@@ -41,26 +43,32 @@ class AIServiceFactory {
       case 'doubao':
         service = new DoubaoService({
           modelId,
+          modelIdStr,
+          providerId,
           apiKey,
           apiEndpoint,
           temperature,
           maxTokens
         });
         break;
-      
+
       case 'deepseek':
         service = new DeepSeekService({
           modelId,
+          modelIdStr,
+          providerId,
           apiKey,
           apiEndpoint,
           temperature,
           maxTokens
         });
         break;
-      
+
       case 'kimi':
         service = new KimiService({
           modelId,
+          modelIdStr,
+          providerId,
           apiKey,
           apiEndpoint,
           temperature,
