@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -48,6 +49,7 @@ interface AIConfig {
     apiKey: string;
     apiBase: string;
   };
+  systemPrompt?: string;
 }
 
 interface MemoryConfig {
@@ -525,68 +527,122 @@ function ModelConfigSection({ config, availableModels, fineTuneModels, onChange,
 
       {config.useBuiltin ? (
         /* 内置模型选择 */
-        <div className="space-y-2">
-          <Label>选择模型</Label>
-          <Select
-            value={config.builtinModelId}
-            onValueChange={(value) => onChange({ builtinModelId: value })}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="选择模型" />
-            </SelectTrigger>
-            <SelectContent>
-              {/* 内置模型组 */}
-              {availableModels.length > 0 && (
-                <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                    内置模型
-                  </div>
-                  {availableModels.map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{model.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {model.description} - 最大{model.maxTokens} tokens
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </>
-              )}
-
-              {/* 微调模型组 */}
-              {fineTuneModels.length > 0 && (
-                <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-blue-600 flex items-center gap-2">
-                    <Bot className="h-3 w-3" />
-                    微调模型
-                  </div>
-                  {fineTuneModels.map((model) => (
-                    <SelectItem key={model.id} value={`finetune:${model.modelId}`}>
-                      <div className="flex flex-col">
-                        <span className="font-medium flex items-center gap-2">
-                          <Bot className="h-3 w-3 text-blue-500" />
-                          {model.modelName}
-                          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
-                            {model.fineTuneType.toUpperCase()}
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>选择模型</Label>
+            <Select
+              value={config.builtinModelId}
+              onValueChange={(value) => onChange({ builtinModelId: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="选择模型" />
+              </SelectTrigger>
+              <SelectContent>
+                {/* 内置模型组 */}
+                {availableModels.length > 0 && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                      内置模型
+                    </div>
+                    {availableModels.map((model) => (
+                      <SelectItem key={model.id} value={model.id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{model.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {model.description} - 最大{model.maxTokens} tokens
                           </span>
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          基于 {model.baseModel} - {new Date(model.createdAt).toLocaleDateString('zh-CN')}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </>
-              )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
 
-              {availableModels.length === 0 && fineTuneModels.length === 0 && (
-                <div className="px-2 py-4 text-sm text-muted-foreground text-center">
-                  暂无可用模型
+                {/* 微调模型组 */}
+                {fineTuneModels.length > 0 && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-blue-600 flex items-center gap-2">
+                      <Bot className="h-3 w-3" />
+                      微调模型
+                    </div>
+                    {fineTuneModels.map((model) => (
+                      <SelectItem key={model.id} value={`finetune:${model.modelId}`}>
+                        <div className="flex flex-col">
+                          <span className="font-medium flex items-center gap-2">
+                            <Bot className="h-3 w-3 text-blue-500" />
+                            {model.modelName}
+                            <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                              {model.fineTuneType.toUpperCase()}
+                            </span>
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            基于 {model.baseModel} - {new Date(model.createdAt).toLocaleDateString('zh-CN')}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
+
+                {availableModels.length === 0 && fineTuneModels.length === 0 && (
+                  <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                    暂无可用模型
+                  </div>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 提示词配置 */}
+          <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Brain className="h-4 w-4 text-primary" />
+                <Label className="text-base font-medium">系统提示词</Label>
+              </div>
+              {!config.systemPrompt && (
+                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                  使用默认提示词
+                </span>
+              )}
+            </div>
+
+            <Alert className="bg-blue-50 border-blue-200">
+              <Info className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                系统提示词定义了AI的行为和角色。留空则使用经过优化的默认提示词。
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">自定义提示词（留空使用默认）</span>
+                {config.systemPrompt && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onChange({ systemPrompt: undefined })}
+                    className="h-6 text-xs"
+                  >
+                    恢复默认
+                  </Button>
+                )}
+              </div>
+              <Textarea
+                value={config.systemPrompt || ''}
+                onChange={(e) => onChange({ systemPrompt: e.target.value })}
+                placeholder="留空使用系统默认提示词..."
+                className="min-h-[150px] font-mono text-sm"
+              />
+              {config.systemPrompt && (
+                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                  <CheckCircle className="h-3 w-3 text-green-500" />
+                  <span>已配置自定义提示词</span>
+                  <span>•</span>
+                  <span>{config.systemPrompt.length} 字符</span>
                 </div>
               )}
-            </SelectContent>
-          </Select>
+            </div>
+          </div>
         </div>
       ) : (
         /* 自定义模型配置 */
@@ -650,6 +706,51 @@ function ModelConfigSection({ config, availableModels, fineTuneModels, onChange,
                 })}
                 placeholder="https://api.openai.com/v1"
               />
+            </div>
+          </div>
+
+          {/* 提示词配置 */}
+          <div className="space-y-3 mt-4 pt-4 border-t">
+            <div className="flex items-center gap-2">
+              <Brain className="h-4 w-4 text-primary" />
+              <Label className="text-base font-medium">系统提示词</Label>
+            </div>
+
+            <Alert className="bg-blue-50 border-blue-200">
+              <Info className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                系统提示词定义了AI的行为和角色。留空则使用经过优化的默认提示词。
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">自定义提示词（留空使用默认）</span>
+                {config.systemPrompt && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onChange({ systemPrompt: undefined })}
+                    className="h-6 text-xs"
+                  >
+                    恢复默认
+                  </Button>
+                )}
+              </div>
+              <Textarea
+                value={config.systemPrompt || ''}
+                onChange={(e) => onChange({ systemPrompt: e.target.value })}
+                placeholder="留空使用系统默认提示词..."
+                className="min-h-[150px] font-mono text-sm"
+              />
+              {config.systemPrompt && (
+                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                  <CheckCircle className="h-3 w-3 text-green-500" />
+                  <span>已配置自定义提示词</span>
+                  <span>•</span>
+                  <span>{config.systemPrompt.length} 字符</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
