@@ -6,6 +6,9 @@
 const DoubaoService = require('./DoubaoService');
 const DeepSeekService = require('./DeepSeekService');
 const KimiService = require('./KimiService');
+const { getDb } = require('coze-coding-dev-sdk');
+const { aiModels, aiProviders } = require('../../database/schema');
+const { eq, sql } = require('drizzle-orm');
 const { getLogger } = require('../../lib/logger');
 
 const logger = getLogger('AI_SERVICE_FACTORY');
@@ -13,6 +16,109 @@ const logger = getLogger('AI_SERVICE_FACTORY');
 class AIServiceFactory {
   constructor() {
     this.serviceCache = new Map();
+  }
+
+  /**
+   * 创建AI服务实例（便捷方法：从数据库加载配置）
+   * @param {string} modelIdOrName - 模型ID或模型名称
+   * @param {string} organizationId - 组织ID（可选）
+   * @returns {Promise<Object>} AI服务实例
+   */
+  async createServiceByModelId(modelIdOrName, organizationId = 'default') {
+    try {
+      const db = await getDb();
+
+      // 从数据库查询模型配置
+      const modelData = await db
+        .select({
+          model: aiModels,
+          provider: aiProviders
+        })
+        .from(aiModels)
+        .leftJoin(aiProviders, eq(aiModels.providerId, aiProviders.id))
+        .where(
+          sql`${aiModels.id} = ${modelIdOrName} OR ${aiModels.name} = ${modelIdOrName}`
+        )
+        .limit(1);
+
+      if (modelData.length === 0) {
+        throw new Error(`模型不存在: ${modelIdOrName}`);
+      }
+
+      const { model, provider } = modelData[0];
+
+      if (!provider) {
+        throw new Error(`模型 ${modelIdOrName} 的提供商不存在`);
+      }
+
+      if (!model.isEnabled) {
+        throw new Error(`模型 ${modelIdOrName} 已禁用`);
+      }
+
+      // 使用数据库中的配置创建服务实例
+      return this.createService({
+        provider: provider.name,
+        modelId: model.modelId,
+        modelIdStr: model.id,
+        providerId: provider.id,
+        organizationId,
+        apiKey: provider.apiKey,
+        apiEndpoint: provider.apiEndpoint,
+        temperature: 0.7,
+        maxTokens: model.maxTokens
+      });
+    } catch (error) {
+      logger.error('从数据库加载模型配置失败', { modelIdOrName, error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * 创建AI服务实例（便捷方法：根据类型自动选择模型）
+   * @param {string} type - 模型类型 (intent, chat, reasoning, report)
+   * @param {string} organizationId - 组织ID（可选）
+   * @returns {Promise<Object>} AI服务实例
+   */
+  async createServiceByType(type, organizationId = 'default') {
+    try {
+      const db = await getDb();
+
+      // 从数据库查询指定类型的模型（按优先级排序）
+      const modelData = await db
+        .select({
+          model: aiModels,
+          provider: aiProviders
+        })
+        .from(aiModels)
+        .leftJoin(aiProviders, eq(aiModels.providerId, aiProviders.id))
+        .where(
+          sql`${aiModels.type} = ${type} AND ${aiModels.isEnabled} = true`
+        )
+        .orderBy(sql`${aiModels.priority} ASC`)
+        .limit(1);
+
+      if (modelData.length === 0) {
+        throw new Error(`没有可用的 ${type} 类型模型`);
+      }
+
+      const { model, provider } = modelData[0];
+
+      // 使用数据库中的配置创建服务实例
+      return this.createService({
+        provider: provider.name,
+        modelId: model.modelId,
+        modelIdStr: model.id,
+        providerId: provider.id,
+        organizationId,
+        apiKey: provider.apiKey,
+        apiEndpoint: provider.apiEndpoint,
+        temperature: 0.7,
+        maxTokens: model.maxTokens
+      });
+    } catch (error) {
+      logger.error('根据类型加载模型失败', { type, error: error.message });
+      throw error;
+    }
   }
 
   /**
