@@ -63,10 +63,10 @@ interface AIConfig {
   builtinModelId?: string;
   useCustom?: boolean;
   customModel?: {
-    provider: string;
-    model: string;
-    apiKey: string;
-    apiBase: string;
+    provider?: string;
+    model?: string;
+    apiKey?: string;
+    apiBase?: string;
   };
   systemPrompt?: string;
 }
