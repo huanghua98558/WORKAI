@@ -8,6 +8,7 @@ const { alertHistory } = require('../database/schema');
 const { sql } = require('drizzle-orm');
 const alertConfigService = require('./alert-config.service');
 const alertNotificationService = require('./alert-notification.service');
+const notificationService = require('./notification.service');
 
 class AlertTriggerService {
   constructor() {
@@ -147,17 +148,21 @@ class AlertTriggerService {
 
     for (const method of notificationMethods) {
       try {
-        const result = await alertNotificationService.sendNotification(
-          method.methodType,
-          alertMessage,
-          method.recipientConfig,
-          context
-        );
+        // 使用新的通知服务
+        const result = await notificationService.sendByMethod(method, {
+          level: context.alertLevel || 'warning',
+          description: alertMessage,
+          userName: context.userName,
+          userId: context.userId,
+          groupName: context.groupName,
+          groupId: context.groupId,
+          time: new Date().toLocaleString('zh-CN'),
+        });
 
         results.push({
           method: method.methodType,
           success: result.success,
-          message: result.message,
+          message: result.error || result.message || '发送成功',
         });
       } catch (error) {
         console.error(`[告警触发] 发送通知失败 (${method.methodType}):`, error);

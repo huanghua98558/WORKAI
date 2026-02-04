@@ -37,6 +37,7 @@ const promptInitApiRoutes = require('./routes/prompt-init.api');
 const robotRolesApiRoutes = require('./routes/robot-roles.api');
 const robotGroupsApiRoutes = require('./routes/robot-groups.api');
 const documentApiRoutes = require('./routes/document.api');
+const notificationApiRoutes = require('./routes/notification.api');
 
 const redisClient = require('./lib/redis');
 const { getLogger, fastifyRequestLogger } = require('./lib/logger');
@@ -132,6 +133,7 @@ fastify.register(promptInitApiRoutes, { prefix: '/api' });
 fastify.register(robotRolesApiRoutes, { prefix: '/api' });
 fastify.register(robotGroupsApiRoutes, { prefix: '/api' });
 fastify.register(documentApiRoutes, { prefix: '/api/admin' });
+fastify.register(notificationApiRoutes, { prefix: '/api' });
 
 // WebSocket 路由
 fastify.register(async function (fastify) {

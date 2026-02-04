@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, Edit, Trash2, Play, Pause, AlertTriangle, Settings, RefreshCw } from 'lucide-react';
+import { Plus, Edit, Trash2, Play, Pause, AlertTriangle, Settings, RefreshCw, Bell } from 'lucide-react';
+import { NotificationSettingsDialog } from './NotificationSettingsDialog';
 
 interface AlertRule {
   id: string;
@@ -35,6 +36,8 @@ interface AlertRulesDialogProps {
 export default function AlertRulesDialog({ open, onOpenChange }: AlertRulesDialogProps) {
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [isNotificationDialogOpen, setIsNotificationDialogOpen] = useState(false);
+  const [selectedRuleForNotification, setSelectedRuleForNotification] = useState<AlertRule | null>(null);
   const [editingRule, setEditingRule] = useState<AlertRule | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -142,6 +145,12 @@ export default function AlertRulesDialog({ open, onOpenChange }: AlertRulesDialo
     } catch (error) {
       console.error('删除规则失败:', error);
     }
+  };
+
+  // 打开通知设置对话框
+  const handleNotificationSettings = (rule: AlertRule) => {
+    setSelectedRuleForNotification(rule);
+    setIsNotificationDialogOpen(true);
   };
 
   // 切换规则启用状态
@@ -298,6 +307,10 @@ export default function AlertRulesDialog({ open, onOpenChange }: AlertRulesDialo
                           <Edit className="h-4 w-4 mr-1" />
                           编辑
                         </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleNotificationSettings(rule)}>
+                          <Bell className="h-4 w-4 mr-1" />
+                          通知设置
+                        </Button>
                         <Button size="sm" variant="outline" onClick={() => handleDelete(rule.id)}>
                           <Trash2 className="h-4 w-4 mr-1" />
                           删除
@@ -444,6 +457,21 @@ export default function AlertRulesDialog({ open, onOpenChange }: AlertRulesDialo
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 通知设置对话框 */}
+      {selectedRuleForNotification && (
+        <NotificationSettingsDialog
+          open={isNotificationDialogOpen}
+          onOpenChange={(open) => {
+            setIsNotificationDialogOpen(open);
+            if (!open) {
+              setSelectedRuleForNotification(null);
+            }
+          }}
+          alertRuleId={selectedRuleForNotification.id}
+          alertRuleName={selectedRuleForNotification.ruleName}
+        />
+      )}
     </>
   );
 }

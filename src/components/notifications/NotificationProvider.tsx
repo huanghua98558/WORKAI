@@ -12,6 +12,7 @@ export interface Alert {
   description: string;
   triggerTime: string;
   recipientCount?: number;
+  read?: boolean;
 }
 
 export interface NotificationPreferences {
@@ -215,8 +216,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     new Notification(`${levelEmoji[alert.level]} ${alert.type}`, {
       body: alert.description,
       icon: '/alert-icon.png',
-      tag: alert.id,
-      timestamp: new Date(alert.triggerTime).getTime()
+      tag: alert.id
     });
   };
 

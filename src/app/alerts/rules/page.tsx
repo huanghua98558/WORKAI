@@ -391,7 +391,7 @@ export default function AlertRulesPage() {
                 rows={3}
               />
               <p className="text-xs text-gray-500 mt-1">
-                可用变量：{`{intentType}`, `{count}`, `{threshold}`, `{message}`}
+                可用变量：{['{intentType}', '{count}', '{threshold}', '{message}'].join(', ')}
               </p>
             </div>
 
