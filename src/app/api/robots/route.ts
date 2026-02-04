@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     if (status) queryParams.append('status', status);
     if (search) queryParams.append('search', search);
 
-    const response = await fetch(`${BACKEND_URL}/api/robots?${queryParams.toString()}`, {
+    const response = await fetch(`${BACKEND_URL}/api/admin/robots?${queryParams.toString()}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

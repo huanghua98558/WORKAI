@@ -51,9 +51,6 @@ export async function DELETE(
 
     const response = await fetch(`http://localhost:5001/api/notifications/methods/${id}`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
     });
 
     const data = await response.json();
