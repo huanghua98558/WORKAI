@@ -1956,7 +1956,7 @@ ${callbacks.robotStatus}
                 {sessions.slice(0, 10).map((session) => (
                   <div
                     key={session.sessionId}
-                    className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                    className="flex items-start gap-2.5 p-2.5 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
                     onClick={() => {
                       setSelectedSession(session);
                       setShowSessionDetail(true);
@@ -1964,35 +1964,43 @@ ${callbacks.robotStatus}
                     }}
                   >
                     {/* 用户头像 */}
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                      <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                      <User className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                     </div>
 
                     {/* 用户信息 */}
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-xs truncate">
-                        {session.userName || '未知用户'}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground truncate mt-0.5">
-                        {session.lastMessage || '无消息'}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
+                      {/* 第一行：用户名 + 状态 */}
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className="font-medium text-xs truncate flex-1">
+                          {session.userName || '未知用户'}
+                        </span>
                         <Badge
                           variant={session.status === 'auto' ? 'default' : 'secondary'}
-                          className="gap-0.5 h-5 px-1.5 text-[10px]"
+                          className="gap-0.5 h-4 px-1 text-[9px] flex-shrink-0"
                         >
                           {session.status === 'auto' ? (
                             <>
-                              <Bot className="h-2.5 w-2.5" />
+                              <Bot className="h-2 w-2" />
                               自动
                             </>
                           ) : (
                             <>
-                              <Users className="h-2.5 w-2.5" />
+                              <Users className="h-2 w-2" />
                               人工
                             </>
                           )}
                         </Badge>
+                      </div>
+
+                      {/* 第二行：消息 + 时间 */}
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                        <span className="truncate flex-1">
+                          {session.lastMessage || '无消息'}
+                        </span>
+                        <span className="flex-shrink-0 opacity-60 text-[9px] whitespace-nowrap">
+                          {formatTime(session.lastActiveTime)}
+                        </span>
                       </div>
                     </div>
                   </div>
