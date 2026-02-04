@@ -6,16 +6,23 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 function transformToFrontend(data: any) {
   return {
     ...data,
-    status: data.is_active ? 'active' : 'inactive',
-    trigger_type: data.trigger_type,
-    trigger_config: data.trigger_config || {},
-    created_at: data.created_at,
-    updated_at: data.updated_at,
-    created_by: data.created_by,
+    status: data.isActive ? 'active' : 'inactive',
+    trigger_type: data.triggerType,
+    trigger_config: data.triggerConfig || {},
+    created_at: data.createdAt,
+    updated_at: data.updatedAt,
+    created_by: data.createdBy,
     edges: data.edges || [],
     variables: data.variables || {},
     timeout: data.timeout || 30000,
-    retryConfig: data.retry_config || { maxRetries: 3, retryInterval: 1000 },
+    retryConfig: data.retryConfig || { maxRetries: 3, retryInterval: 1000 },
+    // 保留原始字段
+    is_active: data.isActive,
+    triggerType: data.triggerType,
+    triggerConfig: data.triggerConfig,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    createdBy: data.createdBy,
   };
 }
 
@@ -38,10 +45,10 @@ function transformToBackend(data: any) {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     
     const url = new URL(`${BACKEND_URL}/api/flow-engine/definitions/${id}`);
 
@@ -79,10 +86,11 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
+    
     const body = await request.json();
     
     // 转换前端字段为后端字段
@@ -125,10 +133,10 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     
     const url = new URL(`${BACKEND_URL}/api/flow-engine/definitions/${id}`);
 
