@@ -8,6 +8,7 @@ const { LLMClient, Config } = require('coze-coding-dev-sdk');
 const config = require('../lib/config');
 const { getLogger } = require('../lib/logger');
 const aiIoLogService = require('./ai-io-log.service');
+const DEFAULT_PROMPTS = require('../config/default-prompts');
 
 class AIService {
   constructor() {
@@ -52,12 +53,13 @@ class AIService {
           this.initializeClient(provider, {
             modelId: builtinModel.modelId,
             temperature: configItem.temperature ?? this.getDefaultTemperature(provider),
-            systemPrompt: configItem.systemPrompt ?? this.getDefaultSystemPrompt(provider)
+            systemPrompt: configItem.systemPrompt || this.getDefaultSystemPrompt(provider)
           });
           this.logger.info(`${provider} 使用内置模型`, {
             provider,
             model: builtinModel.name,
-            modelId: builtinModel.modelId
+            modelId: builtinModel.modelId,
+            useCustomPrompt: !!configItem.systemPrompt
           });
           return;
         } else {
@@ -73,11 +75,12 @@ class AIService {
         this.initializeClient(provider, {
           modelId: configItem.customModel.model,
           temperature: configItem.temperature ?? this.getDefaultTemperature(provider),
-          systemPrompt: configItem.systemPrompt ?? this.getDefaultSystemPrompt(provider)
+          systemPrompt: configItem.systemPrompt || this.getDefaultSystemPrompt(provider)
         });
         this.logger.info(`${provider} 使用自定义模型`, {
           provider,
-          model: configItem.customModel.model
+          model: configItem.customModel.model,
+          useCustomPrompt: !!configItem.systemPrompt
         });
       }
     });
@@ -127,71 +130,7 @@ class AIService {
    * 获取默认系统提示词
    */
   getDefaultSystemPrompt(provider) {
-    const prompts = {
-      'intentRecognition': `你是一个企业微信群消息意图识别专家。请分析用户消息并返回意图类型。
-
-意图类型定义：
-- chat: 闲聊、问候、日常对话
-- service: 服务咨询、问题求助
-- help: 帮助请求、使用说明
-- risk: 风险内容、敏感话题、恶意攻击
-- spam: 垃圾信息、广告、刷屏
-- welcome: 欢迎语、新人打招呼
-- admin: 管理指令、系统配置
-
-请以 JSON 格式返回结果，包含以下字段：
-{
-  "intent": "意图类型",
-  "needReply": true/false,
-  "needHuman": true/false,
-  "confidence": 0.0-1.0,
-  "reason": "判断理由"
-}`,
-
-      'serviceReply': `你是一个企业微信群客服助手。请根据用户问题和意图，生成专业、友好、自然的回复。
-
-回复要求：
-1. 根据意图类型调整回复风格：
-   - service/help/welcome: 专业、详细、有耐心
-   - chat: 轻松、友好、简短
-   - 其他意图: 礼貌、得体
-2. 语言简洁明了，控制在 200 字以内（闲聊可以更短）
-3. 语气亲切友好，适度使用表情符号增加亲和力
-4. 避免敏感词汇和不当内容
-5. 闲聊时可以更随意、更活泼
-6. 如果需要人工介入，明确提示`,
-
-      'report': `你是一个数据分析师。请根据以下数据生成日终总结报告。
-
-报告要求：
-1. 包含关键指标统计（消息数、回复数、人工介入数等）
-2. 识别问题和风险
-3. 提出改进建议
-4. 语言简洁专业`,
-
-      'conversion': `你是一个专业的转化客服专员，擅长通过对话引导用户完成转化目标。
-
-转化目标：
-- 引导用户购买产品/服务
-- 引导用户填写表单/注册账号
-- 引导用户参加活动/预约
-- 引导用户咨询详情
-
-回复策略：
-1. 先了解用户需求和痛点
-2. 针对性地介绍产品/服务的价值
-3. 用利益点而非功能点打动用户
-4. 适时提出行动号召（CTA）
-5. 语气热情、专业、有说服力
-6. 适度使用表情符号增加亲和力
-7. 控制在 300 字以内，保持简洁有力
-
-注意事项：
-- 不要过于强势或推销感太强
-- 关注用户反馈，灵活调整策略
-- 建立信任，避免引起反感`
-    };
-    return prompts[provider] || '';
+    return DEFAULT_PROMPTS[provider] || '';
   }
 
   /**
