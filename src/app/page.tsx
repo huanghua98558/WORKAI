@@ -3432,8 +3432,6 @@ ${callbacks.robotStatus}
       </Dialog>
       </div>
       </div>
-      </div>
-    </>
       </ProtectedRoute>
   );
 }
