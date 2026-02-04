@@ -415,6 +415,7 @@ export default function AIModule() {
         systemPrompt: selectedPersona?.systemPrompt || '',
         temperature: selectedPersona?.temperature || 0.7,
         maxTokens: selectedPersona?.maxTokens || 2000,
+        modelId: selectedPersona?.modelId || null,
         isActive: selectedPersona?.isActive ?? true,
         isDefault: false
       };
@@ -1616,6 +1617,27 @@ export default function AIModule() {
                   <SelectItem value="custom">自定义角色</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label htmlFor="persona-model">关联模型</Label>
+              <Select
+                value={selectedPersona?.modelId || ''}
+                onValueChange={(value) => setSelectedPersona({ ...selectedPersona, modelId: value } as AIPersona)}
+              >
+                <SelectTrigger id="persona-model">
+                  <SelectValue placeholder="选择 AI 模型（可选）" />
+                </SelectTrigger>
+                <SelectContent>
+                  {models.map((model) => (
+                    <SelectItem key={model.id} value={model.id}>
+                      {model.displayName} ({model.providerDisplayName})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                选择此角色使用的 AI 模型，留空则使用系统默认模型
+              </p>
             </div>
             <div>
               <Label htmlFor="persona-description">描述</Label>
