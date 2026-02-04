@@ -290,14 +290,21 @@ class NotificationService {
         return { success: false, error: '未配置接收者（userName 或 groupName）' };
       }
 
+      // 解析 @ 列表（支持逗号分隔）
+      const atListString = config.atList || '';
+      const atList = atListString
+        ? atListString.split(/[,，]/).map(s => s.trim()).filter(s => s)
+        : [];
+
       // 构建 WorkTool 规范的请求体
       const requestBody = {
         socketType: 2,
         list: [
           {
             type: 203,  // 203 表示文本消息
-            titleList: [recipient],  // 接收者（用户ID或群聊ID）
-            receivedContent: message
+            titleList: [recipient],  // 接收者（用户昵称或群聊名称）
+            receivedContent: message,
+            ...(atList.length > 0 && { atList })  // 如果有 @ 列表则添加
           }
         ]
       };
@@ -312,7 +319,8 @@ class NotificationService {
         robotId: config.robotId,
         apiUrl,
         recipient,
-        messageLength: message.length
+        messageLength: message.length,
+        atList: atList.length > 0 ? atList : undefined
       });
 
       // 调用机器人 API 发送消息

@@ -215,6 +215,7 @@ export function NotificationSettingsDialog({
         mode: 'private',
         userName: '',
         groupName: '',
+        atList: '',
       },
     };
     return configs[methodType] || {};
@@ -843,32 +844,54 @@ export function NotificationSettingsDialog({
                         )}
 
                         {method.recipientConfig.mode === 'group' && (
-                          <div className="space-y-2">
-                            <Label htmlFor="robot-group-name">群聊名称</Label>
-                            <Input
-                              id="robot-group-name"
-                              placeholder="输入接收通知的群聊名称"
-                              value={method.recipientConfig.groupName || ''}
-                              onChange={(e) =>
-                                updateMethod(method.id, {
-                                  recipientConfig: {
-                                    ...method.recipientConfig,
-                                    groupName: e.target.value,
-                                  },
-                                })
-                              }
-                            />
-                            <p className="text-xs text-gray-500">
-                              请填写群聊的完整名称（如：工作群）
-                            </p>
-                          </div>
+                          <>
+                            <div className="space-y-2">
+                              <Label htmlFor="robot-group-name">群聊名称 <span className="text-red-500">*</span></Label>
+                              <Input
+                                id="robot-group-name"
+                                placeholder="输入接收通知的群聊名称"
+                                value={method.recipientConfig.groupName || ''}
+                                onChange={(e) =>
+                                  updateMethod(method.id, {
+                                    recipientConfig: {
+                                      ...method.recipientConfig,
+                                      groupName: e.target.value,
+                                    },
+                                  })
+                                }
+                              />
+                              <p className="text-xs text-gray-500">
+                                请填写群聊的完整名称（如：工作群）
+                              </p>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor="robot-at-list">@ 功能（可选）</Label>
+                              <Input
+                                id="robot-at-list"
+                                placeholder="输入需要@的人名，用逗号分隔（如：张三,李四）"
+                                value={method.recipientConfig.atList || ''}
+                                onChange={(e) =>
+                                  updateMethod(method.id, {
+                                    recipientConfig: {
+                                      ...method.recipientConfig,
+                                      atList: e.target.value,
+                                    },
+                                  })
+                                }
+                              />
+                              <p className="text-xs text-gray-500">
+                                多个人名请用逗号（中英文）分隔，如：张三,李四,王五
+                              </p>
+                            </div>
+                          </>
                         )}
 
                         <div className="p-4 bg-blue-50 rounded-lg">
                           <p className="text-sm text-blue-800">
                             💡 提示：
                             {method.recipientConfig.mode === 'group'
-                              ? '机器人将向指定名称的群聊发送消息通知。请确保群聊名称与微信中完全一致。'
+                              ? '机器人将向指定名称的群聊发送消息通知。可以在消息中@特定人员。请确保群聊名称和@的人名与微信中完全一致。'
                               : '机器人将向指定昵称的用户发送私聊消息通知。请确保用户昵称与微信中完全一致。'}
                           </p>
                         </div>
