@@ -5,12 +5,15 @@
 
 const { LLMClient } = require('coze-coding-dev-sdk');
 const { getLogger } = require('../../lib/logger');
+const AIUsageTracker = require('./AIUsageTracker');
 
 const logger = getLogger('DOUBAO_SERVICE');
 
 class DoubaoService {
   constructor(config) {
     this.modelId = config.modelId;
+    this.modelIdStr = config.modelIdStr; // 数据库中的modelId
+    this.providerId = config.providerId; // 数据库中的providerId
     this.apiKey = config.apiKey;
     this.apiEndpoint = config.apiEndpoint;
     this.temperature = config.temperature || 0.7;
@@ -37,6 +40,7 @@ class DoubaoService {
    * @returns {Promise<Object>} 意图识别结果
    */
   async recognizeIntent(input, context = {}) {
+    const startTime = Date.now();
     try {
       const client = this.createClient();
 
@@ -104,15 +108,44 @@ class DoubaoService {
         };
       }
 
-      logger.info('豆包意图识别成功', { 
-        intent: result.intent, 
+      logger.info('豆包意图识别成功', {
+        intent: result.intent,
         confidence: result.confidence,
-        robotId: context.robotId 
+        robotId: context.robotId
       });
+
+      // 记录使用情况
+      if (this.modelIdStr && this.providerId) {
+        AIUsageTracker.recordUsage({
+          modelId: this.modelIdStr,
+          providerId: this.providerId,
+          operationType: 'intent_recognition',
+          inputTokens: input.length, // 简单估算
+          outputTokens: JSON.stringify(result).length, // 简单估算
+          totalTokens: input.length + JSON.stringify(result).length,
+          responseTime: Date.now() - startTime,
+          status: 'success',
+          sessionId: context.sessionId,
+          metadata: { intent: result.intent, confidence: result.confidence }
+        });
+      }
 
       return result;
     } catch (error) {
       logger.error('豆包意图识别失败', { error: error.message, input });
+
+      // 记录失败的使用情况
+      if (this.modelIdStr && this.providerId) {
+        AIUsageTracker.recordUsage({
+          modelId: this.modelIdStr,
+          providerId: this.providerId,
+          operationType: 'intent_recognition',
+          status: 'error',
+          errorMessage: error.message,
+          sessionId: context.sessionId
+        });
+      }
+
       throw error;
     }
   }
@@ -124,6 +157,7 @@ class DoubaoService {
    * @returns {Promise<Object>} 生成结果
    */
   async generateReply(messages, context = {}) {
+    const startTime = Date.now();
     try {
       const client = this.createClient();
 
@@ -147,9 +181,38 @@ class DoubaoService {
         robotId: context.robotId
       });
 
+      // 记录使用情况
+      if (this.modelIdStr && this.providerId) {
+        AIUsageTracker.recordUsage({
+          modelId: this.modelIdStr,
+          providerId: this.providerId,
+          operationType: context.operationType || 'chat',
+          inputTokens: result.usage.inputTokens,
+          outputTokens: result.usage.outputTokens,
+          totalTokens: result.usage.totalTokens,
+          responseTime: Date.now() - startTime,
+          status: 'success',
+          sessionId: context.sessionId,
+          metadata: { ...context, contentLength: result.content.length }
+        });
+      }
+
       return result;
     } catch (error) {
       logger.error('豆包生成回复失败', { error: error.message });
+
+      // 记录失败的使用情况
+      if (this.modelIdStr && this.providerId) {
+        AIUsageTracker.recordUsage({
+          modelId: this.modelIdStr,
+          providerId: this.providerId,
+          operationType: context.operationType || 'chat',
+          status: 'error',
+          errorMessage: error.message,
+          sessionId: context.sessionId
+        });
+      }
+
       throw error;
     }
   }

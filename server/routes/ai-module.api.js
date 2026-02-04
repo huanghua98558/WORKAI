@@ -15,6 +15,7 @@ const {
 } = require('../database/schema');
 const { eq, asc, desc, and, sql } = require('drizzle-orm');
 const { getLogger } = require('../lib/logger');
+const AIUsageTracker = require('../services/ai/AIUsageTracker');
 
 const logger = getLogger('AI_MODULE_API');
 
@@ -711,6 +712,64 @@ async function testAI(request, reply) {
   }
 }
 
+/**
+ * GET /api/ai/usage/stats - 获取AI使用统计
+ */
+async function getUsageStats(request, reply) {
+  try {
+    const { startDate, endDate, modelId, providerId, operationType } = request.query;
+
+    const result = await AIUsageTracker.getUsageStats({
+      startDate,
+      endDate,
+      modelId,
+      providerId,
+      operationType
+    });
+
+    if (!result.success) {
+      return reply.code(500).send({
+        success: false,
+        error: result.error
+      });
+    }
+
+    return reply.send(result);
+  } catch (error) {
+    logger.error('获取使用统计失败:', error);
+    return reply.code(500).send({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * GET /api/ai/usage/ranking - 获取模型使用排名
+ */
+async function getModelRanking(request, reply) {
+  try {
+    const { startDate, endDate } = request.query;
+
+    const result = await AIUsageTracker.getModelRanking(startDate, endDate);
+
+    if (!result.success) {
+      return reply.code(500).send({
+        success: false,
+        error: result.error
+      });
+    }
+
+    return reply.send(result);
+  } catch (error) {
+    logger.error('获取模型排名失败:', error);
+    return reply.code(500).send({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
 module.exports = async function (fastify, options) {
   // AI模型管理
   fastify.get('/models', getAIModels);
@@ -733,4 +792,8 @@ module.exports = async function (fastify, options) {
 
   // AI调试
   fastify.post('/test', testAI);
+
+  // AI使用统计
+  fastify.get('/usage/stats', getUsageStats);
+  fastify.get('/usage/ranking', getModelRanking);
 };
