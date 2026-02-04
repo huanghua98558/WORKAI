@@ -39,9 +39,10 @@ interface AiLog {
   operationType: string;
   aiInput: string;
   aiOutput: string;
-  modelId: string;
+  modelId?: string;
   status: string;
   errorMessage?: string | null;
+  requestDuration?: number;
   createdAt: string;
 }
 
@@ -101,14 +102,26 @@ export default function MonitoringPage() {
 
   // 获取AI日志
   const fetchAiLogs = async () => {
+    console.log('[监控] 开始获取AI日志');
     try {
       const res = await fetch('/api/monitoring/ai-logs?limit=50');
       const data = await res.json();
+      console.log('[监控] AI日志响应:', {
+        code: data.code,
+        dataLength: data.data?.length,
+        firstItem: data.data?.[0] ? {
+          id: data.data[0].id,
+          hasAiInput: !!data.data[0].aiInput,
+          hasAiOutput: !!data.data[0].aiOutput,
+          aiInputLength: data.data[0].aiInput?.length,
+          aiOutputLength: data.data[0].aiOutput?.length
+        } : null
+      });
       if (data.code === 0) {
         setAiLogs(data.data);
       }
     } catch (error) {
-      console.error('获取AI日志失败:', error);
+      console.error('[监控] 获取AI日志失败:', error);
     }
   };
 
@@ -386,14 +399,19 @@ export default function MonitoringPage() {
                       暂无 AI 对话记录
                     </div>
                   ) : (
-                    aiLogs.map((log) => (
-                      <div key={log.id} className="border rounded-lg p-4 space-y-3">
+                    aiLogs.map((log, index) => (
+                      <div key={log.id || index} className="border rounded-lg p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Badge variant="outline">{log.operationType}</Badge>
+                            <Badge variant="outline">{log.operationType || '未知'}</Badge>
                             <span className="text-sm text-muted-foreground">
-                              {log.robotName}
+                              {log.robotName || log.robotId}
                             </span>
+                            {log.modelId && (
+                              <Badge variant="secondary" className="text-xs">
+                                {log.modelId}
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             {log.status === 'success' ? (
@@ -410,18 +428,47 @@ export default function MonitoringPage() {
                         <div className="space-y-2">
                           <div>
                             <div className="text-sm font-medium text-blue-600">输入:</div>
-                            <div className="text-sm bg-muted p-2 rounded mt-1 whitespace-pre-wrap">
-                              {log.aiInput?.substring(0, 500)}
-                              {log.aiInput?.length > 500 && '...'}
+                            <div className="text-sm bg-muted p-2 rounded mt-1 whitespace-pre-wrap break-words">
+                              {log.aiInput ? (
+                                <>
+                                  {log.aiInput.length > 500 ? (
+                                    <>
+                                      {log.aiInput.substring(0, 500)}
+                                      <span className="text-muted-foreground">... (共 {log.aiInput.length} 字符)</span>
+                                    </>
+                                  ) : (
+                                    log.aiInput
+                                  )}
+                                </>
+                              ) : (
+                                <span className="text-muted-foreground italic">无输入数据</span>
+                              )}
                             </div>
                           </div>
                           <div>
                             <div className="text-sm font-medium text-green-600">输出:</div>
-                            <div className="text-sm bg-muted p-2 rounded mt-1 whitespace-pre-wrap">
-                              {log.aiOutput?.substring(0, 500)}
-                              {log.aiOutput?.length > 500 && '...'}
+                            <div className="text-sm bg-muted p-2 rounded mt-1 whitespace-pre-wrap break-words">
+                              {log.aiOutput ? (
+                                <>
+                                  {log.aiOutput.length > 500 ? (
+                                    <>
+                                      {log.aiOutput.substring(0, 500)}
+                                      <span className="text-muted-foreground">... (共 {log.aiOutput.length} 字符)</span>
+                                    </>
+                                  ) : (
+                                    log.aiOutput
+                                  )}
+                                </>
+                              ) : (
+                                <span className="text-muted-foreground italic">无输出数据</span>
+                              )}
                             </div>
                           </div>
+                          {log.requestDuration && (
+                            <div className="text-xs text-muted-foreground">
+                              请求耗时: {log.requestDuration}ms
+                            </div>
+                          )}
                         </div>
 
                         {log.errorMessage && (
