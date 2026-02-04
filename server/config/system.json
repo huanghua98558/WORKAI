@@ -176,6 +176,12 @@
     },
     "memory": {
       "enabled": true
+    },
+    "chat": {
+      "useBuiltin": true,
+      "builtinModelId": "doubao-pro-4k",
+      "useCustom": false,
+      "customModel": null
     }
   },
   "autoReply": {
