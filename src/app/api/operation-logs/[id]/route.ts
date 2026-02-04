@@ -8,10 +8,10 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:500
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const backendUrl = new URL(`/api/operation-logs/${id}`, BACKEND_URL);
 
     const response = await fetch(backendUrl.toString(), {
