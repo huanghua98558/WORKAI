@@ -127,6 +127,53 @@ export default function SystemLogs() {
     setShowDeleteDialog(false);
   };
 
+  // 删除操作日志（按条件）
+  const handleDeleteOperationLogsByFilter = async (status?: string) => {
+    const confirmMsg = status === 'error' 
+      ? '确定要删除所有失败的操作日志吗？' 
+      : '确定要删除90天前的操作日志吗？';
+    
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      let url = '/api/operation-logs';
+      if (status === 'error') {
+        url = '/api/operation-logs/by-filters?status=error';
+      } else {
+        url = '/api/operation-logs?days=90';
+      }
+      
+      const res = await fetch(url, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        alert(`✅ 已删除 ${data.deletedCount || data.message} 条操作日志`);
+      }
+    } catch (error) {
+      alert('❌ 删除失败');
+    }
+  };
+
+  // 清空所有操作日志
+  const handleClearAllOperationLogs = async () => {
+    if (!confirm('⚠️ 确定要清空所有操作日志吗？此操作不可恢复！')) return;
+
+    try {
+      const res = await fetch('/api/operation-logs/clear-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: true }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        alert(`✅ 已清空 ${data.deletedCount} 条操作日志`);
+      }
+    } catch (error) {
+      alert('❌ 清空失败');
+    }
+  };
+
   const handleDownloadLogs = async () => {
     try {
       // 获取所有日志（不限制条数）
@@ -709,6 +756,63 @@ export default function SystemLogs() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 操作日志管理区域 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5 text-blue-500" />
+            操作日志管理
+          </CardTitle>
+          <CardDescription>
+            管理系统操作日志，包括机器人、配置、会话等操作记录
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            <Button
+              variant="outline"
+              onClick={() => handleDeleteOperationLogsByFilter('')}
+              className="flex items-center justify-start gap-2"
+            >
+              <Trash2 className="h-4 w-4 text-orange-500" />
+              <div className="text-left">
+                <div className="font-medium">清理旧日志</div>
+                <div className="text-xs text-muted-foreground">删除90天前的日志</div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleDeleteOperationLogsByFilter('error')}
+              className="flex items-center justify-start gap-2"
+            >
+              <XCircle className="h-4 w-4 text-red-500" />
+              <div className="text-left">
+                <div className="font-medium">删除失败日志</div>
+                <div className="text-xs text-muted-foreground">清理所有失败的记录</div>
+              </div>
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => handleClearAllOperationLogs()}
+              className="flex items-center justify-start gap-2"
+            >
+              <AlertTriangle className="h-4 w-4" />
+              <div className="text-left">
+                <div className="font-medium">清空所有日志</div>
+                <div className="text-xs text-muted-foreground">删除所有操作日志（慎用）</div>
+              </div>
+            </Button>
+          </div>
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertTitle>操作日志说明</AlertTitle>
+            <AlertDescription>
+              操作日志记录系统的所有操作，包括创建、更新、删除等。定期清理旧日志可以提升系统性能。
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
     </div>
   );
 }
