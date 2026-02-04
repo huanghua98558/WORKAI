@@ -29,7 +29,7 @@ import RobotManagement from '@/components/robot/robot-management-integrated';
 import AlertConfigTab from '@/components/alert-config-tab';
 import EnhancedAlertManagement from '@/components/enhanced-alert-management';
 import SystemLogs from '@/components/system-logs';
-import PromptTraining from '@/components/prompt-training';
+
 import MonitoringTab from '@/components/monitoring-tab';
 import MonitorTab from '@/components/monitor-tab';
 import RealtimeIOTab from '@/components/realtime-io-tab';
@@ -38,6 +38,7 @@ import SettingsTab from '@/components/settings-tab';
 import AlertRulesDialog from '@/components/monitoring/AlertRulesDialog';
 import BusinessMessageMonitor from '@/components/business-message-monitor';
 import AIInteractionMonitor from '@/components/ai-interaction-monitor';
+import AIModule from '@/components/ai-module';
 import FlowEngineManage from '@/components/flow-engine-manage';
 import { 
   BarChart3, 
@@ -2617,11 +2618,11 @@ ${callbacks.robotStatus}
               <span className="hidden sm:inline font-medium">业务消息监控</span>
             </TabsTrigger>
             <TabsTrigger 
-              value="prompt-training" 
+              value="ai-module" 
               className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
             >
-              <Zap className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">AI 训练</span>
+              <Brain className="h-4 w-4" />
+              <span className="hidden sm:inline font-medium">AI 模块</span>
             </TabsTrigger>
 
             <TabsTrigger 
@@ -2731,11 +2732,9 @@ ${callbacks.robotStatus}
             />
           </TabsContent>
 
-          <TabsContent value="prompt-training" className="space-y-6">
-            <PromptTraining />
+          <TabsContent value="ai-module" className="space-y-6">
+            <AIModule />
           </TabsContent>
-
-
 
           <TabsContent value="users" className="space-y-6">
             <UserManagement />
