@@ -104,36 +104,22 @@ export default function AIModule() {
   const loadAIModels = async () => {
     setLoading(true);
     try {
-      // TODO: 从API加载AI模型
-      // const response = await fetch('/api/ai/models');
-      // const data = await response.json();
-      // setModels(data.data);
-
-      // 模拟数据
-      setModels([
-        {
-          id: '1',
-          name: '豆包 Pro 32K',
-          provider: 'doubao',
-          modelId: 'doubao-pro-32k',
-          status: 'active',
-          healthStatus: 'healthy',
-          responseTime: 1200,
-          capabilities: ['intent_recognition', 'service_reply', 'chat', 'report'],
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: '2',
-          name: '豆包 Pro 4K',
-          provider: 'doubao',
-          modelId: 'doubao-pro-4k',
-          status: 'active',
-          healthStatus: 'healthy',
-          responseTime: 800,
-          capabilities: ['intent_recognition', 'service_reply', 'chat'],
-          createdAt: new Date().toISOString()
-        }
-      ]);
+      const response = await fetch('/api/proxy/ai/models');
+      const data = await response.json();
+      
+      if (data.success) {
+        const formattedModels = data.data.map((model: any) => ({
+          id: model.id,
+          name: model.display_name,
+          provider: model.provider_display_name || model.provider_name,
+          modelId: model.model_id,
+          status: model.is_enabled ? 'active' : 'inactive',
+          healthStatus: 'healthy' as const,
+          capabilities: model.capabilities || [],
+          createdAt: model.created_at
+        }));
+        setModels(formattedModels);
+      }
     } catch (error) {
       toast.error('加载AI模型失败');
     } finally {
@@ -143,84 +129,22 @@ export default function AIModule() {
 
   const loadAIPersonas = async () => {
     try {
-      // TODO: 从API加载AI角色
-      // const response = await fetch('/api/ai/personas');
-      // const data = await response.json();
-      // setPersonas(data.data);
-
-      // 模拟数据 - 7个预设角色
-      setPersonas([
-        {
-          id: 'persona-1',
-          name: '社群运营机器人',
-          roleType: 'community',
-          description: '负责社群管理、用户互动、活动推广',
-          systemPrompt: '你是一个专业的社群运营助手，负责：1. 热情欢迎新成员加入 2. 引导用户了解社群规则和价值 3. 组织和推广社群活动 4. 回答社群相关问题 5. 维护社群良好氛围',
-          temperature: 0.8,
-          maxTokens: 2000,
-          isActive: true
-        },
-        {
-          id: 'persona-2',
-          name: '售后处理机器人',
-          roleType: 'service',
-          description: '负责售后咨询、问题处理、投诉建议',
-          systemPrompt: '你是一个专业的售后客服，负责：1. 耐心倾听用户问题 2. 提供专业的解决方案 3. 跟进问题处理进度 4. 收集用户反馈 5. 提升用户满意度',
-          temperature: 0.7,
-          maxTokens: 2000,
-          isActive: true
-        },
-        {
-          id: 'persona-3',
-          name: '转化客服机器人',
-          roleType: 'conversion',
-          description: '负责用户转化、营销推广、引导下单',
-          systemPrompt: '你是一个专业的转化客服，负责：1. 了解用户需求和痛点 2. 介绍产品优势和价值 3. 引导用户下单购买 4. 解答购买相关疑问 5. 提升转化率',
-          temperature: 0.9,
-          maxTokens: 2000,
-          isActive: true
-        },
-        {
-          id: 'persona-4',
-          name: '技术支持机器人',
-          roleType: 'tech_support',
-          description: '负责技术咨询、故障排查、使用指导',
-          systemPrompt: '你是一个专业的技术支持工程师，负责：1. 解答技术问题 2. 排查故障原因 3. 提供解决方案 4. 指导正确使用方法 5. 持续优化技术文档',
-          temperature: 0.5,
-          maxTokens: 2000,
-          isActive: true
-        },
-        {
-          id: 'persona-5',
-          name: '产品咨询机器人',
-          roleType: 'product_info',
-          description: '负责产品介绍、功能说明、对比分析',
-          systemPrompt: '你是一个专业的产品顾问，负责：1. 介绍产品功能 2. 说明产品优势 3. 对比产品差异 4. 推荐合适产品 5. 解答产品疑问',
-          temperature: 0.6,
-          maxTokens: 2000,
-          isActive: true
-        },
-        {
-          id: 'persona-6',
-          name: '客户关系机器人',
-          roleType: 'customer_relation',
-          description: '负责客户维护、满意度调查、回访',
-          systemPrompt: '你是一个专业的客户关系管理专员，负责：1. 维护客户关系 2. 进行满意度调查 3. 定期客户回访 4. 收集客户反馈 5. 提升客户满意度',
-          temperature: 0.7,
-          maxTokens: 2000,
-          isActive: true
-        },
-        {
-          id: 'persona-7',
-          name: '智能助手机器人',
-          roleType: 'assistant',
-          description: '负责通用问答、任务处理、日程管理',
-          systemPrompt: '你是一个智能助手，负责：1. 回答通用问题 2. 处理日常任务 3. 管理日程安排 4. 提供信息查询 5. 辅助用户决策',
-          temperature: 0.7,
-          maxTokens: 2000,
-          isActive: true
-        }
-      ]);
+      const response = await fetch('/api/proxy/ai/personas');
+      const data = await response.json();
+      
+      if (data.success) {
+        const formattedPersonas = data.data.map((persona: any) => ({
+          id: persona.id,
+          name: persona.name,
+          roleType: persona.type,
+          description: persona.description,
+          systemPrompt: persona.system_prompt,
+          temperature: persona.temperature,
+          maxTokens: persona.max_tokens,
+          isActive: persona.is_active
+        }));
+        setPersonas(formattedPersonas);
+      }
     } catch (error) {
       toast.error('加载AI角色失败');
     }
@@ -228,41 +152,21 @@ export default function AIModule() {
 
   const loadMessageTemplates = async () => {
     try {
-      // TODO: 从API加载话术模板
-      // const response = await fetch('/api/ai/templates');
-      // const data = await response.json();
-      // setTemplates(data.data);
-
-      // 模拟数据 - 24类场景的模板（这里只展示几个示例）
-      setTemplates([
-        {
-          id: 'template-1',
-          category: '欢迎语',
-          name: '新用户欢迎',
-          description: '新用户加入时的欢迎语',
-          template: '欢迎 {{userName}} 加入我们的社群！🎉\n\n我是{{botName}}，很高兴认识你。\n\n这里是{{groupName}}，我们的宗旨是{{groupPurpose}}。\n\n请先阅读群规，遵守社群礼仪，共同维护良好的交流环境。',
-          variables: ['userName', 'botName', 'groupName', 'groupPurpose'],
-          isActive: true
-        },
-        {
-          id: 'template-2',
-          category: '售后咨询',
-          name: '问题处理',
-          description: '用户提出问题后的处理回复',
-          template: '收到您的问题：{{userQuestion}}\n\n我们会尽快为您处理，预计在{{estimatedTime}}内回复。\n\n如有紧急问题，请联系客服热线：{{phone}}',
-          variables: ['userQuestion', 'estimatedTime', 'phone'],
-          isActive: true
-        },
-        {
-          id: 'template-3',
-          category: '转化引导',
-          name: '引导下单',
-          description: '引导用户下单购买',
-          template: '根据您的需求，我推荐您购买 {{productName}}。\n\n🎁 限时优惠：原价 {{originalPrice}}，现价仅 {{discountPrice}}！\n\n👉 立即下单：{{orderUrl}}\n\n如有疑问，随时咨询我！',
-          variables: ['productName', 'originalPrice', 'discountPrice', 'orderUrl'],
-          isActive: true
-        }
-      ]);
+      const response = await fetch('/api/proxy/ai/templates');
+      const data = await response.json();
+      
+      if (data.success) {
+        const formattedTemplates = data.data.map((template: any) => ({
+          id: template.id,
+          category: template.category,
+          name: template.category_name,
+          description: template.description || '',
+          template: template.template,
+          variables: template.variables || [],
+          isActive: template.is_active
+        }));
+        setTemplates(formattedTemplates);
+      }
     } catch (error) {
       toast.error('加载话术模板失败');
     }
@@ -274,28 +178,29 @@ export default function AIModule() {
       return;
     }
 
+    if (!testModel) {
+      toast.error('请选择测试模型');
+      return;
+    }
+
     setIsTesting(true);
     try {
-      // TODO: 调用AI测试API
-      // const response = await fetch('/api/ai/test', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     input: testInput,
-      //     model: testModel
-      //   })
-      // });
-      // const data = await response.json();
-      // setTestResult(data.data);
-
-      // 模拟响应
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setTestResult({
-        intent: '咨询',
-        confidence: 0.95,
-        reply: '您好！很高兴为您服务，请问有什么可以帮助您的？',
-        latency: 850
+      const response = await fetch('/api/proxy/ai/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          input: testInput,
+          model_id: testModel,
+          type: 'intent'
+        })
       });
+      const data = await response.json();
+      
+      if (data.success) {
+        setTestResult(data.data);
+      } else {
+        toast.error(data.error || 'AI测试失败');
+      }
     } catch (error) {
       toast.error('AI测试失败');
     } finally {

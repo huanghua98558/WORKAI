@@ -40,6 +40,9 @@ const documentApiRoutes = require('./routes/document.api');
 const notificationApiRoutes = require('./routes/notification.api');
 const intentConfigApiRoutes = require('./routes/intent-config.api');
 const flowEngineApiRoutes = require('./routes/flow-engine.api');
+console.log('[app.js] Attempting to load ai-module.api...');
+const aiModuleApiRoutes = require('./routes/ai-module.api');
+console.log('[app.js] ai-module.api loaded successfully');
 
 const redisClient = require('./lib/redis');
 const { getLogger, fastifyRequestLogger } = require('./lib/logger');
@@ -138,6 +141,7 @@ fastify.register(documentApiRoutes, { prefix: '/api/admin' });
 fastify.register(notificationApiRoutes, { prefix: '/api' });
 fastify.register(intentConfigApiRoutes, { prefix: '/api/ai/intents' });
 fastify.register(flowEngineApiRoutes, { prefix: '/api/flow-engine' });
+fastify.register(aiModuleApiRoutes, { prefix: '/api/ai' });
 
 // WebSocket 路由
 fastify.register(async function (fastify) {
