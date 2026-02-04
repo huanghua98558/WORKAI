@@ -28,16 +28,28 @@ export default function MonitoringAlertCompact({ maxItems = 3, showViewAll = tru
   // 加载最近的告警
   const loadAlerts = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/alerts/history?limit=20');
-      const data = await response.json();
-      if (data.success) {
-        const pendingAlerts = (data.data || [])
-          .filter((a: AlertData) => a.status === 'pending')
-          .slice(0, maxItems);
-        setAlerts(pendingAlerts);
+      const response = await fetch('/api/alerts/history?limit=20', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const pendingAlerts = (data.data || [])
+            .filter((a: AlertData) => a.status === 'pending')
+            .slice(0, maxItems);
+          setAlerts(pendingAlerts);
+        }
+      } else {
+        console.warn('获取告警历史失败，状态码:', response.status);
+        setAlerts([]);
       }
     } catch (error) {
-      console.error('加载告警失败:', error);
+      console.warn('加载告警失败:', error);
+      setAlerts([]);
     } finally {
       setIsLoading(false);
     }
@@ -53,8 +65,11 @@ export default function MonitoringAlertCompact({ maxItems = 3, showViewAll = tru
   // 处理告警
   const handleAlert = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:5001/api/alerts/history/${id}/handle`, {
-        method: 'PUT'
+      const response = await fetch(`/api/alerts/history/${id}/handle`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
       if (response.ok) {

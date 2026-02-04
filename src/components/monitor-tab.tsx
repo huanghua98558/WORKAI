@@ -68,26 +68,27 @@ export default function MonitorTab() {
         if (data.code === 0) {
           // 获取告警统计
           try {
-            const alertRes = await fetch('http://localhost:5001/api/alerts/stats');
-            const alertData = await alertRes.json();
-            if (alertData.success) {
-              data.data.alerts = {
-                total: parseInt(alertData.data.total) || 0,
-                pending: parseInt(alertData.data.pending) || 0,
-                critical: parseInt(alertData.data.critical) || 0,
-                warning: parseInt(alertData.data.warning) || 0,
-                info: parseInt(alertData.data.info) || 0
-              };
+            const alertRes = await fetch('/api/alerts/stats', {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+            if (alertRes.ok) {
+              const alertData = await alertRes.json();
+              if (alertData.success) {
+                data.data.alerts = {
+                  total: parseInt(alertData.data.total) || 0,
+                  pending: parseInt(alertData.data.pending) || 0,
+                  critical: parseInt(alertData.data.critical) || 0,
+                  warning: parseInt(alertData.data.warning) || 0,
+                  info: parseInt(alertData.data.info) || 0
+                };
+              }
             }
           } catch (alertError) {
-            console.error('获取告警统计失败:', alertError);
-            data.data.alerts = {
-              total: 0,
-              pending: 0,
-              critical: 0,
-              warning: 0,
-              info: 0
-            };
+            console.warn('获取告警统计失败，使用默认值:', alertError);
+            // 不影响健康状态的显示
           }
           setHealth(data.data);
         }

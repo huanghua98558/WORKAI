@@ -62,13 +62,25 @@ export default function AlertRulesDialog({ open, onOpenChange }: AlertRulesDialo
   const loadRules = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:5001/api/alerts/rules');
-      const data = await response.json();
-      if (data.success) {
-        setRules(data.data || []);
+      const response = await fetch('/api/alerts/rules', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setRules(data.data || []);
+        }
+      } else {
+        console.warn('获取规则列表失败，状态码:', response.status);
+        setRules([]);
       }
     } catch (error) {
-      console.error('加载规则失败:', error);
+      console.warn('加载规则失败:', error);
+      setRules([]);
     } finally {
       setIsLoading(false);
     }
@@ -117,8 +129,11 @@ export default function AlertRulesDialog({ open, onOpenChange }: AlertRulesDialo
     if (!confirm('确定要删除这条告警规则吗？')) return;
 
     try {
-      const response = await fetch(`http://localhost:5001/api/alerts/rules/${ruleId}`, {
-        method: 'DELETE'
+      const response = await fetch(`/api/alerts/rules/${ruleId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
       if (response.ok) {
@@ -132,7 +147,7 @@ export default function AlertRulesDialog({ open, onOpenChange }: AlertRulesDialo
   // 切换规则启用状态
   const handleToggle = async (rule: AlertRule) => {
     try {
-      const response = await fetch(`http://localhost:5001/api/alerts/rules/${rule.id}`, {
+      const response = await fetch(`/api/alerts/rules/${rule.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -155,8 +170,8 @@ export default function AlertRulesDialog({ open, onOpenChange }: AlertRulesDialo
   const handleSave = async () => {
     try {
       const url = editingRule
-        ? `http://localhost:5001/api/alerts/rules/${editingRule.id}`
-        : 'http://localhost:5001/api/alerts/rules';
+        ? `/api/alerts/rules/${editingRule.id}`
+        : '/api/alerts/rules';
 
       const response = await fetch(url, {
         method: editingRule ? 'PUT' : 'POST',
