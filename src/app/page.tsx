@@ -2518,13 +2518,7 @@ ${callbacks.robotStatus}
               <Zap className="h-4 w-4" />
               <span className="hidden sm:inline font-medium">AI 训练</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="fine-tune" 
-              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
-            >
-              <Sparkles className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">微调管理</span>
-            </TabsTrigger>
+
             <TabsTrigger 
               value="callbacks" 
               className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300 hidden"
@@ -2619,121 +2613,7 @@ ${callbacks.robotStatus}
             <PromptTraining />
           </TabsContent>
 
-          <TabsContent value="fine-tune" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-3">
-              {/* 训练数据集 */}
-              <Card className="hover:shadow-lg transition-all cursor-pointer border-primary/20 hover:border-primary/50" onClick={() => window.location.href = '/admin/fine-tune/datasets'}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Database className="h-5 w-5 text-blue-500" />
-                      训练数据集
-                    </CardTitle>
-                  </div>
-                  <CardDescription>管理用于微调的训练数据</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    <p>• 创建和管理训练数据集</p>
-                    <p>• 支持 SFT、DPO、GRPO 数据格式</p>
-                    <p>• 追踪数据集状态和数量</p>
-                  </div>
-                  <Button className="w-full mt-4" variant="outline">
-                    进入管理
-                  </Button>
-                </CardContent>
-              </Card>
 
-              {/* 训练任务 */}
-              <Card className="hover:shadow-lg transition-all cursor-pointer border-primary/20 hover:border-primary/50" onClick={() => window.location.href = '/admin/fine-tune/tasks'}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Activity className="h-5 w-5 text-green-500" />
-                      训练任务
-                    </CardTitle>
-                  </div>
-                  <CardDescription>监控和管理微调训练任务</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    <p>• 创建和提交训练任务</p>
-                    <p>• 实时监控训练进度</p>
-                    <p>• 管理任务状态和日志</p>
-                  </div>
-                  <Button className="w-full mt-4" variant="outline">
-                    进入管理
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* 微调模型 */}
-              <Card className="hover:shadow-lg transition-all cursor-pointer border-primary/20 hover:border-primary/50" onClick={() => window.location.href = '/admin/fine-tune/models'}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Sparkles className="h-5 w-5 text-purple-500" />
-                      微调模型
-                    </CardTitle>
-                  </div>
-                  <CardDescription>管理和使用微调后的模型</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    <p>• 注册训练完成的模型</p>
-                    <p>• 查看模型性能指标</p>
-                    <p>• 在 AI 服务中使用微调模型</p>
-                  </div>
-                  <Button className="w-full mt-4" variant="outline">
-                    进入管理
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card className="mt-6 border-blue-200 bg-blue-50/50 dark:bg-blue-950/20">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Info className="h-5 w-5 text-blue-500" />
-                  使用说明
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4 text-sm">
-                  <div>
-                    <h4 className="font-semibold mb-2">阿里云 PAI 微调集成</h4>
-                    <p className="text-muted-foreground">
-                      本系统集成了阿里云 PAI 微调功能，支持在系统内管理数据、任务和模型，
-                      实际训练在阿里云 PAI 控制台完成。
-                    </p>
-                  </div>
-                  <div className="grid gap-4 md:grid-cols-3 mt-4">
-                    <div className="flex items-start gap-2">
-                      <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold flex-shrink-0">1</div>
-                      <div>
-                        <p className="font-medium">准备数据</p>
-                        <p className="text-muted-foreground">在训练数据集管理中创建数据集</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold flex-shrink-0">2</div>
-                      <div>
-                        <p className="font-medium">提交训练</p>
-                        <p className="text-muted-foreground">在 PAI 控制台上传数据并训练</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold flex-shrink-0">3</div>
-                      <div>
-                        <p className="font-medium">注册模型</p>
-                        <p className="text-muted-foreground">训练完成后注册并使用微调模型</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="users" className="space-y-6">
             <UserManagement />
