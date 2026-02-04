@@ -36,6 +36,9 @@ import RealtimeIOTab from '@/components/realtime-io-tab';
 import UserManagement from '@/components/user-management';
 import SettingsTab from '@/components/settings-tab';
 import AlertRulesDialog from '@/components/monitoring/AlertRulesDialog';
+import BusinessMessageMonitor from '@/components/business-message-monitor';
+import AIInteractionMonitor from '@/components/ai-interaction-monitor';
+import FlowEngineManage from '@/components/flow-engine-manage';
 import { 
   BarChart3, 
   MessageSquare,
@@ -99,7 +102,9 @@ import {
   Mail,
   Building2,
   Send,
-  BookOpen
+  BookOpen,
+  GitBranch,
+  Brain
 } from 'lucide-react';
 
 // 类型定义
@@ -2672,8 +2677,8 @@ ${callbacks.robotStatus}
               value="realtime" 
               className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
             >
-              <Terminal className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">实时消息</span>
+              <MessageSquare className="h-4 w-4" />
+              <span className="hidden sm:inline font-medium">业务消息监控</span>
             </TabsTrigger>
             <TabsTrigger 
               value="prompt-training" 
@@ -2705,6 +2710,13 @@ ${callbacks.robotStatus}
               <span className="hidden sm:inline font-medium">知识库</span>
             </TabsTrigger>
             <TabsTrigger 
+              value="flow-engine" 
+              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            >
+              <GitBranch className="h-4 w-4" />
+              <span className="hidden sm:inline font-medium">流程引擎</span>
+            </TabsTrigger>
+            <TabsTrigger 
               value="settings" 
               className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
             >
@@ -2722,8 +2734,8 @@ ${callbacks.robotStatus}
               value="monitoring" 
               className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
             >
-              <Activity className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">实时监控</span>
+              <Brain className="h-4 w-4" />
+              <span className="hidden sm:inline font-medium">AI交互监控</span>
             </TabsTrigger>
           </TabsList>
 
@@ -2761,6 +2773,10 @@ ${callbacks.robotStatus}
             </div>
           </TabsContent>
 
+          <TabsContent value="flow-engine" className="space-y-6">
+            <FlowEngineManage />
+          </TabsContent>
+
           <TabsContent value="sessions" className="space-y-6">
             <SessionsTab />
           </TabsContent>
@@ -2770,7 +2786,7 @@ ${callbacks.robotStatus}
           </TabsContent>
 
           <TabsContent value="realtime" className="space-y-6">
-            <RealtimeIOTab />
+            <BusinessMessageMonitor />
           </TabsContent>
 
           <TabsContent value="prompt-training" className="space-y-6">
@@ -2792,7 +2808,7 @@ ${callbacks.robotStatus}
           </TabsContent>
 
           <TabsContent value="monitoring" className="space-y-6">
-            <MonitoringTab />
+            <AIInteractionMonitor />
           </TabsContent>
         </Tabs>
       </main>
