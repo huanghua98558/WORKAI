@@ -100,6 +100,17 @@ export default function PromptTraining() {
   const [isLoadingAiConfig, setIsLoadingAiConfig] = useState(false);
   const [matchedAiProvider, setMatchedAiProvider] = useState<string | null>(null);
   
+  // 用于跟踪上一次的配置，避免无限循环
+  const lastConfigRef = useRef<{
+    useSystemAiConfig: boolean;
+    templateType: string | undefined;
+    hasLoadedConfig: boolean;
+  }>({
+    useSystemAiConfig: false,
+    templateType: undefined,
+    hasLoadedConfig: false
+  });
+  
   // 模板编辑状态
   const [templateForm, setTemplateForm] = useState<Partial<PromptTemplate>>({
     name: '',
@@ -138,14 +149,42 @@ export default function PromptTraining() {
 
   // 当模板类型或使用系统AI配置开关变化时，自动加载AI配置
   useEffect(() => {
+    // 检查配置是否真的发生了变化
+    const configChanged = 
+      lastConfigRef.current.useSystemAiConfig !== useSystemAiConfig ||
+      lastConfigRef.current.templateType !== templateForm.type;
+
+    if (!configChanged) return;
+
+    // 更新 ref
+    lastConfigRef.current = {
+      useSystemAiConfig,
+      templateType: templateForm.type,
+      hasLoadedConfig: true
+    };
+
+    // 只有当使用系统AI配置且有模板类型时才加载
     if (useSystemAiConfig && templateForm.type) {
-      const aiConfig = getAiConfigFromSystem(templateForm.type);
-      if (aiConfig) {
-        setTemplateForm(prev => ({
-          ...prev,
-          temperature: aiConfig.temperature,
-          maxTokens: aiConfig.maxTokens
-        }));
+      const provider = getAiProviderByTemplateType(templateForm.type);
+      if (provider && systemAiConfig) {
+        setMatchedAiProvider(provider);
+        
+        const config = systemAiConfig[provider];
+        if (config) {
+          const newConfig = {
+            model: config?.useBuiltin ? config.builtinModelId : config?.customModel?.model,
+            temperature: config.temperature || 0.7,
+            maxTokens: config.maxTokens || 2000
+          };
+          
+          setTemplateForm(prev => ({
+            ...prev,
+            temperature: newConfig.temperature,
+            maxTokens: newConfig.maxTokens
+          }));
+        }
+      } else {
+        setMatchedAiProvider(null);
       }
     }
   }, [useSystemAiConfig, templateForm.type, systemAiConfig]);
@@ -196,7 +235,7 @@ export default function PromptTraining() {
     return mapping[templateType] || null;
   };
 
-  // 从系统AI配置中获取模型ID和参数
+  // 从系统AI配置中获取模型ID和参数（不包含副作用）
   const getAiConfigFromSystem = (templateType: string) => {
     const provider = getAiProviderByTemplateType(templateType);
     if (!provider || !systemAiConfig) {
@@ -204,7 +243,6 @@ export default function PromptTraining() {
     }
 
     const config = systemAiConfig[provider];
-    setMatchedAiProvider(provider);
 
     if (config?.useBuiltin && config?.builtinModelId) {
       return {
