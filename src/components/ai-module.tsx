@@ -693,7 +693,7 @@ export default function AIModule() {
 
                             {/* 能力标签 */}
                             <div className="flex flex-wrap gap-1 mt-2">
-                              {model.capabilities.map((cap) => (
+                              {(model.capabilities || []).map((cap) => (
                                 <Badge key={cap} variant="outline" className="text-xs">
                                   {getCapabilityText(cap)}
                                 </Badge>
@@ -1004,12 +1004,13 @@ export default function AIModule() {
                   <Input
                     id="model-name"
                     value={selectedModel?.name || ''}
-                    disabled={!!selectedModel?.id}
-                    className={selectedModel?.id ? 'bg-muted' : ''}
+                    disabled={true}
+                    readOnly={true}
+                    className="bg-muted"
                     placeholder="模型唯一标识"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    {selectedModel?.id ? '系统标识，创建后不可修改' : '创建后不可修改'}
+                    {selectedModel?.id ? '系统标识，创建后不可修改' : '系统标识，创建后也不可修改'}
                   </p>
                 </div>
                 <div>
@@ -1576,7 +1577,7 @@ export default function AIModule() {
               <div>
                 <Label className="text-muted-foreground">能力</Label>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {selectedModel.capabilities.map((cap) => (
+                  {(selectedModel.capabilities || []).map((cap) => (
                     <Badge key={cap} variant="outline">
                       {getCapabilityText(cap)}
                     </Badge>
