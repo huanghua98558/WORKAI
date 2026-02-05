@@ -89,34 +89,47 @@ export default function NodeConfigPanel({ node, onUpdate }: NodeConfigPanelProps
       </div>
 
       {/* 根据节点类型渲染不同的配置项 */}
-      {node.type === 'message_receive' && (
+      {node.data.type === 'message_receive' && (
         <MessageReceiveConfig config={config} onChange={handleConfigChange} />
       )}
 
-      {node.type === 'intent' && <IntentConfig config={config} onChange={handleConfigChange} />}
+      {node.data.type === 'intent' && <IntentConfig config={config} onChange={handleConfigChange} />}
 
-      {node.type === 'decision' && <DecisionConfig config={config} onChange={handleConfigChange} />}
+      {node.data.type === 'decision' && <DecisionConfig config={config} onChange={handleConfigChange} />}
 
-      {node.type === 'ai_reply' && <AiReplyConfig config={config} onChange={handleConfigChange} />}
+      {node.data.type === 'ai_reply' && <AiReplyConfig config={config} onChange={handleConfigChange} />}
 
-      {node.type === 'message_dispatch' && (
+      {node.data.type === 'message_dispatch' && (
         <MessageDispatchConfig config={config} onChange={handleConfigChange} />
       )}
 
-      {node.type === 'send_command' && (
+      {node.data.type === 'send_command' && (
         <SendCommandConfig config={config} onChange={handleConfigChange} />
       )}
 
-      {node.type === 'command_status' && (
+      {node.data.type === 'command_status' && (
         <CommandStatusConfig config={config} onChange={handleConfigChange} />
       )}
 
-      {node.type === 'alert_save' && <AlertSaveConfig config={config} onChange={handleConfigChange} />}
+      {node.data.type === 'end' && (
+        <div className="text-sm text-slate-500 text-center py-4">
+          结束节点无需配置
+        </div>
+      )}
 
-      {node.type === 'alert_rule' && <AlertRuleConfig config={config} onChange={handleConfigChange} />}
+      {node.data.type === 'alert_save' && <AlertSaveConfig config={config} onChange={handleConfigChange} />}
 
-      {node.type === 'execute_notification' && (
+      {node.data.type === 'alert_rule' && <AlertRuleConfig config={config} onChange={handleConfigChange} />}
+
+      {node.data.type === 'execute_notification' && (
         <ExecuteNotificationConfig config={config} onChange={handleConfigChange} />
+      )}
+
+      {/* 未识别的节点类型 */}
+      {!node.data.type && (
+        <div className="text-sm text-slate-500 text-center py-4">
+          请选择节点类型以查看配置选项
+        </div>
       )}
     </Card>
   );
@@ -312,14 +325,20 @@ function AiReplyConfig({ config, onChange }: any) {
   return (
     <div className="space-y-4">
       <div>
-        <Label htmlFor="defaultModel">默认模型</Label>
-        <Input
-          id="defaultModel"
-          value={config.defaultModel?.modelId || 'model_service'}
-          onChange={(e) => onChange('defaultModel', { modelId: e.target.value })}
-          placeholder="输入默认模型ID"
-          className="mt-1"
-        />
+        <Label htmlFor="defaultModelId">默认模型</Label>
+        <Select
+          value={config.defaultModelId || 'doubao'}
+          onValueChange={(value) => onChange('defaultModelId', value)}
+        >
+          <SelectTrigger className="mt-1">
+            <SelectValue placeholder="选择默认AI模型" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="doubao">豆包（默认）</SelectItem>
+            <SelectItem value="deepseek">DeepSeek</SelectItem>
+            <SelectItem value="kimi">Kimi</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div>
@@ -328,22 +347,32 @@ function AiReplyConfig({ config, onChange }: any) {
           <div className="flex items-center space-x-2">
             <Checkbox
               id="includeHistory"
-              checked={config.includeHistory ?? true}
-              onCheckedChange={(checked) => onChange('includeHistory', checked)}
+              checked={config.context?.includeHistory ?? true}
+              onCheckedChange={(checked) =>
+                onChange('context', {
+                  ...(config.context || {}),
+                  includeHistory: checked,
+                })
+              }
             />
             <Label htmlFor="includeHistory" className="text-sm">
               包含历史消息
             </Label>
           </div>
           <div>
-            <Label htmlFor="historyLimit" className="text-sm">
+            <Label htmlFor="maxHistoryMessages" className="text-sm">
               历史消息条数
             </Label>
             <Input
-              id="historyLimit"
+              id="maxHistoryMessages"
               type="number"
-              value={config.historyLimit ?? 5}
-              onChange={(e) => onChange('historyLimit', parseInt(e.target.value))}
+              value={config.context?.maxHistoryMessages ?? 5}
+              onChange={(e) =>
+                onChange('context', {
+                  ...(config.context || {}),
+                  maxHistoryMessages: parseInt(e.target.value),
+                })
+              }
               className="mt-1"
             />
           </div>
@@ -360,72 +389,86 @@ function MessageDispatchConfig({ config, onChange }: any) {
       <div>
         <Label className="text-sm font-medium text-slate-700">群发配置</Label>
         <div className="space-y-2 mt-2">
-          <Select
-            value={config.dispatchRules?.groupTarget || 'original'}
-            onValueChange={(value) =>
-              onChange('dispatchRules', {
-                ...(config.dispatchRules || {}),
-                groupTarget: value,
-              })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="选择目标名称来源" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="original">使用原始群名 (groupName)</SelectItem>
-              <SelectItem value="custom">使用自定义群名</SelectItem>
-            </SelectContent>
-          </Select>
-          {config.dispatchRules?.groupTarget === 'custom' && (
-            <Input
-              placeholder="输入自定义群名"
-              value={config.dispatchRules?.customGroupTarget || ''}
-              onChange={(e) =>
-                onChange('dispatchRules', {
-                  ...(config.dispatchRules || {}),
-                  customGroupTarget: e.target.value,
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enableGroupDispatch"
+              checked={config.groupDispatch?.enabled ?? true}
+              onCheckedChange={(checked) =>
+                onChange('groupDispatch', {
+                  ...(config.groupDispatch || {}),
+                  enabled: checked,
                 })
               }
-              className="mt-2"
             />
-          )}
+            <Label htmlFor="enableGroupDispatch" className="text-sm">
+              启用群发
+            </Label>
+          </div>
+          <div>
+            <Label htmlFor="groupTargetSource" className="text-sm">
+              目标名称来源
+            </Label>
+            <Select
+              value={config.groupDispatch?.targetNameSource || 'context'}
+              onValueChange={(value) =>
+                onChange('groupDispatch', {
+                  ...(config.groupDispatch || {}),
+                  targetNameSource: value,
+                })
+              }
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择目标名称来源" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="context">从上下文获取 (groupName)</SelectItem>
+                <SelectItem value="custom">使用自定义群名</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
       <div>
         <Label className="text-sm font-medium text-slate-700">私发配置</Label>
         <div className="space-y-2 mt-2">
-          <Select
-            value={config.dispatchRules?.privateTarget || 'original'}
-            onValueChange={(value) =>
-              onChange('dispatchRules', {
-                ...(config.dispatchRules || {}),
-                privateTarget: value,
-              })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="选择目标名称来源" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="original">使用用户名 (userName)</SelectItem>
-              <SelectItem value="custom">使用自定义私发目标</SelectItem>
-            </SelectContent>
-          </Select>
-          {config.dispatchRules?.privateTarget === 'custom' && (
-            <Input
-              placeholder="输入自定义私发目标"
-              value={config.dispatchRules?.customPrivateTarget || ''}
-              onChange={(e) =>
-                onChange('dispatchRules', {
-                  ...(config.dispatchRules || {}),
-                  customPrivateTarget: e.target.value,
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enablePrivateDispatch"
+              checked={config.privateDispatch?.enabled ?? false}
+              onCheckedChange={(checked) =>
+                onChange('privateDispatch', {
+                  ...(config.privateDispatch || {}),
+                  enabled: checked,
                 })
               }
-              className="mt-2"
             />
-          )}
+            <Label htmlFor="enablePrivateDispatch" className="text-sm">
+              启用私发
+            </Label>
+          </div>
+          <div>
+            <Label htmlFor="privateTargetSource" className="text-sm">
+              目标名称来源
+            </Label>
+            <Select
+              value={config.privateDispatch?.targetNameSource || 'context'}
+              onValueChange={(value) =>
+                onChange('privateDispatch', {
+                  ...(config.privateDispatch || {}),
+                  targetNameSource: value,
+                })
+              }
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择目标名称来源" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="context">从上下文获取 (userName)</SelectItem>
+                <SelectItem value="custom">使用自定义目标</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -435,10 +478,10 @@ function MessageDispatchConfig({ config, onChange }: any) {
           <div className="flex items-center space-x-2">
             <Checkbox
               id="requireAtMe"
-              checked={config.dispatchRules?.requireAtMe ?? false}
+              checked={config.atMe?.requireAtMe ?? true}
               onCheckedChange={(checked) =>
-                onChange('dispatchRules', {
-                  ...(config.dispatchRules || {}),
+                onChange('atMe', {
+                  ...(config.atMe || {}),
                   requireAtMe: checked,
                 })
               }
@@ -447,25 +490,28 @@ function MessageDispatchConfig({ config, onChange }: any) {
               必须@机器人才回复
             </Label>
           </div>
-          {config.dispatchRules?.requireAtMe && (
+          <div>
+            <Label htmlFor="onNotAtMe" className="text-sm">
+              未@时的处理方式
+            </Label>
             <Select
-              value={config.dispatchRules?.ignoreIfNotAtMe ? 'ignore' : 'continue'}
+              value={config.atMe?.onNotAtMe || 'ignore'}
               onValueChange={(value) =>
-                onChange('dispatchRules', {
-                  ...(config.dispatchRules || {}),
-                  ignoreIfNotAtMe: value === 'ignore',
+                onChange('atMe', {
+                  ...(config.atMe || {}),
+                  onNotAtMe: value,
                 })
               }
             >
-              <SelectTrigger>
-                <SelectValue placeholder="如果没有@机器人" />
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择处理方式" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="ignore">忽略消息</SelectItem>
                 <SelectItem value="continue">继续处理</SelectItem>
-                <SelectItem value="ignore">忽略消息，不回复</SelectItem>
               </SelectContent>
             </Select>
-          )}
+          </div>
         </div>
       </div>
     </div>
@@ -537,16 +583,19 @@ function SendCommandConfig({ config, onChange }: any) {
           </div>
           {config.enableAtList && (
             <div>
-              <Label htmlFor="atListExpression" className="text-sm">
+              <Label htmlFor="dynamicAtListExpression" className="text-sm">
                 动态表达式
               </Label>
               <Input
-                id="atListExpression"
+                id="dynamicAtListExpression"
                 value={config.dynamicAtListExpression || ''}
                 onChange={(e) => onChange('dynamicAtListExpression', e.target.value)}
                 placeholder="{{userName}}"
                 className="mt-1"
               />
+              <p className="text-xs text-slate-500 mt-1">
+                支持变量：{"{" + "{userName}" + "}"}, {"{" + "{groupName}" + "}"}
+              </p>
             </div>
           )}
         </div>
@@ -565,32 +614,38 @@ function SendCommandConfig({ config, onChange }: any) {
               启用失败重试
             </Label>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label htmlFor="maxRetries" className="text-sm">
-                最大重试次数
-              </Label>
-              <Input
-                id="maxRetries"
-                type="number"
-                value={config.maxRetries ?? 3}
-                onChange={(e) => onChange('maxRetries', parseInt(e.target.value))}
-                className="mt-1"
-              />
+          {config.enableRetry && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="maxRetries" className="text-sm">
+                  最大重试次数
+                </Label>
+                <Input
+                  id="maxRetries"
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={config.maxRetries ?? 3}
+                  onChange={(e) => onChange('maxRetries', parseInt(e.target.value))}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="retryDelay" className="text-sm">
+                  重试延迟（毫秒）
+                </Label>
+                <Input
+                  id="retryDelay"
+                  type="number"
+                  min="0"
+                  max="60000"
+                  value={config.retryDelay ?? 2000}
+                  onChange={(e) => onChange('retryDelay', parseInt(e.target.value))}
+                  className="mt-1"
+                />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="retryDelay" className="text-sm">
-                重试延迟（毫秒）
-              </Label>
-              <Input
-                id="retryDelay"
-                type="number"
-                value={config.retryDelay ?? 2000}
-                onChange={(e) => onChange('retryDelay', parseInt(e.target.value))}
-                className="mt-1"
-              />
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
@@ -616,11 +671,11 @@ function CommandStatusConfig({ config, onChange }: any) {
           </div>
           <div className="flex items-center space-x-2">
             <Checkbox
-              id="saveToSessionMessages"
-              checked={config.saveToSessionMessages ?? true}
-              onCheckedChange={(checked) => onChange('saveToSessionMessages', checked)}
+              id="updateSessionMessages"
+              checked={config.updateSessionMessages ?? true}
+              onCheckedChange={(checked) => onChange('updateSessionMessages', checked)}
             />
-            <Label htmlFor="saveToSessionMessages" className="text-sm">
+            <Label htmlFor="updateSessionMessages" className="text-sm">
               更新session_messages表
             </Label>
           </div>
@@ -641,7 +696,7 @@ function CommandStatusConfig({ config, onChange }: any) {
             </Label>
           </div>
           <Select
-            value={config.pushTarget || 'panel1'}
+            value={config.pushTarget || 'both'}
             onValueChange={(value) => onChange('pushTarget', value)}
           >
             <SelectTrigger className="mt-1">
