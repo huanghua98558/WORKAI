@@ -7,8 +7,9 @@
 
 import React from 'react';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { CheckCircle, XCircle, Clock, Play, ChevronRight } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Play, ChevronRight, Trash2 } from 'lucide-react';
 
 interface TestResult {
   nodeId: string;
@@ -23,9 +24,10 @@ interface TestResult {
 interface FlowTestPanelProps {
   results: TestResult[];
   isRunning: boolean;
+  onClear?: () => void;
 }
 
-export default function FlowTestPanel({ results, isRunning }: FlowTestPanelProps) {
+export default function FlowTestPanel({ results, isRunning, onClear }: FlowTestPanelProps) {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
@@ -48,11 +50,24 @@ export default function FlowTestPanel({ results, isRunning }: FlowTestPanelProps
           <Play className="w-5 h-5 text-blue-600" />
           <h3 className="font-semibold text-slate-900">测试结果</h3>
         </div>
-        {isRunning && (
-          <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
-            测试中...
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {isRunning && (
+            <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+              测试中...
+            </span>
+          )}
+          {onClear && results.length > 0 && !isRunning && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClear}
+              className="h-6 px-2"
+            >
+              <Trash2 className="w-3 h-3 mr-1" />
+              清除
+            </Button>
+          )}
+        </div>
       </div>
 
       <ScrollArea className="flex-1 pr-4">

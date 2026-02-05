@@ -7,13 +7,12 @@
 
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, Settings, Save } from 'lucide-react';
+import { X, Settings } from 'lucide-react';
 import { NODE_TYPES, NODE_METADATA } from '../types';
 
 interface NodeData {
@@ -49,24 +48,11 @@ export default function NodeConfigPanel({ node, onUpdate }: NodeConfigPanelProps
     });
   };
 
-  const handleSave = () => {
-    console.log('节点配置已更新:', config);
-    // 配置已经通过onUpdate回调自动保存到flow状态
-    // 提示用户配置已更新
-    alert('节点配置已更新，请点击"保存流程"按钮保存整个流程。');
-  };
-
   return (
     <Card className="p-4 bg-white shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Settings className="w-5 h-5 text-slate-600" />
-          <h3 className="font-semibold text-slate-900">节点配置</h3>
-        </div>
-        <Button variant="ghost" size="sm" onClick={handleSave}>
-          <Save className="w-4 h-4 mr-1" />
-          保存
-        </Button>
+      <div className="flex items-center gap-2 mb-4">
+        <Settings className="w-5 h-5 text-slate-600" />
+        <h3 className="font-semibold text-slate-900">节点配置</h3>
       </div>
 
       {/* 节点基本信息 */}

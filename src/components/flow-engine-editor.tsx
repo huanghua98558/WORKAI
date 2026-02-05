@@ -11,7 +11,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Play, Save, TestTube, FileJson, Settings, X, Minimize2, Maximize2 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Play,
+  Save,
+  TestTube,
+  FileJson,
+  LayoutGrid,
+  X,
+  Minimize2,
+  Maximize2,
+  Trash2
+} from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import FlowCanvas from '@/app/flow-engine/components/FlowCanvas';
 import FlowNodeLibrary from '@/app/flow-engine/components/FlowNodeLibrary';
 import NodeConfigPanel from '@/app/flow-engine/components/NodeConfigPanel';
@@ -56,6 +74,7 @@ interface FlowEditorProps {
 }
 
 export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'create' }: FlowEditorProps) {
+  const { toast } = useToast();
   const [flow, setFlow] = useState<FlowDefinition>(
     initialFlow || {
       id: `flow_${Date.now()}`,
@@ -76,7 +95,20 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
   // 保存流程
   const handleSaveFlow = async () => {
     if (!flow.name.trim()) {
-      alert('请输入流程名称');
+      toast({
+        title: "验证失败",
+        description: "请输入流程名称",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (flow.nodes.length === 0) {
+      toast({
+        title: "验证失败",
+        description: "请至少添加一个节点",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -85,11 +117,15 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
       if (onSave) {
         await onSave(flow);
       }
-      // 如果有onClose，则保存后关闭
-      // if (onClose) onClose();
+      // 保存成功后关闭弹窗
+      if (onClose) onClose();
     } catch (error) {
       console.error('保存失败:', error);
-      alert('保存失败，请查看控制台');
+      toast({
+        title: "保存失败",
+        description: error instanceof Error ? error.message : '未知错误，请查看控制台',
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -191,29 +227,46 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
     <div className="flex flex-col h-full bg-gradient-to-br from-slate-50 to-slate-100">
       {/* 顶部工具栏 */}
       <div className="flex-shrink-0 border-b bg-white px-4 py-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4 flex-1">
-          <h2 className="text-lg font-semibold text-slate-900">
+        <div className="flex items-center gap-4 flex-1 min-w-0">
+          <h2 className="text-lg font-semibold text-slate-900 whitespace-nowrap">
             {mode === 'create' ? '创建新流程' : '编辑流程'}
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-1 flex-1 max-w-md min-w-0">
             <Input
               value={flow.name}
               onChange={(e) => setFlow({ ...flow, name: e.target.value })}
-              placeholder="流程名称"
-              className="w-48"
+              placeholder="流程名称 *"
+              className="w-full"
+            />
+            <Input
+              value={flow.description}
+              onChange={(e) => setFlow({ ...flow, description: e.target.value })}
+              placeholder="流程描述（可选）"
+              className="w-full text-sm"
             />
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setTestResults([])}
-            disabled={testResults.length === 0}
-          >
-            清除日志
-          </Button>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="trigger-type" className="text-sm">触发类型：</Label>
+            <Select
+              value={flow.triggerType}
+              onValueChange={(v) => setFlow({ ...flow, triggerType: v as 'webhook' | 'manual' | 'scheduled' })}
+            >
+              <SelectTrigger id="trigger-type" className="w-32 h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="webhook">Webhook</SelectItem>
+                <SelectItem value="manual">手动</SelectItem>
+                <SelectItem value="scheduled">定时</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="h-6 w-px bg-slate-200" />
+
           <Button
             variant="outline"
             size="sm"
@@ -249,7 +302,7 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
           <div className="px-4 py-3 border-b">
             <TabsList>
               <TabsTrigger value="visual">
-                <Settings className="w-4 h-4 mr-2" />
+                <LayoutGrid className="w-4 h-4 mr-2" />
                 可视化编辑
               </TabsTrigger>
               <TabsTrigger value="json">
@@ -262,12 +315,12 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
           <TabsContent value="visual" className="flex-1 p-4 overflow-hidden">
             <div className="grid grid-cols-12 gap-4 h-full min-h-0">
               {/* 左侧：节点库 */}
-              <div className="col-span-2 overflow-hidden">
+              <div className="col-span-3 overflow-hidden">
                 <FlowNodeLibrary />
               </div>
 
               {/* 中间：画布 */}
-              <div className="col-span-7 overflow-hidden">
+              <div className="col-span-5 overflow-hidden">
                 <FlowCanvas
                   nodes={flow.nodes}
                   edges={flow.edges}
@@ -280,7 +333,7 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
               </div>
 
               {/* 右侧：配置面板 */}
-              <div className="col-span-3 space-y-4 overflow-y-auto">
+              <div className="col-span-4 space-y-4 overflow-y-auto">
                 {selectedNode && (
                   <NodeConfigPanel
                     node={selectedNode}
@@ -293,6 +346,7 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
                   <FlowTestPanel
                     results={testResults}
                     isRunning={isTesting}
+                    onClear={() => setTestResults([])}
                   />
                 )}
               </div>
