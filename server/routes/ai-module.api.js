@@ -22,6 +22,9 @@ const AIBudgetManager = require('../services/ai/AIBudgetManager');
 
 const logger = getLogger('AI_MODULE_API');
 
+// 导入AI服务工厂
+const AIServiceFactory = require('../services/ai/AIServiceFactory');
+
 /**
  * GET /api/ai/models - 获取所有AI模型
  */
@@ -1112,6 +1115,60 @@ async function getBudgetTrend(request, reply) {
     return reply.code(500).send({
       success: false,
       error: error.message
+    });
+  }
+}
+
+/**
+ * POST /api/ai/test - AI模型测试接口
+ * 用于测试AI模型的响应
+ */
+async function testAI(request, reply) {
+  try {
+    const { modelId, input } = request.body;
+
+    // 验证参数
+    if (!modelId || !input) {
+      return reply.code(400).send({
+        success: false,
+        error: '缺少必要参数：modelId 和 input'
+      });
+    }
+
+    logger.info('开始AI模型测试', { modelId, inputLength: input.length });
+
+    // 使用AI服务工厂创建服务实例
+    const aiService = await AIServiceFactory.createServiceByModelId(modelId);
+
+    // 构建测试消息
+    const messages = [
+      { role: 'user', content: input }
+    ];
+
+    // 调用AI服务生成回复
+    const startTime = Date.now();
+    const result = await aiService.generateReply(messages, {
+      operationType: 'test',
+      sessionId: 'test-session-' + Date.now()
+    });
+    const responseTime = Date.now() - startTime;
+
+    // 返回测试结果
+    return reply.send({
+      success: true,
+      data: {
+        reply: result.content,
+        usage: result.usage,
+        responseTime: responseTime,
+        modelId: modelId
+      }
+    });
+  } catch (error) {
+    logger.error('AI模型测试失败', { error: error.message, stack: error.stack });
+
+    return reply.code(500).send({
+      success: false,
+      error: error.message || 'AI模型测试失败'
     });
   }
 }
