@@ -415,8 +415,8 @@ export default function AIModule() {
       };
 
       const url = selectedPersona?.id
-        ? `/api/ai/personas/${selectedPersona.id}`
-        : '/api/ai/personas';
+        ? `/api/proxy/ai/personas/${selectedPersona.id}`
+        : '/api/proxy/ai/personas';
 
       const response = await fetch(url, {
         method: selectedPersona?.id ? 'PUT' : 'POST',
@@ -444,7 +444,7 @@ export default function AIModule() {
     if (!confirm('确定要删除这个角色吗？')) return;
 
     try {
-      const response = await fetch(`/api/ai/personas/${id}`, {
+      const response = await fetch(`/api/proxy/ai/personas/${id}`, {
         method: 'DELETE'
       });
 
@@ -480,8 +480,8 @@ export default function AIModule() {
       };
 
       const url = selectedTemplate?.id
-        ? `/api/ai/templates/${selectedTemplate.id}`
-        : '/api/ai/templates';
+        ? `/api/proxy/ai/templates/${selectedTemplate.id}`
+        : '/api/proxy/ai/templates';
 
       const response = await fetch(url, {
         method: selectedTemplate?.id ? 'PUT' : 'POST',
@@ -509,7 +509,7 @@ export default function AIModule() {
     if (!confirm('确定要删除这个模板吗？')) return;
 
     try {
-      const response = await fetch(`/api/ai/templates/${id}`, {
+      const response = await fetch(`/api/proxy/ai/templates/${id}`, {
         method: 'DELETE'
       });
 
