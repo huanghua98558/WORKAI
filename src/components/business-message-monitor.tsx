@@ -382,45 +382,22 @@ export default function BusinessMessageMonitor({ onNavigateToSession }: Business
                     <CardContent className="p-4">
                       <div className="space-y-3">
                         {/* 第一行：基本信息 */}
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            {/* 消息方向 */}
-                            <div className="flex items-center gap-1 text-muted-foreground flex-shrink-0">
-                              <User className="h-4 w-4" />
-                              <ArrowRight className="h-4 w-4" />
-                              <Bot className="h-4 w-4" />
-                            </div>
-                            
-                            {/* 用户/群组信息 */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                {execution.userName && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {execution.userName}
-                                  </Badge>
-                                )}
-                                {execution.groupName && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {execution.groupName}
-                                  </Badge>
-                                )}
-                                {onNavigateToSession && execution.sessionId && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 text-xs gap-1"
-                                    onClick={() => onNavigateToSession(execution.sessionId)}
-                                  >
-                                    <ExternalLink className="h-3 w-3" />
-                                    查看会话
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* 决策类型和机器人信息 */}
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {getDecisionDisplay(execution)}
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            {/* 用户/群组/机器人信息 */}
+                            <div className="flex items-center gap-2 flex-wrap mb-2">
+                              {execution.userName && (
+                                <Badge variant="outline" className="text-xs flex-shrink-0">
+                                  <User className="h-3 w-3 mr-1" />
+                                  {execution.userName}
+                                </Badge>
+                              )}
+                              {execution.groupName && (
+                                <Badge variant="outline" className="text-xs flex-shrink-0">
+                                  <MessageSquare className="h-3 w-3 mr-1" />
+                                  {execution.groupName}
+                                </Badge>
+                              )}
                               {execution.robotName && (
                                 <Badge variant="secondary" className="text-xs flex-shrink-0">
                                   <Bot className="h-3 w-3 mr-1" />
@@ -428,38 +405,47 @@ export default function BusinessMessageMonitor({ onNavigateToSession }: Business
                                 </Badge>
                               )}
                             </div>
-                          </div>
 
-                          {/* 状态和时间 */}
-                          <div className="flex items-center gap-3 flex-shrink-0">
-                            {getStatusBadge(execution.status)}
-                            <div className="text-right text-sm text-muted-foreground">
-                              <div className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
+                            {/* 用户消息内容 */}
+                            <div className="text-sm text-foreground line-clamp-2 mb-2">
+                              {execution.content || '(空消息)'}
+                            </div>
+
+                            {/* 决策、状态和时间 */}
+                            <div className="flex items-center gap-2 flex-wrap text-xs">
+                              {getDecisionDisplay(execution)}
+                              {getStatusBadge(execution.status)}
+                              <span className="text-muted-foreground">
+                                <Clock className="h-3 w-3 inline mr-1" />
                                 {formatTime(execution.startedAt)}
-                              </div>
+                              </span>
                               {execution.duration && (
-                                <div className="text-xs mt-0.5">
+                                <span className="text-muted-foreground">
                                   耗时: {formatDuration(execution.duration)}
-                                </div>
+                                </span>
                               )}
                             </div>
                           </div>
-                        </div>
 
-                        {/* 第二行：消息内容 */}
-                        <div className="pl-8">
-                          <div className="bg-muted/50 rounded-lg p-3">
-                            <div className="text-sm font-medium mb-1">用户消息:</div>
-                            <div className="text-sm text-foreground break-words">
-                              {execution.content || '(空消息)'}
-                            </div>
+                          {/* 右侧操作按钮 */}
+                          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                            {onNavigateToSession && execution.sessionId && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs gap-1"
+                                onClick={() => onNavigateToSession(execution.sessionId)}
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                查看会话
+                              </Button>
+                            )}
                           </div>
                         </div>
 
                         {/* 可展开的详细信息 */}
                         {(execution.aiResponse || execution.intent || execution.errorMessage || execution.nodeType) && (
-                          <div className="pl-8">
+                          <div className="border-t pt-3">
                             <button
                               onClick={() => setExpandedExecutionId(
                                 expandedExecutionId === execution.id ? null : execution.id
@@ -491,7 +477,7 @@ export default function BusinessMessageMonitor({ onNavigateToSession }: Business
 
                                 {/* 意图识别 */}
                                 {execution.intent && (
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
                                     <Badge variant="outline" className="text-xs">
                                       意图: {execution.intent}
                                     </Badge>

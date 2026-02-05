@@ -2026,7 +2026,7 @@ ${callbacks.robotStatus}
               </div>
             </CardHeader>
             <CardContent className="pt-5">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                 {sessions.slice(0, 10).map((session) => (
                   <Card
                     key={session.sessionId}
@@ -2040,7 +2040,7 @@ ${callbacks.robotStatus}
                     <CardContent className="p-4">
                       {/* 用户头像和状态 */}
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm flex-shrink-0">
                           <User className="h-5 w-5 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -2049,7 +2049,7 @@ ${callbacks.robotStatus}
                             <Badge
                               variant={session.status === 'auto' ? 'default' : 'secondary'}
                               className={cn(
-                                "h-5 px-1.5 text-[10px] gap-0.5",
+                                "h-5 px-1.5 text-[10px] gap-0.5 flex-shrink-0",
                                 session.status === 'auto'
                                   ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50"
                                   : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/50"
@@ -2067,8 +2067,8 @@ ${callbacks.robotStatus}
                       </div>
 
                       {/* 最近消息 */}
-                      <div className="mb-2">
-                        <div className="text-xs text-muted-foreground line-clamp-2 min-h-[2.5rem]">
+                      <div className="mb-3 min-h-[3rem]">
+                        <div className="text-xs text-muted-foreground line-clamp-2">
                           {session.lastMessage || '暂无消息'}
                         </div>
                       </div>
@@ -2079,7 +2079,7 @@ ${callbacks.robotStatus}
                           <MessageSquare className="h-3 w-3" />
                           {session.messageCount}
                         </span>
-                        <span className="font-medium text-blue-600 dark:text-blue-400">
+                        <span className="font-medium text-blue-600 dark:text-blue-400 flex-shrink-0">
                           {formatTime(session.lastActiveTime)}
                         </span>
                       </div>
@@ -2199,25 +2199,25 @@ ${callbacks.robotStatus}
                     className="group hover:shadow-md hover:border-blue-400 dark:hover:border-blue-600 transition-all duration-200 cursor-pointer bg-gradient-to-br from-white to-slate-50/50 dark:from-slate-900 dark:to-slate-950/50"
                     onClick={() => handleViewSessionDetail(session)}
                   >
-                    <CardContent className="p-5">
-                      <div className="flex items-start gap-4">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
                         {/* 左侧头像区域 */}
                         <div className="flex-shrink-0">
-                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
-                            <UserCheck className="h-6 w-6 text-white" />
+                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
+                            <UserCheck className="h-5 w-5 text-white" />
                           </div>
                         </div>
                         
                         {/* 中间信息区域 */}
                         <div className="flex-1 min-w-0">
                           {/* 第一行：用户名、状态、意图 */}
-                          <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <span className="font-bold text-base truncate">{session.userName || '未知用户'}</span>
+                          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                            <span className="font-semibold text-sm truncate">{session.userName || '未知用户'}</span>
                             
                             <Badge 
                               variant={session.status === 'auto' ? 'default' : 'secondary'}
                               className={cn(
-                                "gap-1 h-6 px-2 text-[11px] font-medium",
+                                "gap-0.5 h-5 px-1.5 text-[10px] flex-shrink-0",
                                 session.status === 'auto'
                                   ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50"
                                   : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/50"
@@ -2225,52 +2225,46 @@ ${callbacks.robotStatus}
                             >
                               {session.status === 'auto' ? (
                                 <>
-                                  <Bot className="h-3 w-3" />
+                                  <Bot className="h-2.5 w-2.5" />
                                   自动
                                 </>
                               ) : (
                                 <>
-                                  <Users className="h-3 w-3" />
+                                  <Users className="h-2.5 w-2.5" />
                                   人工
                                 </>
                               )}
                             </Badge>
                             
                             {session.lastIntent && (
-                              <Badge variant="outline" className="gap-1 h-6 px-2 text-[11px] border-purple-300 text-purple-700 dark:border-purple-700 dark:text-purple-300">
-                                <Sparkles className="h-3 w-3" />
+                              <Badge variant="outline" className="gap-0.5 h-5 px-1.5 text-[10px] border-purple-300 text-purple-700 dark:border-purple-700 dark:text-purple-300">
+                                <Sparkles className="h-2.5 w-2.5" />
                                 {session.lastIntent}
                               </Badge>
                             )}
                             
                             {session.aiReplyCount > 0 && (
-                              <div className="flex items-center gap-1 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30 px-2 py-0.5 rounded-full text-[11px]">
-                                <CheckCircle className="h-3 w-3" />
+                              <div className="flex items-center gap-0.5 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30 px-1.5 py-0.5 rounded-full text-[10px]">
+                                <CheckCircle className="h-2.5 w-2.5" />
                                 已回复
                               </div>
                             )}
                           </div>
                           
                           {/* 第二行：群组、消息 */}
-                          <div className="flex items-center gap-2 text-sm mb-2 flex-wrap">
-                            <div className="flex items-center gap-1.5 text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
-                              <Building2 className="h-3.5 w-3.5" />
+                          <div className="flex items-center gap-2 text-xs mb-1.5 flex-wrap">
+                            <div className="flex items-center gap-1 text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded text-[10px]">
+                              <Building2 className="h-3 w-3" />
                               {session.groupName || '未知群组'}
                             </div>
                             {session.lastMessage && (
-                              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-1 min-w-0 max-w-md">
                                 {session.isFromUser ? (
-                                  <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
-                                    <User className="h-3.5 w-3.5" />
-                                  </div>
+                                  <User className="h-3 w-3 text-blue-500 flex-shrink-0" />
                                 ) : session.isHuman ? (
-                                  <div className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
-                                    <UserCheck className="h-3.5 w-3.5" />
-                                  </div>
+                                  <UserCheck className="h-3 w-3 text-orange-500 flex-shrink-0" />
                                 ) : (
-                                  <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                                    <Bot className="h-3.5 w-3.5" />
-                                  </div>
+                                  <Bot className="h-3 w-3 text-green-500 flex-shrink-0" />
                                 )}
                                 <span className="truncate text-muted-foreground">{session.lastMessage}</span>
                               </div>
@@ -2278,38 +2272,38 @@ ${callbacks.robotStatus}
                           </div>
                           
                           {/* 第三行：统计信息 */}
-                          <div className="flex items-center gap-4 text-xs">
-                            <div className="flex items-center gap-1.5 text-muted-foreground">
-                              <MessageSquare className="h-3.5 w-3.5" />
-                              <span>{session.messageCount} 消息</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
-                              <Bot className="h-3.5 w-3.5" />
-                              <span>{session.aiReplyCount} AI</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-orange-600 dark:text-orange-400">
-                              <User className="h-3.5 w-3.5" />
-                              <span>{session.humanReplyCount} 人工</span>
-                            </div>
+                          <div className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
+                            <span className="flex items-center gap-1">
+                              <MessageSquare className="h-3 w-3" />
+                              {session.messageCount}
+                            </span>
+                            <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                              <Bot className="h-3 w-3" />
+                              {session.aiReplyCount}
+                            </span>
+                            <span className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
+                              <User className="h-3 w-3" />
+                              {session.humanReplyCount}
+                            </span>
                             {session.company && (
-                              <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
-                                <Building2 className="h-3.5 w-3.5" />
-                                <span>{session.company}</span>
-                                {session.robotNickname && <span>({session.robotNickname})</span>}
-                              </div>
+                              <span className="hidden lg:inline-flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                                <Building2 className="h-3 w-3" />
+                                {session.company}
+                                {session.robotNickname && ` (${session.robotNickname})`}
+                              </span>
                             )}
                           </div>
                         </div>
                         
                         {/* 右侧时间区域 */}
                         <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                          <div className="text-xs font-medium text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full">
+                          <div className="text-[10px] font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded">
                             {formatTime(session.lastActiveTime)}
                           </div>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 px-3 text-xs border-2 hover:bg-blue-50 hover:border-blue-400 dark:hover:bg-blue-950/30 dark:hover:border-blue-600 opacity-60 group-hover:opacity-100 transition-all"
+                            className="h-6 px-2 text-[10px] border-2 hover:bg-blue-50 hover:border-blue-400 dark:hover:bg-blue-950/30 dark:hover:border-blue-600 opacity-60 group-hover:opacity-100 transition-all"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleToggleSessionStatus(session);
@@ -2317,12 +2311,12 @@ ${callbacks.robotStatus}
                           >
                             {session.status === 'auto' ? (
                               <>
-                                <UserCheck className="h-3.5 w-3.5 mr-1.5" />
+                                <UserCheck className="h-3 w-3 mr-1" />
                                 转人工
                               </>
                             ) : (
                               <>
-                                <Bot className="h-3.5 w-3.5 mr-1.5" />
+                                <Bot className="h-3 w-3 mr-1" />
                                 转自动
                               </>
                             )}
