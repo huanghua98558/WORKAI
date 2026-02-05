@@ -462,7 +462,7 @@ export default function RobotManagement() {
   const handleCheckStatus = async (robot: Robot) => {
     setRefreshingRobotId(robot.robotId);
     try {
-      const res = await fetch(`/api/admin/robots/check-status/${robot.robotId}`, {
+      const res = await fetch(`/api/proxy/admin/robots/check-status/${robot.robotId}`, {
         method: 'POST'
       });
 
@@ -485,7 +485,7 @@ export default function RobotManagement() {
   const handleRefreshAll = async () => {
     setIsRefreshingAll(true);
     try {
-      const res = await fetch('/api/admin/robots/check-status-all', {
+      const res = await fetch('/api/proxy/admin/robots/check-status-all', {
         method: 'POST'
       });
 
@@ -730,7 +730,10 @@ export default function RobotManagement() {
 
       {/* 筛选和排序 */}
       <Card>
-        <CardContent className="pt-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">筛选与排序</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
           <div className="flex flex-col sm:flex-row gap-4">
             {/* 状态筛选 */}
             <div className="flex items-center gap-2">
