@@ -107,12 +107,9 @@ export default function FlowEngineManage() {
   const [selectedFlow, setSelectedFlow] = useState<FlowDefinition | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [activeTab, setActiveTab] = useState<'flows' | 'instances'>('flows');
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
 
-  // 编辑器对话框状态
+  // 编辑器对话框状态（统一用于创建和编辑）
   const [editorDialog, setEditorDialog] = useState({
     isOpen: false,
     mode: 'create' as 'create' | 'edit',
@@ -150,16 +147,6 @@ export default function FlowEngineManage() {
   };
 
   const { toast } = useToast();
-
-  // 表单状态
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    status: 'draft' as 'active' | 'inactive' | 'draft',
-    trigger_type: 'webhook' as 'webhook' | 'manual' | 'scheduled',
-    trigger_config: {} as Record<string, any>,
-    nodes: [] as FlowNode[],
-  });
 
   // 加载流程列表
   const loadFlows = async () => {
@@ -336,107 +323,6 @@ export default function FlowEngineManage() {
     }
   };
 
-  // 创建流程
-  const handleCreateFlow = async () => {
-    if (!formData.name.trim()) {
-      toast({
-        title: "验证失败",
-        description: "请输入流程名称",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const result = await createFlowDefinition({
-        name: formData.name,
-        description: formData.description,
-        status: formData.status,
-        trigger_type: formData.trigger_type,
-        trigger_config: formData.trigger_config,
-        nodes: formData.nodes,
-      });
-
-      if (result.success) {
-        // 刷新流程列表
-        await loadFlows();
-        setIsCreateDialogOpen(false);
-        setFormData({
-          name: '',
-          description: '',
-          status: 'draft',
-          trigger_type: 'webhook',
-          trigger_config: {},
-          nodes: [],
-        });
-        toast({
-          title: "创建成功",
-          description: "流程已创建",
-        });
-      } else {
-        toast({
-          title: "创建失败",
-          description: result.error || '创建流程失败',
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('创建流程失败:', error);
-      toast({
-        title: "创建失败",
-        description: '创建流程失败',
-        variant: "destructive",
-      });
-    }
-  };
-
-  // 更新流程
-  const handleUpdateFlow = async () => {
-    if (!selectedFlow || !formData.name.trim()) {
-      toast({
-        title: "验证失败",
-        description: "请输入流程名称",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const result = await updateFlowDefinition(selectedFlow.id, {
-        name: formData.name,
-        description: formData.description,
-        status: formData.status,
-        trigger_type: formData.trigger_type,
-        trigger_config: formData.trigger_config,
-        nodes: formData.nodes,
-      });
-
-      if (result.success) {
-        // 刷新流程列表
-        await loadFlows();
-        setIsEditDialogOpen(false);
-        setSelectedFlow(null);
-        toast({
-          title: "更新成功",
-          description: "流程已更新",
-        });
-      } else {
-        toast({
-          title: "更新失败",
-          description: result.error || '更新流程失败',
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('更新流程失败:', error);
-      toast({
-        title: "更新失败",
-        description: '更新流程失败',
-        variant: "destructive",
-      });
-    }
-  };
-
   // 获取状态图标
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -565,19 +451,10 @@ export default function FlowEngineManage() {
           <Button
             variant="default"
             size="sm"
-            onClick={() => setIsCreateDialogOpen(true)}
+            onClick={() => setEditorDialog({ ...editorDialog, isOpen: true, mode: 'create' })}
             className="gap-2"
           >
             <Plus className="h-4 w-4" />
-            创建流程
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setIsCreateDialogOpen(true)}
-            className="gap-2"
-          >
-            <Zap className="h-4 w-4" />
             新建流程（可视化编辑）
           </Button>
         </div>
@@ -624,7 +501,7 @@ export default function FlowEngineManage() {
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <GitBranch className="h-12 w-12 text-muted-foreground mb-4" />
                 <p className="text-muted-foreground mb-4">暂无流程</p>
-                <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
+                <Button onClick={() => setEditorDialog({ ...editorDialog, isOpen: true, mode: 'create' })} className="gap-2">
                   <Plus className="h-4 w-4" />
                   创建第一个流程
                 </Button>
@@ -813,8 +690,8 @@ export default function FlowEngineManage() {
         </Card>
       )}
 
-      {/* 创建流程编辑器对话框 */}
-      {isCreateDialogOpen && (
+      {/* 统一的流程编辑器对话框（创建和编辑） */}
+      {editorDialog.isOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div
             className="bg-white rounded-lg shadow-2xl overflow-hidden flex flex-col"
@@ -830,162 +707,14 @@ export default function FlowEngineManage() {
                   <GitBranch className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-900">创建新流程</h2>
-                  <p className="text-xs text-slate-500">可视化流程编排</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setEditorDialog({
-                      ...editorDialog,
-                      isMaximized: !editorDialog.isMaximized,
-                      width: editorDialog.isMaximized ? 1200 : window.innerWidth * 0.95,
-                      height: editorDialog.isMaximized ? 700 : window.innerHeight * 0.95,
-                    });
-                  }}
-                  title={editorDialog.isMaximized ? "还原" : "最大化"}
-                >
-                  {editorDialog.isMaximized ? (
-                    <Minimize2 className="w-4 h-4" />
-                  ) : (
-                    <Maximize2 className="w-4 h-4" />
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setIsCreateDialogOpen(false);
-                    setFormData({
-                      name: '',
-                      description: '',
-                      status: 'draft',
-                      trigger_type: 'webhook',
-                      trigger_config: {},
-                      nodes: [],
-                    });
-                  }}
-                  title="关闭"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* 调整大小的手柄 */}
-            <div
-              className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                const startX = e.clientX;
-                const startY = e.clientY;
-                const startWidth = editorDialog.width;
-                const startHeight = editorDialog.height;
-
-                const handleMouseMove = (moveEvent: MouseEvent) => {
-                  const newWidth = Math.max(800, startWidth + (moveEvent.clientX - startX));
-                  const newHeight = Math.max(600, startHeight + (moveEvent.clientY - startY));
-                  setEditorDialog({
-                    ...editorDialog,
-                    width: newWidth,
-                    height: newHeight,
-                    isMaximized: false,
-                  });
-                };
-
-                const handleMouseUp = () => {
-                  document.removeEventListener('mousemove', handleMouseMove);
-                  document.removeEventListener('mouseup', handleMouseUp);
-                };
-
-                document.addEventListener('mousemove', handleMouseMove);
-                document.addEventListener('mouseup', handleMouseUp);
-              }}
-            >
-              <div className="absolute bottom-1 right-1 w-4 h-4 border-b-2 border-r-2 border-slate-300 rounded-br" />
-            </div>
-
-            {/* FlowEditor 内容 */}
-            <div className="flex-1 overflow-hidden">
-              <FlowEditor
-                mode="create"
-                onSave={async (flow) => {
-                  try {
-                    await handleCreateFlow({
-                      id: flow.id,
-                      name: flow.name,
-                      description: flow.description,
-                      status: 'active',
-                      trigger_type: flow.triggerType,
-                      trigger_config: {},
-                      version: '1.0.0',
-                      nodes: convertToBackendNodes(flow.nodes),
-                    });
-
-                    setIsCreateDialogOpen(false);
-                    setFormData({
-                      name: '',
-                      description: '',
-                      status: 'draft',
-                      trigger_type: 'webhook',
-                      trigger_config: {},
-                      nodes: [],
-                    });
-
-                    toast({
-                      title: '流程创建成功',
-                      description: `流程 "${flow.name}" 已创建`,
-                    });
-                  } catch (error) {
-                    console.error('创建流程失败:', error);
-                    toast({
-                      variant: 'destructive',
-                      title: '创建失败',
-                      description: error instanceof Error ? error.message : '未知错误',
-                    });
-                    throw error;
-                  }
-                }}
-                onClose={() => {
-                  setIsCreateDialogOpen(false);
-                  setFormData({
-                    name: '',
-                    description: '',
-                    status: 'draft',
-                    trigger_type: 'webhook',
-                    trigger_config: {},
-                    nodes: [],
-                  });
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 编辑流程编辑器对话框 */}
-      {editorDialog.isOpen && editorDialog.mode === 'edit' && selectedFlow && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div
-            className="bg-white rounded-lg shadow-2xl overflow-hidden flex flex-col"
-            style={{
-              width: editorDialog.isMaximized ? '95vw' : `${editorDialog.width}px`,
-              height: editorDialog.isMaximized ? '95vh' : `${editorDialog.height}px`,
-            }}
-          >
-            {/* 对话框顶部工具栏 */}
-            <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-slate-50 to-slate-100">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                  <GitBranch className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">编辑流程</h2>
-                  <p className="text-xs text-slate-500">{selectedFlow.name}</p>
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    {editorDialog.mode === 'create' ? '创建新流程' : '编辑流程'}
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    {editorDialog.mode === 'create'
+                      ? '可视化流程编排'
+                      : selectedFlow?.name || ''}
+                  </p>
                 </div>
               </div>
 
@@ -1058,60 +787,104 @@ export default function FlowEngineManage() {
 
             {/* FlowEditor 内容 */}
             <div className="flex-1 overflow-hidden">
-              <FlowEditor
-                mode="edit"
-                initialFlow={{
-                  id: selectedFlow.id,
-                  name: selectedFlow.name,
-                  description: selectedFlow.description || '',
-                  triggerType: selectedFlow.trigger_type || 'webhook',
-                  nodes: convertToEditorNodes(selectedFlow.nodes || []),
-                  edges: selectedFlow.edges?.map((edge, index) => ({
-                    id: `edge_${index}`,
-                    source: edge.source,
-                    target: edge.target,
-                  })) || [],
-                }}
-                onSave={async (flow) => {
-                  try {
-                    await handleUpdateFlow({
-                      id: selectedFlow.id,
-                      name: flow.name,
-                      description: flow.description,
-                      status: selectedFlow.status,
-                      trigger_type: flow.triggerType,
-                      trigger_config: selectedFlow.trigger_config || {},
-                      version: selectedFlow.version || '1.0.0',
-                      nodes: convertToBackendNodes(flow.nodes),
-                      edges: flow.edges.map(edge => ({
-                        source: edge.source,
-                        target: edge.target,
-                        condition: edge.sourceHandle,
-                      })),
-                    });
+              {editorDialog.mode === 'create' ? (
+                <FlowEditor
+                  mode="create"
+                  onSave={async (flow) => {
+                    try {
+                      const result = await createFlowDefinition({
+                        name: flow.name,
+                        description: flow.description,
+                        status: 'active',
+                        trigger_type: flow.triggerType,
+                        trigger_config: {},
+                        version: '1.0.0',
+                        nodes: convertToBackendNodes(flow.nodes),
+                      });
 
+                      if (result.success) {
+                        await loadFlows();
+                        setEditorDialog({ ...editorDialog, isOpen: false });
+                        toast({
+                          title: '流程创建成功',
+                          description: `流程 "${flow.name}" 已创建`,
+                        });
+                      } else {
+                        throw new Error(result.error || '创建失败');
+                      }
+                    } catch (error) {
+                      console.error('创建流程失败:', error);
+                      toast({
+                        variant: 'destructive',
+                        title: '创建失败',
+                        description: error instanceof Error ? error.message : '未知错误',
+                      });
+                      throw error;
+                    }
+                  }}
+                  onClose={() => {
+                    setEditorDialog({ ...editorDialog, isOpen: false });
+                  }}
+                />
+              ) : (
+                <FlowEditor
+                  mode="edit"
+                  initialFlow={{
+                    id: selectedFlow!.id,
+                    name: selectedFlow!.name,
+                    description: selectedFlow!.description || '',
+                    triggerType: selectedFlow!.trigger_type || 'webhook',
+                    nodes: convertToEditorNodes(selectedFlow!.nodes || []),
+                    edges: selectedFlow!.edges?.map((edge, index) => ({
+                      id: `edge_${index}`,
+                      source: edge.source,
+                      target: edge.target,
+                    })) || [],
+                  }}
+                  onSave={async (flow) => {
+                    try {
+                      const result = await updateFlowDefinition(selectedFlow!.id, {
+                        name: flow.name,
+                        description: flow.description,
+                        status: selectedFlow!.status,
+                        trigger_type: flow.triggerType,
+                        trigger_config: selectedFlow!.trigger_config || {},
+                        version: selectedFlow!.version || '1.0.0',
+                        nodes: convertToBackendNodes(flow.nodes),
+                        edges: flow.edges.map(edge => ({
+                          source: edge.source,
+                          target: edge.target,
+                          condition: edge.sourceHandle,
+                        })),
+                      });
+
+                      if (result.success) {
+                        await loadFlows();
+                        setEditorDialog({ ...editorDialog, isOpen: false });
+                        setSelectedFlow(null);
+                        toast({
+                          title: '流程更新成功',
+                          description: `流程 "${flow.name}" 已更新`,
+                        });
+                      } else {
+                        throw new Error(result.error || '更新失败');
+                      }
+                    } catch (error) {
+                      console.error('更新流程失败:', error);
+                      toast({
+                        variant: 'destructive',
+                        title: '更新失败',
+                        description: error instanceof Error ? error.message : '未知错误',
+                      });
+                      throw error;
+                    }
+                  }}
+                  onClose={() => {
                     setEditorDialog({ ...editorDialog, isOpen: false });
                     setSelectedFlow(null);
-
-                    toast({
-                      title: '流程更新成功',
-                      description: `流程 "${flow.name}" 已更新`,
-                    });
-                  } catch (error) {
-                    console.error('更新流程失败:', error);
-                    toast({
-                      variant: 'destructive',
-                      title: '更新失败',
-                      description: error instanceof Error ? error.message : '未知错误',
-                    });
-                    throw error;
-                  }
-                }}
-                onClose={() => {
-                  setEditorDialog({ ...editorDialog, isOpen: false });
-                  setSelectedFlow(null);
-                }}
-              />
+                  }}
+                />
+              )}
             </div>
           </div>
         </div>
