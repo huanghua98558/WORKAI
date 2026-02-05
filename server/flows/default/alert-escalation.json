@@ -1,0 +1,203 @@
+{
+  "id": "flow_alert_escalation",
+  "name": "告警处理流程",
+  "description": "处理告警升级，按级别通知不同人员",
+  "version": "1.0.0",
+  "triggerType": "webhook",
+  "triggerConfig": {
+    "webhookUrl": "/api/alert-enhanced/trigger",
+    "eventType": "alert"
+  },
+  "nodes": [
+    {
+      "id": "node_01",
+      "type": "start",
+      "position": { "x": 100, "y": 100 },
+      "data": {
+        "name": "开始",
+        "description": "告警触发",
+        "config": {}
+      }
+    },
+    {
+      "id": "node_02",
+      "type": "alert_rule",
+      "position": { "x": 250, "y": 100 },
+      "data": {
+        "name": "告警规则判断",
+        "description": "判断告警级别和处理规则",
+        "config": {
+          "rules": [
+            {
+              "level": "P1",
+              "condition": "critical",
+              "responseTime": "5min"
+            },
+            {
+              "level": "P2",
+              "condition": "high",
+              "responseTime": "15min"
+            },
+            {
+              "level": "P3",
+              "condition": "medium",
+              "responseTime": "1hour"
+            },
+            {
+              "level": "P4",
+              "condition": "low",
+              "responseTime": "24hour"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_03",
+      "type": "decision",
+      "position": { "x": 400, "y": 100 },
+      "data": {
+        "name": "告警级别分流",
+        "description": "根据告警级别决定处理方式",
+        "config": {
+          "conditions": [
+            {
+              "expression": "context.alertLevel === 'P4'",
+              "label": "P4级别",
+              "targetNodeId": "node_04"
+            },
+            {
+              "expression": "context.alertLevel === 'P3'",
+              "label": "P3级别",
+              "targetNodeId": "node_06"
+            },
+            {
+              "expression": "context.alertLevel === 'P2' || context.alertLevel === 'P1'",
+              "label": "P2/P1级别",
+              "targetNodeId": "node_08"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_04",
+      "type": "log_save",
+      "position": { "x": 550, "y": 250 },
+      "data": {
+        "name": "记录日志",
+        "description": "记录P4级别告警",
+        "config": {
+          "logLevel": "info",
+          "message": "P4级别告警"
+        }
+      }
+    },
+    {
+      "id": "node_05",
+      "type": "end",
+      "position": { "x": 700, "y": 250 },
+      "data": {
+        "name": "结束",
+        "description": "流程结束"
+      }
+    },
+    {
+      "id": "node_06",
+      "type": "http_request",
+      "position": { "x": 550, "y": 100 },
+      "data": {
+        "name": "发送邮件",
+        "description": "发送P3级别告警邮件",
+        "config": {
+          "url": "/api/notification/email",
+          "method": "POST",
+          "body": {
+            "to": "support@example.com",
+            "subject": "P3告警通知",
+            "message": "{{context.alertMessage}}"
+          }
+        }
+      }
+    },
+    {
+      "id": "node_07",
+      "type": "end",
+      "position": { "x": 700, "y": 100 },
+      "data": {
+        "name": "结束",
+        "description": "流程结束"
+      }
+    },
+    {
+      "id": "node_08",
+      "type": "http_request",
+      "position": { "x": 550, "y": -50 },
+      "data": {
+        "name": "电话通知",
+        "description": "P1/P2级别电话通知",
+        "config": {
+          "url": "/api/notification/phone",
+          "method": "POST",
+          "body": {
+            "to": "manager@example.com",
+            "message": "紧急告警，请立即处理"
+          }
+        }
+      }
+    },
+    {
+      "id": "node_09",
+      "type": "task_assign",
+      "position": { "x": 700, "y": -50 },
+      "data": {
+        "name": "创建工单",
+        "description": "创建紧急处理工单",
+        "config": {
+          "taskName": "紧急告警处理",
+          "taskType": "urgent",
+          "assignTo": "oncall_team",
+          "dueTime": "5min"
+        }
+      }
+    },
+    {
+      "id": "node_10",
+      "type": "http_request",
+      "position": { "x": 850, "y": -50 },
+      "data": {
+        "name": "管理层通知",
+        "description": "通知管理层",
+        "config": {
+          "url": "/api/notification/sms",
+          "method": "POST",
+          "body": {
+            "to": "executive@example.com",
+            "message": "P1/P2紧急告警已创建工单"
+          }
+        }
+      }
+    },
+    {
+      "id": "node_11",
+      "type": "end",
+      "position": { "x": 1000, "y": -50 },
+      "data": {
+        "name": "结束",
+        "description": "流程结束"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "edge_01", "source": "node_01", "target": "node_02" },
+    { "id": "edge_02", "source": "node_02", "target": "node_03" },
+    { "id": "edge_03", "source": "node_03", "target": "node_04", "label": "P4级别" },
+    { "id": "edge_04", "source": "node_03", "target": "node_06", "label": "P3级别" },
+    { "id": "edge_05", "source": "node_03", "target": "node_08", "label": "P2/P1级别" },
+    { "id": "edge_06", "source": "node_04", "target": "node_05" },
+    { "id": "edge_07", "source": "node_06", "target": "node_07" },
+    { "id": "edge_08", "source": "node_08", "target": "node_09" },
+    { "id": "edge_09", "source": "node_09", "target": "node_10" },
+    { "id": "edge_10", "source": "node_10", "target": "node_11" }
+  ]
+}

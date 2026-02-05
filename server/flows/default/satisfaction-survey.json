@@ -1,0 +1,186 @@
+{
+  "id": "flow_satisfaction_survey",
+  "name": "满意度调查流程",
+  "description": "在会话结束后自动发送满意度调查",
+  "version": "1.0.0",
+  "triggerType": "webhook",
+  "triggerConfig": {
+    "webhookUrl": "/api/sessions/close",
+    "eventType": "session_close"
+  },
+  "nodes": [
+    {
+      "id": "node_01",
+      "type": "start",
+      "position": { "x": 100, "y": 100 },
+      "data": {
+        "name": "开始",
+        "description": "会话关闭事件触发",
+        "config": {}
+      }
+    },
+    {
+      "id": "node_02",
+      "type": "data_query",
+      "position": { "x": 250, "y": 100 },
+      "data": {
+        "name": "获取会话信息",
+        "description": "查询会话详细信息",
+        "config": {
+          "source": "info_center",
+          "endpoint": "/api/sessions/{{context.sessionId}}"
+        }
+      }
+    },
+    {
+      "id": "node_03",
+      "type": "satisfaction_infer",
+      "position": { "x": 400, "y": 100 },
+      "data": {
+        "name": "满意度推断",
+        "description": "基于对话内容推断满意度",
+        "config": {
+          "modelId": "doubao-pro-4k",
+          "analysisFactors": [
+            "sentiment",
+            "response_quality",
+            "issue_resolved",
+            "user_feedback_keywords"
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_04",
+      "type": "decision",
+      "position": { "x": 550, "y": 100 },
+      "data": {
+        "name": "满意度判断",
+        "description": "根据满意度评分决定后续操作",
+        "config": {
+          "conditions": [
+            {
+              "expression": "context.satisfactionScore >= 4",
+              "label": "高满意度",
+              "targetNodeId": "node_05"
+            },
+            {
+              "expression": "context.satisfactionScore >= 3 && context.satisfactionScore < 4",
+              "label": "中满意度",
+              "targetNodeId": "node_07"
+            },
+            {
+              "expression": "context.satisfactionScore < 3",
+              "label": "低满意度",
+              "targetNodeId": "node_09"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_05",
+      "type": "log_save",
+      "position": { "x": 700, "y": 250 },
+      "data": {
+        "name": "记录日志",
+        "description": "记录高满意度日志",
+        "config": {
+          "logLevel": "info",
+          "message": "用户满意度评分：{{context.satisfactionScore}}"
+        }
+      }
+    },
+    {
+      "id": "node_06",
+      "type": "end",
+      "position": { "x": 850, "y": 250 },
+      "data": {
+        "name": "结束",
+        "description": "流程结束"
+      }
+    },
+    {
+      "id": "node_07",
+      "type": "ai_reply",
+      "position": { "x": 700, "y": 100 },
+      "data": {
+        "name": "发送感谢",
+        "description": "发送感谢消息",
+        "config": {
+          "modelId": "doubao-pro-4k",
+          "useTemplate": true,
+          "templateId": "template_thank",
+          "templateVariables": {
+            "userName": "{{context.userName}}"
+          }
+        }
+      }
+    },
+    {
+      "id": "node_08",
+      "type": "end",
+      "position": { "x": 850, "y": 100 },
+      "data": {
+        "name": "结束",
+        "description": "流程结束"
+      }
+    },
+    {
+      "id": "node_09",
+      "type": "task_assign",
+      "position": { "x": 700, "y": -50 },
+      "data": {
+        "name": "主动回访",
+        "description": "创建回访任务",
+        "config": {
+          "taskName": "低满意度回访",
+          "taskType": "follow_up",
+          "priority": "medium",
+          "assignTo": "customer_success_team",
+          "dueTime": "24h"
+        }
+      }
+    },
+    {
+      "id": "node_10",
+      "type": "http_request",
+      "position": { "x": 850, "y": -50 },
+      "data": {
+        "name": "创建工单",
+        "description": "创建改进工单",
+        "config": {
+          "url": "/api/workflow/tickets",
+          "method": "POST",
+          "body": {
+            "title": "低满意度改进",
+            "description": "会话{{context.sessionId}}用户满意度较低，需要改进",
+            "priority": "high",
+            "assignee": "quality_team"
+          }
+        }
+      }
+    },
+    {
+      "id": "node_11",
+      "type": "end",
+      "position": { "x": 1000, "y": -50 },
+      "data": {
+        "name": "结束",
+        "description": "流程结束"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "edge_01", "source": "node_01", "target": "node_02" },
+    { "id": "edge_02", "source": "node_02", "target": "node_03" },
+    { "id": "edge_03", "source": "node_03", "target": "node_04" },
+    { "id": "edge_04", "source": "node_04", "target": "node_05", "label": "高满意度" },
+    { "id": "edge_05", "source": "node_04", "target": "node_07", "label": "中满意度" },
+    { "id": "edge_06", "source": "node_04", "target": "node_09", "label": "低满意度" },
+    { "id": "edge_07", "source": "node_05", "target": "node_06" },
+    { "id": "edge_08", "source": "node_07", "target": "node_08" },
+    { "id": "edge_09", "source": "node_09", "target": "node_10" },
+    { "id": "edge_10", "source": "node_10", "target": "node_11" }
+  ]
+}

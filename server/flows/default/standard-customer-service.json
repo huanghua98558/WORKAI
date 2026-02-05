@@ -1,0 +1,218 @@
+{
+  "id": "flow_standard_customer_service",
+  "name": "标准客服流程",
+  "description": "处理标准客户咨询，支持意图识别、AI回复、人工转接",
+  "version": "1.0.0",
+  "triggerType": "webhook",
+  "triggerConfig": {
+    "webhookUrl": "/api/worktool/callback",
+    "eventType": "message"
+  },
+  "nodes": [
+    {
+      "id": "node_01",
+      "type": "message_receive",
+      "position": { "x": 100, "y": 100 },
+      "data": {
+        "name": "消息接收",
+        "description": "接收WorkTool消息并保存到数据库",
+        "config": {
+          "saveToInfoCenter": true,
+          "senderIdentification": true
+        }
+      }
+    },
+    {
+      "id": "node_02",
+      "type": "session_create",
+      "position": { "x": 250, "y": 100 },
+      "data": {
+        "name": "会话创建",
+        "description": "创建或获取会话",
+        "config": {
+          "autoCreate": true,
+          "sessionTimeout": 1800000
+        }
+      }
+    },
+    {
+      "id": "node_03",
+      "type": "intent",
+      "position": { "x": 400, "y": 100 },
+      "data": {
+        "name": "意图识别",
+        "description": "AI识别用户消息意图",
+        "config": {
+          "modelId": "doubao-pro-4k",
+          "supportedIntents": ["咨询", "投诉", "售后", "互动", "购买", "其他"],
+          "confidenceThreshold": 0.7,
+          "enableEmotionAnalysis": true
+        }
+      }
+    },
+    {
+      "id": "node_04",
+      "type": "emotion_analyze",
+      "position": { "x": 550, "y": 100 },
+      "data": {
+        "name": "情绪分析",
+        "description": "分析用户情绪",
+        "config": {
+          "modelId": "doubao-pro-4k",
+          "emotionTypes": ["positive", "neutral", "negative"]
+        }
+      }
+    },
+    {
+      "id": "node_05",
+      "type": "decision",
+      "position": { "x": 700, "y": 100 },
+      "data": {
+        "name": "决策分流",
+        "description": "根据意图和情绪判断处理方式",
+        "config": {
+          "conditions": [
+            {
+              "expression": "context.intent === '投诉' || context.emotion === 'negative'",
+              "label": "转人工",
+              "targetNodeId": "node_06"
+            },
+            {
+              "expression": "context.riskLevel >= 3",
+              "label": "风险处理",
+              "targetNodeId": "node_11"
+            },
+            {
+              "expression": "context.needReply === true",
+              "label": "AI回复",
+              "targetNodeId": "node_08"
+            },
+            {
+              "expression": "true",
+              "label": "忽略",
+              "targetNodeId": "node_13"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_06",
+      "type": "staff_intervention",
+      "position": { "x": 700, "y": 250 },
+      "data": {
+        "name": "工作人员介入",
+        "description": "转人工客服",
+        "config": {
+          "autoAssign": true,
+          "assignStrategy": "least_busy"
+        }
+      }
+    },
+    {
+      "id": "node_07",
+      "type": "send_command",
+      "position": { "x": 850, "y": 250 },
+      "data": {
+        "name": "发送指令",
+        "description": "通知工作人员",
+        "config": {
+          "message": "客户需要人工介入，请尽快处理",
+          "notifyChannels": ["email", "websocket"]
+        }
+      }
+    },
+    {
+      "id": "node_08",
+      "type": "ai_reply",
+      "position": { "x": 850, "y": 100 },
+      "data": {
+        "name": "AI回复",
+        "description": "生成智能客服回复",
+        "config": {
+          "modelId": "doubao-pro-4k",
+          "useTemplate": true,
+          "templateId": "template_default",
+          "temperature": 0.7,
+          "maxTokens": 2000
+        }
+      }
+    },
+    {
+      "id": "node_09",
+      "type": "message_dispatch",
+      "position": { "x": 1000, "y": 100 },
+      "data": {
+        "name": "消息分发",
+        "description": "判断发送目标",
+        "config": {
+          "dispatchType": "auto"
+        }
+      }
+    },
+    {
+      "id": "node_10",
+      "type": "send_command",
+      "position": { "x": 1150, "y": 100 },
+      "data": {
+        "name": "发送消息",
+        "description": "调用机器人API发送消息",
+        "config": {
+          "saveToInfoCenter": true
+        }
+      }
+    },
+    {
+      "id": "node_11",
+      "type": "risk_handler",
+      "position": { "x": 700, "y": 400 },
+      "data": {
+        "name": "风险处理",
+        "description": "安抚用户并通知人工",
+        "config": {
+          "autoEscalate": true,
+          "escalationLevel": "high"
+        }
+      }
+    },
+    {
+      "id": "node_12",
+      "type": "alert_save",
+      "position": { "x": 850, "y": 400 },
+      "data": {
+        "name": "告警入库",
+        "description": "保存风险告警",
+        "config": {
+          "alertLevel": "high",
+          "alertType": "risk"
+        }
+      }
+    },
+    {
+      "id": "node_13",
+      "type": "end",
+      "position": { "x": 1300, "y": 100 },
+      "data": {
+        "name": "结束",
+        "description": "流程结束"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "edge_01", "source": "node_01", "target": "node_02" },
+    { "id": "edge_02", "source": "node_02", "target": "node_03" },
+    { "id": "edge_03", "source": "node_03", "target": "node_04" },
+    { "id": "edge_04", "source": "node_04", "target": "node_05" },
+    { "id": "edge_05", "source": "node_05", "target": "node_06", "label": "转人工" },
+    { "id": "edge_06", "source": "node_05", "target": "node_08", "label": "AI回复" },
+    { "id": "edge_07", "source": "node_05", "target": "node_11", "label": "风险" },
+    { "id": "edge_08", "source": "node_05", "target": "node_13", "label": "忽略" },
+    { "id": "edge_09", "source": "node_06", "target": "node_07" },
+    { "id": "edge_10", "source": "node_07", "target": "node_13" },
+    { "id": "edge_11", "source": "node_08", "target": "node_09" },
+    { "id": "edge_12", "source": "node_09", "target": "node_10" },
+    { "id": "edge_13", "source": "node_10", "target": "node_13" },
+    { "id": "edge_14", "source": "node_11", "target": "node_12" },
+    { "id": "edge_15", "source": "node_12", "target": "node_13" }
+  ]
+}
