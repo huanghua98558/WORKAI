@@ -1,0 +1,6 @@
+// 导出所有新增的数据库表Schema
+export * from './messages';
+export * from './sessions';
+export * from './robots';
+export * from './staff';
+export * from './intents';
