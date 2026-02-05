@@ -70,10 +70,7 @@ export default function RobotRoleManager() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    priority: 10,
-    permissions: [] as string[],
-    allowed_operations: [] as string[],
-    rate_limits: JSON.stringify({ per_minute: 60, per_hour: 1000 }, null, 2)
+    permissions: [] as string[]
   });
 
   // 加载角色列表
@@ -162,10 +159,7 @@ export default function RobotRoleManager() {
     setFormData({
       name: role.name || '',
       description: role.description || '',
-      priority: role.priority || 10,
-      permissions: Array.isArray(role.permissions) ? role.permissions : [],
-      allowed_operations: Array.isArray(role.allowed_operations) ? role.allowed_operations : [],
-      rate_limits: role.rate_limits ? JSON.stringify(role.rate_limits, null, 2) : JSON.stringify({ per_minute: 60, per_hour: 1000 }, null, 2)
+      permissions: Array.isArray(role.permissions) ? role.permissions : []
     });
     setIsDialogOpen(true);
   };
@@ -176,10 +170,7 @@ export default function RobotRoleManager() {
     setFormData({
       name: '',
       description: '',
-      priority: 10,
-      permissions: [],
-      allowed_operations: [],
-      rate_limits: JSON.stringify({ per_minute: 60, per_hour: 1000 }, null, 2)
+      permissions: []
     });
   };
 

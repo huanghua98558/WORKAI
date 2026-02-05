@@ -36,9 +36,7 @@ export default function RobotGroupManager() {
     description: '',
     color: '#3b82f6',
     icon: '',
-    priority: 10,
-    routing_strategy: 'round_robin',
-    load_balancing_config: '{}'
+    priority: 10
   });
 
   const COLORS = [
@@ -47,14 +45,6 @@ export default function RobotGroupManager() {
   ];
 
   const ICONS = ['🤖', '🎯', '⚡', '🚀', '💡', '🔧', '📊', '🔍', '💬', '🎨'];
-
-  const ROUTING_STRATEGIES = [
-    { value: 'round_robin', label: '轮询' },
-    { value: 'least_loaded', label: '最少负载' },
-    { value: 'priority_based', label: '优先级' },
-    { value: 'random', label: '随机' },
-    { value: 'hash_based', label: '哈希' }
-  ];
 
   // 加载分组列表
   const fetchGroups = async () => {
@@ -144,9 +134,7 @@ export default function RobotGroupManager() {
       description: group.description || '',
       color: group.color || '#3b82f6',
       icon: group.icon || '',
-      priority: group.priority,
-      routing_strategy: group.routing_strategy || 'round_robin',
-      load_balancing_config: group.load_balancing_config ? JSON.stringify(group.load_balancing_config, null, 2) : '{}'
+      priority: group.priority
     });
     setIsDialogOpen(true);
   };
@@ -159,9 +147,7 @@ export default function RobotGroupManager() {
       description: '',
       color: '#3b82f6',
       icon: '',
-      priority: 10,
-      routing_strategy: 'round_robin',
-      load_balancing_config: '{}'
+      priority: 10
     });
   };
 
