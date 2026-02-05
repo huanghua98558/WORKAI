@@ -36,7 +36,8 @@ import {
   Cpu,
   ShieldCheck,
   Edit,
-  AlertTriangle
+  AlertTriangle,
+  Key
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -98,6 +99,36 @@ interface AIPersona {
   isActive: boolean;
   modelId?: string;
 }
+
+// 常用模型名称列表
+const COMMON_MODEL_NAMES = [
+  // 豆包
+  { value: 'doubao-pro-4k', label: 'doubao-pro-4k（豆包Pro 4K）', provider: 'doubao' },
+  { value: 'doubao-pro-32k', label: 'doubao-pro-32k（豆包Pro 32K）', provider: 'doubao' },
+  { value: 'doubao-pro-128k', label: 'doubao-pro-128k（豆包Pro 128K）', provider: 'doubao' },
+
+  // DeepSeek
+  { value: 'deepseek-v3', label: 'deepseek-v3（DeepSeek V3）', provider: 'deepseek' },
+  { value: 'deepseek-r1', label: 'deepseek-r1（DeepSeek R1）', provider: 'deepseek' },
+
+  // Kimi
+  { value: 'kimi-k2', label: 'kimi-k2（Kimi K2）', provider: 'kimi' },
+  { value: 'moonshot-v1-8k', label: 'moonshot-v1-8k（Moonshot 8K）', provider: 'kimi' },
+  { value: 'moonshot-v1-32k', label: 'moonshot-v1-32k（Moonshot 32K）', provider: 'kimi' },
+  { value: 'moonshot-v1-128k', label: 'moonshot-v1-128k（Moonshot 128K）', provider: 'kimi' },
+
+  // OpenAI
+  { value: 'gpt-4', label: 'gpt-4（GPT-4）', provider: 'openai' },
+  { value: 'gpt-3.5-turbo', label: 'gpt-3.5-turbo（GPT-3.5 Turbo）', provider: 'openai' },
+  { value: 'gpt-4o', label: 'gpt-4o（GPT-4O）', provider: 'openai' },
+
+  // Claude
+  { value: 'claude-3-opus', label: 'claude-3-opus（Claude 3 Opus）', provider: 'custom' },
+  { value: 'claude-3-sonnet', label: 'claude-3-sonnet（Claude 3 Sonnet）', provider: 'custom' },
+
+  // 其他
+  { value: 'custom', label: '其他（自定义）', provider: 'custom' },
+];
 
 interface MessageTemplate {
   id: string;
@@ -1000,17 +1031,45 @@ export default function AIModule() {
             <TabsContent value="basic" className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="model-name">模型名称（不可编辑）</Label>
-                  <Input
-                    id="model-name"
-                    value={selectedModel?.name || ''}
-                    disabled={true}
-                    readOnly={true}
-                    className="bg-muted"
-                    placeholder="模型唯一标识"
-                  />
+                  <Label htmlFor="model-name">模型名称</Label>
+                  {selectedModel?.id ? (
+                    // 编辑模式：只读显示
+                    <Input
+                      id="model-name"
+                      value={selectedModel?.name || ''}
+                      disabled={true}
+                      readOnly={true}
+                      className="bg-muted"
+                      placeholder="模型唯一标识"
+                    />
+                  ) : (
+                    // 创建模式：下拉选择
+                    <Select
+                      value={selectedModel?.name || ''}
+                      onValueChange={(value) => {
+                        const selected = COMMON_MODEL_NAMES.find(m => m.value === value);
+                        setSelectedModel({
+                          ...selectedModel,
+                          name: value,
+                          provider: selected?.provider || '',
+                          displayName: selected?.label || value
+                        } as AIModel);
+                      }}
+                    >
+                      <SelectTrigger id="model-name">
+                        <SelectValue placeholder="选择模型名称" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COMMON_MODEL_NAMES.map((model) => (
+                          <SelectItem key={model.value} value={model.value}>
+                            {model.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                   <p className="text-xs text-muted-foreground mt-1">
-                    {selectedModel?.id ? '系统标识，创建后不可修改' : '系统标识，创建后也不可修改'}
+                    {selectedModel?.id ? '系统标识，创建后不可修改' : '选择常用模型或自定义'}
                   </p>
                 </div>
                 <div>
@@ -1095,6 +1154,86 @@ export default function AIModule() {
                 <p className="text-xs text-muted-foreground mt-1">
                   定义模型的角色和系统提示词
                 </p>
+              </div>
+
+              {/* 对接参数配置 */}
+              <div className="border rounded-lg p-4 space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Key className="h-4 w-4 text-primary" />
+                  <Label className="font-semibold">对接参数配置</Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  配置模型的API对接参数，用于连接AI服务提供商
+                </p>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="model-api-key">API Key</Label>
+                    <Input
+                      id="model-api-key"
+                      type="password"
+                      value={selectedModel?.config?.apiKey || ''}
+                      onChange={(e) => setSelectedModel({
+                        ...selectedModel,
+                        config: { ...selectedModel?.config, apiKey: e.target.value }
+                      } as AIModel)}
+                      placeholder="请输入API Key"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      用于身份验证的密钥
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="model-api-secret">API Secret</Label>
+                    <Input
+                      id="model-api-secret"
+                      type="password"
+                      value={selectedModel?.config?.apiSecret || ''}
+                      onChange={(e) => setSelectedModel({
+                        ...selectedModel,
+                        config: { ...selectedModel?.config, apiSecret: e.target.value }
+                      } as AIModel)}
+                      placeholder="请输入API Secret（可选）"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      用于身份验证的密钥（可选）
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="model-endpoint">Endpoint URL</Label>
+                    <Input
+                      id="model-endpoint"
+                      type="url"
+                      value={selectedModel?.config?.endpoint || ''}
+                      onChange={(e) => setSelectedModel({
+                        ...selectedModel,
+                        config: { ...selectedModel?.config, endpoint: e.target.value }
+                      } as AIModel)}
+                      placeholder="https://api.example.com"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      API服务地址（可选）
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="model-region">Region</Label>
+                    <Input
+                      id="model-region"
+                      value={selectedModel?.config?.region || ''}
+                      onChange={(e) => setSelectedModel({
+                        ...selectedModel,
+                        config: { ...selectedModel?.config, region: e.target.value }
+                      } as AIModel)}
+                      placeholder="us-east-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      服务区域（可选）
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div>
