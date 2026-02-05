@@ -1,1112 +1,281 @@
 /**
- * 消息处理服务
- * 统一消息处理流程：意图识别 → 告警触发（如需要）→ 决策是否回复 → 生成回复 → 发送回复
+ * 消息处理服务（改造版）
+ * 集成工作人员协同功能
+ *
+ * 改造内容：
+ * - 1. 消息入口识别工作人员
+ * - 2. 工作人员消息记录活动并检查指令
+ * - 3. 工作人员消息不触发AI回复
+ * - 4. 非工作人员消息进行协同决策
+ * - 5. 根据决策结果决定是否触发AI回复
  */
 
-const aiService = require('./ai.service');
-const sessionService = require('./session.service');
-const worktoolService = require('./worktool.service');
-const executionTrackerService = require('./execution-tracker.service');
-const sessionMessageService = require('./session-message.service');
-const alertTriggerService = require('./alert-trigger.service');
-const config = require('../lib/config');
-const logger = require('./system-logger.service');
-
-// 工作人员识别服务
+const { v4: uuidv4 } = require('uuid');
 const staffIdentifierService = require('./staff/staff-identifier.service');
+const staffTrackerService = require('./staff/staff-tracker.service');
+const staffCommandService = require('./staff/staff-command.service');
+const collabDecisionService = require('./collab/collab-decision.service');
+const { getDb } = require('coze-coding-dev-sdk');
+const { staffMessages, collaborationDecisionLogs } = require('../database/schema');
+const { eq, and } = require('drizzle-orm');
 
 class MessageProcessingService {
-  /**
-   * 处理消息的主入口
-   * @param {Object} messageData - WorkTool 消息数据
-   * @param {Object} robot - 机器人配置
-   */
-  async processMessage(messageData, robot) {
-    const startTime = Date.now();
-    const messageContent = messageData.spoken || messageData.content || '';
+  constructor() {
+    this.dbPromise = null;
+    console.log('[MessageProcessing] 消息处理服务（协同版）初始化完成');
+  }
 
-    // 验证机器人信息
-    if (!robot || !robot.robotId) {
-      logger.error('MessageProcessing', '机器人信息无效', {
-        robot,
-        messageData: {
-          fromName: messageData.fromName,
-          groupName: messageData.groupName,
-          content: messageContent.substring(0, 100)
-        }
-      });
-
-      throw new Error('机器人信息无效：缺少 robotId');
+  async getDb() {
+    if (!this.dbPromise) {
+      this.dbPromise = getDb();
     }
+    return this.dbPromise;
+  }
 
-    // 获取机器人显示名称（优先使用 nickname，其次 name，最后 robotId）
-    const robotDisplayName = robot.nickname || robot.name || robot.robotId;
-
-    logger.info('MessageProcessing', '===== 开始处理消息 =====', {
-      robotId: robot.robotId,
-      robotName: robot.name,
-      robotNickname: robot.nickname,
-      robotDisplayName: robotDisplayName,
-      userId: messageData.fromName,
-      groupId: messageData.groupName,
-      content: messageContent.substring(0, 100),
-      timestamp: new Date(startTime).toISOString()
-    });
-
-    console.log(`[消息处理] 开始处理消息`, {
-      robotId: robot.robotId,
-      robotDisplayName,
-      userId: messageData.fromName,
-      groupId: messageData.groupName,
-      content: messageContent.substring(0, 50)
-    });
-
-    const processingId = executionTrackerService.startProcessing({
-      robotId: robot.robotId,
-      sessionId: messageData.fromName,
-      messageData,
-      startTime
-    });
-
-    logger.debug('MessageProcessing', '步骤1: 开始执行', { processingId });
-
-    // 记录用户消息步骤
-    executionTrackerService.updateStep(processingId, 'user_message', {
-      content: messageContent,
-      userId: messageData.fromName,
-      groupId: messageData.groupName,
-      messageId: messageData.messageId,
-      timestamp: messageData.timestamp || new Date().toISOString()
-    });
+  /**
+   * 处理消息（主入口）
+   * @param {Object} context - 上下文对象
+   * @param {Object} message - 消息对象
+   * @param {Object} robot - 机器人配置
+   * @returns {Promise<Object>} 处理结果
+   */
+  async processMessage(context, message, robot) {
+    console.log('[MessageProcessing] === 处理消息 ===');
+    console.log('[MessageProcessing] 会话ID:', context.sessionId);
+    console.log('[MessageProcessing] 消息ID:', message.messageId);
+    console.log('[MessageProcessing] 消息内容:', message.content);
 
     try {
-      // 步骤1: 解析消息内容
-      logger.info('MessageProcessing', '步骤1: 解析消息内容', { processingId });
-      const messageContext = this.parseMessage(messageData);
-
-      logger.debug('MessageProcessing', '步骤1完成: 消息上下文解析成功', {
-        contentLength: messageContext.content.length,
-        fromName: messageContext.fromName,
-        groupName: messageContext.groupName,
-        atMe: messageContext.atMe
-      });
-
-      // 【新增】步骤1.5: 工作人员识别
-      logger.info('MessageProcessing', '步骤1.5: 工作人员识别', { processingId });
-      const isStaff = staffIdentifierService.isStaffUser({
-        userId: messageData.fromName,
-        receivedName: messageData.fromName,
-        groupName: messageData.groupName,
-        userRemark: messageData.userRemark,
-        platform: messageData.platform || 'enterprise'
-      });
-
-      // 标记消息来源
-      messageData.isStaff = isStaff;
-      messageData.senderType = isStaff ? 'staff' : 'user';
-
-      console.log(`[消息处理] 工作人员识别结果:`, {
-        userId: messageData.fromName,
-        receivedName: messageData.fromName,
-        isStaff,
-        senderType: messageData.senderType
-      });
-
-      logger.info('MessageProcessing', '步骤1.5完成: 工作人员识别完成', {
-        isStaff,
-        senderType: messageData.senderType,
-        processingId
-      });
-
-      // 【新增】如果是工作人员消息，记录特殊处理
-      if (isStaff) {
-        logger.info('MessageProcessing', '检测到工作人员消息', {
-          userId: messageData.fromName,
-          sessionId: session?.sessionId || 'unknown',
-          content: messageContent.substring(0, 50)
-        });
-      }
-
-      // 步骤2: 获取或创建会话
-      logger.info('MessageProcessing', '步骤2: 获取或创建会话', { processingId });
-      let session;
-      try {
-        session = await sessionService.getOrCreateSession(
-          messageContext.fromName,
-          messageContext.groupName,
-          {
-            userName: messageContext.fromName,
-            groupName: messageContext.groupName,
-            roomType: messageContext.roomType
-          }
-        );
-      } catch (error) {
-        console.error('[消息处理] 会话创建失败:', {
-          error: error.message,
-          stack: error.stack,
-          fromName: messageContext.fromName,
-          groupName: messageContext.groupName
-        });
-
-        // 创建临时会话对象（降级处理）
-        session = {
-          sessionId: `temp_${Date.now()}`,
-          context: [],
-          messageCount: 0,
-          isNew: true
-        };
-      }
-
-      logger.info('MessageProcessing', '步骤2完成: 会话获取成功', {
-        sessionId: session.sessionId,
-        isNew: session.isNew,
-        messageCount: session.messageCount
-      });
-
-      // 步骤3: 添加消息到上下文
-      logger.info('MessageProcessing', '步骤3: 添加消息到上下文', { processingId });
-      await sessionService.addContext(session.sessionId, {
-        content: messageContext.content,
-        from_type: messageContext.atMe ? 'user' : 'other',
-        timestamp: messageData.timestamp || new Date().toISOString()
-      });
-
-      logger.debug('MessageProcessing', '步骤3完成: 消息已添加到上下文', {
-        sessionId: session.sessionId,
-        contextLength: session.context.length
-      });
-
-      // 步骤4: 保存用户消息到数据库
-      logger.info('MessageProcessing', '步骤4: 保存用户消息到数据库', {
-        processingId,
-        sessionId: session.sessionId,
-        messageId: messageData.messageId,
-        robotId: robot.robotId,
-        robotIdLength: robot.robotId?.length,
-        robotName: robot.name,
-        robotNickname: robot.nickname,
-        userId: messageContext.fromName,
-        groupId: messageContext.groupName,
-        contentLength: messageContext.content.length,
-        timestamp: messageData.timestamp
-      });
-
-      await sessionMessageService.saveUserMessage(
-        session.sessionId,
-        {
-          userId: messageContext.fromName,
-          groupId: messageContext.groupName,
-          userName: messageContext.fromName,
-          content: messageContext.content,
-          timestamp: messageData.timestamp || new Date()
-        },
-        messageData.messageId,
+      // === 第1步：识别工作人员 ===
+      const staffInfo = await staffIdentifierService.identifyStaff(
+        context,
+        message,
         robot
       );
 
-      logger.info('MessageProcessing', '步骤4完成: 用户消息保存成功', {
-        sessionId: session.sessionId,
-        messageId: messageData.messageId,
-        contentLength: messageContext.content.length
+      console.log('[MessageProcessing] 工作人员识别结果:', {
+        isStaff: staffInfo.isStaff,
+        confidence: staffInfo.confidence,
+        matchMethod: staffInfo.matchMethod,
+        staffUserId: staffInfo.staffUserId
       });
 
-      // 步骤5: AI 意图识别
-      logger.info('MessageProcessing', '步骤5: AI 意图识别开始', { processingId });
-      executionTrackerService.updateStep(processingId, 'intent_recognition', {
-        status: 'processing',
-        startTime: Date.now()
-      });
-
-      const intentResult = await aiService.recognizeIntent(
-        messageContext.content,
-        {
-          userId: messageContext.fromName,
-          groupId: messageContext.groupName,
-          userName: messageContext.fromName,
-          groupName: messageContext.groupName,
-          history: session.context.slice(-5),
-          sessionId: session.sessionId,
-          messageId: messageData.messageId,
-          robotId: robot.robotId,
-          robotName: robot.name
-        }
-      ).catch(error => {
-        // 捕获并详细记录 AI 意图识别错误
-        console.error('[消息处理] AI 意图识别失败:', {
-          error: error.message,
-          stack: error.stack,
-          sessionId: session.sessionId,
-          messageId: messageData.messageId,
-          content: messageContext.content.substring(0, 100)
-        });
-
-        logger.error('MessageProcessing', 'AI 意图识别失败', {
-          error: error.message,
-          stack: error.stack,
-          sessionId: session.sessionId,
-          messageId: messageData.messageId
-        });
-
-        // 返回降级处理结果
-        return {
-          intent: 'chat',
-          needReply: true,
-          needHuman: false,
-          confidence: 0.5,
-          reason: 'AI 调用失败，降级处理'
-        };
-      });
-
-      executionTrackerService.updateStep(processingId, 'intent_recognition', {
-        status: 'completed',
-        endTime: Date.now(),
-        result: intentResult
-      });
-
-      logger.info('MessageProcessing', '步骤5完成: 意图识别成功', {
-        intent: intentResult.intent,
-        confidence: intentResult.confidence,
-        needReply: intentResult.needReply,
-        needHuman: intentResult.needHuman
-      });
-
-      console.log(`[消息处理] 意图识别结果:`, intentResult);
-
-      // 步骤6: 触发告警（如果需要）
-      logger.info('MessageProcessing', '步骤6: 触发告警检查', { processingId });
-      executionTrackerService.updateStep(processingId, 'alert_trigger', {
-        status: 'processing',
-        startTime: Date.now()
-      });
-
-      const alertResult = await alertTriggerService.triggerAlert({
-        sessionId: session.sessionId,
-        intentType: intentResult.intent,
-        intent: intentResult.intent,
-        userId: messageContext.fromName,
-        userName: messageContext.fromName,
-        groupId: messageContext.groupName,
-        groupName: messageContext.groupName,
-        messageContent: messageContext.content,
-        robotId: robot.robotId,
-        robotName: robot.name,
-      });
-
-      if (alertResult) {
-        logger.info('MessageProcessing', '步骤6完成: 告警已触发', {
-          alertId: alertResult.id,
-          alertLevel: alertResult.alertLevel,
-          intentType: intentResult.intent,
-        });
-        console.log(`[消息处理] 告警已触发: ${alertResult.alertLevel} - ${intentResult.intent}`);
-      } else {
-        logger.debug('MessageProcessing', '步骤6完成: 无需触发告警', {
-          intentType: intentResult.intent
-        });
+      // === 第2步：如果是工作人员消息 ===
+      if (staffInfo.isStaff) {
+        return await this.handleStaffMessage(context, message, staffInfo, robot);
       }
 
-      executionTrackerService.updateStep(processingId, 'alert_trigger', {
-        status: 'completed',
-        endTime: Date.now(),
-        result: alertResult
-      });
-
-      // 步骤7: 根据意图决策
-      logger.info('MessageProcessing', '步骤7: 开始决策逻辑', { processingId });
-      const decision = await this.makeDecision(
-        intentResult,
-        session,
-        messageContext,
-        processingId,
-        robot,  // 传递 robot 参数
-        isStaff  // 传递工作人员标识
-      );
-
-      logger.info('MessageProcessing', '步骤7完成: 决策完成', {
-        action: decision.action,
-        reason: decision.reason
-      });
-
-      // 步骤8: 更新会话信息
-      logger.info('MessageProcessing', '步骤8: 更新会话信息', { processingId });
-      await sessionService.updateSession(session.sessionId, {
-        lastIntent: intentResult.intent,
-        intentConfidence: intentResult.confidence,
-        lastProcessedAt: new Date().toISOString()
-      });
-
-      logger.debug('MessageProcessing', '步骤8完成: 会话信息更新成功', {
-        sessionId: session.sessionId,
-        lastIntent: intentResult.intent
-      });
-
-      // 步骤9: 完成处理
-      const processingTime = Date.now() - startTime;
-      console.log(`[消息处理] 计算处理时间: endTime=${Date.now()}, startTime=${startTime}, processingTime=${processingTime}ms`);
-
-      logger.info('MessageProcessing', '===== 消息处理完成 =====', {
-        processingId,
-        action: decision.action,
-        processingTime,
-        sessionId: session.sessionId,
-        totalSteps: 9
-      });
-      
-      executionTrackerService.completeProcessing(processingId, {
-        status: 'success',
-        decision,
-        processingTime
-      }, messageData);
-
-      console.log(`[消息处理] 处理完成:`, decision);
-      return decision;
+      // === 第3步：非工作人员消息，进行协同决策 ===
+      return await this.handleUserMessage(context, message, robot);
 
     } catch (error) {
-      console.error('[消息处理] 处理失败:', error);
-      console.error('[消息处理] 错误堆栈:', error.stack);
-
-      logger.error('MessageProcessing', '===== 消息处理失败 =====', {
-        error: error.message,
-        stack: error.stack,
-        processingId,
-        robotId: robot.robotId,
-        robotIdLength: robot.robotId?.length,
-        robotName: robot.name,
-        robotNickname: robot.nickname,
-        userId: messageData.fromName,
-        groupId: messageData.groupName,
-        messageContent: messageContent.substring(0, 200),
-        errorType: error.constructor.name,
-        errorCode: error.code,
-        errorDetail: error.detail,
-        errorConstraint: error.constraint,
-        errorTable: error.table,
-        timestamp: new Date().toISOString()
-      });
-
-      executionTrackerService.completeProcessing(processingId, {
-        status: 'error',
-        error: error.message,
-        errorStack: error.stack,
-        processingTime: Date.now() - startTime
-      }, messageData);
-
+      console.error('[MessageProcessing] ❌ 处理消息失败:', error);
       throw error;
     }
   }
 
   /**
-   * 解析消息内容
+   * 处理工作人员消息
+   * @param {Object} context - 上下文对象
+   * @param {Object} message - 消息对象
+   * @param {Object} staffInfo - 工作人员信息
+   * @param {Object} robot - 机器人配置
+   * @returns {Promise<Object>} 处理结果
    */
-  parseMessage(messageData) {
-    return {
-      content: messageData.spoken || messageData.content || '',
-      fromName: messageData.fromName || messageData.receivedName || '',
-      groupName: messageData.groupName || '',
-      groupRemark: messageData.groupRemark || '',
-      roomType: messageData.roomType,
-      atMe: messageData.atMe || false,
-      textType: messageData.textType || 1,
-      fileBase64: messageData.fileBase64 || ''
-    };
-  }
-
-  /**
-   * 根据意图决策
-   */
-  async makeDecision(intentResult, session, messageContext, processingId, robot, isStaff = false) {
-    // 【新增】如果是工作人员消息，AI不回复
-    if (isStaff) {
-      logger.info('MessageProcessing', '工作人员消息，AI不回复', {
-        sessionId: session.sessionId,
-        userId: messageContext.fromName
-      });
-
-      executionTrackerService.updateStep(processingId, 'decision', {
-        status: 'completed',
-        result: {
-          action: 'none',
-          reason: 'staff_message',
-          isStaff: true
-        }
-      });
-
-      return {
-        action: 'none',
-        reason: 'staff_message',
-        isStaff: true
-      };
-    }
-
-    // ========== 检查是否为转化客服模式 ==========
-    // 1. 检查机器人是否显式开启了转化客服模式
-    // 2. 检查机器人分组是否为"营销"
-    // 3. 检查机器人类型是否为"角色"
-    const isConversionMode = robot && (
-      robot.conversionMode ||
-      robot.robotGroup === '营销' ||
-      robot.robotType === '角色'
-    );
-
-    if (isConversionMode) {
-      const reason = robot.conversionMode
-        ? '转化客服模式已启用'
-        : (robot.robotGroup === '营销' ? '机器人分组为营销' : '机器人类型为角色');
-
-      logger.info('MessageProcessing', `检测到${reason}，使用转化AI回复`, {
-        robotId: robot.robotId,
-        sessionId: session.sessionId,
-        robotGroup: robot.robotGroup,
-        robotType: robot.robotType
-      });
-
-      try {
-        const conversionReply = await this.generateReplyWithPrompt(
-          intentResult,
-          session,
-          messageContext,
-          processingId,
-          robot,
-          'conversion'  // 使用转化客服提示词
-        );
-
-        if (conversionReply.success) {
-          // 更新会话
-          await sessionService.updateSession(session.sessionId, {
-            aiReplyCount: (session.aiReplyCount || 0) + 1,
-            replyCount: (session.replyCount || 0) + 1,
-            lastIntent: 'conversion',
-            lastActiveTime: new Date().toISOString()
-          });
-
-          return {
-            action: 'conversion_reply',
-            reply: conversionReply.reply,
-            reason: `${reason}，使用转化AI回复`,
-            sessionStatus: 'auto'
-          };
-        } else {
-          logger.error('MessageProcessing', '转化AI回复生成失败', {
-            error: conversionReply.error
-          });
-          throw new Error(conversionReply.error || '转化AI回复失败');
-        }
-      } catch (error) {
-        logger.error('MessageProcessing', '转化客服模式处理失败', {
-          error: error.message,
-          stack: error.stack
-        });
-        // 降级处理：返回错误，不发送回复
-        return {
-          action: 'none',
-          reason: '转化AI回复失败',
-          error: error.message
-        };
-      }
-    }
-
-    // ========== 常规处理流程 ==========
-    const { intent, needReply, needHuman, confidence } = intentResult;
-    const autoReplyConfig = config.get('autoReply');
-
-    logger.debug('MessageProcessing', '决策逻辑执行', {
-      intent,
-      needReply,
-      needHuman,
-      confidence,
-      sessionId: session.sessionId
-    });
-
-    // 1. 风险内容：先风险回复再转人工警告
-    if (intent === 'risk' || needHuman) {
-      logger.warn('MessageProcessing', '检测到风险内容，先生成风险回复再转人工', {
-        sessionId: session.sessionId,
-        intent
-      });
-
-      // 先生成风险回复
-      const riskReplyResult = await this.generateReplyWithPrompt(
-        intentResult,
-        session,
-        messageContext,
-        processingId,
-        robot,
-        'risk' // 使用风险回复提示词
-      );
-
-      // 更新会话状态为人工处理
-      await sessionService.updateSession(session.sessionId, {
-        status: 'human',
-        humanReason: `风险内容: ${intent}，已发送风险回复并转人工`,
-        humanTime: new Date().toISOString()
-      });
-
-      logger.warn('MessageProcessing', '风险内容已回复，会话转人工处理', {
-        sessionId: session.sessionId,
-        reason: `风险内容: ${intent}`
-      });
-
-      return {
-        action: 'risk_reply_then_human',
-        reason: '检测到风险内容，先发送风险回复再转人工处理',
-        intent: intentResult,
-        sessionStatus: 'human',
-        replySent: riskReplyResult.success
-      };
-    }
-
-    // 2. 垃圾信息：生成回复（带有社群规矩的回复）
-    if (intent === 'spam') {
-      logger.info('MessageProcessing', '检测到垃圾信息，生成社群规矩回复', {
-        sessionId: session.sessionId
-      });
-
-      const spamReplyResult = await this.generateReplyWithPrompt(
-        intentResult,
-        session,
-        messageContext,
-        processingId,
-        robot,
-        'spam' // 使用垃圾信息提示词
-      );
-
-      return {
-        action: 'spam_reply',
-        reason: '垃圾信息，发送社群规矩回复',
-        intent: intentResult,
-        replySent: spamReplyResult.success
-      };
-    }
-
-    // 3. 管理指令：社群不存在管理指令
-    if (intent === 'admin') {
-      logger.info('MessageProcessing', '检测到管理指令，但社群不支持此功能', {
-        sessionId: session.sessionId
-      });
-
-      // 可以选择不回复或发送提示
-      return {
-        action: 'none',
-        reason: '管理指令，社群不支持此功能',
-        intent: intentResult
-      };
-    }
-
-    // 4. 不需要回复（其他拥有企业身份的人回复了才不用回复，说明人工介入了）
-    if (!needReply) {
-      executionTrackerService.updateStep(processingId, 'decision', {
-        status: 'completed',
-        result: {
-          action: 'none',
-          reason: '不需要回复（已有人工介入）'
-        }
-      });
-
-      logger.info('MessageProcessing', '不需要回复（人工已介入）', {
-        sessionId: session.sessionId,
-        confidence
-      });
-
-      return {
-        action: 'none',
-        reason: '不需要回复（已有人工介入）',
-        intent: intentResult
-      };
-    }
-
-    // 5. 需要回复：根据意图类型生成回复
-    return await this.generateReply(intentResult, session, messageContext, processingId, robot);
-  }
-
-  /**
-   * 生成回复
-   */
-  async generateReply(intentResult, session, messageContext, processingId, robot) {
-    const { intent } = intentResult;
-    const autoReplyConfig = config.get('autoReply');
-
-    // 判断接收方类型和目标
-    const toType = messageContext.roomType === '2' || messageContext.roomType === '4'
-      ? 'single'
-      : 'group'; // 2=外部联系人 4=内部联系人 为单聊
-
-    // 根据消息类型确定接收方
-    const recipient = toType === 'single'
-      ? messageContext.fromName  // 私聊：发送给发送者本人
-      : messageContext.groupName; // 群聊：发送到群
-
-    let reply;
-    let actionReason;
-
-    logger.info('MessageProcessing', 'generateReply步骤: 开始生成回复', {
-      sessionId: session.sessionId,
-      intent,
-      robotId: robot.robotId,
-      toType,
-      recipient,
-      fromName: messageContext.fromName,
-      groupName: messageContext.groupName,
-      processingId
-    });
-
-    executionTrackerService.updateStep(processingId, 'reply_generation', {
-      status: 'processing',
-      startTime: Date.now()
-    });
-
-    // 根据意图类型选择不同的AI模型
-    if (intent === 'service' || intent === 'help' || intent === 'welcome') {
-      // 服务问题：使用回复AI模型
-      logger.info('MessageProcessing', 'generateReply步骤: 使用服务回复模型', {
-        intent,
-        processingId
-      });
-
-      reply = await aiService.generateServiceReply(
-        messageContext.content,
-        intent,
-        '',
-        {
-          sessionId: session.sessionId,
-          messageId: messageContext.messageId,
-          robotId: robot.robotId,
-          robotName: robot.name
-        }
-      );
-      actionReason = '服务问题自动回复';
-
-      logger.info('MessageProcessing', 'generateReply步骤: 服务回复生成完成', {
-        replyLength: reply.length,
-        processingId
-      });
-    } else if (intent === 'chat') {
-      // 闲聊：根据配置决定
-      const chatMode = autoReplyConfig.chatMode || 'ai';
-
-      logger.info('MessageProcessing', 'generateReply步骤: 闲聊模式', {
-        chatMode,
-        processingId
-      });
-
-      if (chatMode === 'none') {
-        executionTrackerService.updateStep(processingId, 'reply_generation', {
-          status: 'completed',
-          result: { action: 'none', reason: '闲聊不回复' }
-        });
-
-        logger.info('MessageProcessing', 'generateReply步骤: 闲聊不回复');
-
-        return {
-          action: 'none',
-          reason: '闲聊不回复',
-          intent: intentResult
-        };
-      } else if (chatMode === 'fixed') {
-        const fixedReply = autoReplyConfig.chatFixedReply || '';
-        reply = fixedReply;
-        actionReason = '闲聊固定话术';
-
-        logger.info('MessageProcessing', 'generateReply步骤: 使用闲聊固定话术', {
-          replyLength: reply.length,
-          processingId
-        });
-      } else {
-        // AI 自然陪聊：使用客服回复模型（统一模型）
-        logger.info('MessageProcessing', 'generateReply步骤: 使用客服回复模型', {
-          processingId
-        });
-
-        reply = await aiService.generateServiceReply(
-          messageContext.content,
-          intent,
-          '',
-          {
-            sessionId: session.sessionId,
-            messageId: messageContext.messageId,
-            robotId: robot.robotId,
-            robotName: robot.name
-          }
-        );
-        actionReason = '闲聊 AI 陪聊';
-
-        logger.info('MessageProcessing', 'generateReply步骤: 闲聊回复生成完成', {
-          replyLength: reply.length,
-          processingId
-        });
-      }
-    } else {
-      // 其他意图：使用回复AI模型
-      logger.info('MessageProcessing', 'generateReply步骤: 使用通用回复模型', {
-        intent,
-        processingId
-      });
-
-      reply = await aiService.generateServiceReply(
-        messageContext.content,
-        intent,
-        '',
-        {
-          sessionId: session.sessionId,
-          messageId: messageContext.messageId,
-          robotId: robot.robotId,
-          robotName: robot.name
-        }
-      );
-      actionReason = '通用自动回复';
-
-      logger.info('MessageProcessing', 'generateReply步骤: 通用回复生成完成', {
-        replyLength: reply.length,
-        processingId
-      });
-    }
-
-    executionTrackerService.updateStep(processingId, 'reply_generation', {
-      status: 'completed',
-      endTime: Date.now(),
-      result: { reply }
-    });
-
-    // 记录 AI 回复步骤
-    executionTrackerService.updateStep(processingId, 'ai_response', {
-      response: reply,
-      model: 'doubao-1.8',
-      timestamp: new Date().toISOString()
-    });
-
-    logger.info('MessageProcessing', 'generateReply步骤: 回复生成完成', {
-      replyLength: reply.length,
-      replyPreview: reply.substring(0, 100),
-      processingId
-    });
-
-    // 更新会话统计
-    logger.info('MessageProcessing', 'generateReply步骤: 更新会话统计', {
-      sessionId: session.sessionId,
-      processingId
-    });
-    await sessionService.updateSession(session.sessionId, {
-      aiReplyCount: session.aiReplyCount + 1,
-      replyCount: session.replyCount + 1
-    });
-
-    logger.debug('MessageProcessing', 'generateReply步骤: 会话统计更新完成', {
-      aiReplyCount: session.aiReplyCount + 1,
-      replyCount: session.replyCount + 1,
-      processingId
-    });
-
-    // 发送回复
-    logger.info('MessageProcessing', 'generateReply步骤: 开始发送回复', {
-      toType,
-      recipient,
-      fromName: messageContext.fromName,
-      groupName: messageContext.groupName,
-      robotId: robot.robotId,
-      replyLength: reply.length,
-      replyContent: reply.substring(0, 200),
-      processingId
-    });
-
-    executionTrackerService.updateStep(processingId, 'send_reply', {
-      status: 'processing',
-      startTime: Date.now()
-    });
-
-    console.log(`[消息处理] 准备发送回复:`, {
-      robotId: robot.robotId,
-      robotName: robot.name,
-      toType,
-      recipient,
-      replyLength: reply.length
-    });
-
-    const sendResult = await worktoolService.sendTextMessage(
-      robot.robotId,
-      recipient,
-      reply
-    );
-
-    executionTrackerService.updateStep(processingId, 'send_reply', {
-      status: 'completed',
-      endTime: Date.now(),
-      result: sendResult
-    });
-
-    logger.info('MessageProcessing', 'generateReply步骤: 回复发送完成', {
-      sendResult,
-      robotId: robot.robotId,
-      robotName: robot.name,
-      toType,
-      recipient,
-      success: sendResult.success,
-      message: sendResult.message,
-      processingId
-    });
-
-    console.log(`[消息处理] 回复发送结果:`, {
-      success: sendResult.success,
-      message: sendResult.message,
-      robotId: robot.robotId,
-      recipient
-    });
-
-    // 保存机器人回复到数据库
-    logger.info('MessageProcessing', 'generateReply步骤: 保存机器人回复到数据库', {
-      sessionId: session.sessionId,
-      processingId
-    });
-    await sessionMessageService.saveBotMessage(
-      session.sessionId,
-      reply,
-      {
-        userId: messageContext.fromName,
-        groupId: messageContext.groupName,
-        userName: messageContext.fromName,
-        groupName: messageContext.groupName,
-      },
-      intent,
-      robot
-    );
-
-    logger.info('MessageProcessing', 'generateReply步骤: 机器人回复保存成功', {
-      sessionId: session.sessionId,
-      intent,
-      processingId
-    });
-
-    logger.info('MessageProcessing', 'generateReply步骤: ===== 生成回复流程完成 =====', {
-      action: 'auto_reply',
-      actionReason,
-      replyLength: reply.length,
-      processingId
-    });
-
-    return {
-      action: 'auto_reply',
-      reply,
-      reason: actionReason,
-      intent: intentResult,
-      sendResult,
-      toType,
-      recipient
-    };
-  }
-
-  /**
-   * 根据提示词类型生成回复（用于风险内容、垃圾信息等特殊场景）
-   */
-  async generateReplyWithPrompt(intentResult, session, messageContext, processingId, robot, promptType) {
-    const autoReplyConfig = config.get('autoReply');
-
-    // 判断接收方类型和目标
-    const toType = messageContext.roomType === '2' || messageContext.roomType === '4'
-      ? 'single'
-      : 'group'; // 2=外部联系人 4=内部联系人 为单聊
-
-    const recipient = toType === 'single'
-      ? messageContext.fromName
-      : messageContext.groupName;
-
-    let reply;
-    let actionReason;
-
-    logger.info('MessageProcessing', 'generateReplyWithPrompt步骤: 开始生成带提示词的回复', {
-      sessionId: session.sessionId,
-      intent: intentResult.intent,
-      promptType,
-      robotId: robot.robotId,
-      toType,
-      recipient,
-      processingId
-    });
-
-    executionTrackerService.updateStep(processingId, 'reply_generation', {
-      status: 'processing',
-      startTime: Date.now()
-    });
-
-    // 根据提示词类型选择不同的提示词
-    const prompts = {
-      conversion: `你是一个专业的转化客服专员，擅长通过对话引导用户完成转化目标。
-
-核心目标：
-- 引导用户购买产品/服务
-- 引导用户填写表单/注册账号
-- 引导用户参加活动/预约
-- 引导用户咨询详情
-
-回复策略：
-1. 先了解用户需求和痛点
-2. 针对性地介绍产品/服务的价值
-3. 用利益点而非功能点打动用户
-4. 适时提出行动号召（CTA）
-5. 语气热情、专业、有说服力
-6. 适度使用表情符号增加亲和力
-7. 控制在 300 字以内，保持简洁有力
-
-注意事项：
-- 不要过于强势或推销感太强
-- 关注用户反馈，灵活调整策略
-- 建立信任，避免引起反感`,
-
-      risk: `你是一个社群客服机器人。检测到用户发送了风险内容，需要：
-1. 严肃提醒用户注意言辞
-2. 说明社群规则
-3. 告知已将此情况转交人工处理
-请用专业、礼貌但坚定的语气回复。`,
-      
-      spam: `你是一个社群客服机器人。检测到用户发送了垃圾信息或广告，需要：
-1. 温和提醒用户遵守社群规则
-2. 简要说明社群的核心价值
-3. 引导用户进行有意义的交流
-请用友好、引导性的语气回复。`
-    };
-
-    const systemPrompt = prompts[promptType] || prompts.risk;
+  async handleStaffMessage(context, message, staffInfo, robot) {
+    console.log('[MessageProcessing] 处理工作人员消息');
 
     try {
-      // 根据提示词类型选择不同的AI服务方法
-      if (promptType === 'conversion') {
-        // 转化客服模式：使用专门的转化AI
-        reply = await aiService.generateConversionReply(
-          messageContext.content,
-          intentResult.intent,
-          {
-            sessionId: session.sessionId,
-            messageId: messageContext.messageId,
-            robotId: robot.robotId,
-            robotName: robot.name,
-            userName: messageContext.fromName,
-            groupName: messageContext.groupName
-          }
+      // 1. 记录工作人员消息
+      await this.recordStaffMessage(context, message, staffInfo);
+
+      // 2. 记录工作人员活动
+      await staffTrackerService.updateActivity(
+        context.sessionId,
+        staffInfo.staffUserId,
+        'message',
+        {
+          messageId: message.messageId,
+          content: message.content,
+          confidence: staffInfo.confidence,
+          matchMethod: staffInfo.matchMethod
+        }
+      );
+
+      // 3. 更新会话状态
+      await staffTrackerService.updateSessionStaffStatus(context.sessionId, {
+        hasStaff: true,
+        currentStaff: staffInfo.staffUserId,
+        lastActivity: new Date()
+      });
+
+      // 4. 检查工作人员指令
+      const commandInfo = await staffCommandService.detectCommand(message);
+      if (commandInfo) {
+        console.log('[MessageProcessing] 检测到工作人员指令:', commandInfo.command);
+
+        const commandResult = await staffCommandService.executeCommand(
+          context.sessionId,
+          commandInfo,
+          staffInfo.staffUserId,
+          message
         );
-        actionReason = '转化客服模式，使用转化AI回复';
-      } else {
-        // 其他模式：使用标准服务回复
-        reply = await aiService.generateServiceReply(
-          messageContext.content,
-          intentResult.intent,
-          systemPrompt,
-          {
-            sessionId: session.sessionId,
-            messageId: messageContext.messageId,
-            robotId: robot.robotId,
-            robotName: robot.name
-          }
-        );
-        actionReason = `${promptType === 'risk' ? '风险内容' : '垃圾信息'}提示回复`;
+
+        return {
+          success: true,
+          type: 'staff_command',
+          commandInfo,
+          commandResult,
+          shouldTriggerAI: false, // 工作人员指令不触发AI回复
+          staffUserId: staffInfo.staffUserId
+        };
       }
 
-      logger.info('MessageProcessing', 'generateReplyWithPrompt步骤: 回复生成完成', {
-        replyLength: reply.length,
-        promptType,
-        processingId
-      });
-
-      executionTrackerService.updateStep(processingId, 'reply_generation', {
-        status: 'completed',
-        endTime: Date.now(),
-        result: { reply }
-      });
-
-      // 更新会话统计
-      await sessionService.updateSession(session.sessionId, {
-        aiReplyCount: session.aiReplyCount + 1,
-        replyCount: session.replyCount + 1
-      });
-
-      // 发送回复
-      logger.info('MessageProcessing', 'generateReplyWithPrompt步骤: 开始发送回复', {
-        toType,
-        recipient,
-        robotId: robot.robotId,
-        replyLength: reply.length,
-        processingId
-      });
-
-      executionTrackerService.updateStep(processingId, 'send_reply', {
-        status: 'processing',
-        startTime: Date.now()
-      });
-
-      const sendResult = await worktoolService.sendTextMessage(
-        robot.robotId,
-        recipient,
-        reply
-      );
-
-      executionTrackerService.updateStep(processingId, 'send_reply', {
-        status: 'completed',
-        endTime: Date.now(),
-        result: sendResult
-      });
-
-      logger.info('MessageProcessing', 'generateReplyWithPrompt步骤: 回复发送完成', {
-        sendResult,
-        success: sendResult.success,
-        processingId
-      });
-
-      // 保存机器人回复到数据库
-      await sessionMessageService.saveBotMessage(
-        session.sessionId,
-        reply,
-        {
-          userId: messageContext.fromName,
-          groupId: messageContext.groupName,
-          userName: messageContext.fromName,
-          groupName: messageContext.groupName,
-        },
-        intentResult.intent,
-        robot
-      );
-
-      logger.info('MessageProcessing', 'generateReplyWithPrompt步骤: ===== 完成 =====', {
-        action: 'auto_reply',
-        actionReason,
-        success: true,
-        processingId
-      });
-
+      // 5. 普通工作人员消息，不触发AI回复
       return {
-        action: 'auto_reply',
-        reply,
-        reason: actionReason,
-        intent: intentResult,
-        sendResult,
-        success: true
+        success: true,
+        type: 'staff_message',
+        staffInfo,
+        shouldTriggerAI: false, // 工作人员消息不触发AI回复
+        staffUserId: staffInfo.staffUserId,
+        message: '工作人员消息已处理，AI不回复'
       };
 
     } catch (error) {
-      logger.error('MessageProcessing', 'generateReplyWithPrompt步骤: 生成或发送回复失败', {
-        error: error.message,
-        stack: error.stack,
-        promptType,
-        processingId
+      console.error('[MessageProcessing] ❌ 处理工作人员消息失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 处理非工作人员消息
+   * @param {Object} context - 上下文对象
+   * @param {Object} message - 消息对象
+   * @param {Object} robot - 机器人配置
+   * @returns {Promise<Object>} 处理结果
+   */
+  async handleUserMessage(context, message, robot) {
+    console.log('[MessageProcessing] 处理用户消息');
+
+    try {
+      // 1. 检查协同功能是否启用
+      if (!robot.enableCollaboration) {
+        console.log('[MessageProcessing] 协同功能未启用，直接触发AI回复');
+        return {
+          success: true,
+          type: 'user_message',
+          shouldTriggerAI: true,
+          message: '协同功能未启用，直接触发AI回复'
+        };
+      }
+
+      // 2. 进行协同决策
+      console.log('[MessageProcessing] 开始协同决策...');
+      const decision = await collabDecisionService.makeDecision(context, robot);
+
+      console.log('[MessageProcessing] 协同决策结果:', {
+        shouldAIReply: decision.shouldAIReply,
+        reason: decision.reason,
+        priority: decision.priority
       });
 
+      // 3. 返回处理结果
       return {
-        action: 'none',
-        reason: `生成${promptType === 'risk' ? '风险' : '垃圾信息'}回复失败: ${error.message}`,
-        intent: intentResult,
-        success: false
+        success: true,
+        type: 'user_message',
+        shouldTriggerAI: decision.shouldAIReply,
+        decision,
+        message: decision.shouldAIReply
+          ? '决策：AI应该回复'
+          : '决策：AI不应该回复'
+      };
+
+    } catch (error) {
+      console.error('[MessageProcessing] ❌ 处理用户消息失败:', error);
+
+      // 决策失败时，降级处理：触发AI回复
+      console.log('[MessageProcessing] 决策失败，降级触发AI回复');
+      return {
+        success: true,
+        type: 'user_message',
+        shouldTriggerAI: true,
+        message: '决策失败，降级触发AI回复'
       };
     }
   }
 
   /**
-   * 获取处理统计
+   * 记录工作人员消息
+   * @param {Object} context - 上下文对象
+   * @param {Object} message - 消息对象
+   * @param {Object} staffInfo - 工作人员信息
    */
-  async getStats(timeRange = '24h') {
-    return executionTrackerService.getStats(timeRange);
+  async recordStaffMessage(context, message, staffInfo) {
+    try {
+      const db = await this.getDb();
+
+      await db.insert(staffMessages).values({
+        id: uuidv4(),
+        sessionId: context.sessionId,
+        messageId: message.messageId,
+        staffUserId: staffInfo.staffUserId,
+        staffName: staffInfo.nickname,
+        content: message.content,
+        messageType: 'reply',
+        createdAt: new Date()
+      });
+
+      console.log('[MessageProcessing] ✅ 工作人员消息已记录');
+
+    } catch (error) {
+      console.error('[MessageProcessing] ❌ 记录工作人员消息失败:', error);
+      // 不抛出错误，避免影响主流程
+    }
   }
 
   /**
-   * 获取最近处理记录
+   * 获取工作人员消息列表
+   * @param {string} sessionId - 会话ID
+   * @param {number} limit - 限制数量
+   * @returns {Promise<Array>} 工作人员消息列表
    */
-  async getRecentRecords(limit = 50) {
-    return executionTrackerService.getRecentRecords(limit);
+  async getStaffMessages(sessionId, limit = 50) {
+    return staffTrackerService.getStaffMessages(sessionId, limit);
+  }
+
+  /**
+   * 获取决策日志
+   * @param {string} sessionId - 会话ID
+   * @param {number} limit - 限制数量
+   * @returns {Promise<Array>} 决策日志列表
+   */
+  async getDecisionLogs(sessionId, limit = 50) {
+    try {
+      const db = await this.getDb();
+
+      const logs = await db
+        .select()
+        .from(collaborationDecisionLogs)
+        .where(eq(collaborationDecisionLogs.sessionId, sessionId))
+        .orderBy(collaborationDecisionLogs.createdAt)
+        .limit(limit);
+
+      // 解析JSON字段
+      return logs.map(log => ({
+        ...log,
+        staffContext: log.staffContext ? JSON.parse(log.staffContext) : null,
+        infoContext: log.infoContext ? JSON.parse(log.infoContext) : null,
+        strategy: log.strategy ? JSON.parse(log.strategy) : null
+      }));
+
+    } catch (error) {
+      console.error('[MessageProcessing] ❌ 获取决策日志失败:', error);
+      return [];
+    }
   }
 }
 
-module.exports = new MessageProcessingService();
+// 创建单例
+const messageProcessingService = new MessageProcessingService();
+
+module.exports = messageProcessingService;

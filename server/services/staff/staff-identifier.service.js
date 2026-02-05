@@ -46,96 +46,134 @@ class StaffIdentifierService {
   }
 
   /**
-   * 判断用户是否为工作人员
+   * 识别工作人员（增强版）
+   * @param {Object} context - 上下文对象
+   * @param {string} context.sessionId - 会话ID
    * @param {Object} message - 消息对象
-   * @param {string} message.userId - 用户ID
-   * @param {string} message.receivedName - 接收到的名称（昵称）
-   * @param {string} message.groupName - 群组名称
-   * @param {string} message.userRemark - 用户备注
-   * @param {string} message.platform - 平台（enterprise/wechat）
-   * @returns {boolean} 是否为工作人员
+   * @param {Object} robot - 机器人配置
+   * @returns {Promise<Object>} 识别结果
    */
-  isStaffUser(message) {
+  async identifyStaff(context, message, robot) {
     if (!this.config.enabled) {
-      return false;
+      return {
+        isStaff: false,
+        confidence: 0,
+        matchMethod: null,
+        staffUserId: null,
+        nickname: message.nickname || message.receivedName || null
+      };
     }
+
+    // 合并配置：robot配置优先
+    const effectiveConfig = {
+      ...this.config,
+      ...(robot?.staffConfig || {})
+    };
 
     const {
       userId,
+      nickname,
       receivedName,
-      groupName,
       userRemark,
       platform
     } = message;
 
+    const displayName = nickname || receivedName;
+
     // 1. userId白名单匹配（最准确，优先级最高）
-    if (this.config.userIds && this.config.userIds.length > 0) {
-      if (this.config.userIds.includes(userId)) {
-        console.log('[StaffIdentifier] ✅ userId白名单匹配:', {
-          userId,
-          receivedName
-        });
-        return true;
+    if (effectiveConfig.userIds && effectiveConfig.userIds.length > 0) {
+      if (effectiveConfig.userIds.includes(userId)) {
+        return {
+          isStaff: true,
+          confidence: 1.0,
+          matchMethod: 'userId',
+          staffUserId: userId,
+          nickname: displayName
+        };
       }
     }
 
     // 2. 企业微信特征检测
     if (platform === 'enterprise') {
-      if (this.config.enterpriseNames && this.config.enterpriseNames.length > 0) {
-        for (const enterpriseName of this.config.enterpriseNames) {
-          if (receivedName && receivedName.includes(enterpriseName)) {
-            console.log('[StaffIdentifier] ✅ 企业名匹配:', {
-              receivedName,
-              enterpriseName
-            });
-            return true;
+      if (effectiveConfig.enterpriseNames && effectiveConfig.enterpriseNames.length > 0) {
+        for (const enterpriseName of effectiveConfig.enterpriseNames) {
+          if (displayName && displayName.includes(enterpriseName)) {
+            return {
+              isStaff: true,
+              confidence: 0.85,
+              matchMethod: 'enterpriseName',
+              staffUserId: userId,
+              nickname: displayName
+            };
           }
         }
       }
     }
 
     // 3. 备注名匹配
-    if (userRemark && this.config.userRemarks && this.config.userRemarks.length > 0) {
-      for (const remark of this.config.userRemarks) {
+    if (userRemark && effectiveConfig.userRemarks && effectiveConfig.userRemarks.length > 0) {
+      for (const remark of effectiveConfig.userRemarks) {
         if (userRemark.includes(remark)) {
-          console.log('[StaffIdentifier] ✅ 备注名匹配:', {
-            userRemark,
-            keyword: remark
-          });
-          return true;
+          return {
+            isStaff: true,
+            confidence: 0.75,
+            matchMethod: 'remark',
+            staffUserId: userId,
+            nickname: displayName
+          };
         }
       }
     }
 
     // 4. 昵称匹配
-    if (receivedName && this.config.nicknames && this.config.nicknames.length > 0) {
-      for (const nickname of this.config.nicknames) {
-        if (receivedName.includes(nickname)) {
-          console.log('[StaffIdentifier] ✅ 昵称匹配:', {
-            receivedName,
-            keyword: nickname
-          });
-          return true;
+    if (displayName && effectiveConfig.nicknames && effectiveConfig.nicknames.length > 0) {
+      for (const nicknameKey of effectiveConfig.nicknames) {
+        if (displayName.includes(nicknameKey)) {
+          return {
+            isStaff: true,
+            confidence: 0.7,
+            matchMethod: 'nickname',
+            staffUserId: userId,
+            nickname: displayName
+          };
         }
       }
     }
 
     // 5. 特殊标识匹配
-    if (this.config.specialPatterns && this.config.specialPatterns.length > 0) {
-      for (const pattern of this.config.specialPatterns) {
-        if ((receivedName && receivedName.includes(pattern)) ||
+    if (effectiveConfig.specialPatterns && effectiveConfig.specialPatterns.length > 0) {
+      for (const pattern of effectiveConfig.specialPatterns) {
+        if ((displayName && displayName.includes(pattern)) ||
             (userRemark && userRemark.includes(pattern))) {
-          console.log('[StaffIdentifier] ✅ 特殊标识匹配:', {
-            receivedName,
-            userRemark,
-            pattern
-          });
-          return true;
+          return {
+            isStaff: true,
+            confidence: 0.65,
+            matchMethod: 'specialPattern',
+            staffUserId: userId,
+            nickname: displayName
+          };
         }
       }
     }
 
-    return false;
+    // 未识别为工作人员
+    return {
+      isStaff: false,
+      confidence: 0,
+      matchMethod: null,
+      staffUserId: null,
+      nickname: displayName
+    };
+  }
+
+  /**
+   * 判断用户是否为工作人员（简化版，兼容旧代码）
+   * @param {Object} message - 消息对象
+   * @returns {boolean} 是否为工作人员
+   */
+  isStaffUser(message) {
+    const result = this.identifyStaff({}, message, {});
+    return result.isStaff;
   }
 
   /**

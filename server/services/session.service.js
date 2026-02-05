@@ -39,6 +39,25 @@ class SessionService {
       const session = JSON.parse(existing);
       // 存储原始 sessionId 用于调试
       session.originalSessionId = originalSessionId;
+
+      // 确保工作人员状态存在（向后兼容）
+      if (!session.staffStatus) {
+        session.staffStatus = {
+          hasStaffParticipated: false,
+          currentStaff: null,
+          joinTime: null,
+          messageCount: 0
+        };
+      }
+
+      // 确保协同配置存在（向后兼容）
+      if (session.collaborationMode === undefined) {
+        session.collaborationMode = 'adaptive';
+      }
+      if (session.aiReplyStrategy === undefined) {
+        session.aiReplyStrategy = 'normal';
+      }
+
       return session;
     }
 
@@ -56,7 +75,19 @@ class SessionService {
       humanReplyCount: 0,
       status: 'auto', // auto | human | closed
       context: [],
-      tags: []
+      tags: [],
+
+      // 【新增】工作人员状态
+      staffStatus: {
+        hasStaffParticipated: false,
+        currentStaff: null,
+        joinTime: null,
+        messageCount: 0
+      },
+
+      // 【新增】协同配置
+      collaborationMode: 'adaptive', // adaptive/priority_to_staff/priority_to_ai
+      aiReplyStrategy: 'normal' // normal/low/paused
     };
 
     await redis.setex(key, this.sessionTTL, JSON.stringify(session));
