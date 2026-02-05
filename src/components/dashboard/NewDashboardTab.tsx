@@ -448,13 +448,13 @@ export default function NewDashboardTab({
               {/* 系统指标 */}
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div className="text-center p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                  <div className="text-xs text-slate-600 dark:text-slate-400">AI错误</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">AI错误</div>
                   <div className="text-xl font-bold text-red-500">
                     {monitorSummary?.aiErrors || 0}
                   </div>
                 </div>
                 <div className="text-center p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                  <div className="text-xs text-slate-600 dark:text-slate-400">回调错误</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">回调错误</div>
                   <div className="text-xl font-bold text-orange-500">
                     {monitorSummary?.systemMetrics?.callbackError || 0}
                   </div>
@@ -484,7 +484,7 @@ export default function NewDashboardTab({
                         <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
                           {robot.nickname || robot.name}
                         </div>
-                        <div className="text-xs text-slate-600 dark:text-slate-400">
+                        <div className="text-sm text-slate-600 dark:text-slate-400">
                           {robot.messagesProcessed || 0} 条消息
                         </div>
                       </div>
@@ -493,7 +493,7 @@ export default function NewDashboardTab({
                       <span className={`text-sm font-medium ${getHealthStatusColor(robot.healthStatus || 'healthy')}`}>
                         {getHealthStatusIcon(robot.healthStatus || 'healthy')}
                       </span>
-                      <span className="text-xs text-slate-600 dark:text-slate-400">
+                      <span className="text-sm text-slate-600 dark:text-slate-400">
                         {robot.successRate || 100}%
                       </span>
                     </div>
@@ -553,7 +553,7 @@ export default function NewDashboardTab({
                 <div className="text-sm font-medium text-slate-700 dark:text-slate-300">级别分布</div>
                 {alertOverview?.levelDistribution.map((item) => (
                   <div key={item.level} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-sm">
                       <span className="text-slate-600 dark:text-slate-400 capitalize">{item.level}</span>
                       <span className="text-slate-900 dark:text-slate-100 font-medium">
                         {item.count} ({item.percentage})
@@ -578,19 +578,19 @@ export default function NewDashboardTab({
               <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
                 <div className="grid grid-cols-3 gap-2">
                   <div className="text-center">
-                    <div className="text-xs text-slate-600 dark:text-slate-400">受影响群</div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">受影响群</div>
                     <div className="text-lg font-bold text-slate-900 dark:text-slate-100">
                       {alertOverview?.affectedGroups || 0}
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xs text-slate-600 dark:text-slate-400">受影响用户</div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">受影响用户</div>
                     <div className="text-lg font-bold text-slate-900 dark:text-slate-100">
                       {alertOverview?.affectedUsers || 0}
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xs text-slate-600 dark:text-slate-400">受影响会话</div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">受影响会话</div>
                     <div className="text-lg font-bold text-slate-900 dark:text-slate-100">
                       {alertOverview?.affectedChats || 0}
                     </div>
