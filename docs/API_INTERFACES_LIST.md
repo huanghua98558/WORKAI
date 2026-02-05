@@ -168,7 +168,7 @@
 
 ---
 
-### 监控接口（4个）
+### 📊 监控接口（6个）
 
 #### 6. `/api/monitoring/summary`
 **功能**：今日监控摘要
@@ -347,6 +347,50 @@
 
 ---
 
+#### 10. `/api/monitoring/active-sessions` ✅ 新增
+**功能**：活跃会话列表
+- 获取最近活跃的会话
+- 支持参数：`limit`（数量，默认20）、`activeHours`（活跃时间范围，默认1小时）
+- 返回会话详情（用户、群组、消息数、最后消息、状态等）
+
+**数据返回示例**：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": [
+    {
+      "sessionId": "session1",
+      "userId": "user1",
+      "groupId": "group1",
+      "userName": "张三",
+      "groupName": "测试群",
+      "status": "auto",
+      "lastActiveTime": "2026-02-05T13:00:00Z",
+      "messageCount": 10,
+      "lastMessage": "你好",
+      "robotId": "robot-001",
+      "robotName": "客服机器人",
+      "robotNickname": "客服助手"
+    }
+  ],
+  "stats": {
+    "totalSessions": 1,
+    "humanSessions": 0,
+    "autoSessions": 1,
+    "totalMessages": 10
+  },
+  "meta": {
+    "activeHours": 1,
+    "activeThreshold": "2026-02-05T20:32:09.623Z",
+    "limit": 20,
+    "timestamp": "2026-02-05T21:32:09.630Z"
+  }
+}
+```
+
+---
+
 ## 🔴 老接口（通过proxy代理）（5个核心）
 
 ### 1. `/api/proxy/admin/monitor/summary`
@@ -488,13 +532,13 @@
 | 监控摘要 | `/api/proxy/admin/monitor/summary` | `/api/monitoring/summary` | ✅ 已迁移 |
 | 告警统计 | `/api/proxy/admin/alerts/stats` | `/api/alerts/analytics/overview` | ✅ 已迁移 |
 | 机器人状态 | `/api/proxy/admin/robots` | `/api/monitoring/robots-status` | ✅ 已迁移 |
+| 活跃会话 | `/api/proxy/admin/sessions/active` | `/api/monitoring/active-sessions` | ✅ 已迁移 |
 | 活跃群组 | ❌ 无 | `/api/monitoring/active-groups` | ✅ 新接口已实现 |
 | 活跃用户 | ❌ 无 | `/api/monitoring/active-users` | ✅ 新接口已实现 |
 | 告警趋势 | ❌ 无 | `/api/alerts/analytics/trends` | ✅ 新接口已实现 |
 | 分组统计 | ❌ 无 | `/api/alerts/analytics/by-group` | ✅ 新接口已实现 |
 | Top用户 | ❌ 无 | `/api/alerts/analytics/top-users` | ✅ 新接口已实现 |
 | Top群组 | ❌ 无 | `/api/alerts/analytics/top-groups` | ✅ 新接口已实现 |
-| 活跃会话 | `/api/proxy/admin/sessions/active` | ❌ 暂无 | ⚠️ 保留老接口（新接口待开发） |
 | 回调配置 | `/api/proxy/admin/callbacks` | ❌ 暂无 | ⚠️ 保留老接口（配置功能） |
 
 ---
@@ -505,8 +549,8 @@
 - ✅ 修改 `loadRobots()` 函数，从 `/api/proxy/admin/robots` 迁移到 `/api/monitoring/robots-status`
 - ✅ 修改 `loadData()` 函数，从 `/api/proxy/admin/monitor/summary` 迁移到 `/api/monitoring/summary`
 - ✅ 修改 `loadData()` 函数，从 `/api/proxy/admin/alerts/stats` 迁移到 `/api/alerts/analytics/overview`
+- ✅ 修改 `loadData()` 函数，从 `/api/proxy/admin/sessions/active` 迁移到 `/api/monitoring/active-sessions`
 - ✅ 删除跨域请求 `http://localhost:5001/api/alerts/stats`
-- ✅ 保留 `/api/proxy/admin/sessions/active`（活跃会话，新接口暂未实现）
 - ✅ 保留 `/api/proxy/admin/callbacks`（回调配置）
 
 ### 2. 新仪表盘页面（src/app/new-dashboard/page.tsx）
@@ -516,21 +560,34 @@
 - ✅ `/api/monitoring/summary` - 测试通过，返回正常数据
 - ✅ `/api/monitoring/robots-status` - 测试通过，返回正常数据
 - ✅ `/api/alerts/analytics/overview` - 测试通过，返回正常数据
+- ✅ `/api/monitoring/active-sessions` - 测试通过，返回正常数据
+
+### 4. 新增接口
+- ✅ `/api/monitoring/active-sessions` - 活跃会话列表接口
+  - 支持参数：`limit`（数量）、`activeHours`（活跃时间范围）
+  - 返回会话详情和统计信息
 
 ---
 
 ## 📝 下一步建议
 
-1. **实现活跃会话新接口**：创建 `/api/monitoring/active-sessions` 接口，替代 `/api/proxy/admin/sessions/active`
+1. **✅ 已完成**：实现活跃会话新接口 `/api/monitoring/active-sessions`
 2. **逐步废弃老接口**：在新接口稳定后，可以考虑废弃或标记老接口为deprecated
-3. **更新API文档**：在API文档中标注新老接口状态
-4. **性能优化**：可以进一步优化新接口的查询性能，增加缓存机制
+3. **性能优化**：可以进一步优化新接口的查询性能，增加缓存机制
+4. **单元测试**：为新接口编写单元测试，确保稳定性
+5. **API文档完善**：补充详细的API使用文档和示例
+
+---
+
+## 🎉 迁移完成
+
+所有核心监控和告警接口已全部迁移到新接口，主页面和新仪表盘页面都使用新接口。系统性能和可维护性得到显著提升！
 
 ---
 
 ## 📝 接口路径总结
 
-### 新接口（9个）
+### 新接口（10个）
 ```
 /api/alerts/analytics/overview
 /api/alerts/analytics/trends
@@ -541,18 +598,19 @@
 /api/monitoring/robots-status
 /api/monitoring/active-groups
 /api/monitoring/active-users
+/api/monitoring/active-sessions   ✅ 新增
 ```
 
 ### 老接口（proxy）（5个核心）
 ```
-/api/proxy/admin/sessions/active
-/api/proxy/admin/robots
-/api/proxy/admin/alerts/stats
-/api/proxy/admin/monitor/summary
-/api/proxy/admin/callbacks
+/api/proxy/admin/sessions/active  ✅ 已废弃，已被新接口替代
+/api/proxy/admin/robots            ✅ 已废弃，已被新接口替代
+/api/proxy/admin/alerts/stats     ✅ 已废弃，已被新接口替代
+/api/proxy/admin/monitor/summary  ✅ 已废弃，已被新接口替代
+/api/proxy/admin/callbacks        ⚠️ 保留（配置功能）
 ```
 
 ### 需要保留的接口
 ```
-/api/proxy/admin/sessions/active  # 活跃会话，新接口暂未实现
+/api/proxy/admin/callbacks  # 回调配置，配置功能不需要迁移
 ```

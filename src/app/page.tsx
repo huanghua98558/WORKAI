@@ -306,7 +306,7 @@ export default function AdminDashboard() {
       // 优化：按优先级分组，减少并行请求数
       // 关键数据：需要立即显示
       const criticalPromises = [
-        fetchWithTimeout('/api/proxy/admin/sessions/active?limit=20', 2000), // 暂时保留老接口
+        fetchWithTimeout('/api/monitoring/active-sessions?limit=20', 2000), // 使用新接口
       ];
       
       // 重要数据：监控相关（使用新接口）
