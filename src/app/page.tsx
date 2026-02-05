@@ -2580,77 +2580,77 @@ ${callbacks.robotStatus}
       {/* 主内容 */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          {/* 科幻风格标签栏 */}
-          <TabsList className="w-full lg:w-auto flex flex-wrap gap-1.5 p-2 glass border border-primary/20 bg-gradient-to-r from-slate-50/80 to-slate-100/80 dark:from-slate-900/80 dark:to-slate-800/80 backdrop-blur-sm">
+          {/* 科幻风格标签栏 - 优化字体大小和玻璃效果 */}
+          <TabsList className="w-full lg:w-auto flex flex-wrap gap-2 p-3 glass border border-slate-200/40 bg-white/70 backdrop-blur-md shadow-lg shadow-slate-200/50">
             <TabsTrigger
               value="dashboard"
-              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
+              className="gap-3 py-3.5 px-5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-blue-300 hover:bg-blue-50/80 transition-all duration-300"
             >
-              <LayoutDashboard className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">仪表盘</span>
+              <LayoutDashboard className="h-6 w-6" />
+              <span className="font-semibold text-base sm:text-lg">仪表盘</span>
             </TabsTrigger>
             <TabsTrigger
               value="sessions"
-              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
+              className="gap-3 py-3.5 px-5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-blue-300 hover:bg-blue-50/80 transition-all duration-300"
             >
-              <Users className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">会话管理</span>
+              <Users className="h-6 w-6" />
+              <span className="font-semibold text-base sm:text-lg">会话管理</span>
             </TabsTrigger>
             <TabsTrigger
               value="realtime"
-              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
+              className="gap-3 py-3.5 px-5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-blue-300 hover:bg-blue-50/80 transition-all duration-300"
             >
-              <MessageSquare className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">业务消息监控</span>
+              <MessageSquare className="h-6 w-6" />
+              <span className="font-semibold text-base sm:text-lg">业务消息监控</span>
             </TabsTrigger>
             <TabsTrigger
               value="robots"
-              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
+              className="gap-3 py-3.5 px-5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-blue-300 hover:bg-blue-50/80 transition-all duration-300"
             >
-              <Bot className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">机器人管理</span>
+              <Bot className="h-6 w-6" />
+              <span className="font-semibold text-base sm:text-lg">机器人管理</span>
             </TabsTrigger>
             <TabsTrigger
               value="monitor"
-              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
+              className="gap-3 py-3.5 px-5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-blue-300 hover:bg-blue-50/80 transition-all duration-300"
             >
-              <Activity className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">监控告警</span>
+              <Activity className="h-6 w-6" />
+              <span className="font-semibold text-base sm:text-lg">监控告警</span>
             </TabsTrigger>
             <TabsTrigger
               value="monitoring"
-              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
+              className="gap-3 py-3.5 px-5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-blue-300 hover:bg-blue-50/80 transition-all duration-300"
             >
-              <Sparkles className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">AI交互监控</span>
+              <Sparkles className="h-6 w-6" />
+              <span className="font-semibold text-base sm:text-lg">AI交互监控</span>
             </TabsTrigger>
             <TabsTrigger
               value="ai-module"
-              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
+              className="gap-3 py-3.5 px-5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-blue-300 hover:bg-blue-50/80 transition-all duration-300"
             >
-              <Brain className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">AI模块</span>
+              <Brain className="h-6 w-6" />
+              <span className="font-semibold text-base sm:text-lg">AI模块</span>
             </TabsTrigger>
             <TabsTrigger
               value="flow-engine"
-              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
+              className="gap-3 py-3.5 px-5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-blue-300 hover:bg-blue-50/80 transition-all duration-300"
             >
-              <GitBranch className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">流程引擎</span>
+              <GitBranch className="h-6 w-6" />
+              <span className="font-semibold text-base sm:text-lg">流程引擎</span>
             </TabsTrigger>
             <TabsTrigger
               value="system-logs"
-              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
+              className="gap-3 py-3.5 px-5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-blue-300 hover:bg-blue-50/80 transition-all duration-300"
             >
-              <Server className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">系统日志</span>
+              <Server className="h-6 w-6" />
+              <span className="font-semibold text-base sm:text-lg">系统日志</span>
             </TabsTrigger>
             <TabsTrigger
               value="settings"
-              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
+              className="gap-3 py-3.5 px-5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-blue-300 hover:bg-blue-50/80 transition-all duration-300"
             >
-              <Settings className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">系统设置</span>
+              <Settings className="h-6 w-6" />
+              <span className="font-semibold text-base sm:text-lg">系统设置</span>
             </TabsTrigger>
           </TabsList>
 
