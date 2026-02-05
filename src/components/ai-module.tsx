@@ -102,32 +102,32 @@ interface AIPersona {
 
 // 常用模型名称列表
 const COMMON_MODEL_NAMES = [
-  // 豆包
-  { value: 'doubao-pro-4k', label: 'doubao-pro-4k（豆包Pro 4K）', provider: 'doubao' },
-  { value: 'doubao-pro-32k', label: 'doubao-pro-32k（豆包Pro 32K）', provider: 'doubao' },
-  { value: 'doubao-pro-128k', label: 'doubao-pro-128k（豆包Pro 128K）', provider: 'doubao' },
+  // 豆包（内置模型）
+  { value: 'doubao-pro-4k', label: 'doubao-pro-4k（豆包Pro 4K）', provider: 'doubao', isBuiltin: true },
+  { value: 'doubao-pro-32k', label: 'doubao-pro-32k（豆包Pro 32K）', provider: 'doubao', isBuiltin: true },
+  { value: 'doubao-pro-128k', label: 'doubao-pro-128k（豆包Pro 128K）', provider: 'doubao', isBuiltin: true },
 
-  // DeepSeek
-  { value: 'deepseek-v3', label: 'deepseek-v3（DeepSeek V3）', provider: 'deepseek' },
-  { value: 'deepseek-r1', label: 'deepseek-r1（DeepSeek R1）', provider: 'deepseek' },
+  // DeepSeek（内置模型）
+  { value: 'deepseek-v3', label: 'deepseek-v3（DeepSeek V3）', provider: 'deepseek', isBuiltin: true },
+  { value: 'deepseek-r1', label: 'deepseek-r1（DeepSeek R1）', provider: 'deepseek', isBuiltin: true },
 
-  // Kimi
-  { value: 'kimi-k2', label: 'kimi-k2（Kimi K2）', provider: 'kimi' },
-  { value: 'moonshot-v1-8k', label: 'moonshot-v1-8k（Moonshot 8K）', provider: 'kimi' },
-  { value: 'moonshot-v1-32k', label: 'moonshot-v1-32k（Moonshot 32K）', provider: 'kimi' },
-  { value: 'moonshot-v1-128k', label: 'moonshot-v1-128k（Moonshot 128K）', provider: 'kimi' },
+  // Kimi（内置模型）
+  { value: 'kimi-k2', label: 'kimi-k2（Kimi K2）', provider: 'kimi', isBuiltin: true },
+  { value: 'moonshot-v1-8k', label: 'moonshot-v1-8k（Moonshot 8K）', provider: 'kimi', isBuiltin: true },
+  { value: 'moonshot-v1-32k', label: 'moonshot-v1-32k（Moonshot 32K）', provider: 'kimi', isBuiltin: true },
+  { value: 'moonshot-v1-128k', label: 'moonshot-v1-128k（Moonshot 128K）', provider: 'kimi', isBuiltin: true },
 
-  // OpenAI
-  { value: 'gpt-4', label: 'gpt-4（GPT-4）', provider: 'openai' },
-  { value: 'gpt-3.5-turbo', label: 'gpt-3.5-turbo（GPT-3.5 Turbo）', provider: 'openai' },
-  { value: 'gpt-4o', label: 'gpt-4o（GPT-4O）', provider: 'openai' },
+  // OpenAI（自定义模型，需要API密钥）
+  { value: 'gpt-4', label: 'gpt-4（GPT-4）', provider: 'openai', isBuiltin: false },
+  { value: 'gpt-3.5-turbo', label: 'gpt-3.5-turbo（GPT-3.5 Turbo）', provider: 'openai', isBuiltin: false },
+  { value: 'gpt-4o', label: 'gpt-4o（GPT-4O）', provider: 'openai', isBuiltin: false },
 
-  // Claude
-  { value: 'claude-3-opus', label: 'claude-3-opus（Claude 3 Opus）', provider: 'custom' },
-  { value: 'claude-3-sonnet', label: 'claude-3-sonnet（Claude 3 Sonnet）', provider: 'custom' },
+  // Claude（自定义模型，需要API密钥）
+  { value: 'claude-3-opus', label: 'claude-3-opus（Claude 3 Opus）', provider: 'custom', isBuiltin: false },
+  { value: 'claude-3-sonnet', label: 'claude-3-sonnet（Claude 3 Sonnet）', provider: 'custom', isBuiltin: false },
 
-  // 其他
-  { value: 'custom', label: '其他（自定义）', provider: 'custom' },
+  // 其他（自定义模型，需要API密钥）
+  { value: 'custom', label: '其他（自定义）', provider: 'custom', isBuiltin: false },
 ];
 
 interface MessageTemplate {
@@ -234,7 +234,7 @@ export default function AIModule() {
           capabilities: model.capabilities || [],
           priority: model.priority,
           createdAt: model.createdAt || model.created_at,
-          isBuiltin: true,
+          isBuiltin: model.providerType === 'builtin',
           config: model.config || {}
         }));
         setModels(formattedModels);
@@ -1019,12 +1019,16 @@ export default function AIModule() {
           </DialogHeader>
 
           <Tabs defaultValue="basic" className="mt-4">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className={`grid w-full ${selectedModel?.isBuiltin ? 'grid-cols-2' : 'grid-cols-5'}`}>
               <TabsTrigger value="basic">基本配置</TabsTrigger>
-              <TabsTrigger value="params">参数配置</TabsTrigger>
-              <TabsTrigger value="memory">记忆配置</TabsTrigger>
+              {!selectedModel?.isBuiltin && (
+                <>
+                  <TabsTrigger value="params">参数配置</TabsTrigger>
+                  <TabsTrigger value="memory">记忆配置</TabsTrigger>
+                  <TabsTrigger value="rate">速率限制</TabsTrigger>
+                </>
+              )}
               <TabsTrigger value="roles">角色关联</TabsTrigger>
-              <TabsTrigger value="rate">速率限制</TabsTrigger>
             </TabsList>
 
             {/* 基本配置 */}
@@ -1052,7 +1056,8 @@ export default function AIModule() {
                           ...selectedModel,
                           name: value,
                           provider: selected?.provider || '',
-                          displayName: selected?.label || value
+                          displayName: selected?.label || value,
+                          isBuiltin: selected?.isBuiltin || false
                         } as AIModel);
                       }}
                     >
@@ -1156,85 +1161,99 @@ export default function AIModule() {
                 </p>
               </div>
 
-              {/* 对接参数配置 */}
-              <div className="border rounded-lg p-4 space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Key className="h-4 w-4 text-primary" />
-                  <Label className="font-semibold">对接参数配置</Label>
+              {/* 对接参数配置 - 仅自定义模型显示 */}
+              {!selectedModel?.isBuiltin && (
+                <div className="border rounded-lg p-4 space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Key className="h-4 w-4 text-primary" />
+                    <Label className="font-semibold">对接参数配置</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    配置模型的API对接参数，用于连接AI服务提供商
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="model-api-key">API Key</Label>
+                      <Input
+                        id="model-api-key"
+                        type="password"
+                        value={selectedModel?.config?.apiKey || ''}
+                        onChange={(e) => setSelectedModel({
+                          ...selectedModel,
+                          config: { ...selectedModel?.config, apiKey: e.target.value }
+                        } as AIModel)}
+                        placeholder="请输入API Key"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        用于身份验证的密钥
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="model-api-secret">API Secret</Label>
+                      <Input
+                        id="model-api-secret"
+                        type="password"
+                        value={selectedModel?.config?.apiSecret || ''}
+                        onChange={(e) => setSelectedModel({
+                          ...selectedModel,
+                          config: { ...selectedModel?.config, apiSecret: e.target.value }
+                        } as AIModel)}
+                        placeholder="请输入API Secret（可选）"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        用于身份验证的密钥（可选）
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="model-endpoint">Endpoint URL</Label>
+                      <Input
+                        id="model-endpoint"
+                        type="url"
+                        value={selectedModel?.config?.endpoint || ''}
+                        onChange={(e) => setSelectedModel({
+                          ...selectedModel,
+                          config: { ...selectedModel?.config, endpoint: e.target.value }
+                        } as AIModel)}
+                        placeholder="https://api.example.com"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        API服务地址（可选）
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="model-region">Region</Label>
+                      <Input
+                        id="model-region"
+                        value={selectedModel?.config?.region || ''}
+                        onChange={(e) => setSelectedModel({
+                          ...selectedModel,
+                          config: { ...selectedModel?.config, region: e.target.value }
+                        } as AIModel)}
+                        placeholder="us-east-1"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        服务区域（可选）
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  配置模型的API对接参数，用于连接AI服务提供商
-                </p>
+              )}
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="model-api-key">API Key</Label>
-                    <Input
-                      id="model-api-key"
-                      type="password"
-                      value={selectedModel?.config?.apiKey || ''}
-                      onChange={(e) => setSelectedModel({
-                        ...selectedModel,
-                        config: { ...selectedModel?.config, apiKey: e.target.value }
-                      } as AIModel)}
-                      placeholder="请输入API Key"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      用于身份验证的密钥
-                    </p>
+              {selectedModel?.isBuiltin && (
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="h-4 w-4 text-primary" />
+                    <Label className="font-semibold">内置模型</Label>
                   </div>
-
-                  <div>
-                    <Label htmlFor="model-api-secret">API Secret</Label>
-                    <Input
-                      id="model-api-secret"
-                      type="password"
-                      value={selectedModel?.config?.apiSecret || ''}
-                      onChange={(e) => setSelectedModel({
-                        ...selectedModel,
-                        config: { ...selectedModel?.config, apiSecret: e.target.value }
-                      } as AIModel)}
-                      placeholder="请输入API Secret（可选）"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      用于身份验证的密钥（可选）
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="model-endpoint">Endpoint URL</Label>
-                    <Input
-                      id="model-endpoint"
-                      type="url"
-                      value={selectedModel?.config?.endpoint || ''}
-                      onChange={(e) => setSelectedModel({
-                        ...selectedModel,
-                        config: { ...selectedModel?.config, endpoint: e.target.value }
-                      } as AIModel)}
-                      placeholder="https://api.example.com"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      API服务地址（可选）
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="model-region">Region</Label>
-                    <Input
-                      id="model-region"
-                      value={selectedModel?.config?.region || ''}
-                      onChange={(e) => setSelectedModel({
-                        ...selectedModel,
-                        config: { ...selectedModel?.config, region: e.target.value }
-                      } as AIModel)}
-                      placeholder="us-east-1"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      服务区域（可选）
-                    </p>
-                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    此模型为内置模型，对接参数已由系统配置，无需手动填写。
+                  </p>
                 </div>
-              </div>
+              )}
 
               <div>
                 <Label>能力标签</Label>
@@ -1261,8 +1280,9 @@ export default function AIModule() {
               </div>
             </TabsContent>
 
-            {/* 参数配置 */}
-            <TabsContent value="params" className="space-y-6 py-4">
+            {/* 参数配置 - 仅自定义模型显示 */}
+            {!selectedModel?.isBuiltin && (
+              <TabsContent value="params" className="space-y-6 py-4">
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <Label htmlFor="temperature">温度参数（Temperature）</Label>
@@ -1402,9 +1422,11 @@ export default function AIModule() {
                 </div>
               </div>
             </TabsContent>
+            )}
 
             {/* 记忆配置 */}
-            <TabsContent value="memory" className="space-y-4 py-4">
+            {!selectedModel?.isBuiltin && (
+              <TabsContent value="memory" className="space-y-4 py-4">
               <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div>
                   <Label htmlFor="memory-enabled">启用记忆功能</Label>
@@ -1506,6 +1528,7 @@ export default function AIModule() {
                 </div>
               </div>
             </TabsContent>
+            )}
 
             {/* 角色关联 */}
             <TabsContent value="roles" className="space-y-4 py-4">
@@ -1593,8 +1616,9 @@ export default function AIModule() {
               )}
             </TabsContent>
 
-            {/* 速率限制 */}
-            <TabsContent value="rate" className="space-y-4 py-4">
+            {/* 速率限制 - 仅自定义模型显示 */}
+            {!selectedModel?.isBuiltin && (
+              <TabsContent value="rate" className="space-y-4 py-4">
               <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div>
                   <Label htmlFor="rate-limit-enabled">启用速率限制</Label>
@@ -1636,6 +1660,7 @@ export default function AIModule() {
                 </p>
               </div>
             </TabsContent>
+            )}
           </Tabs>
 
           <DialogFooter>

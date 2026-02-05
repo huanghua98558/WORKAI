@@ -43,6 +43,7 @@ async function getAIModels(request, reply) {
         description: aiModels.description,
         providerName: aiProviders.name,
         providerDisplayName: aiProviders.displayName,
+        providerType: aiProviders.type,
         createdAt: aiModels.createdAt,
         updatedAt: aiModels.updatedAt
       })
