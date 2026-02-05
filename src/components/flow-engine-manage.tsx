@@ -8,12 +8,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { 
-  GitBranch, 
-  RefreshCw, 
-  Play, 
-  Pause, 
-  Eye, 
+import {
+  GitBranch,
+  RefreshCw,
+  Play,
+  Pause,
+  Eye,
   Plus,
   Settings,
   Activity,
@@ -32,7 +32,9 @@ import {
   Save,
   X,
   Bell,
-  Users
+  Users,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import FlowEditor from '@/components/flow-engine-editor';
@@ -847,7 +849,7 @@ export default function FlowEngineManage() {
                   title={editorDialog.isMaximized ? "还原" : "最大化"}
                 >
                   {editorDialog.isMaximized ? (
-                    <Minus2 className="w-4 h-4" />
+                    <Minimize2 className="w-4 h-4" />
                   ) : (
                     <Maximize2 className="w-4 h-4" />
                   )}
@@ -1004,7 +1006,7 @@ export default function FlowEngineManage() {
                   title={editorDialog.isMaximized ? "还原" : "最大化"}
                 >
                   {editorDialog.isMaximized ? (
-                    <Minus2 className="w-4 h-4" />
+                    <Minimize2 className="w-4 h-4" />
                   ) : (
                     <Maximize2 className="w-4 h-4" />
                   )}
