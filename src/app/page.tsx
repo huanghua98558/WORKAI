@@ -1883,216 +1883,298 @@ ${callbacks.robotStatus}
     };
 
     return (
-      <div className="space-y-5">
-        {/* 顶部标题和操作栏 */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h3 className="text-2xl font-bold flex items-center gap-2">
-              <Users className="h-5 w-5 text-green-500" />
+      <div className="space-y-6">
+        {/* 顶部标题和操作栏 - 现代设计 */}
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <div className="space-y-1">
+            <h3 className="text-3xl font-bold flex items-center gap-3 bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+                <Users className="h-6 w-6 text-white" />
+              </div>
               会话管理
             </h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              查看和管理活跃的用户会话，监控业务消息
+            <p className="text-sm text-muted-foreground ml-15">
+              查看和管理活跃的用户会话，监控业务消息与AI交互
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="gap-1 h-5 px-2">
-              <Users className="h-3 w-3" />
-              {sessions.length} 个活跃会话
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="gap-2 h-8 px-3 border-2 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors">
+              <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <span className="font-semibold text-sm">{sessions.length}</span>
+              <span className="text-muted-foreground text-sm">个活跃会话</span>
             </Badge>
-            <Badge variant={showSessionDetail ? "secondary" : "outline"} className="gap-1 h-5 px-2">
-              <RefreshCw className={`h-3 w-3 ${!showSessionDetail && 'animate-spin'}`} />
-              {showSessionDetail ? '刷新暂停' : '自动刷新'}
+            <Badge 
+              variant={showSessionDetail ? "secondary" : "outline"} 
+              className="gap-2 h-8 px-3 border-2 transition-colors"
+            >
+              <RefreshCw className={`h-4 w-4 ${!showSessionDetail ? 'animate-spin text-green-600 dark:text-green-400' : ''}`} />
+              <span className="text-sm">{showSessionDetail ? '刷新暂停' : '自动刷新'}</span>
             </Badge>
             <Button 
               onClick={loadData} 
               variant="outline" 
-              size="sm"
+              size="default"
+              className="h-9 px-4 border-2 hover:bg-blue-50 hover:border-blue-400 dark:hover:bg-blue-950/30 dark:hover:border-blue-600 transition-all"
               disabled={isLoading}
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              刷新
+              手动刷新
             </Button>
           </div>
         </div>
 
         {/* 子标签切换 */}
         <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as 'sessions' | 'messages')} className="w-full">
-          <TabsList className="grid w-full max-w-[400px] grid-cols-2">
-            <TabsTrigger value="sessions" className="gap-2">
+          <TabsList className="grid w-full max-w-[500px] h-11 bg-muted/50 border-2 rounded-xl p-1">
+            <TabsTrigger value="sessions" className="gap-2 h-9 rounded-lg text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 dark:data-[state=active]:bg-slate-900">
               <Users className="h-4 w-4" />
               会话列表
             </TabsTrigger>
-            <TabsTrigger value="messages" className="gap-2">
+            <TabsTrigger value="messages" className="gap-2 h-9 rounded-lg text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 dark:data-[state=active]:bg-slate-900">
               <MessageSquare className="h-4 w-4" />
               业务消息监控
             </TabsTrigger>
           </TabsList>
 
           {/* 会话列表内容 */}
-          <TabsContent value="sessions" className="space-y-5 mt-5">
-            {/* 统计卡片 */}
-            <Card>
-              <CardContent className="p-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-                  <div className="text-center p-3.5 bg-muted/30 rounded-lg">
-                    <div className="text-lg md:text-xl font-bold">{stats.total}</div>
-                    <div className="text-[11px] text-muted-foreground mt-1">总会话</div>
+          <TabsContent value="sessions" className="space-y-4 mt-4">
+            {/* 统计卡片 - 现代渐变设计 */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs text-muted-foreground font-medium flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                      <Users className="h-4 w-4 text-white" />
+                    </div>
+                    总会话数
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">
+                    {stats.total}
                   </div>
-                  <div className="text-center p-3.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <div className="text-lg md:text-xl font-bold text-blue-600 dark:text-blue-400">{stats.auto}</div>
-                    <div className="text-[11px] text-muted-foreground mt-1">自动模式</div>
-                  </div>
-                  <div className="text-center p-3.5 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                    <div className="text-lg md:text-xl font-bold text-orange-600 dark:text-orange-400">{stats.human}</div>
-                    <div className="text-[11px] text-muted-foreground mt-1">人工模式</div>
-                  </div>
-                  <div className="text-center p-3.5 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                    <div className="text-lg md:text-xl font-bold text-purple-600 dark:text-purple-400">{stats.totalMessages}</div>
-                    <div className="text-[11px] text-muted-foreground mt-1">总消息</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="text-xs text-muted-foreground mt-1">活跃用户会话</div>
+                </CardContent>
+              </Card>
 
-        {/* 最近会话 - 显示最近活跃的会话 */}
+              <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs text-muted-foreground font-medium flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
+                      <Bot className="h-4 w-4 text-white" />
+                    </div>
+                    自动模式
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-400 bg-clip-text text-transparent">
+                    {stats.auto}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">AI自动处理</div>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs text-muted-foreground font-medium flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
+                      <UserCheck className="h-4 w-4 text-white" />
+                    </div>
+                    人工模式
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-amber-400 bg-clip-text text-transparent">
+                    {stats.human}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">人工接管</div>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs text-muted-foreground font-medium flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-500 flex items-center justify-center">
+                      <MessageSquare className="h-4 w-4 text-white" />
+                    </div>
+                    总消息数
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-violet-400 bg-clip-text text-transparent">
+                    {stats.totalMessages}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">累计消息</div>
+                </CardContent>
+              </Card>
+            </div>
+
+        {/* 最近会话 - 卡片式布局 */}
         {sessions.length > 0 && (
-          <Card>
-            <CardHeader className="pb-3">
+          <Card className="border-2">
+            <CardHeader className="pb-4 bg-gradient-to-r from-blue-50 to-transparent dark:from-blue-950/30">
               <div className="flex justify-between items-center">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  最近会话
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  最近活跃会话
                 </CardTitle>
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 text-xs">
                   {Math.min(sessions.length, 10)} 个
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="pt-0">
-              <div className="grid gap-2.5 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            <CardContent className="pt-5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {sessions.slice(0, 10).map((session) => (
-                  <div
+                  <Card
                     key={session.sessionId}
-                    className="flex items-start gap-2.5 p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                    className="group hover:shadow-md hover:border-blue-400 dark:hover:border-blue-600 transition-all duration-200 cursor-pointer bg-gradient-to-br from-white to-blue-50/30 dark:from-slate-900 dark:to-blue-950/20"
                     onClick={() => {
                       setSelectedSession(session);
                       setShowSessionDetail(true);
                       loadSessionMessages(session.sessionId);
                     }}
                   >
-                    {/* 用户头像 */}
-                    <div className="flex-shrink-0 w-6.5 h-6.5 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                      <User className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                    </div>
-
-                    {/* 用户信息 */}
-                    <div className="flex-1 min-w-0">
-                      {/* 第一行：用户名 + 状态 */}
-                      <div className="flex items-center gap-1 mb-1">
-                        <span className="font-medium text-xs truncate flex-1">
-                          {session.userName || '未知用户'}
-                        </span>
-                        <Badge
-                          variant={session.status === 'auto' ? 'default' : 'secondary'}
-                          className="gap-0.5 h-4.5 px-1.5 text-[10px] flex-shrink-0"
-                        >
-                          {session.status === 'auto' ? (
-                            <>
-                              <Bot className="h-2.5 w-2.5" />
-                              自动
-                            </>
-                          ) : (
-                            <>
-                              <Users className="h-2.5 w-2.5" />
-                              人工
-                            </>
-                          )}
-                        </Badge>
+                    <CardContent className="p-4">
+                      {/* 用户头像和状态 */}
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
+                          <User className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-sm truncate">{session.userName || '未知用户'}</div>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <Badge
+                              variant={session.status === 'auto' ? 'default' : 'secondary'}
+                              className={cn(
+                                "h-5 px-1.5 text-[10px] gap-0.5",
+                                session.status === 'auto'
+                                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50"
+                                  : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/50"
+                              )}
+                            >
+                              {session.status === 'auto' ? (
+                                <Bot className="h-2.5 w-2.5" />
+                              ) : (
+                                <Users className="h-2.5 w-2.5" />
+                              )}
+                              {session.status === 'auto' ? '自动' : '人工'}
+                            </Badge>
+                          </div>
+                        </div>
                       </div>
 
-                      {/* 第二行：消息 + 时间 */}
-                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        <span className="truncate flex-1">
-                          {session.lastMessage || '无消息'}
+                      {/* 最近消息 */}
+                      <div className="mb-2">
+                        <div className="text-xs text-muted-foreground line-clamp-2 min-h-[2.5rem]">
+                          {session.lastMessage || '暂无消息'}
+                        </div>
+                      </div>
+
+                      {/* 底部信息 */}
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-2 border-t border-border/50">
+                        <span className="flex items-center gap-1">
+                          <MessageSquare className="h-3 w-3" />
+                          {session.messageCount}
                         </span>
-                        <span className="flex-shrink-0 opacity-60 text-[10px] whitespace-nowrap">
+                        <span className="font-medium text-blue-600 dark:text-blue-400">
                           {formatTime(session.lastActiveTime)}
                         </span>
                       </div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* 搜索和筛选 */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              搜索和筛选
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="flex gap-3 items-center flex-wrap">
-              <div className="relative flex-1 min-w-[200px] sm:flex-initial">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        {/* 搜索和筛选 - 简洁设计 */}
+        <Card className="border-2">
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+              {/* 搜索框 */}
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 h-4.5 w-4.5 text-muted-foreground" />
                 <Input
-                  placeholder="搜索用户或群组..."
+                  placeholder="搜索用户名或群组名称..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 h-10"
+                  className="pl-11 h-11 bg-muted/30 focus:bg-background border-2"
                 />
               </div>
               
-              <div className="flex gap-2 flex-wrap">
-                <Select value={filterStatus} onValueChange={(value: any) => setFilterStatus(value)}>
-                  <SelectTrigger className="w-full sm:w-[140px] h-10">
-                    <SelectValue placeholder="状态" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">全部状态</SelectItem>
-                    <SelectItem value="auto">自动模式</SelectItem>
-                    <SelectItem value="human">人工模式</SelectItem>
-                  </SelectContent>
-                </Select>
+              {/* 状态筛选 */}
+              <Select value={filterStatus} onValueChange={(value: any) => setFilterStatus(value)}>
+                <SelectTrigger className="w-full sm:w-[150px] h-11 border-2">
+                  <SelectValue placeholder="全部状态" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部状态</SelectItem>
+                  <SelectItem value="auto">自动模式</SelectItem>
+                  <SelectItem value="human">人工模式</SelectItem>
+                </SelectContent>
+              </Select>
 
-                <Select value={filterIntent} onValueChange={setFilterIntent}>
-                  <SelectTrigger className="w-full sm:w-[140px] h-10">
-                    <SelectValue placeholder="意图" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">全部意图</SelectItem>
-                    <SelectItem value="service">服务咨询</SelectItem>
-                    <SelectItem value="help">帮助请求</SelectItem>
-                    <SelectItem value="chat">闲聊</SelectItem>
-                    <SelectItem value="welcome">欢迎</SelectItem>
-                    <SelectItem value="risk">风险内容</SelectItem>
-                    <SelectItem value="spam">垃圾信息</SelectItem>
-                    <SelectItem value="admin">管理指令</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* 意图筛选 */}
+              <Select value={filterIntent} onValueChange={setFilterIntent}>
+                <SelectTrigger className="w-full sm:w-[150px] h-11 border-2">
+                  <SelectValue placeholder="全部意图" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部意图</SelectItem>
+                  <SelectItem value="service">服务咨询</SelectItem>
+                  <SelectItem value="help">帮助请求</SelectItem>
+                  <SelectItem value="chat">闲聊</SelectItem>
+                  <SelectItem value="welcome">欢迎</SelectItem>
+                  <SelectItem value="risk">风险内容</SelectItem>
+                  <SelectItem value="spam">垃圾信息</SelectItem>
+                  <SelectItem value="admin">管理指令</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* 清除按钮 */}
+              {(searchTerm || filterStatus !== 'all' || filterIntent !== 'all') && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setFilterStatus('all');
+                    setFilterIntent('all');
+                  }}
+                  className="h-11 px-4 hover:bg-red-50 hover:text-red-600 hover:border-red-300 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                >
+                  <X className="h-4 w-4 mr-1.5" />
+                  清除
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* 会话列表 */}
-        <Card id="full-session-list">
-          <CardHeader>
-            <CardTitle className="text-base">
-              会话列表 ({filteredSessions.length}/{sessions.length})
-            </CardTitle>
+        {/* 会话列表 - 现代卡片式设计 */}
+        <Card id="full-session-list" className="border-2">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-transparent dark:from-blue-950/30">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                  <MessageSquare className="h-4 w-4 text-white" />
+                </div>
+                全部会话
+                <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                  {filteredSessions.length} / {sessions.length}
+                </Badge>
+              </CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-5">
             {filteredSessions.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>暂无匹配的会话</p>
-                {searchTerm || filterStatus !== 'all' || filterIntent !== 'all' ? (
+              <div className="text-center py-16 bg-muted/30 rounded-lg">
+                <div className="w-16 h-16 rounded-full bg-muted/60 mx-auto mb-4 flex items-center justify-center">
+                  <MessageCircle className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <p className="text-muted-foreground text-sm">暂无匹配的会话</p>
+                {(searchTerm || filterStatus !== 'all' || filterIntent !== 'all') && (
                   <Button 
                     variant="link" 
                     onClick={() => {
@@ -2100,121 +2182,153 @@ ${callbacks.robotStatus}
                       setFilterStatus('all');
                       setFilterIntent('all');
                     }}
-                    className="mt-2"
+                    className="mt-3 text-blue-600 dark:text-blue-400"
                   >
-                    清除筛选
+                    <X className="h-4 w-4 mr-1" />
+                    清除所有筛选条件
                   </Button>
-                ) : null}
+                )}
               </div>
             ) : (
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 {filteredSessions.map((session) => (
-                  <div
+                  <Card
                     key={session.sessionId}
-                    className="flex items-center gap-3 p-3.5 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group"
+                    className="group hover:shadow-md hover:border-blue-400 dark:hover:border-blue-600 transition-all duration-200 cursor-pointer bg-gradient-to-br from-white to-slate-50/50 dark:from-slate-900 dark:to-slate-950/50"
                     onClick={() => handleViewSessionDetail(session)}
                   >
-                    {/* 用户头像 */}
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded flex-shrink-0">
-                      <UserCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    
-                    {/* 用户信息 */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                        <span className="font-medium text-base truncate">{session.userName || '未知用户'}</span>
+                    <CardContent className="p-5">
+                      <div className="flex items-start gap-4">
+                        {/* 左侧头像区域 */}
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
+                            <UserCheck className="h-6 w-6 text-white" />
+                          </div>
+                        </div>
                         
-                        {/* 状态Badge - 标准尺寸 */}
-                        <Badge 
-                          variant={session.status === 'auto' ? 'default' : 'secondary'}
-                          className="gap-0.5 h-5 px-2 text-[11px]"
-                        >
-                          {session.status === 'auto' ? (
-                            <Bot className="h-2.5 w-2.5" />
-                          ) : (
-                            <Users className="h-2.5 w-2.5" />
-                          )}
-                          {session.status === 'auto' ? '自动' : '人工'}
-                        </Badge>
-                        
-                        {/* 意图Badge - 仅在有值时显示 */}
-                        {session.lastIntent && (
-                          <Badge variant="outline" className="gap-0.5 h-5 px-2 text-[11px]">
-                            <Sparkles className="h-2.5 w-2.5" />
-                            {session.lastIntent}
-                          </Badge>
-                        )}
-                        
-                        {/* 已回复标记 - 紧凑 */}
-                        {session.aiReplyCount > 0 && (
-                          <CheckCircle className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
-                        )}
-                      </div>
-                      
-                      {/* 群组和消息 - 合并在一行 */}
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span className="truncate max-w-[150px]">{session.groupName || '未知群组'}</span>
-                        <span className="hidden sm:inline">•</span>
-                        {session.lastMessage && (
-                          <span className="truncate max-w-[200px] hidden sm:inline">
-                            {session.isFromUser ? (
-                              <><User className="h-3 w-3 inline mr-0.5 text-blue-500" /></>
-                            ) : session.isHuman ? (
-                              <><UserCheck className="h-3 w-3 inline mr-0.5 text-orange-500" /></>
-                            ) : (
-                              <><Bot className="h-3 w-3 inline mr-0.5 text-green-500" /></>
+                        {/* 中间信息区域 */}
+                        <div className="flex-1 min-w-0">
+                          {/* 第一行：用户名、状态、意图 */}
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <span className="font-bold text-base truncate">{session.userName || '未知用户'}</span>
+                            
+                            <Badge 
+                              variant={session.status === 'auto' ? 'default' : 'secondary'}
+                              className={cn(
+                                "gap-1 h-6 px-2 text-[11px] font-medium",
+                                session.status === 'auto'
+                                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50"
+                                  : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/50"
+                              )}
+                            >
+                              {session.status === 'auto' ? (
+                                <>
+                                  <Bot className="h-3 w-3" />
+                                  自动
+                                </>
+                              ) : (
+                                <>
+                                  <Users className="h-3 w-3" />
+                                  人工
+                                </>
+                              )}
+                            </Badge>
+                            
+                            {session.lastIntent && (
+                              <Badge variant="outline" className="gap-1 h-6 px-2 text-[11px] border-purple-300 text-purple-700 dark:border-purple-700 dark:text-purple-300">
+                                <Sparkles className="h-3 w-3" />
+                                {session.lastIntent}
+                              </Badge>
                             )}
-                            {session.lastMessage}
-                          </span>
-                        )}
+                            
+                            {session.aiReplyCount > 0 && (
+                              <div className="flex items-center gap-1 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30 px-2 py-0.5 rounded-full text-[11px]">
+                                <CheckCircle className="h-3 w-3" />
+                                已回复
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* 第二行：群组、消息 */}
+                          <div className="flex items-center gap-2 text-sm mb-2 flex-wrap">
+                            <div className="flex items-center gap-1.5 text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
+                              <Building2 className="h-3.5 w-3.5" />
+                              {session.groupName || '未知群组'}
+                            </div>
+                            {session.lastMessage && (
+                              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                {session.isFromUser ? (
+                                  <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                                    <User className="h-3.5 w-3.5" />
+                                  </div>
+                                ) : session.isHuman ? (
+                                  <div className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
+                                    <UserCheck className="h-3.5 w-3.5" />
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                                    <Bot className="h-3.5 w-3.5" />
+                                  </div>
+                                )}
+                                <span className="truncate text-muted-foreground">{session.lastMessage}</span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* 第三行：统计信息 */}
+                          <div className="flex items-center gap-4 text-xs">
+                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                              <MessageSquare className="h-3.5 w-3.5" />
+                              <span>{session.messageCount} 消息</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                              <Bot className="h-3.5 w-3.5" />
+                              <span>{session.aiReplyCount} AI</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-orange-600 dark:text-orange-400">
+                              <User className="h-3.5 w-3.5" />
+                              <span>{session.humanReplyCount} 人工</span>
+                            </div>
+                            {session.company && (
+                              <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                                <Building2 className="h-3.5 w-3.5" />
+                                <span>{session.company}</span>
+                                {session.robotNickname && <span>({session.robotNickname})</span>}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* 右侧时间区域 */}
+                        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                          <div className="text-xs font-medium text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full">
+                            {formatTime(session.lastActiveTime)}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-3 text-xs border-2 hover:bg-blue-50 hover:border-blue-400 dark:hover:bg-blue-950/30 dark:hover:border-blue-600 opacity-60 group-hover:opacity-100 transition-all"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleSessionStatus(session);
+                            }}
+                          >
+                            {session.status === 'auto' ? (
+                              <>
+                                <UserCheck className="h-3.5 w-3.5 mr-1.5" />
+                                转人工
+                              </>
+                            ) : (
+                              <>
+                                <Bot className="h-3.5 w-3.5 mr-1.5" />
+                                转自动
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </div>
-                      
-                      {/* 底部信息 - 消息统计和公司 */}
-                      <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-0.5">
-                          <MessageSquare className="h-3 w-3" />
-                          {session.messageCount}
-                        </span>
-                        <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
-                          <Bot className="h-3 w-3" />
-                          {session.aiReplyCount}
-                        </span>
-                        <span className="flex items-center gap-0.5 text-orange-600 dark:text-orange-400">
-                          <User className="h-3 w-3" />
-                          {session.humanReplyCount}
-                        </span>
-                        {session.company && (
-                          <span className="flex items-center gap-0.5 text-blue-600 dark:text-blue-400 hidden lg:inline">
-                            <Building2 className="h-3 w-3" />
-                            {session.company}
-                            {session.robotNickname && ` (${session.robotNickname})`}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* 右侧时间和操作按钮 */}
-                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {formatTime(session.lastActiveTime)}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation(); // 阻止冒泡，避免打开详情
-                          handleToggleSessionStatus(session);
-                        }}
-                      >
-                        {session.status === 'auto' ? (
-                          <UserCheck className="h-3 w-3" />
-                        ) : (
-                          <Bot className="h-3 w-3" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             )}
