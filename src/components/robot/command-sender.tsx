@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
 interface Robot {
@@ -30,8 +31,15 @@ interface Command {
   status: string;
   priority: number;
   createdAt: string;
+  updatedAt?: string;
+  executedAt?: string;
+  completedAt?: string;
+  retryCount?: number;
+  maxRetries?: number;
   result?: any;
   errorMessage?: string;
+  commandPayload?: any;
+  commandData?: any;
 }
 
 interface MessageHistory {
@@ -101,6 +109,10 @@ export default function CommandSender() {
   // 使用 ref 保存最新的筛选条件，避免闭包陷阱
   const historyFilterRef = useRef(historyFilter);
   historyFilterRef.current = historyFilter;
+  
+  // 指令详情对话框状态
+  const [selectedCommandDetail, setSelectedCommandDetail] = useState<Command | null>(null);
+  const [showCommandDetail, setShowCommandDetail] = useState(false);
   
   // 表单字段状态
   const [formData, setFormData] = useState({
@@ -462,6 +474,24 @@ export default function CommandSender() {
     const label = PRIORITIES.find(p => p.value === priority)?.label || '未知';
     const variant = level === 'high' ? 'destructive' : level === 'medium' ? 'default' : 'secondary';
     return <Badge variant={variant}>{label}</Badge>;
+  };
+
+  // 查看指令详情
+  const handleViewDetail = async (commandId: string) => {
+    try {
+      const response = await fetch(`/api/admin/robot-commands/${commandId}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setSelectedCommandDetail(result.data);
+        setShowCommandDetail(true);
+      } else {
+        toast.error(result.message || '加载指令详情失败');
+      }
+    } catch (error) {
+      console.error('加载指令详情失败:', error);
+      toast.error('加载指令详情失败');
+    }
   };
 
   // 重置表单
@@ -928,6 +958,7 @@ export default function CommandSender() {
                   <TableHead>机器人</TableHead>
                   <TableHead>优先级</TableHead>
                   <TableHead>状态</TableHead>
+                  <TableHead>执行结果</TableHead>
                   <TableHead>时间</TableHead>
                   <TableHead>操作</TableHead>
                 </TableRow>
@@ -935,7 +966,7 @@ export default function CommandSender() {
               <TableBody>
                 {commands.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       <div className="space-y-2">
                         <div className="text-base font-medium">暂无指令记录</div>
                         <div className="text-sm">发送指令后，这里将显示指令执行历史</div>
@@ -946,6 +977,25 @@ export default function CommandSender() {
                   commands.map(command => {
                     const robot = robots.find(r => r.robotId === command.robotId);
                     const cmdType = COMMAND_TYPES.find(c => c.value === command.commandType);
+                    
+                    // 格式化执行结果
+                    let resultText = '-';
+                    if (command.result) {
+                      if (command.result.success) {
+                        resultText = '✓ 成功';
+                        if (command.result.sendId) {
+                          resultText += ` (ID: ${command.result.sendId})`;
+                        }
+                        if (command.result.data) {
+                          resultText += ` - ${command.result.data}`;
+                        }
+                      } else if (command.result.message) {
+                        resultText = command.result.message;
+                      }
+                    } else if (command.errorMessage) {
+                      resultText = `✗ ${command.errorMessage}`;
+                    }
+                    
                     return (
                       <TableRow key={command.commandId}>
                         <TableCell className="max-w-xs truncate">
@@ -956,19 +1006,31 @@ export default function CommandSender() {
                         </TableCell>
                         <TableCell>{getPriorityBadge(command.priority)}</TableCell>
                         <TableCell>{getCommandStatusBadge(command.status)}</TableCell>
+                        <TableCell className="max-w-xs truncate text-sm">
+                          {resultText}
+                        </TableCell>
                         <TableCell className="text-sm">
                           {new Date(command.createdAt).toLocaleString('zh-CN')}
                         </TableCell>
                         <TableCell>
-                          {command.status === 'failed' && (
+                          <div className="flex gap-2">
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleRetryCommand(command.commandId)}
+                              onClick={() => handleViewDetail(command.commandId)}
                             >
-                              重试
+                              详情
                             </Button>
-                          )}
+                            {command.status === 'failed' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRetryCommand(command.commandId)}
+                              >
+                                重试
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -1157,6 +1219,92 @@ export default function CommandSender() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* 指令详情对话框 */}
+      <Dialog open={showCommandDetail} onOpenChange={setShowCommandDetail}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>指令详情</DialogTitle>
+            <DialogDescription>查看指令的完整执行信息</DialogDescription>
+          </DialogHeader>
+          {selectedCommandDetail && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm text-muted-foreground">指令ID</Label>
+                  <div className="font-mono text-sm">{selectedCommandDetail.commandId}</div>
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">机器人ID</Label>
+                  <div className="font-mono text-sm">{selectedCommandDetail.robotId}</div>
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">指令类型</Label>
+                  <div>{COMMAND_TYPES.find(c => c.value === selectedCommandDetail.commandType)?.label || selectedCommandDetail.commandType}</div>
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">优先级</Label>
+                  <div>{getPriorityBadge(selectedCommandDetail.priority)}</div>
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">状态</Label>
+                  <div>{getCommandStatusBadge(selectedCommandDetail.status)}</div>
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">创建时间</Label>
+                  <div>{new Date(selectedCommandDetail.createdAt).toLocaleString('zh-CN')}</div>
+                </div>
+                {selectedCommandDetail.executedAt && (
+                  <div>
+                    <Label className="text-sm text-muted-foreground">执行时间</Label>
+                    <div>{new Date(selectedCommandDetail.executedAt).toLocaleString('zh-CN')}</div>
+                  </div>
+                )}
+                {selectedCommandDetail.completedAt && (
+                  <div>
+                    <Label className="text-sm text-muted-foreground">完成时间</Label>
+                    <div>{new Date(selectedCommandDetail.completedAt).toLocaleString('zh-CN')}</div>
+                  </div>
+                )}
+              </div>
+
+              {selectedCommandDetail.result && (
+                <div>
+                  <Label className="text-sm text-muted-foreground">执行结果</Label>
+                  <div className="mt-2 p-3 bg-muted rounded-lg">
+                    <pre className="text-sm overflow-x-auto">
+                      {JSON.stringify(selectedCommandDetail.result, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+
+              {selectedCommandDetail.errorMessage && (
+                <div>
+                  <Label className="text-sm text-muted-foreground">错误信息</Label>
+                  <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                    {selectedCommandDetail.errorMessage}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <Label className="text-sm text-muted-foreground">指令内容</Label>
+                <div className="mt-2 p-3 bg-muted rounded-lg">
+                  <pre className="text-sm overflow-x-auto">
+                    {JSON.stringify(selectedCommandDetail.commandPayload || selectedCommandDetail.commandData, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCommandDetail(false)}>
+              关闭
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
