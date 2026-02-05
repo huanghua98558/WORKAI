@@ -200,6 +200,76 @@ async function deleteAIModel(request, reply) {
 }
 
 /**
+ * POST /api/ai/models/:id/enable - 启用AI模型
+ */
+async function enableAIModel(request, reply) {
+  const { id } = request.params;
+
+  try {
+    const db = await getDb();
+
+    const result = await db.update(aiModels)
+      .set({ isEnabled: true, updatedAt: new Date() })
+      .where(eq(aiModels.id, id))
+      .returning();
+
+    if (result.length === 0) {
+      return reply.code(404).send({
+        success: false,
+        error: 'AI模型不存在'
+      });
+    }
+
+    return reply.send({
+      success: true,
+      data: result[0],
+      message: 'AI模型启用成功'
+    });
+  } catch (error) {
+    logger.error('启用AI模型失败:', error);
+    return reply.code(500).send({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * POST /api/ai/models/:id/disable - 禁用AI模型
+ */
+async function disableAIModel(request, reply) {
+  const { id } = request.params;
+
+  try {
+    const db = await getDb();
+
+    const result = await db.update(aiModels)
+      .set({ isEnabled: false, updatedAt: new Date() })
+      .where(eq(aiModels.id, id))
+      .returning();
+
+    if (result.length === 0) {
+      return reply.code(404).send({
+        success: false,
+        error: 'AI模型不存在'
+      });
+    }
+
+    return reply.send({
+      success: true,
+      data: result[0],
+      message: 'AI模型禁用成功'
+    });
+  } catch (error) {
+    logger.error('禁用AI模型失败:', error);
+    return reply.code(500).send({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
  * POST /api/ai/models/:id/health-check - 健康检查
  */
 async function healthCheckAIModel(request, reply) {
@@ -1053,6 +1123,8 @@ module.exports = async function (fastify, options) {
   fastify.put('/models/:id', updateAIModel);
   fastify.delete('/models/:id', deleteAIModel);
   fastify.post('/models/:id/health-check', healthCheckAIModel);
+  fastify.post('/models/:id/enable', enableAIModel);
+  fastify.post('/models/:id/disable', disableAIModel);
 
   // AI角色管理
   fastify.get('/personas', getAIPersonas);
