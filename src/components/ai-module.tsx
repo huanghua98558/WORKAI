@@ -1019,9 +1019,9 @@ export default function AIModule() {
           </DialogHeader>
 
           <Tabs defaultValue="basic" className="mt-4">
-            <TabsList className={`grid w-full ${selectedModel?.isBuiltin ? 'grid-cols-2' : 'grid-cols-5'}`}>
+            <TabsList className={`grid w-full ${selectedModel?.isBuiltin === true ? 'grid-cols-2' : 'grid-cols-5'}`}>
               <TabsTrigger value="basic">基本配置</TabsTrigger>
-              {!selectedModel?.isBuiltin && (
+              {selectedModel?.isBuiltin !== true && (
                 <>
                   <TabsTrigger value="params">参数配置</TabsTrigger>
                   <TabsTrigger value="memory">记忆配置</TabsTrigger>
@@ -1162,7 +1162,7 @@ export default function AIModule() {
               </div>
 
               {/* 对接参数配置 - 仅自定义模型显示 */}
-              {!selectedModel?.isBuiltin && (
+              {selectedModel?.isBuiltin !== true && (
                 <div className="border rounded-lg p-4 space-y-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Key className="h-4 w-4 text-primary" />
@@ -1243,7 +1243,7 @@ export default function AIModule() {
                 </div>
               )}
 
-              {selectedModel?.isBuiltin && (
+              {selectedModel?.isBuiltin === true && (
                 <div className="border rounded-lg p-4 bg-muted/30">
                   <div className="flex items-center gap-2 mb-2">
                     <CheckCircle className="h-4 w-4 text-primary" />
@@ -1281,7 +1281,7 @@ export default function AIModule() {
             </TabsContent>
 
             {/* 参数配置 - 仅自定义模型显示 */}
-            {!selectedModel?.isBuiltin && (
+            {selectedModel?.isBuiltin !== true && (
               <TabsContent value="params" className="space-y-6 py-4">
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -1425,7 +1425,7 @@ export default function AIModule() {
             )}
 
             {/* 记忆配置 */}
-            {!selectedModel?.isBuiltin && (
+            {selectedModel?.isBuiltin !== true && (
               <TabsContent value="memory" className="space-y-4 py-4">
               <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div>
@@ -1617,7 +1617,7 @@ export default function AIModule() {
             </TabsContent>
 
             {/* 速率限制 - 仅自定义模型显示 */}
-            {!selectedModel?.isBuiltin && (
+            {selectedModel?.isBuiltin !== true && (
               <TabsContent value="rate" className="space-y-4 py-4">
               <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div>
