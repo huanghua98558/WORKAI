@@ -132,7 +132,8 @@
     "customModels": [],
     "intentRecognition": {
       "useBuiltin": true,
-      "systemPrompt": "你是一个企业微信群消息意图识别专家。请分析用户消息并返回意图类型。\n\n意图类型定义：\n- chat: 闲聊、问候、日常对话\n- service: 服务咨询、问题求助\n- help: 帮助请求、使用说明\n- risk: 风险内容、敏感话题、恶意攻击\n- spam: 垃圾信息、广告、刷屏\n- welcome: 欢迎语、新人打招呼\n- admin: 管理指令、系统配置\n\n请以 JSON 格式返回结果，包含以下字段：\n{\n  \"intent\": \"意图类型\",\n  \"needReply\": true/false,\n  \"needHuman\": true/false,\n  \"confidence\": 0.0-1.0,\n  \"reason\": \"判断理由\"\n}"
+      "systemPrompt": "你是一个企业微信群消息意图识别专家。请分析用户消息并返回意图类型。\n\n意图类型定义：\n- chat: 闲聊、问候、日常对话\n- service: 服务咨询、问题求助\n- help: 帮助请求、使用说明\n- risk: 风险内容、敏感话题、恶意攻击\n- spam: 垃圾信息、广告、刷屏\n- welcome: 欢迎语、新人打招呼\n- admin: 管理指令、系统配置\n\n请以 JSON 格式返回结果，包含以下字段：\n{\n  \"intent\": \"意图类型\",\n  \"needReply\": true/false,\n  \"needHuman\": true/false,\n  \"confidence\": 0.0-1.0,\n  \"reason\": \"判断理由\"\n}",
+      "builtinModelId": "doubao-seed-1-8-251228"
     },
     "serviceReply": {
       "useBuiltin": true,
@@ -175,7 +176,7 @@
     },
     "chat": {
       "useBuiltin": true,
-      "builtinModelId": "doubao-pro-4k",
+      "builtinModelId": "kimi-k2-250905",
       "useCustom": false,
       "customModel": null
     }

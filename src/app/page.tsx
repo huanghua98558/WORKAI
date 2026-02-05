@@ -2056,13 +2056,13 @@ ${callbacks.robotStatus}
 
         {/* 子标签切换 */}
         <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as 'sessions' | 'messages')} className="w-full">
-          <TabsList className="grid grid-cols-2 w-full max-w-[500px] h-11 bg-muted/50 border-2 rounded-xl p-1">
-            <TabsTrigger value="sessions" className="gap-2 h-9 rounded-lg text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 dark:data-[state=active]:bg-slate-900">
-              <Users className="h-4 w-4" />
+          <TabsList className="grid grid-cols-2 w-full max-w-[600px] h-14 bg-white/90 backdrop-blur-md border-2 border-slate-200/80 shadow-lg shadow-slate-200/50 rounded-2xl p-1.5 mb-6">
+            <TabsTrigger value="sessions" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-blue-500/30 transition-all duration-300">
+              <Users className="h-5 w-5" />
               会话列表
             </TabsTrigger>
-            <TabsTrigger value="messages" className="gap-2 h-9 rounded-lg text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 dark:data-[state=active]:bg-slate-900">
-              <MessageSquare className="h-4 w-4" />
+            <TabsTrigger value="messages" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-blue-500/30 transition-all duration-300">
+              <MessageSquare className="h-5 w-5" />
               业务消息监控
             </TabsTrigger>
           </TabsList>
@@ -2929,23 +2929,23 @@ ${callbacks.robotStatus}
             <Suspense fallback={<LoadingSpinner />}>
               {/* AI模块集成AI交互监控 */}
               <Tabs defaultValue="config" className="w-full">
-                <TabsList className="grid w-full max-w-[400px] grid-cols-2">
-                  <TabsTrigger value="config" className="gap-2">
-                    <Settings className="h-4 w-4" />
+                <TabsList className="grid w-full max-w-[600px] grid-cols-2 h-14 bg-white/90 backdrop-blur-md border-2 border-slate-200/80 shadow-lg shadow-slate-200/50 rounded-2xl p-1.5 mb-6">
+                  <TabsTrigger value="config" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-violet-500/30 transition-all duration-300">
+                    <Settings className="h-5 w-5" />
                     AI配置
                   </TabsTrigger>
-                  <TabsTrigger value="monitoring" className="gap-2">
-                    <Sparkles className="h-4 w-4" />
+                  <TabsTrigger value="monitoring" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-violet-500/30 transition-all duration-300">
+                    <Sparkles className="h-5 w-5" />
                     AI交互监控
                   </TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="config" className="mt-5">
                   <Suspense fallback={<LoadingSpinner />}>
                     <AIModule />
                   </Suspense>
                 </TabsContent>
-                
+
                 <TabsContent value="monitoring" className="mt-5">
                   <Suspense fallback={<LoadingSpinner />}>
                     <AIInteractionMonitor />
