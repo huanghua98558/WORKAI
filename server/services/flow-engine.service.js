@@ -27,7 +27,20 @@ const NodeType = {
   HUMAN_HANDOVER: 'human_handover',
   NOTIFICATION: 'notification',
   RISK_HANDLER: 'risk_handler', // 风险处理节点
-  MONITOR: 'monitor' // 监控节点
+  MONITOR: 'monitor', // 监控节点
+
+  // 新增节点类型
+  MESSAGE_RECEIVE: 'message_receive', // 消息接收节点
+  SESSION_CREATE: 'session_create', // 创建会话节点
+  EMOTION_ANALYZE: 'emotion_analyze', // 情感分析节点
+  DECISION: 'decision', // 决策节点
+  AI_REPLY: 'ai_reply', // AI回复节点
+  MESSAGE_DISPATCH: 'message_dispatch', // 消息分发节点
+  SEND_COMMAND: 'send_command', // 发送指令节点
+  COMMAND_STATUS: 'command_status', // 指令状态记录节点
+  STAFF_INTERVENTION: 'staff_intervention', // 工作人员干预节点
+  ALERT_SAVE: 'alert_save', // 告警入库节点
+  ALERT_RULE: 'alert_rule' // 告警规则判断节点
 };
 
 // 流程状态枚举
@@ -67,7 +80,20 @@ class FlowEngine {
       [NodeType.HUMAN_HANDOVER]: this.handleHumanHandoverNode.bind(this),
       [NodeType.NOTIFICATION]: this.handleNotificationNode.bind(this),
       [NodeType.RISK_HANDLER]: this.handleRiskHandlerNode.bind(this),
-      [NodeType.MONITOR]: this.handleMonitorNode.bind(this)
+      [NodeType.MONITOR]: this.handleMonitorNode.bind(this),
+
+      // 新增节点处理器
+      [NodeType.MESSAGE_RECEIVE]: this.handleMessageReceiveNode.bind(this),
+      [NodeType.SESSION_CREATE]: this.handleSessionCreateNode.bind(this),
+      [NodeType.EMOTION_ANALYZE]: this.handleEmotionAnalyzeNode.bind(this),
+      [NodeType.DECISION]: this.handleDecisionNode.bind(this),
+      [NodeType.AI_REPLY]: this.handleAIReplyNode.bind(this),
+      [NodeType.MESSAGE_DISPATCH]: this.handleMessageDispatchNode.bind(this),
+      [NodeType.SEND_COMMAND]: this.handleSendCommandNode.bind(this),
+      // [NodeType.COMMAND_STATUS]: this.handleCommandStatusNode.bind(this), // 暂不实现
+      [NodeType.STAFF_INTERVENTION]: this.handleStaffInterventionNode.bind(this),
+      [NodeType.ALERT_SAVE]: this.handleAlertSaveNode.bind(this),
+      [NodeType.ALERT_RULE]: this.handleAlertRuleNode.bind(this)
     };
 
     // 模板缓存
@@ -1413,6 +1439,1125 @@ class FlowEngine {
         error: error.message,
         nextNodeId: node.nextNodes?.error
       };
+    }
+  }
+
+  // ============================================
+  // 新增节点处理器实现
+  // ============================================
+
+  /**
+   * 处理消息接收节点
+   */
+  async handleMessageReceiveNode(node, context) {
+    logger.info('执行消息接收节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { messageSource, saveToDatabase, validateMessage } = data || {};
+
+      // 从context中获取消息数据
+      const messageData = context.message || context.triggerData || {};
+
+      // 如果需要验证消息
+      if (validateMessage && !messageData.content) {
+        throw new Error('消息内容不能为空');
+      }
+
+      let savedMessage = null;
+
+      // 如果需要保存到数据库
+      if (saveToDatabase) {
+        const db = await this.getDb();
+        const { messages } = require('../database/schema');
+
+        const messageId = uuidv4();
+        const messageRecord = {
+          id: messageId,
+          userId: context.userId,
+          sessionId: context.sessionId,
+          senderType: messageData.senderType || 'user',
+          senderId: messageData.senderId || context.userId,
+          content: messageData.content || messageData.spoken || '',
+          messageType: messageData.messageType || 'text',
+          metadata: messageData.metadata || {},
+          createdAt: new Date()
+        };
+
+        await db.insert(messages).values(messageRecord);
+        savedMessage = messageRecord;
+
+        logger.info('消息已保存到数据库', { messageId, contentLength: messageRecord.content.length });
+      }
+
+      return {
+        success: true,
+        message: savedMessage || messageData,
+        messageId: savedMessage?.id || messageData.id,
+        context: {
+          ...context,
+          message: savedMessage || messageData,
+          messageId: savedMessage?.id || messageData.id,
+          lastNodeType: 'message_receive'
+        }
+      };
+    } catch (error) {
+      logger.error('消息接收节点执行失败', { error: error.message });
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          lastNodeType: 'message_receive',
+          messageError: error.message
+        }
+      };
+    }
+  }
+
+  /**
+   * 处理创建会话节点
+   */
+  async handleSessionCreateNode(node, context) {
+    logger.info('执行创建会话节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { sessionType = 'chat', autoAssignStaff = false, queueId } = data || {};
+
+      const db = await this.getDb();
+      const { sessions, users } = require('../database/schema');
+
+      // 查询用户是否存在
+      let user = null;
+      if (context.userId) {
+        const usersResult = await db.select()
+          .from(users)
+          .where(eq(users.id, context.userId))
+          .limit(1);
+        user = usersResult[0] || null;
+      }
+
+      // 如果用户不存在，创建用户
+      if (!user && context.userName) {
+        const userId = uuidv4();
+        const newUser = {
+          id: userId,
+          name: context.userName,
+          email: context.userEmail,
+          phone: context.userPhone,
+          role: 'customer',
+          createdAt: new Date()
+        };
+
+        await db.insert(users).values(newUser);
+        user = newUser;
+      }
+
+      // 创建会话
+      const sessionId = uuidv4();
+      const session = {
+        sessionId,
+        userId: user?.id || context.userId,
+        staffId: null,
+        status: autoAssignStaff ? 'assigned' : 'pending',
+        sessionType,
+        queueId,
+        priority: data.priority || 'normal',
+        source: context.source || 'web',
+        metadata: data.metadata || {},
+        startedAt: new Date(),
+        createdAt: new Date()
+      };
+
+      await db.insert(sessions).values(session);
+
+      logger.info('会话创建成功', { sessionId, userId: user?.id, status: session.status });
+
+      return {
+        success: true,
+        session,
+        sessionId,
+        context: {
+          ...context,
+          session,
+          sessionId,
+          userId: user?.id || context.userId,
+          lastNodeType: 'session_create'
+        }
+      };
+    } catch (error) {
+      logger.error('创建会话节点执行失败', { error: error.message });
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          lastNodeType: 'session_create',
+          sessionError: error.message
+        }
+      };
+    }
+  }
+
+  /**
+   * 处理情感分析节点
+   */
+  async handleEmotionAnalyzeNode(node, context) {
+    logger.info('执行情感分析节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { modelId, emotions = ['positive', 'neutral', 'negative'] } = data || {};
+
+      // 获取消息内容
+      const messageContent = context.message?.content ||
+                             context.message?.spoken ||
+                             context.userMessage;
+
+      if (!messageContent) {
+        logger.warn('情感分析节点没有可用的消息内容');
+        return {
+          success: true,
+          emotion: 'neutral',
+          confidence: 0.5,
+          context: {
+            ...context,
+            emotion: 'neutral',
+            confidence: 0.5,
+            lastNodeType: 'emotion_analyze'
+          }
+        };
+      }
+
+      // 获取AI服务实例
+      const aiService = await AIServiceFactory.createServiceByModelId(modelId);
+
+      // 构建情感分析提示词
+      const prompt = `请分析以下消息的情感倾向，并返回JSON格式结果。
+
+支持的情感类型：${emotions.join(', ')}
+
+消息内容：${messageContent}
+
+请返回以下JSON格式：
+{
+  "emotion": "情感类型",
+  "confidence": 置信度(0-1之间的小数),
+  "reasoning": "分析理由",
+  "keywords": ["关键词1", "关键词2"]
+}`;
+
+      const messages = [
+        { role: 'system', content: '你是一个专业的情感分析专家。' },
+        { role: 'user', content: prompt }
+      ];
+
+      // 调用AI进行情感分析
+      const result = await aiService.generateReply(messages, {
+        sessionId: context.sessionId,
+        operationType: 'emotion_analyze',
+        temperature: 0.3,
+        maxTokens: 500
+      });
+
+      // 解析AI返回的JSON
+      let emotionData;
+      try {
+        emotionData = JSON.parse(result.content);
+      } catch (error) {
+        // 解析失败，返回默认值
+        emotionData = {
+          emotion: 'neutral',
+          confidence: 0.5,
+          reasoning: 'AI响应解析失败',
+          keywords: []
+        };
+      }
+
+      logger.info('情感分析完成', {
+        emotion: emotionData.emotion,
+        confidence: emotionData.confidence,
+        messageLength: messageContent.length
+      });
+
+      return {
+        success: true,
+        emotion: emotionData.emotion,
+        confidence: emotionData.confidence,
+        reasoning: emotionData.reasoning,
+        keywords: emotionData.keywords,
+        context: {
+          ...context,
+          emotion: emotionData.emotion,
+          emotionConfidence: emotionData.confidence,
+          lastNodeType: 'emotion_analyze'
+        }
+      };
+    } catch (error) {
+      logger.error('情感分析节点执行失败', { error: error.message });
+      return {
+        success: false,
+        emotion: 'neutral',
+        confidence: 0.5,
+        error: error.message,
+        context: {
+          ...context,
+          emotion: 'neutral',
+          emotionConfidence: 0.5,
+          lastNodeType: 'emotion_analyze',
+          emotionError: error.message
+        }
+      };
+    }
+  }
+
+  /**
+   * 处理决策节点
+   */
+  async handleDecisionNode(node, context) {
+    logger.info('执行决策节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { conditions, defaultBranch, expression } = data || {};
+
+      // 如果使用表达式模式
+      if (expression) {
+        const result = this.evaluateExpression(expression, context);
+
+        logger.info('决策节点结果（表达式模式）', {
+          expression,
+          result,
+          contextKeys: Object.keys(context)
+        });
+
+        return {
+          success: true,
+          conditionResult: result ? 'true' : 'false',
+          matchedCondition: result ? conditions?.[0] : null,
+          context: {
+            ...context,
+            decisionResult: result,
+            lastNodeType: 'decision'
+          }
+        };
+      }
+
+      // 如果使用条件列表模式
+      if (conditions && Array.isArray(conditions)) {
+        for (const condition of conditions) {
+          const isMatch = this.evaluateCondition(condition, context);
+
+          if (isMatch) {
+            logger.info('决策节点结果（条件匹配）', {
+              conditionId: condition.id,
+              conditionName: condition.name,
+              contextValues: this.extractContextValues(condition, context)
+            });
+
+            return {
+              success: true,
+              conditionResult: condition.id || condition.name,
+              matchedCondition: condition,
+              nextNodeId: condition.nextNodeId,
+              context: {
+                ...context,
+                decisionResult: condition.id || condition.name,
+                lastNodeType: 'decision'
+              }
+            };
+          }
+        }
+      }
+
+      // 如果没有匹配的条件，使用默认分支
+      logger.info('决策节点结果（默认分支）', { defaultBranch });
+
+      return {
+        success: true,
+        conditionResult: defaultBranch || 'default',
+        matchedCondition: null,
+        nextNodeId: defaultBranch,
+        context: {
+          ...context,
+          decisionResult: defaultBranch || 'default',
+          lastNodeType: 'decision'
+        }
+      };
+    } catch (error) {
+      logger.error('决策节点执行失败', { error: error.message });
+      return {
+        success: false,
+        conditionResult: 'error',
+        error: error.message,
+        context: {
+          ...context,
+          decisionResult: 'error',
+          lastNodeType: 'decision',
+          decisionError: error.message
+        }
+      };
+    }
+  }
+
+  /**
+   * 评估表达式
+   */
+  evaluateExpression(expression, context) {
+    try {
+      // 简单实现：将表达式中的变量替换为context中的值
+      let evalExpression = expression;
+
+      for (const [key, value] of Object.entries(context)) {
+        const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+        evalExpression = evalExpression.replace(regex, JSON.stringify(value));
+      }
+
+      // 注意：实际生产环境应使用更安全的表达式求值库
+      // 这里仅作为示例
+      return eval(evalExpression);
+    } catch (error) {
+      logger.error('表达式求值失败', { expression, error: error.message });
+      return false;
+    }
+  }
+
+  /**
+   * 评估条件
+   */
+  evaluateCondition(condition, context) {
+    const { field, operator, value } = condition;
+
+    const fieldValue = context[field];
+
+    switch (operator) {
+      case '==':
+        return fieldValue == value;
+      case '===':
+        return fieldValue === value;
+      case '!=':
+        return fieldValue != value;
+      case '!==':
+        return fieldValue !== value;
+      case '>':
+        return fieldValue > value;
+      case '<':
+        return fieldValue < value;
+      case '>=':
+        return fieldValue >= value;
+      case '<=':
+        return fieldValue <= value;
+      case 'contains':
+        return String(fieldValue).includes(String(value));
+      case 'startsWith':
+        return String(fieldValue).startsWith(String(value));
+      case 'endsWith':
+        return String(fieldValue).endsWith(String(value));
+      case 'in':
+        return Array.isArray(value) && value.includes(fieldValue);
+      case 'regex':
+        return new RegExp(value).test(String(fieldValue));
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * 提取上下文值
+   */
+  extractContextValues(condition, context) {
+    const values = {};
+
+    if (condition.field) {
+      values[condition.field] = context[condition.field];
+    }
+
+    if (condition.expression) {
+      const matches = condition.expression.match(/\{\{(\w+)\}\}/g);
+      if (matches) {
+        matches.forEach(match => {
+          const key = match.replace(/\{\{|\}\}/g, '');
+          values[key] = context[key];
+        });
+      }
+    }
+
+    return values;
+  }
+
+  /**
+   * 处理AI回复节点
+   */
+  async handleAIReplyNode(node, context) {
+    logger.info('执行AI回复节点', { node, context });
+
+    try {
+      const { data } = node;
+      const {
+        modelId,
+        prompt,
+        personaId,
+        temperature = 0.7,
+        maxTokens = 1000,
+        useContextHistory = true,
+        systemPrompt
+      } = data || {};
+
+      // 获取AI服务实例
+      const aiService = await AIServiceFactory.createServiceByModelId(modelId);
+
+      // 构建消息列表
+      const messages = [];
+
+      // 添加系统提示词
+      if (systemPrompt) {
+        messages.push({ role: 'system', content: systemPrompt });
+      } else if (personaId) {
+        // 如果指定了角色，加载角色提示词
+        const role = await this.getRoleById(personaId);
+        if (role) {
+          messages.push({ role: 'system', content: role.system_prompt });
+          logger.info('使用角色提示词', { personaId, roleName: role.name });
+        }
+      }
+
+      // 添加历史对话
+      if (useContextHistory && context.history && Array.isArray(context.history)) {
+        messages.push(...context.history);
+      }
+
+      // 添加当前用户消息
+      const userMessage = context.message?.content ||
+                          context.message?.spoken ||
+                          context.userMessage ||
+                          prompt;
+
+      if (userMessage) {
+        messages.push({ role: 'user', content: userMessage });
+      }
+
+      // 调用AI生成回复
+      const result = await aiService.generateReply(messages, {
+        sessionId: context.sessionId,
+        messageId: context.messageId,
+        operationType: 'ai_reply',
+        temperature,
+        maxTokens
+      });
+
+      logger.info('AI回复节点执行成功', {
+        model: modelId,
+        responseLength: result.content.length,
+        usage: result.usage
+      });
+
+      // 记录AI IO日志
+      await this.saveAILog(context.sessionId, context.messageId, {
+        robotId: context.robotId,
+        robotName: context.robotName,
+        operationType: 'ai_reply',
+        aiInput: JSON.stringify(messages),
+        aiOutput: result.content,
+        modelId,
+        requestDuration: result.usage?.duration || 0,
+        status: 'success'
+      });
+
+      return {
+        success: true,
+        aiReply: result.content,
+        model: modelId,
+        usage: result.usage,
+        context: {
+          ...context,
+          aiReply: result.content,
+          lastNodeType: 'ai_reply'
+        }
+      };
+    } catch (error) {
+      logger.error('AI回复节点执行失败', { error: error.message });
+
+      // 返回默认回复，避免中断流程
+      return {
+        success: false,
+        aiReply: '抱歉，我暂时无法回复您的消息，请稍后再试。',
+        error: error.message,
+        context: {
+          ...context,
+          aiReply: '抱歉，我暂时无法回复您的消息，请稍后再试。',
+          lastNodeType: 'ai_reply'
+        }
+      };
+    }
+  }
+
+  /**
+   * 处理消息分发节点
+   */
+  async handleMessageDispatchNode(node, context) {
+    logger.info('执行消息分发节点', { node, context });
+
+    try {
+      const { data } = node;
+      const {
+        distributionMode = 'single',
+        recipients,
+        groupId,
+        isBroadcast = false,
+        isPrivate = true
+      } = data || {};
+
+      // 确定目标接收者
+      let targetRecipients = [];
+
+      if (distributionMode === 'single') {
+        // 单点发送
+        if (recipients && recipients.length > 0) {
+          targetRecipients = recipients;
+        } else if (context.userId) {
+          targetRecipients = [context.userId];
+        }
+      } else if (distributionMode === 'broadcast') {
+        // 群发
+        if (groupId) {
+          targetRecipients = await this.getGroupMembers(groupId);
+        } else if (context.groupId) {
+          targetRecipients = await this.getGroupMembers(context.groupId);
+        }
+      } else if (distributionMode === 'private') {
+        // 私发
+        if (context.userId) {
+          targetRecipients = [context.userId];
+        }
+      }
+
+      const distributionResult = {
+        mode: distributionMode,
+        isBroadcast,
+        isPrivate,
+        recipients: targetRecipients,
+        recipientCount: targetRecipients.length,
+        timestamp: new Date().toISOString()
+      };
+
+      logger.info('消息分发完成', {
+        mode: distributionMode,
+        recipientCount: targetRecipients.length
+      });
+
+      return {
+        success: true,
+        distribution: distributionResult,
+        context: {
+          ...context,
+          distribution: distributionResult,
+          recipients: targetRecipients,
+          lastNodeType: 'message_dispatch'
+        }
+      };
+    } catch (error) {
+      logger.error('消息分发节点执行失败', { error: error.message });
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          distributionError: error.message,
+          lastNodeType: 'message_dispatch'
+        }
+      };
+    }
+  }
+
+  /**
+   * 处理发送指令节点
+   */
+  async handleSendCommandNode(node, context) {
+    logger.info('执行发送指令节点', { node, context });
+
+    try {
+      const { data } = node;
+      const {
+        commandType = 'message',
+        messageContent,
+        recipients,
+        robotId,
+        saveLog = true
+      } = data || {};
+
+      // 获取发送内容
+      const content = messageContent || context.aiReply || context.message?.content;
+
+      if (!content) {
+        throw new Error('没有可发送的内容');
+      }
+
+      // 获取机器人ID
+      const botId = robotId || context.robotId;
+
+      if (!botId) {
+        throw new Error('机器人ID不能为空');
+      }
+
+      // 获取接收者列表
+      const targets = recipients || context.recipients || [context.userId];
+
+      if (!targets || targets.length === 0) {
+        throw new Error('接收者列表不能为空');
+      }
+
+      // 调用发送服务
+      const worktoolService = require('./worktool.service');
+      const sendResults = [];
+
+      for (const target of targets) {
+        try {
+          const result = await worktoolService.sendTextMessage(botId, target, content);
+          sendResults.push({
+            target,
+            success: true,
+            result
+          });
+        } catch (error) {
+          sendResults.push({
+            target,
+            success: false,
+            error: error.message
+          });
+        }
+      }
+
+      // 如果需要保存日志
+      if (saveLog) {
+        await this.saveCommandLog({
+          commandType,
+          botId,
+          targets,
+          content,
+          results: sendResults,
+          sessionId: context.sessionId,
+          messageId: context.messageId,
+          status: sendResults.every(r => r.success) ? 'success' : 'partial_failure',
+          timestamp: new Date()
+        });
+      }
+
+      const commandResult = {
+        commandType,
+        botId,
+        targets,
+        content,
+        results: sendResults,
+        successCount: sendResults.filter(r => r.success).length,
+        failCount: sendResults.filter(r => !r.success).length,
+        timestamp: new Date().toISOString()
+      };
+
+      logger.info('指令发送完成', {
+        commandType,
+        successCount: commandResult.successCount,
+        failCount: commandResult.failCount
+      });
+
+      return {
+        success: true,
+        command: commandResult,
+        context: {
+          ...context,
+          command: commandResult,
+          lastNodeType: 'send_command'
+        }
+      };
+    } catch (error) {
+      logger.error('发送指令节点执行失败', { error: error.message });
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          commandError: error.message,
+          lastNodeType: 'send_command'
+        }
+      };
+    }
+  }
+
+  /**
+   * 处理工作人员干预节点
+   */
+  async handleStaffInterventionNode(node, context) {
+    logger.info('执行工作人员干预节点', { node, context });
+
+    try {
+      const { data } = node;
+      const {
+        targetStaffId,
+        priority = 'normal',
+        message = '需要人工介入处理',
+        autoAssign = false
+      } = data || {};
+
+      const db = await this.getDb();
+      const { sessions, users } = require('../database/schema');
+
+      // 查找会话
+      const sessionResult = await db.select()
+        .from(sessions)
+        .where(eq(sessions.sessionId, context.sessionId))
+        .limit(1);
+
+      if (sessionResult.length === 0) {
+        throw new Error('会话不存在');
+      }
+
+      const session = sessionResult[0];
+
+      // 如果需要自动分配工作人员
+      let assignedStaffId = targetStaffId;
+
+      if (!assignedStaffId && autoAssign) {
+        // 查找可用的工作人员
+        const staffResult = await db.select()
+          .from(users)
+          .where(eq(users.role, 'staff'))
+          .limit(1);
+
+        if (staffResult.length > 0) {
+          assignedStaffId = staffResult[0].id;
+        }
+      }
+
+      // 更新会话状态为人工处理
+      await db.update(sessions)
+        .set({
+          status: 'human',
+          staffId: assignedStaffId,
+          humanReason: message,
+          humanTime: new Date().toISOString(),
+          updatedAt: new Date()
+        })
+        .where(eq(sessions.sessionId, context.sessionId));
+
+      logger.info('工作人员干预完成', {
+        sessionId: context.sessionId,
+        staffId: assignedStaffId,
+        priority
+      });
+
+      return {
+        success: true,
+        intervention: {
+          targetStaffId: assignedStaffId,
+          status: assignedStaffId ? 'assigned' : 'pending',
+          priority,
+          message,
+          timestamp: new Date().toISOString()
+        },
+        context: {
+          ...context,
+          isHuman: true,
+          staffId: assignedStaffId,
+          lastNodeType: 'staff_intervention'
+        }
+      };
+    } catch (error) {
+      logger.error('工作人员干预节点执行失败', { error: error.message });
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          interventionError: error.message,
+          lastNodeType: 'staff_intervention'
+        }
+      };
+    }
+  }
+
+  /**
+   * 处理告警入库节点
+   */
+  async handleAlertSaveNode(node, context) {
+    logger.info('执行告警入库节点', { node, context });
+
+    try {
+      const { data } = node;
+      const {
+        alertType = 'info',
+        alertLevel = 'low',
+        title,
+        description,
+        autoResolve = false,
+        resolveTimeout = 3600
+      } = data || {};
+
+      const db = await this.getDb();
+      const { alerts } = require('../database/schema');
+
+      // 如果没有定义alerts表，创建一个临时日志记录
+      const alertId = uuidv4();
+
+      const alertData = {
+        id: alertId,
+        type: alertType,
+        level: alertLevel,
+        title: title || `${alertType}告警`,
+        description: description || context.message?.content || '未提供描述',
+        sessionId: context.sessionId,
+        userId: context.userId,
+        intent: context.intent,
+        emotion: context.emotion,
+        metadata: {
+          ...context,
+          source: 'flow_engine'
+        },
+        status: 'open',
+        resolvedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      try {
+        await db.insert(alerts).values(alertData);
+      } catch (error) {
+        // 如果alerts表不存在，记录到日志
+        logger.warn('告警表不存在，告警已记录到日志', {
+          alertId,
+          alertType,
+          alertLevel
+        });
+      }
+
+      logger.info('告警入库成功', {
+        alertId,
+        alertType,
+        alertLevel,
+        title: alertData.title
+      });
+
+      // 如果需要自动解决
+      if (autoResolve) {
+        setTimeout(async () => {
+          try {
+            await db.update(alerts)
+              .set({
+                status: 'resolved',
+                resolvedAt: new Date(),
+                updatedAt: new Date()
+              })
+              .where(eq(alerts.id, alertId));
+
+            logger.info('告警已自动解决', { alertId });
+          } catch (error) {
+            logger.error('告警自动解决失败', { alertId, error: error.message });
+          }
+        }, resolveTimeout * 1000);
+      }
+
+      return {
+        success: true,
+        alert: alertData,
+        alertId,
+        context: {
+          ...context,
+          alert: alertData,
+          alertId,
+          lastNodeType: 'alert_save'
+        }
+      };
+    } catch (error) {
+      logger.error('告警入库节点执行失败', { error: error.message });
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          alertError: error.message,
+          lastNodeType: 'alert_save'
+        }
+      };
+    }
+  }
+
+  /**
+   * 处理告警规则判断节点
+   */
+  async handleAlertRuleNode(node, context) {
+    logger.info('执行告警规则判断节点', { node, context });
+
+    try {
+      const { data } = node;
+      const {
+        rules,
+        escalationEnabled = false,
+        escalationLevels = []
+      } = data || {};
+
+      let matchedRule = null;
+      let highestLevel = null;
+
+      // 评估所有规则
+      if (rules && Array.isArray(rules)) {
+        for (const rule of rules) {
+          const isMatch = this.evaluateAlertRule(rule, context);
+
+          if (isMatch) {
+            logger.info('告警规则匹配', {
+              ruleId: rule.id,
+              ruleName: rule.name,
+              level: rule.level
+            });
+
+            matchedRule = rule;
+
+            // 查找最高等级
+            if (!highestLevel || this.compareAlertLevel(rule.level, highestLevel) > 0) {
+              highestLevel = rule.level;
+            }
+          }
+        }
+      }
+
+      // 如果启用了升级逻辑
+      let escalationResult = null;
+
+      if (escalationEnabled && escalationLevels.length > 0) {
+        const currentLevelIndex = escalationLevels.indexOf(highestLevel);
+
+        if (currentLevelIndex >= 0) {
+          escalationResult = {
+            currentLevel: highestLevel,
+            nextLevel: escalationLevels[Math.min(currentLevelIndex + 1, escalationLevels.length - 1)],
+            canEscalate: currentLevelIndex < escalationLevels.length - 1
+          };
+        }
+      }
+
+      return {
+        success: true,
+        matchedRule,
+        highestLevel,
+        shouldAlert: matchedRule !== null,
+        escalation: escalationResult,
+        context: {
+          ...context,
+          alertRuleMatched: matchedRule !== null,
+          alertLevel: highestLevel,
+          escalation: escalationResult,
+          lastNodeType: 'alert_rule'
+        }
+      };
+    } catch (error) {
+      logger.error('告警规则判断节点执行失败', { error: error.message });
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          alertRuleError: error.message,
+          lastNodeType: 'alert_rule'
+        }
+      };
+    }
+  }
+
+  /**
+   * 评估告警规则
+   */
+  evaluateAlertRule(rule, context) {
+    const { conditions, matchMode = 'all' } = rule;
+
+    if (!conditions || conditions.length === 0) {
+      return false;
+    }
+
+    const results = conditions.map(condition => {
+      const fieldValue = context[condition.field];
+
+      switch (condition.operator) {
+        case '==':
+          return fieldValue == condition.value;
+        case '===':
+          return fieldValue === condition.value;
+        case '!=':
+          return fieldValue != condition.value;
+        case '>':
+          return fieldValue > condition.value;
+        case '<':
+          return fieldValue < condition.value;
+        case '>=':
+          return fieldValue >= condition.value;
+        case '<=':
+          return fieldValue <= condition.value;
+        case 'contains':
+          return String(fieldValue).includes(String(condition.value));
+        case 'in':
+          return Array.isArray(condition.value) && condition.value.includes(fieldValue);
+        case 'regex':
+          return new RegExp(condition.value).test(String(fieldValue));
+        default:
+          return false;
+      }
+    });
+
+    return matchMode === 'all' ? results.every(r => r) : results.some(r => r);
+  }
+
+  /**
+   * 比较告警等级
+   */
+  compareAlertLevel(level1, level2) {
+    const levels = {
+      'info': 1,
+      'low': 2,
+      'medium': 3,
+      'high': 4,
+      'critical': 5
+    };
+
+    const l1 = levels[level1] || 0;
+    const l2 = levels[level2] || 0;
+
+    return l1 - l2;
+  }
+
+  /**
+   * 获取群组成员
+   */
+  async getGroupMembers(groupId) {
+    try {
+      const db = await this.getDb();
+      const { groupMembers } = require('../database/schema');
+
+      const members = await db.select()
+        .from(groupMembers)
+        .where(eq(groupMembers.groupId, groupId));
+
+      return members.map(m => m.userId);
+    } catch (error) {
+      logger.error('获取群组成员失败', { groupId, error: error.message });
+      return [];
+    }
+  }
+
+  /**
+   * 保存指令日志
+   */
+  async saveCommandLog(logData) {
+    try {
+      const db = await this.getDb();
+      const { commandLogs } = require('../database/schema');
+
+      await db.insert(commandLogs).values({
+        id: uuidv4(),
+        ...logData
+      });
+
+      logger.info('指令日志保存成功', { sessionId: logData.sessionId });
+    } catch (error) {
+      logger.error('保存指令日志失败', { sessionId: logData.sessionId, error: error.message });
+      // 不抛出异常，避免影响主流程
     }
   }
 
