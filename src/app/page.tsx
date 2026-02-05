@@ -2057,11 +2057,11 @@ ${callbacks.robotStatus}
         {/* 子标签切换 */}
         <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as 'sessions' | 'messages')} className="w-full">
           <TabsList className="grid grid-cols-2 w-full max-w-[600px] h-14 bg-white/90 backdrop-blur-md border-2 border-slate-200/80 shadow-lg shadow-slate-200/50 rounded-2xl p-1.5 mb-6">
-            <TabsTrigger value="sessions" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-blue-500/30 transition-all duration-300">
+            <TabsTrigger value="sessions" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all duration-300">
               <Users className="h-5 w-5" />
               会话列表
             </TabsTrigger>
-            <TabsTrigger value="messages" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-blue-500/30 transition-all duration-300">
+            <TabsTrigger value="messages" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all duration-300">
               <MessageSquare className="h-5 w-5" />
               业务消息监控
             </TabsTrigger>
@@ -2859,49 +2859,49 @@ ${callbacks.robotStatus}
               className="gap-2.5 py-2.5 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/25 border border-transparent hover:border-blue-300/60 hover:bg-blue-50/70 transition-all duration-250"
             >
               <LayoutDashboard className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">仪表盘</span>
+              <span className="font-semibold text-base sm:text-lg">仪表盘</span>
             </TabsTrigger>
             <TabsTrigger
               value="sessions"
               className="gap-2.5 py-2.5 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/25 border border-transparent hover:border-blue-300/60 hover:bg-blue-50/70 transition-all duration-250"
             >
               <Users className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">会话管理</span>
+              <span className="font-semibold text-base sm:text-lg">会话管理</span>
             </TabsTrigger>
             <TabsTrigger
               value="robots"
               className="gap-2.5 py-2.5 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/25 border border-transparent hover:border-blue-300/60 hover:bg-blue-50/70 transition-all duration-250"
             >
               <Bot className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">机器人管理</span>
+              <span className="font-semibold text-base sm:text-lg">机器人管理</span>
             </TabsTrigger>
             <TabsTrigger
               value="monitor"
               className="gap-2.5 py-2.5 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/25 border border-transparent hover:border-blue-300/60 hover:bg-blue-50/70 transition-all duration-250"
             >
               <Activity className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">监控告警</span>
+              <span className="font-semibold text-base sm:text-lg">监控告警</span>
             </TabsTrigger>
             <TabsTrigger
               value="ai-module"
               className="gap-2.5 py-2.5 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/25 border border-transparent hover:border-blue-300/60 hover:bg-blue-50/70 transition-all duration-250"
             >
               <Brain className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">AI模块</span>
+              <span className="font-semibold text-base sm:text-lg">AI模块</span>
             </TabsTrigger>
             <TabsTrigger
               value="flow-engine"
               className="gap-2.5 py-2.5 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/25 border border-transparent hover:border-blue-300/60 hover:bg-blue-50/70 transition-all duration-250"
             >
               <GitBranch className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">流程引擎</span>
+              <span className="font-semibold text-base sm:text-lg">流程引擎</span>
             </TabsTrigger>
             <TabsTrigger
               value="settings"
               className="gap-2.5 py-2.5 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/25 border border-transparent hover:border-blue-300/60 hover:bg-blue-50/70 transition-all duration-250"
             >
               <Settings className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">系统设置</span>
+              <span className="font-semibold text-base sm:text-lg">系统设置</span>
             </TabsTrigger>
           </TabsList>
 
@@ -2930,11 +2930,11 @@ ${callbacks.robotStatus}
               {/* AI模块集成AI交互监控 */}
               <Tabs defaultValue="config" className="w-full">
                 <TabsList className="grid w-full max-w-[600px] grid-cols-2 h-14 bg-white/90 backdrop-blur-md border-2 border-slate-200/80 shadow-lg shadow-slate-200/50 rounded-2xl p-1.5 mb-6">
-                  <TabsTrigger value="config" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-violet-500/30 transition-all duration-300">
+                  <TabsTrigger value="config" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-violet-500/10 data-[state=active]:text-violet-600 data-[state=active]:shadow-sm transition-all duration-300">
                     <Settings className="h-5 w-5" />
                     AI配置
                   </TabsTrigger>
-                  <TabsTrigger value="monitoring" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-violet-500/30 transition-all duration-300">
+                  <TabsTrigger value="monitoring" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-violet-500/10 data-[state=active]:text-violet-600 data-[state=active]:shadow-sm transition-all duration-300">
                     <Sparkles className="h-5 w-5" />
                     AI交互监控
                   </TabsTrigger>

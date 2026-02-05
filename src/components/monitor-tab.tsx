@@ -143,21 +143,21 @@ export default function MonitorTab() {
 
       {/* 子标签页 */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-auto">
-          <TabsTrigger 
-            value="overview" 
-            className="gap-2 py-3 data-[state=active]:bg-primary/10"
+        <TabsList className="grid w-full grid-cols-3 h-14 bg-white/90 backdrop-blur-md border-2 border-slate-200/80 shadow-lg shadow-slate-200/50 rounded-2xl p-1.5 mb-6">
+          <TabsTrigger
+            value="overview"
+            className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-orange-500/10 data-[state=active]:text-orange-600 data-[state=active]:shadow-sm transition-all duration-300"
             onClick={() => setActiveSubTab('overview')}
           >
-            <BarChart3 className="h-4 w-4" />
+            <BarChart3 className="h-5 w-5" />
             概览
           </TabsTrigger>
-          <TabsTrigger 
-            value="alerts" 
-            className="gap-2 py-3 data-[state=active]:bg-primary/10"
+          <TabsTrigger
+            value="alerts"
+            className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-orange-500/10 data-[state=active]:text-orange-600 data-[state=active]:shadow-sm transition-all duration-300"
             onClick={() => setActiveSubTab('alerts')}
           >
-            <Bell className="h-4 w-4" />
+            <Bell className="h-5 w-5" />
             告警列表
             {health?.alerts && health.alerts.pending > 0 && (
               <Badge variant="destructive" className="ml-auto">
@@ -165,12 +165,12 @@ export default function MonitorTab() {
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger 
-            value="stats" 
-            className="gap-2 py-3 data-[state=active]:bg-primary/10"
+          <TabsTrigger
+            value="stats"
+            className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-orange-500/10 data-[state=active]:text-orange-600 data-[state=active]:shadow-sm transition-all duration-300"
             onClick={() => setActiveSubTab('stats')}
           >
-            <Eye className="h-4 w-4" />
+            <Eye className="h-5 w-5" />
             统计分析
           </TabsTrigger>
         </TabsList>
