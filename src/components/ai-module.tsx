@@ -289,16 +289,9 @@ export default function AIModule() {
   const handleHealthCheck = async (modelId: string) => {
     setTestingModel(modelId);
     try {
-      const response = await fetch(`/api/proxy/ai/models/${modelId}/health`, {
-        method: 'POST'
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        toast.success('模型健康检查通过');
-      } else {
-        toast.error(data.error || '健康检查失败');
-      }
+      // 显示提示信息
+      toast.info('健康检查功能暂未实现，请联系管理员添加');
+      setTestingModel(null);
     } catch (error) {
       console.error('健康检查失败:', error);
       toast.error('健康检查失败');
