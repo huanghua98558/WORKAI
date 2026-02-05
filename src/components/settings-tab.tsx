@@ -153,26 +153,42 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
   const handleTestStaffIdentifier = async () => {
     const staffConfig = config.staff || {};
 
+    console.log('[测试] 当前配置:', JSON.stringify(staffConfig, null, 2));
+
+    // 检查是否启用
     if (!staffConfig.enabled) {
-      alert('⚠️ 工作人员检测未启用\n\n请先启用工作人员检测功能。');
+      alert('⚠️ 工作人员检测未启用\n\n请先启用"工作人员检测"开关，然后再进行测试。');
       return;
     }
 
-    // 创建多个测试消息
+    // 检查是否有识别规则
+    const hasRules =
+      (staffConfig.userIds && staffConfig.userIds.length > 0) ||
+      (staffConfig.enterpriseNames && staffConfig.enterpriseNames.length > 0) ||
+      (staffConfig.userRemarks && staffConfig.userRemarks.length > 0) ||
+      (staffConfig.nicknames && staffConfig.nicknames.length > 0) ||
+      (staffConfig.specialPatterns && staffConfig.specialPatterns.length > 0);
+
+    if (!hasRules) {
+      alert('⚠️ 没有配置识别规则\n\n请先配置至少一种识别规则：\n\n1. 企业名称\n2. 备注名关键词\n3. 昵称关键词\n4. 特殊标识\n5. 用户ID\n\n然后再进行测试。');
+      return;
+    }
+
+    // 创建测试消息
     const testMessages = [
       {
         userId: 'user001',
         receivedName: 'XX公司-客服',
         userRemark: '客服专员',
         platform: 'enterprise',
-        description: '企业微信客服'
+        description: '企业微信客服（应识别）'
       },
       {
         userId: 'user002',
         receivedName: '技术支持-小王',
         userRemark: '',
         platform: 'enterprise',
-        description: '企业微信技术支持'
+        description: '企业微信技术支持（应识别）'
       },
       {
         userId: 'user003',
@@ -183,24 +199,37 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
       }
     ];
 
+    console.log('[测试] 测试消息:', testMessages);
+
     // 测试每个消息
     const results = testMessages.map(msg => {
       const isStaff = isStaffUser(msg, staffConfig);
+      const matchedRule = getMatchedRule(msg, staffConfig);
+      console.log('[测试] 消息:', msg, '识别结果:', isStaff, '匹配规则:', matchedRule);
       return {
         ...msg,
         isStaff,
-        matchedRule: getMatchedRule(msg, staffConfig)
+        matchedRule
       };
     });
 
     // 显示结果
-    const resultText = results.map(r => {
+    let resultText = '工作人员识别规则测试结果\n\n';
+    resultText += `当前配置:\n`;
+    if (staffConfig.enterpriseNames?.length) resultText += `- 企业名称: ${staffConfig.enterpriseNames.join(', ')}\n`;
+    if (staffConfig.userRemarks?.length) resultText += `- 备注名关键词: ${staffConfig.userRemarks.join(', ')}\n`;
+    if (staffConfig.nicknames?.length) resultText += `- 昵称关键词: ${staffConfig.nicknames.join(', ')}\n`;
+    if (staffConfig.specialPatterns?.length) resultText += `- 特殊标识: ${staffConfig.specialPatterns.join(', ')}\n`;
+    if (staffConfig.userIds?.length) resultText += `- 用户ID: ${staffConfig.userIds.join(', ')}\n`;
+    resultText += '\n测试结果:\n\n';
+
+    resultText += results.map(r => {
       const status = r.isStaff ? '✅ 是工作人员' : '❌ 不是工作人员';
-      const rule = r.matchedRule ? `(${r.matchedRule.reason})` : '';
-      return `${status}\n用户: ${r.receivedName}\n${r.description}\n${rule}`;
+      const rule = r.matchedRule ? `\n匹配规则: ${r.matchedRule.reason}` : '\n未匹配任何规则';
+      return `${status}\n用户: ${r.receivedName}\n${r.description}${rule}`;
     }).join('\n\n');
 
-    alert(`工作人员识别规则测试结果\n\n${resultText}`);
+    alert(resultText);
   };
 
   // 前端实现：判断用户是否为工作人员
