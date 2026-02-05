@@ -899,34 +899,42 @@ export default function AdminDashboard() {
     
     // 立即加载最关键的数据（会话列表）
     const loadCriticalData = async () => {
+      console.log('[初始化] 开始加载关键数据...');
       checkConnection();
       
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 2000);
         
+        console.log('[初始化] 发起会话 API 请求...');
         const sessionsRes = await fetch('/api/proxy/admin/sessions/active?limit=20', {
           signal: controller.signal
         });
         
         clearTimeout(timeoutId);
         
+        console.log('[初始化] 会话 API 请求完成，状态:', sessionsRes.ok, sessionsRes.status);
         if (sessionsRes.ok) {
           const data = await sessionsRes.json();
+          console.log('[初始化] API 返回数据:', data);
           const uniqueSessions = (data.data || []).reduce((acc: Session[], session: Session) => {
             if (!acc.find(s => s.sessionId === session.sessionId)) {
               acc.push(session);
             }
             return acc;
           }, []);
+          console.log('[初始化] 去重后的会话数量:', uniqueSessions.length, uniqueSessions);
           setSessions(uniqueSessions);
           console.log(`[初始化] 关键数据加载完成，耗时: ${Date.now() - startTime}ms`);
+        } else {
+          console.error('[初始化] 会话 API 请求失败，状态码:', sessionsRes.status);
         }
       } catch (e) {
-        console.error('加载会话数据失败:', e);
+        console.error('[初始化] 加载会话数据失败:', e);
       }
     };
 
+    console.log('[初始化] 调用 loadCriticalData...');
     loadCriticalData();
 
     // 300ms后加载次要数据（不阻塞首次渲染）
@@ -1669,7 +1677,10 @@ ${callbacks.robotStatus}
 
   // 仪表盘组件
   // 仪表盘组件
-  const OverviewTab = () => (
+  const OverviewTab = () => {
+    console.log('[OverviewTab] 渲染，当前 sessions 数量:', sessions.length, sessions);
+    
+    return (
     <div className="space-y-6">
       {/* 系统状态横幅 */}
       <div className="grid gap-4 md:grid-cols-3">
@@ -1979,7 +1990,8 @@ ${callbacks.robotStatus}
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
   // 会话管理组件（集成业务消息监控）
   const SessionsTab = () => {
