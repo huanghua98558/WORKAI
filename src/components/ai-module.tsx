@@ -59,6 +59,7 @@ interface AIModel {
   createdAt: string;
   isBuiltin?: boolean;
   config?: AIModelConfig;
+  selectedPersonaId?: string; // 添加选中的角色ID
 }
 
 interface AIModelConfig {
@@ -1089,14 +1090,17 @@ export default function AIModule() {
               </div>
 
               <div>
-                <Label htmlFor="model-description">描述</Label>
+                <Label htmlFor="model-description">系统提示词</Label>
                 <Textarea
                   id="model-description"
                   value={selectedModel?.description || ''}
                   onChange={(e) => setSelectedModel({ ...selectedModel, description: e.target.value } as AIModel)}
-                  placeholder="模型描述"
+                  placeholder="模型系统提示词"
                   rows={3}
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  定义模型的角色和系统提示词
+                </p>
               </div>
 
               <div>
@@ -1372,41 +1376,85 @@ export default function AIModule() {
 
             {/* 角色关联 */}
             <TabsContent value="roles" className="space-y-4 py-4">
-              {selectedModel?.id ? (
-                <>
-                  <Alert>
-                    <Users className="h-4 w-4" />
-                    <AlertDescription>
-                      使用此模型的 AI 角色列表
-                    </AlertDescription>
-                  </Alert>
-                  <div className="space-y-2">
-                    {getRelatedPersonas(selectedModel.id).length > 0 ? (
-                      getRelatedPersonas(selectedModel.id).map((persona) => (
-                        <div key={persona.id} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <MessageSquare className="h-4 w-4 text-primary" />
-                            <div>
-                              <div className="font-medium">{persona.name}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {persona.roleType === 'preset' ? '预设角色' : '自定义角色'}
-                              </div>
-                            </div>
-                          </div>
-                          <Badge variant={persona.isActive ? 'default' : 'secondary'}>
-                            {persona.isActive ? '启用' : '禁用'}
+              <Alert>
+                <MessageSquare className="h-4 w-4" />
+                <AlertDescription>
+                  选择一个角色后，该角色的系统提示词将自动导入到模型的「系统提示词」字段中。
+                </AlertDescription>
+              </Alert>
+
+              {/* 角色选择下拉框 */}
+              <div>
+                <Label htmlFor="model-persona-select">选择角色导入系统提示词</Label>
+                <Select
+                  value={selectedModel?.selectedPersonaId || ''}
+                  onValueChange={(value) => {
+                    const selectedPersona = personas.find(p => p.id === value);
+                    if (selectedPersona) {
+                      // 将角色的系统提示词复制到模型的description字段
+                      setSelectedModel({
+                        ...selectedModel,
+                        description: selectedPersona.systemPrompt,
+                        selectedPersonaId: value
+                      } as AIModel);
+                      toast.success(`已导入角色「${selectedPersona.name}」的系统提示词`);
+                    }
+                  }}
+                >
+                  <SelectTrigger id="model-persona-select">
+                    <SelectValue placeholder="选择角色导入系统提示词" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {personas.map((persona) => (
+                      <SelectItem key={persona.id} value={persona.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{persona.name}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {persona.roleType === 'preset' ? '预设' : '自定义'}
                           </Badge>
                         </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-8 text-muted-foreground">
-                        暂无角色使用此模型
-                      </div>
-                    )}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  选择角色后，其系统提示词将填充到模型的系统提示词字段。保存后生效。
+                </p>
+              </div>
+
+              {/* 关联角色列表 */}
+              {selectedModel?.id ? (
+                <>
+                  <div>
+                    <Label className="text-muted-foreground">使用此模型的角色列表</Label>
+                    <div className="mt-2 space-y-2">
+                      {getRelatedPersonas(selectedModel.id).length > 0 ? (
+                        getRelatedPersonas(selectedModel.id).map((persona) => (
+                          <div key={persona.id} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <MessageSquare className="h-4 w-4 text-primary" />
+                              <div>
+                                <div className="font-medium">{persona.name}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  {persona.roleType === 'preset' ? '预设角色' : '自定义角色'}
+                                </div>
+                              </div>
+                            </div>
+                            <Badge variant={persona.isActive ? 'default' : 'secondary'}>
+                              {persona.isActive ? '启用' : '禁用'}
+                            </Badge>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-6 text-muted-foreground border border-dashed rounded-lg">
+                          暂无角色使用此模型
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-6 text-muted-foreground border border-dashed rounded-lg">
                   请先保存模型，然后才能查看关联的角色
                 </div>
               )}
@@ -1527,7 +1575,7 @@ export default function AIModule() {
 
               {selectedModel.description && (
                 <div>
-                  <Label className="text-muted-foreground">描述</Label>
+                  <Label className="text-muted-foreground">系统提示词</Label>
                   <p className="text-sm mt-1">{selectedModel.description}</p>
                 </div>
               )}
