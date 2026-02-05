@@ -257,14 +257,14 @@ export default function AdminDashboard() {
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [replyResult, setReplyResult] = useState<{ success: boolean; message: string; timestamp?: Date } | null>(null);
 
-  // 加载机器人列表
+  // 加载机器人列表（使用新接口）
   const loadRobots = async () => {
     try {
-      const res = await fetch('/api/proxy/admin/robots');
+      const res = await fetch('/api/monitoring/robots-status');
       if (res.ok) {
         const data = await res.json();
-        if (data.code === 0) {
-          const robotsList = data.data || [];
+        if (data.code === 0 && data.data && data.data.robots) {
+          const robotsList = data.data.robots || [];
           setRobots(robotsList);
           // 筛选出在线的机器人
           const online = robotsList.filter((r: Robot) => r.isActive && r.status === 'online');
@@ -306,20 +306,19 @@ export default function AdminDashboard() {
       // 优化：按优先级分组，减少并行请求数
       // 关键数据：需要立即显示
       const criticalPromises = [
-        fetchWithTimeout('/api/proxy/admin/sessions/active?limit=20', 2000),
+        fetchWithTimeout('/api/proxy/admin/sessions/active?limit=20', 2000), // 暂时保留老接口
       ];
       
-      // 重要数据：监控相关
+      // 重要数据：监控相关（使用新接口）
       const importantPromises = [
-        fetchWithTimeout('/api/proxy/admin/monitor/summary', 3000),
-        fetchWithTimeout('/api/proxy/admin/callbacks', 3000),
+        fetchWithTimeout('/api/monitoring/summary', 3000),
+        fetchWithTimeout('/api/proxy/admin/callbacks', 3000), // 回调配置，保留
       ];
       
       // 可选数据：即使失败也不影响主要功能
       const optionalPromises = [
         fetchWithTimeout('/api/proxy/health', 2000),
-        fetchWithTimeout('/api/proxy/admin/alerts/stats', 3000),
-        fetchWithTimeout('http://localhost:5001/api/alerts/stats', 2000), // 跨域请求
+        fetchWithTimeout('/api/alerts/analytics/overview', 3000), // 使用新接口
       ];
 
       // 分批加载：先加载关键数据
@@ -349,7 +348,9 @@ export default function AdminDashboard() {
       if (monitorRes.ok) {
         try {
           const data = await monitorRes.json();
-          setMonitorData(data.data);
+          if (data.code === 0) {
+            setMonitorData(data.data);
+          }
         } catch (e) {
           console.error('解析monitor数据失败:', e);
         }
@@ -358,7 +359,9 @@ export default function AdminDashboard() {
       if (callbacksRes.ok) {
         try {
           const data = await callbacksRes.json();
-          setCallbacks(data.data);
+          if (data.code === 0) {
+            setCallbacks(data.data);
+          }
         } catch (e) {
           console.error('解析callbacks数据失败:', e);
         }
@@ -370,7 +373,7 @@ export default function AdminDashboard() {
 
       // 可选数据在后台加载，不阻塞UI
       Promise.allSettled(optionalPromises).then(optionalResults => {
-        const [uptimeRes, alertRes, newAlertRes] = optionalResults.map(r => 
+        const [uptimeRes, alertRes] = optionalResults.map(r => 
           r.status === 'fulfilled' ? r.value : { ok: false, json: async () => ({}) } as Response
         );
 
@@ -392,27 +395,17 @@ export default function AdminDashboard() {
           setConnectionStatus('disconnected');
         }
 
-        // 处理告警数据
+        // 处理告警数据（使用新接口）
         if (alertRes.ok) {
           try {
             const data = alertRes.json();
-            data.then(d => setAlertData(d.data));
-          } catch (e) {
-            console.error('解析alert数据失败:', e);
-          }
-        }
-
-        // 处理新告警系统API
-        if (newAlertRes.ok) {
-          try {
-            const data = newAlertRes.json();
             data.then(d => {
-              if (d.success) {
+              if (d.code === 0) {
                 setAlertStats(d.data);
               }
             });
           } catch (e) {
-            console.error('解析新告警数据失败:', e);
+            console.error('解析告警数据失败:', e);
           }
         }
         
