@@ -386,14 +386,14 @@ export default function NewDashboardTab({
         {/* 左侧列 - 监控数据 */}
         <div className="space-y-6 flex flex-col">
           {/* 今日监控摘要 */}
-          <Card className="shadow-md hover:shadow-lg transition-shadow flex-1 flex flex-col h-96 overflow-hidden">
+          <Card className="shadow-md hover:shadow-lg transition-shadow flex-1 flex flex-col h-[420px]">
             <CardHeader className="flex-shrink-0 py-3 px-6">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <BarChart3 className="h-5 w-5 text-blue-500" />
                 今日监控摘要
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 space-y-4 px-6 pb-6 overflow-y-auto">
+            <CardContent className="flex-1 space-y-4 px-6 pb-6">
               {/* 执行统计 */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
@@ -464,14 +464,14 @@ export default function NewDashboardTab({
           </Card>
 
           {/* 机器人状态 */}
-          <Card className="shadow-md hover:shadow-lg transition-shadow flex-1 flex flex-col h-96 overflow-hidden">
+          <Card className="shadow-md hover:shadow-lg transition-shadow flex-1 flex flex-col h-[420px]">
             <CardHeader className="flex-shrink-0 py-3 px-6">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <Bot className="h-5 w-5 text-indigo-500" />
                 机器人状态
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 space-y-3 px-6 pb-6 overflow-y-auto">
+            <CardContent className="flex-1 space-y-3 px-6 pb-6">
               <div className="space-y-3">
                 {onlineRobots.slice(0, 4).map((robot) => (
                   <div
@@ -507,7 +507,7 @@ export default function NewDashboardTab({
         {/* 中间列 - 告警分析 */}
         <div className="space-y-6 flex flex-col">
           {/* 告警概览 */}
-          <Card className="shadow-md hover:shadow-lg transition-shadow flex-1 flex flex-col h-96 overflow-hidden">
+          <Card className="shadow-md hover:shadow-lg transition-shadow flex-1 flex flex-col h-[420px]">
             <CardHeader className="flex-shrink-0 py-3 px-6">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -521,7 +521,7 @@ export default function NewDashboardTab({
                 )}
               </div>
             </CardHeader>
-            <CardContent className="flex-1 space-y-4 px-6 pb-6 overflow-y-auto">
+            <CardContent className="flex-1 space-y-4 px-6 pb-6">
               <div className="grid grid-cols-3 gap-3">
                 {/* 待处理 */}
                 <div className="text-center p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -601,14 +601,14 @@ export default function NewDashboardTab({
           </Card>
 
           {/* 关键指标 */}
-          <Card className="shadow-md hover:shadow-lg transition-shadow flex-1 flex flex-col h-96 overflow-hidden">
+          <Card className="shadow-md hover:shadow-lg transition-shadow flex-1 flex flex-col h-[420px]">
             <CardHeader className="flex-shrink-0 py-3 px-6">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-green-500" />
                 关键指标
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 space-y-3 px-6 pb-6 overflow-y-auto">
+            <CardContent className="flex-1 space-y-3 px-6 pb-6">
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-2">
                   <span className="text-sm text-slate-600 dark:text-slate-400">平均响应时间</span>
@@ -636,14 +636,14 @@ export default function NewDashboardTab({
         {/* 右侧列 - 活跃排行 */}
         <div className="space-y-6 flex flex-col">
           {/* Top活跃群组 */}
-          <Card className="shadow-md hover:shadow-lg transition-shadow flex-1 flex flex-col h-96 overflow-hidden">
+          <Card className="shadow-md hover:shadow-lg transition-shadow flex-1 flex flex-col h-[420px]">
             <CardHeader className="flex-shrink-0 py-3 px-6">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <Flame className="h-5 w-5 text-orange-500" />
                 Top活跃群组
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 space-y-2 px-6 pb-6 overflow-y-auto">
+            <CardContent className="flex-1 space-y-2 px-6 pb-6">
               <div className="space-y-2">
                 {activeGroups.length > 0 ? (
                   activeGroups.map((group, index) => (
@@ -683,14 +683,14 @@ export default function NewDashboardTab({
           </Card>
 
           {/* Top活跃用户 */}
-          <Card className="shadow-md hover:shadow-lg transition-shadow flex-1 flex flex-col h-96 overflow-hidden">
+          <Card className="shadow-md hover:shadow-lg transition-shadow flex-1 flex flex-col h-[420px]">
             <CardHeader className="flex-shrink-0 py-3 px-6">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <Users className="h-5 w-5 text-cyan-500" />
                 Top活跃用户
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 space-y-2 px-6 pb-6 overflow-y-auto">
+            <CardContent className="flex-1 space-y-2 px-6 pb-6">
               <div className="space-y-2">
                 {activeUsers.length > 0 ? (
                   activeUsers.map((user, index) => (
