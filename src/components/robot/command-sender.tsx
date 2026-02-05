@@ -1006,7 +1006,7 @@ export default function CommandSender() {
                     }
                     
                     return (
-                      <TableRow key={command.commandId}>
+                      <TableRow key={command.id}>
                         <TableCell className="max-w-xs truncate">
                           {cmdType?.label || command.commandType}
                         </TableCell>
@@ -1029,7 +1029,7 @@ export default function CommandSender() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleViewDetail(command.commandId)}
+                              onClick={() => handleViewDetail(command.id)}
                             >
                               详情
                             </Button>
@@ -1037,7 +1037,7 @@ export default function CommandSender() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => handleRetryCommand(command.commandId)}
+                                onClick={() => handleRetryCommand(command.id)}
                               >
                                 重试
                               </Button>
