@@ -49,8 +49,17 @@ import {
   User,
   Sparkles,
   LayoutDashboard,
-  UserCheck
+  UserCheck,
+  Filter,
+  ArrowUpDown
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 // 导入新的组件
 import RobotGroupManager from '@/components/robot/robot-group-manager';
@@ -109,11 +118,16 @@ export default function RobotManagement() {
   const [formTestResult, setFormTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [testingRobotId, setTestingRobotId] = useState<string | null>(null);
   const [callbackUrls, setCallbackUrls] = useState<Record<string, string>>({});
-  const [configuringRobotId, setConfiguringRobotId] = useState<string | null>(null);
   const [callbackConfigs, setCallbackConfigs] = useState<Record<string, any[]>>({});
+  const [configuringRobotId, setConfiguringRobotId] = useState<string | null>(null);
   const [queryingRobotId, setQueryingRobotId] = useState<string | null>(null);
   const [refreshingRobotId, setRefreshingRobotId] = useState<string | null>(null);
   const [isRefreshingAll, setIsRefreshingAll] = useState(false);
+  
+  // 新增筛选和排序状态
+  const [statusFilter, setStatusFilter] = useState<'all' | 'online' | 'offline'>('all');
+  const [sortBy, setSortBy] = useState<'name' | 'status' | 'createdAt' | 'updatedAt'>('createdAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   // 加载机器人列表
   const loadRobots = async () => {
@@ -216,6 +230,46 @@ export default function RobotManagement() {
     setValidationErrors([]);
     setFormTestResult(null);
     setIsDialogOpen(true);
+  };
+
+  // 筛选和排序机器人列表
+  const getFilteredAndSortedRobots = () => {
+    let filtered = [...robots];
+    
+    // 按状态筛选
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(robot => robot.isActive && robot.status === statusFilter);
+    }
+    
+    // 排序
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name, 'zh-CN');
+          break;
+        case 'status':
+          // 在线在前，离线在后，已停用在最后
+          const statusPriority = { 'online': 0, 'offline': 1, 'unknown': 2 };
+          const aStatus = a.isActive ? (statusPriority[a.status] || 2) : 3;
+          const bStatus = b.isActive ? (statusPriority[b.status] || 2) : 3;
+          comparison = aStatus - bStatus;
+          break;
+        case 'createdAt':
+          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
+        case 'updatedAt':
+          comparison = new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+          break;
+        default:
+          break;
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+    
+    return filtered;
   };
 
   // 验证配置
@@ -674,6 +728,60 @@ export default function RobotManagement() {
         </AlertDescription>
       </Alert>
 
+      {/* 筛选和排序 */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* 状态筛选 */}
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">状态筛选:</span>
+              <Select value={statusFilter} onValueChange={(value: 'all' | 'online' | 'offline') => setStatusFilter(value)}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部</SelectItem>
+                  <SelectItem value="online">在线</SelectItem>
+                  <SelectItem value="offline">离线</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 排序 */}
+            <div className="flex items-center gap-2">
+              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">排序:</span>
+              <Select value={sortBy} onValueChange={(value: 'name' | 'status' | 'createdAt' | 'updatedAt') => setSortBy(value)}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">名称</SelectItem>
+                  <SelectItem value="status">状态</SelectItem>
+                  <SelectItem value="createdAt">创建时间</SelectItem>
+                  <SelectItem value="updatedAt">更新时间</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                title={sortOrder === 'asc' ? '升序' : '降序'}
+              >
+                {sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                {sortOrder === 'asc' ? '升序' : '降序'}
+              </Button>
+            </div>
+
+            {/* 显示结果数 */}
+            <div className="flex items-center gap-2 ml-auto text-sm text-muted-foreground">
+              显示 {getFilteredAndSortedRobots().length} / {robots.length} 个机器人
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* 性能指标 */}
       <Card>
         <CardHeader>
@@ -760,7 +868,7 @@ export default function RobotManagement() {
 
       {/* 机器人列表 */}
       <div className="grid gap-4">
-        {robots.map((robot) => (
+        {getFilteredAndSortedRobots().map((robot) => (
           <Card key={robot.id} className="hover:shadow-md transition-shadow">
             <CardHeader>
               <div className="flex items-start justify-between">
