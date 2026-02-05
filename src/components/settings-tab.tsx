@@ -149,40 +149,179 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
     });
   };
 
-  // 测试工作人员识别规则
+  // 测试工作人员识别规则（前端实现）
   const handleTestStaffIdentifier = async () => {
-    // 创建测试消息
-    const testMessage = {
-      userId: 'test_user_001',
-      receivedName: 'XX公司-客服',
-      userRemark: '客服专员',
-      platform: 'enterprise'
-    };
+    const staffConfig = config.staff || {};
 
-    try {
-      const res = await fetch('/api/risk/test-staff-identifier', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: testMessage,
-          staffConfig: config.staff
-        })
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.isStaff) {
-          alert(`✅ 识别成功！\n\n用户ID: ${data.message.userId}\n用户名: ${data.message.userName}\n平台: ${data.message.platform}\n\n匹配规则: ${data.matchedRule?.reason || '未知'}`);
-        } else {
-          alert(`⚠️ 未识别为工作人员\n\n请检查识别规则配置是否正确。`);
-        }
-      } else {
-        const errorData = await res.json();
-        alert(`❌ 测试失败: ${errorData.error || '未知错误'}`);
-      }
-    } catch (error) {
-      alert('❌ 测试请求失败');
+    if (!staffConfig.enabled) {
+      alert('⚠️ 工作人员检测未启用\n\n请先启用工作人员检测功能。');
+      return;
     }
+
+    // 创建多个测试消息
+    const testMessages = [
+      {
+        userId: 'user001',
+        receivedName: 'XX公司-客服',
+        userRemark: '客服专员',
+        platform: 'enterprise',
+        description: '企业微信客服'
+      },
+      {
+        userId: 'user002',
+        receivedName: '技术支持-小王',
+        userRemark: '',
+        platform: 'enterprise',
+        description: '企业微信技术支持'
+      },
+      {
+        userId: 'user003',
+        receivedName: '李四',
+        userRemark: '',
+        platform: 'personal',
+        description: '个人微信用户（不应识别）'
+      }
+    ];
+
+    // 测试每个消息
+    const results = testMessages.map(msg => {
+      const isStaff = isStaffUser(msg, staffConfig);
+      return {
+        ...msg,
+        isStaff,
+        matchedRule: getMatchedRule(msg, staffConfig)
+      };
+    });
+
+    // 显示结果
+    const resultText = results.map(r => {
+      const status = r.isStaff ? '✅ 是工作人员' : '❌ 不是工作人员';
+      const rule = r.matchedRule ? `(${r.matchedRule.reason})` : '';
+      return `${status}\n用户: ${r.receivedName}\n${r.description}\n${rule}`;
+    }).join('\n\n');
+
+    alert(`工作人员识别规则测试结果\n\n${resultText}`);
+  };
+
+  // 前端实现：判断用户是否为工作人员
+  const isStaffUser = (message: any, config: any) => {
+    if (!config.enabled) return false;
+
+    const { userId, receivedName, userRemark, platform } = message;
+    const userIds = config.userIds || [];
+    const userRemarks = config.userRemarks || [];
+    const nicknames = config.nicknames || [];
+    const enterpriseNames = config.enterpriseNames || [];
+    const specialPatterns = config.specialPatterns || [];
+
+    // 1. userId匹配
+    if (userIds.includes(userId)) return true;
+
+    // 2. 企业名匹配
+    if (platform === 'enterprise') {
+      for (const enterpriseName of enterpriseNames) {
+        if (receivedName && receivedName.includes(enterpriseName)) {
+          return true;
+        }
+      }
+    }
+
+    // 3. 备注名匹配
+    if (userRemark) {
+      for (const remark of userRemarks) {
+        if (userRemark.includes(remark)) {
+          return true;
+        }
+      }
+    }
+
+    // 4. 昵称匹配
+    if (receivedName) {
+      for (const nickname of nicknames) {
+        if (receivedName.includes(nickname)) {
+          return true;
+        }
+      }
+    }
+
+    // 5. 特殊标识匹配
+    for (const pattern of specialPatterns) {
+      if ((receivedName && receivedName.includes(pattern)) ||
+          (userRemark && userRemark.includes(pattern))) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  // 前端实现：获取匹配的识别规则
+  const getMatchedRule = (message: any, config: any) => {
+    const { userId, receivedName, userRemark, platform } = message;
+    const userIds = config.userIds || [];
+    const userRemarks = config.userRemarks || [];
+    const nicknames = config.nicknames || [];
+    const enterpriseNames = config.enterpriseNames || [];
+    const specialPatterns = config.specialPatterns || [];
+
+    if (userIds.includes(userId)) {
+      return {
+        type: 'userId',
+        value: userId,
+        reason: '直接指定的用户ID'
+      };
+    }
+
+    if (platform === 'enterprise') {
+      for (const enterpriseName of enterpriseNames) {
+        if (receivedName && receivedName.includes(enterpriseName)) {
+          return {
+            type: 'enterpriseName',
+            value: enterpriseName,
+            reason: '企业微信企业名匹配'
+          };
+        }
+      }
+    }
+
+    if (userRemark) {
+      for (const remark of userRemarks) {
+        if (userRemark.includes(remark)) {
+          return {
+            type: 'userRemark',
+            value: remark,
+            reason: '备注名关键词匹配'
+          };
+        }
+      }
+    }
+
+    if (receivedName) {
+      for (const nickname of nicknames) {
+        if (receivedName.includes(nickname)) {
+          return {
+            type: 'nickname',
+            value: nickname,
+            reason: '昵称关键词匹配'
+          };
+        }
+      }
+    }
+
+    if (receivedName || userRemark) {
+      for (const pattern of specialPatterns) {
+        if ((receivedName && receivedName.includes(pattern)) ||
+            (userRemark && userRemark.includes(pattern))) {
+          return {
+            type: 'specialPattern',
+            value: pattern,
+            reason: '特殊标识匹配'
+          };
+        }
+      }
+    }
+
+    return null;
   };
 
   if (isLoading || isLoadingAiConfig) {
