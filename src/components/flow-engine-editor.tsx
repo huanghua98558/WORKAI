@@ -371,8 +371,8 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
       </div>
 
       {/* 主编辑器区域 */}
-      <div className="flex-1 overflow-hidden flex flex-col">
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'visual' | 'json')} className="flex-1 flex flex-col">
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'visual' | 'json')} className="flex-1 flex flex-col min-h-0">
           <div className="px-4 py-3 border-b">
             <TabsList>
               <TabsTrigger value="visual">
