@@ -297,72 +297,94 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* 顶部工具栏 */}
-      <div className="flex-shrink-0 border-b bg-white px-4 py-3 flex items-center justify-between gap-4">
+      {/* 顶部工具栏 - 优化后 */}
+      <div className="flex-shrink-0 border-b bg-gradient-to-r from-slate-50 to-white px-6 py-3 flex items-center justify-between gap-6 shadow-sm">
+        {/* 左侧：流程信息 */}
         <div className="flex items-center gap-4 flex-1 min-w-0">
-          <h2 className="text-lg font-semibold text-slate-900 whitespace-nowrap">
-            {mode === 'create' ? '创建新流程' : '编辑流程'}
-          </h2>
-          <div className="flex flex-col gap-1 flex-1 max-w-md min-w-0">
-            <Input
-              value={flowMeta.name}
-              onChange={(e) => setFlowMeta(prev => ({ ...prev, name: e.target.value }))}
-              onBlur={() => setFlow(prev => ({ ...prev, name: flowMeta.name }))}
-              placeholder="流程名称 *"
-              className="w-full"
-            />
+          <div className="flex-shrink-0">
+            <h2 className="text-base font-bold text-slate-800 whitespace-nowrap">
+              {mode === 'create' ? '创建新流程' : '编辑流程'}
+            </h2>
+          </div>
+          <div className="h-6 w-px bg-slate-200 flex-shrink-0" />
+
+          {/* 流程名称输入 */}
+          <div className="flex-1 max-w-sm min-w-0">
+            <div className="relative">
+              <Input
+                value={flowMeta.name}
+                onChange={(e) => setFlowMeta(prev => ({ ...prev, name: e.target.value }))}
+                onBlur={() => setFlow(prev => ({ ...prev, name: flowMeta.name }))}
+                placeholder="流程名称 *"
+                className="w-full h-9 pr-4 font-medium bg-white/80 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+              />
+            </div>
+          </div>
+
+          {/* 流程描述输入 - 折叠式 */}
+          <div className="flex-1 max-w-xs min-w-0">
             <Input
               value={flowMeta.description}
               onChange={(e) => setFlowMeta(prev => ({ ...prev, description: e.target.value }))}
               onBlur={() => setFlow(prev => ({ ...prev, description: flowMeta.description }))}
-              placeholder="流程描述（可选）"
-              className="w-full text-sm"
+              placeholder="添加描述..."
+              className="w-full h-9 text-sm bg-white/80 border-slate-200/60 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200"
             />
           </div>
         </div>
 
+        {/* 右侧：操作按钮组 */}
         <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <Label htmlFor="trigger-type" className="text-sm">触发类型：</Label>
+          {/* 触发类型选择器 */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-white/60 rounded-lg border border-slate-200/60 shadow-sm">
+            <span className="text-xs font-medium text-slate-600 whitespace-nowrap">触发:</span>
             <Select
               value={flow.triggerType}
               onValueChange={(v) => setFlow({ ...flow, triggerType: v as 'webhook' | 'manual' | 'scheduled' })}
             >
-              <SelectTrigger id="trigger-type" className="w-32 h-8">
+              <SelectTrigger className="w-28 h-7 border-0 bg-transparent px-2 text-sm font-medium text-slate-700 hover:bg-slate-100/50 focus:ring-0 transition-colors">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="webhook">Webhook</SelectItem>
-                <SelectItem value="manual">手动</SelectItem>
-                <SelectItem value="scheduled">定时</SelectItem>
+              <SelectContent align="end" className="min-w-[140px]">
+                <SelectItem value="webhook" className="text-sm">Webhook</SelectItem>
+                <SelectItem value="manual" className="text-sm">手动触发</SelectItem>
+                <SelectItem value="scheduled" className="text-sm">定时执行</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="h-6 w-px bg-slate-200" />
 
+          {/* 测试按钮 */}
           <Button
             variant="outline"
             size="sm"
             onClick={handleTestFlow}
             disabled={flow.nodes.length === 0 || isTesting}
+            className="h-9 px-4 bg-white/80 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 transition-all duration-200 shadow-sm"
           >
             <TestTube className="w-4 h-4 mr-2" />
-            测试流程
+            <span className="font-medium">测试</span>
           </Button>
+
+          {/* 保存按钮 */}
           <Button
             onClick={handleSaveFlow}
             disabled={isSaving}
-            className="gap-2"
+            className="h-9 px-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium shadow-md hover:shadow-lg transition-all duration-200"
           >
             <Save className="w-4 h-4 mr-2" />
-            {isSaving ? '保存中...' : '保存流程'}
+            {isSaving ? '保存中...' : '保存'}
           </Button>
+
+          {/* 关闭按钮 */}
           {onClose && (
             <Button
               variant="ghost"
               size="sm"
               onClick={onClose}
+              className="h-9 w-9 p-0 hover:bg-red-50 hover:text-red-600 transition-colors duration-200"
+              title="关闭"
             >
               <X className="w-4 h-4" />
             </Button>
@@ -373,14 +395,21 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
       {/* 主编辑器区域 */}
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'visual' | 'json')} className="flex-1 flex flex-col min-h-0">
-          <div className="px-4 py-3 border-b">
-            <TabsList>
-              <TabsTrigger value="visual">
-                <LayoutGrid className="w-4 h-4 mr-2" />
+          {/* Tabs 切换条 */}
+          <div className="px-4 py-2.5 border-b bg-gradient-to-b from-white to-slate-50/50">
+            <TabsList className="bg-slate-100/80 p-1 rounded-lg shadow-sm">
+              <TabsTrigger
+                value="visual"
+                className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 gap-2 rounded-md h-8 px-4 transition-all duration-200"
+              >
+                <LayoutGrid className="w-4 h-4" />
                 可视化编辑
               </TabsTrigger>
-              <TabsTrigger value="json">
-                <FileJson className="w-4 h-4 mr-2" />
+              <TabsTrigger
+                value="json"
+                className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 gap-2 rounded-md h-8 px-4 transition-all duration-200"
+              >
+                <FileJson className="w-4 h-4" />
                 JSON编辑
               </TabsTrigger>
             </TabsList>
@@ -390,9 +419,14 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
             <div className="flex h-full w-full bg-slate-50">
 
               {/* 左侧：节点库 (固定宽度 250px，可滚动) */}
-              <div className="w-[250px] flex-shrink-0 border-r bg-white flex flex-col h-full">
-                <div className="p-3 border-b bg-slate-50/50 font-medium text-sm text-slate-700">
-                  组件库
+              <div className="w-[250px] flex-shrink-0 border-r bg-white flex flex-col h-full shadow-[4px_0_24px_-12px_rgba(0,0,0,0.08)]">
+                {/* 组件库标题 */}
+                <div className="px-4 py-3.5 border-b bg-gradient-to-r from-slate-50 to-white flex items-center gap-2.5">
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-sm">
+                    <LayoutGrid className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <span className="font-semibold text-sm text-slate-800">组件库</span>
+                  <span className="ml-auto text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">拖拽添加</span>
                 </div>
                 <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
                   <FlowNodeLibrary />
@@ -400,7 +434,15 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
               </div>
 
               {/* 中间：画布 (自动撑满剩余空间 flex-1) */}
-              <div className="flex-1 h-full relative overflow-hidden bg-slate-100/50">
+              <div className="flex-1 h-full relative overflow-hidden bg-gradient-to-br from-slate-100 via-blue-50/30 to-violet-50/20">
+                {/* 网格背景纹理 */}
+                <div className="absolute inset-0 opacity-[0.45]" style={{
+                  backgroundImage: `
+                    radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.3) 1px, transparent 0)
+                  `,
+                  backgroundSize: '24px 24px'
+                }} />
+
                 <FlowCanvas
                   nodes={flow.nodes}
                   edges={flow.edges}
@@ -413,7 +455,7 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
 
                 {/* 浮动的测试面板 (不占空间，悬浮在底部) */}
                 {testResults.length > 0 && (
-                  <div className="absolute bottom-4 left-4 right-4 max-h-[30%] bg-white border shadow-lg rounded-lg overflow-hidden flex flex-col animate-in slide-in-from-bottom-5">
+                  <div className="absolute bottom-4 left-4 right-4 max-h-[30%] bg-white/95 backdrop-blur-sm border border-slate-200/80 shadow-xl rounded-xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-5">
                     <FlowTestPanel
                       results={testResults}
                       isRunning={isTesting}
@@ -424,9 +466,18 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
               </div>
 
               {/* 右侧：配置面板 (固定宽度 320px，可滚动) */}
-              <div className="w-[320px] flex-shrink-0 border-l bg-white flex flex-col h-full">
-                <div className="p-3 border-b bg-slate-50/50 font-medium text-sm text-slate-700">
-                  节点属性
+              <div className="w-[320px] flex-shrink-0 border-l bg-white flex flex-col h-full shadow-[-4px_0_24px_-12px_rgba(0,0,0,0.08)]">
+                {/* 节点属性标题 */}
+                <div className="px-4 py-3.5 border-b bg-gradient-to-r from-slate-50 to-white flex items-center gap-2.5">
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-sm">
+                    <FileJson className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <span className="font-semibold text-sm text-slate-800">节点属性</span>
+                  {selectedNode && (
+                    <span className="ml-auto text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full max-w-[120px] truncate">
+                      {selectedNode.data?.label || selectedNode.data?.type}
+                    </span>
+                  )}
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                   {selectedNode ? (
@@ -436,9 +487,11 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm">
-                      <LayoutGrid className="w-12 h-12 mb-3 opacity-20" />
-                      <p>请点击画布中的节点</p>
-                      <p>进行参数配置</p>
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center mb-4 shadow-inner">
+                        <LayoutGrid className="w-8 h-8 opacity-30" />
+                      </div>
+                      <p className="font-medium text-slate-500 mb-1">选择节点</p>
+                      <p className="text-xs text-slate-400">点击画布中的节点进行配置</p>
                     </div>
                   )}
                 </div>

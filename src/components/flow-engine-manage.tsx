@@ -721,27 +721,27 @@ export default function FlowEngineManage() {
 
       {/* 统一的流程编辑器对话框（创建和编辑） */}
       {editorDialog.isOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div
-            className="bg-white rounded-lg shadow-2xl overflow-hidden flex flex-col"
+            className="bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col border border-slate-200/50"
             style={{
               width: editorDialog.isMaximized ? '95vw' : `${editorDialog.width}px`,
               height: editorDialog.isMaximized ? '95vh' : `${editorDialog.height}px`,
             }}
           >
             {/* 对话框顶部工具栏 */}
-            <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-slate-50 to-slate-100">
+            <div className="flex items-center justify-between px-5 py-4 border-b bg-gradient-to-r from-slate-50 via-white to-slate-50">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                  <GitBranch className="w-4 h-4 text-white" />
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                  <GitBranch className="w-4.5 h-4.5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-900">
+                  <h2 className="text-lg font-bold text-slate-900 tracking-tight">
                     {editorDialog.mode === 'create' ? '创建新流程' : '编辑流程'}
                   </h2>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     {editorDialog.mode === 'create'
-                      ? '可视化流程编排'
+                      ? '可视化流程编排 · 拖拽式编辑'
                       : selectedFlow?.name || ''}
                   </p>
                 </div>
@@ -760,6 +760,7 @@ export default function FlowEngineManage() {
                     });
                   }}
                   title={editorDialog.isMaximized ? "还原" : "最大化"}
+                  className="h-8 w-8 p-0 hover:bg-slate-100 text-slate-600 transition-colors"
                 >
                   {editorDialog.isMaximized ? (
                     <Minimize2 className="w-4 h-4" />
@@ -775,6 +776,7 @@ export default function FlowEngineManage() {
                     setSelectedFlow(null);
                   }}
                   title="关闭"
+                  className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 text-slate-600 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </Button>
