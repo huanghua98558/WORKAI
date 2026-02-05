@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       message: 'success',
       data: {
         timeRange: `${days}天`,
-        trends: trends.map(item => ({
+        trends: trends.map((item: any) => ({
           date: item.date,
           total: item.total_count,
           pending: item.pending_count,
@@ -51,12 +51,12 @@ export async function GET(request: NextRequest) {
         // 统计信息
         stats: {
           totalDays: trends.length,
-          totalAlerts: trends.reduce((sum, item) => sum + item.total_count, 0),
+          totalAlerts: trends.reduce((sum: number, item: any) => sum + item.total_count, 0),
           avgPerDay: trends.length > 0
-            ? Math.round(trends.reduce((sum, item) => sum + item.total_count, 0) / trends.length)
+            ? Math.round(trends.reduce((sum: number, item: any) => sum + item.total_count, 0) / trends.length)
             : 0,
           maxDay: trends.length > 0
-            ? trends.reduce((max, item) => item.total_count > max.total_count ? item : max)
+            ? trends.reduce((max: any, item: any) => item.total_count > max.total_count ? item : max)
             : null
         },
 
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     console.error('[告警分析趋势] 错误:', error);
     return NextResponse.json({
       code: -1,
-      message: error.message || '获取告警趋势失败',
+      message: (error as Error).message || '获取告警趋势失败',
       data: null
     }, { status: 500 });
   }

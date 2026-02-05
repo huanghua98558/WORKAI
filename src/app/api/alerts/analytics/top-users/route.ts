@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const topUsers = await alertAnalytics.getTopUsers(safeDays);
 
     // 格式化数据
-    const formattedUsers = topUsers.slice(0, safeLimit).map((user, index) => ({
+    const formattedUsers = topUsers.slice(0, safeLimit).map((user: any, index: number) => ({
       rank: index + 1,
       userId: user.user_id,
       userName: user.user_name || '未知用户',
@@ -48,9 +48,9 @@ export async function GET(request: NextRequest) {
         // 统计信息
         stats: {
           totalUsers: formattedUsers.length,
-          totalAlerts: formattedUsers.reduce((sum, u) => sum + u.totalAlerts, 0),
-          totalCritical: formattedUsers.reduce((sum, u) => sum + u.criticalAlerts, 0),
-          totalEscalated: formattedUsers.reduce((sum, u) => sum + u.escalatedAlerts, 0)
+          totalAlerts: formattedUsers.reduce((sum: number, u: any) => sum + u.totalAlerts, 0),
+          totalCritical: formattedUsers.reduce((sum: number, u: any) => sum + u.criticalAlerts, 0),
+          totalEscalated: formattedUsers.reduce((sum: number, u: any) => sum + u.escalatedAlerts, 0)
         },
 
         // 时间范围
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     console.error('[告警用户排行] 错误:', error);
     return NextResponse.json({
       code: -1,
-      message: error.message || '获取告警用户排行失败',
+      message: (error as Error).message || '获取告警用户排行失败',
       data: null
     }, { status: 500 });
   }

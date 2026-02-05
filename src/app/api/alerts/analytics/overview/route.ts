@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         avgResponseTimeSeconds: parseFloat(overall.avg_response_time_seconds) || 0,
 
         // 告警级别分布
-        levelDistribution: levelDistribution.map(item => ({
+        levelDistribution: levelDistribution.map((item: any) => ({
           level: item.alert_level,
           count: item.count,
           percentage: item.percentage
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
     console.error('[告警分析概览] 错误:', error);
     return NextResponse.json({
       code: -1,
-      message: error.message || '获取告警分析概览失败',
+      message: (error as Error).message || '获取告警分析概览失败',
       data: null
     }, { status: 500 });
   }

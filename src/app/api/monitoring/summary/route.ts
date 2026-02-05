@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     console.error('[监控摘要] 错误:', error);
     return NextResponse.json({
       code: -1,
-      message: error.message || '获取监控摘要失败',
+      message: (error as Error).message || '获取监控摘要失败',
       data: null
     }, { status: 500 });
   }

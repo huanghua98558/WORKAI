@@ -28,8 +28,8 @@ export async function GET(request: NextRequest) {
       .where(robots.isActive);
 
     // 合并数据和状态
-    const formattedRobots = robotDetails.map(robot => {
-      const summary = robotsSummary.find(s => s.robotId === robot.robotId) || {
+    const formattedRobots = robotDetails.map((robot: any) => {
+      const summary = robotsSummary.find((s: any) => s.robotId === robot.robotId) || {
         messagesProcessed: 0,
         errors: 0,
         successRate: 100
@@ -61,16 +61,16 @@ export async function GET(request: NextRequest) {
         // 统计信息
         stats: {
           totalRobots: formattedRobots.length,
-          onlineRobots: formattedRobots.filter(r => r.status === 'online').length,
-          offlineRobots: formattedRobots.filter(r => r.status === 'offline').length,
-          unknownRobots: formattedRobots.filter(r => r.status === 'unknown').length,
-          healthyRobots: formattedRobots.filter(r => r.healthStatus === 'healthy').length,
-          warningRobots: formattedRobots.filter(r => r.healthStatus === 'warning').length,
-          criticalRobots: formattedRobots.filter(r => r.healthStatus === 'critical').length,
-          totalMessages: formattedRobots.reduce((sum, r) => sum + r.messagesProcessed, 0),
-          totalErrors: formattedRobots.reduce((sum, r) => sum + r.errors, 0),
+          onlineRobots: formattedRobots.filter((r: any) => r.status === 'online').length,
+          offlineRobots: formattedRobots.filter((r: any) => r.status === 'offline').length,
+          unknownRobots: formattedRobots.filter((r: any) => r.status === 'unknown').length,
+          healthyRobots: formattedRobots.filter((r: any) => r.healthStatus === 'healthy').length,
+          warningRobots: formattedRobots.filter((r: any) => r.healthStatus === 'warning').length,
+          criticalRobots: formattedRobots.filter((r: any) => r.healthStatus === 'critical').length,
+          totalMessages: formattedRobots.reduce((sum: number, r: any) => sum + r.messagesProcessed, 0),
+          totalErrors: formattedRobots.reduce((sum: number, r: any) => sum + r.errors, 0),
           avgSuccessRate: formattedRobots.length > 0
-            ? (formattedRobots.reduce((sum, r) => sum + r.successRate, 0) / formattedRobots.length).toFixed(2)
+            ? (formattedRobots.reduce((sum: number, r: any) => sum + r.successRate, 0) / formattedRobots.length).toFixed(2)
             : '0.00'
         },
 
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     console.error('[机器人状态] 错误:', error);
     return NextResponse.json({
       code: -1,
-      message: error.message || '获取机器人状态失败',
+      message: (error as Error).message || '获取机器人状态失败',
       data: null
     }, { status: 500 });
   }

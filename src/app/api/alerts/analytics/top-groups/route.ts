@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const topChats = await alertAnalytics.getTopChats(safeDays);
 
     // 格式化数据
-    const formattedGroups = topChats.slice(0, safeLimit).map((chat, index) => ({
+    const formattedGroups = topChats.slice(0, safeLimit).map((chat: any, index: number) => ({
       rank: index + 1,
       groupChatId: chat.group_chat_id,
       groupName: chat.group_name || '未知群组',
@@ -49,10 +49,10 @@ export async function GET(request: NextRequest) {
         // 统计信息
         stats: {
           totalGroups: formattedGroups.length,
-          totalAlerts: formattedGroups.reduce((sum, g) => sum + g.totalAlerts, 0),
-          totalCritical: formattedGroups.reduce((sum, g) => sum + g.criticalAlerts, 0),
-          totalEscalated: formattedGroups.reduce((sum, g) => sum + g.escalatedAlerts, 0),
-          totalAffectedUsers: formattedGroups.reduce((sum, g) => sum + g.affectedUsers, 0)
+          totalAlerts: formattedGroups.reduce((sum: number, g: any) => sum + g.totalAlerts, 0),
+          totalCritical: formattedGroups.reduce((sum: number, g: any) => sum + g.criticalAlerts, 0),
+          totalEscalated: formattedGroups.reduce((sum: number, g: any) => sum + g.escalatedAlerts, 0),
+          totalAffectedUsers: formattedGroups.reduce((sum: number, g: any) => sum + g.affectedUsers, 0)
         },
 
         // 时间范围
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
     console.error('[告警群组排行] 错误:', error);
     return NextResponse.json({
       code: -1,
-      message: error.message || '获取告警群组排行失败',
+      message: (error as Error).message || '获取告警群组排行失败',
       data: null
     }, { status: 500 });
   }

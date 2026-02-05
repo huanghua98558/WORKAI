@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     );
 
     // 格式化数据
-    const formattedUsers = activeUsers.map((user, index) => ({
+    const formattedUsers = activeUsers.map((user: any, index: number) => ({
       rank: index + 1,
       userId: user.userId,
       totalMessages: user.totalMessages,
@@ -45,14 +45,14 @@ export async function GET(request: NextRequest) {
         // 统计信息
         stats: {
           totalUsers: formattedUsers.length,
-          totalMessages: formattedUsers.reduce((sum, u) => sum + u.totalMessages, 0),
-          totalGroups: formattedUsers.reduce((sum, u) => sum + u.groupCount, 0),
+          totalMessages: formattedUsers.reduce((sum: number, u: any) => sum + u.totalMessages, 0),
+          totalGroups: formattedUsers.reduce((sum: number, u: any) => sum + u.groupCount, 0),
           avgMessages: formattedUsers.length > 0
-            ? Math.round(formattedUsers.reduce((sum, u) => sum + u.totalMessages, 0) / formattedUsers.length)
+            ? Math.round(formattedUsers.reduce((sum: number, u: any) => sum + u.totalMessages, 0) / formattedUsers.length)
             : 0,
-          highActivity: formattedUsers.filter(u => u.activityLevel === 'high').length,
-          mediumActivity: formattedUsers.filter(u => u.activityLevel === 'medium').length,
-          lowActivity: formattedUsers.filter(u => u.activityLevel === 'low').length
+          highActivity: formattedUsers.filter((u: any) => u.activityLevel === 'high').length,
+          mediumActivity: formattedUsers.filter((u: any) => u.activityLevel === 'medium').length,
+          lowActivity: formattedUsers.filter((u: any) => u.activityLevel === 'low').length
         },
 
         // 日期
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
     console.error('[活跃用户排行] 错误:', error);
     return NextResponse.json({
       code: -1,
-      message: error.message || '获取活跃用户排行失败',
+      message: (error as Error).message || '获取活跃用户排行失败',
       data: null
     }, { status: 500 });
   }

@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const topChats = await alertAnalytics.getTopChats(7); // 默认7天
 
     // 格式化分组数据
-    const formattedGroupStats = groupStats.map(group => ({
+    const formattedGroupStats = groupStats.map((group: any) => ({
       id: group.id,
       name: group.group_name,
       code: group.group_code,
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     }));
 
     // 格式化Top群组排行
-    const formattedTopChats = topChats.slice(0, safeLimit).map((chat, index) => ({
+    const formattedTopChats = topChats.slice(0, safeLimit).map((chat: any, index: number) => ({
       rank: index + 1,
       groupChatId: chat.group_chat_id,
       groupName: chat.group_name,
@@ -67,8 +67,8 @@ export async function GET(request: NextRequest) {
         // 统计信息
         stats: {
           totalGroups: formattedGroupStats.length,
-          activeGroups: formattedGroupStats.filter(g => g.total > 0).length,
-          totalAlerts: formattedGroupStats.reduce((sum, g) => sum + g.total, 0)
+          activeGroups: formattedGroupStats.filter((g: any) => g.total > 0).length,
+          totalAlerts: formattedGroupStats.reduce((sum: number, g: any) => sum + g.total, 0)
         },
 
         // 时间范围
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
     console.error('[告警分组分析] 错误:', error);
     return NextResponse.json({
       code: -1,
-      message: error.message || '获取告警分组分析失败',
+      message: (error as Error).message || '获取告警分组分析失败',
       data: null
     }, { status: 500 });
   }

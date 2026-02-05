@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     );
 
     // 格式化数据
-    const formattedGroups = activeGroups.map((group, index) => ({
+    const formattedGroups = activeGroups.map((group: any, index: number) => ({
       rank: index + 1,
       groupId: group.groupId,
       totalMessages: group.totalMessages,
@@ -40,13 +40,13 @@ export async function GET(request: NextRequest) {
         // 统计信息
         stats: {
           totalGroups: formattedGroups.length,
-          totalMessages: formattedGroups.reduce((sum, g) => sum + g.totalMessages, 0),
+          totalMessages: formattedGroups.reduce((sum: number, g: any) => sum + g.totalMessages, 0),
           avgMessages: formattedGroups.length > 0
-            ? Math.round(formattedGroups.reduce((sum, g) => sum + g.totalMessages, 0) / formattedGroups.length)
+            ? Math.round(formattedGroups.reduce((sum: number, g: any) => sum + g.totalMessages, 0) / formattedGroups.length)
             : 0,
-          highActivity: formattedGroups.filter(g => g.activityLevel === 'high').length,
-          mediumActivity: formattedGroups.filter(g => g.activityLevel === 'medium').length,
-          lowActivity: formattedGroups.filter(g => g.activityLevel === 'low').length
+          highActivity: formattedGroups.filter((g: any) => g.activityLevel === 'high').length,
+          mediumActivity: formattedGroups.filter((g: any) => g.activityLevel === 'medium').length,
+          lowActivity: formattedGroups.filter((g: any) => g.activityLevel === 'low').length
         },
 
         // 日期
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     console.error('[活跃群排行] 错误:', error);
     return NextResponse.json({
       code: -1,
-      message: error.message || '获取活跃群排行失败',
+      message: (error as Error).message || '获取活跃群排行失败',
       data: null
     }, { status: 500 });
   }
