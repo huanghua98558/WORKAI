@@ -2852,116 +2852,82 @@ ${callbacks.robotStatus}
       {/* 主内容 */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          {/* 大气现代的导航栏 - 8个核心功能 */}
+          {/* 简洁现代的导航栏 - 8个核心功能 */}
           <div className="relative">
-            {/* 背景装饰 */}
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-blue-500/5 rounded-2xl blur-xl"></div>
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-500/10 to-transparent"></div>
-            
-            {/* 导航容器 */}
-            <div className="relative">
-              <TabsList className="w-full lg:w-auto grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2 p-3 bg-gradient-to-br from-white/95 to-white/80 dark:from-slate-900/95 dark:to-slate-800/80 backdrop-blur-xl border border-slate-200/60 dark:border-slate-700/60 shadow-xl shadow-blue-500/10 dark:shadow-blue-500/5 rounded-2xl overflow-visible">
-                
-                {/* 仪表盘 */}
-                <TabsTrigger
-                  value="dashboard"
-                  className="group relative flex flex-col items-center justify-center gap-2 py-4 px-3 rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/30 data-[state=active]:scale-105 border border-transparent hover:border-blue-400/50 hover:bg-blue-50/80 dark:hover:bg-blue-950/30 transition-all duration-300 min-h-[90px]"
-                >
-                  <div className={`transition-transform duration-300 group-hover:scale-110 ${activeTab === 'dashboard' ? 'animate-bounce' : ''}`}>
-                    <LayoutDashboard className={`h-6 w-6 ${activeTab === 'dashboard' ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`} />
-                  </div>
-                  <span className={`font-semibold text-sm whitespace-nowrap ${activeTab === 'dashboard' ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>仪表盘</span>
-                  <div className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full transition-all duration-300 ${activeTab === 'dashboard' ? 'bg-white/60 w-12' : 'bg-transparent'}`}></div>
-                </TabsTrigger>
+            <TabsList className="w-full lg:w-auto grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2 p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-xl">
+              
+              {/* 仪表盘 */}
+              <TabsTrigger
+                value="dashboard"
+                className="group relative flex flex-col items-center justify-center gap-2 py-2 px-2 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md border border-transparent hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 h-auto"
+              >
+                <LayoutDashboard className={`h-4 w-4 ${activeTab === 'dashboard' ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`} />
+                <span className={`font-semibold text-sm whitespace-nowrap ${activeTab === 'dashboard' ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>仪表盘</span>
+              </TabsTrigger>
 
-                {/* 会话管理 */}
-                <TabsTrigger
-                  value="sessions"
-                  className="group relative flex flex-col items-center justify-center gap-2 py-4 px-3 rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/30 data-[state=active]:scale-105 border border-transparent hover:border-blue-400/50 hover:bg-blue-50/80 dark:hover:bg-blue-950/30 transition-all duration-300 min-h-[90px]"
-                >
-                  <div className={`transition-transform duration-300 group-hover:scale-110 ${activeTab === 'sessions' ? 'animate-bounce' : ''}`}>
-                    <Users className={`h-6 w-6 ${activeTab === 'sessions' ? 'text-white' : 'text-green-600 dark:text-green-400'}`} />
-                  </div>
-                  <span className={`font-semibold text-sm whitespace-nowrap ${activeTab === 'sessions' ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>会话管理</span>
-                  <div className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full transition-all duration-300 ${activeTab === 'sessions' ? 'bg-white/60 w-12' : 'bg-transparent'}`}></div>
-                </TabsTrigger>
+              {/* 会话管理 */}
+              <TabsTrigger
+                value="sessions"
+                className="group relative flex flex-col items-center justify-center gap-2 py-2 px-2 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md border border-transparent hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 h-auto"
+              >
+                <Users className={`h-4 w-4 ${activeTab === 'sessions' ? 'text-white' : 'text-green-600 dark:text-green-400'}`} />
+                <span className={`font-semibold text-sm whitespace-nowrap ${activeTab === 'sessions' ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>会话管理</span>
+              </TabsTrigger>
 
-                {/* 机器人管理 */}
-                <TabsTrigger
-                  value="robots"
-                  className="group relative flex flex-col items-center justify-center gap-2 py-4 px-3 rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/30 data-[state=active]:scale-105 border border-transparent hover:border-blue-400/50 hover:bg-blue-50/80 dark:hover:bg-blue-950/30 transition-all duration-300 min-h-[90px]"
-                >
-                  <div className={`transition-transform duration-300 group-hover:scale-110 ${activeTab === 'robots' ? 'animate-bounce' : ''}`}>
-                    <Bot className={`h-6 w-6 ${activeTab === 'robots' ? 'text-white' : 'text-orange-600 dark:text-orange-400'}`} />
-                  </div>
-                  <span className={`font-semibold text-sm whitespace-nowrap ${activeTab === 'robots' ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>机器人管理</span>
-                  <div className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full transition-all duration-300 ${activeTab === 'robots' ? 'bg-white/60 w-12' : 'bg-transparent'}`}></div>
-                </TabsTrigger>
+              {/* 机器人管理 */}
+              <TabsTrigger
+                value="robots"
+                className="group relative flex flex-col items-center justify-center gap-2 py-2 px-2 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md border border-transparent hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 h-auto"
+              >
+                <Bot className={`h-4 w-4 ${activeTab === 'robots' ? 'text-white' : 'text-orange-600 dark:text-orange-400'}`} />
+                <span className={`font-semibold text-sm whitespace-nowrap ${activeTab === 'robots' ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>机器人管理</span>
+              </TabsTrigger>
 
-                {/* 监控告警 */}
-                <TabsTrigger
-                  value="monitor"
-                  className="group relative flex flex-col items-center justify-center gap-2 py-4 px-3 rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/30 data-[state=active]:scale-105 border border-transparent hover:border-blue-400/50 hover:bg-blue-50/80 dark:hover:bg-blue-950/30 transition-all duration-300 min-h-[90px]"
-                >
-                  <div className={`transition-transform duration-300 group-hover:scale-110 ${activeTab === 'monitor' ? 'animate-bounce' : ''}`}>
-                    <Activity className={`h-6 w-6 ${activeTab === 'monitor' ? 'text-white' : 'text-red-600 dark:text-red-400'}`} />
-                  </div>
-                  <span className={`font-semibold text-sm whitespace-nowrap ${activeTab === 'monitor' ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>监控告警</span>
-                  <div className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full transition-all duration-300 ${activeTab === 'monitor' ? 'bg-white/60 w-12' : 'bg-transparent'}`}></div>
-                </TabsTrigger>
+              {/* 监控告警 */}
+              <TabsTrigger
+                value="monitor"
+                className="group relative flex flex-col items-center justify-center gap-2 py-2 px-2 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md border border-transparent hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 h-auto"
+              >
+                <Activity className={`h-4 w-4 ${activeTab === 'monitor' ? 'text-white' : 'text-red-600 dark:text-red-400'}`} />
+                <span className={`font-semibold text-sm whitespace-nowrap ${activeTab === 'monitor' ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>监控告警</span>
+              </TabsTrigger>
 
-                {/* AI模块 */}
-                <TabsTrigger
-                  value="ai-module"
-                  className="group relative flex flex-col items-center justify-center gap-2 py-4 px-3 rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/30 data-[state=active]:scale-105 border border-transparent hover:border-blue-400/50 hover:bg-blue-50/80 dark:hover:bg-blue-950/30 transition-all duration-300 min-h-[90px]"
-                >
-                  <div className={`transition-transform duration-300 group-hover:scale-110 ${activeTab === 'ai-module' ? 'animate-bounce' : ''}`}>
-                    <Brain className={`h-6 w-6 ${activeTab === 'ai-module' ? 'text-white' : 'text-purple-600 dark:text-purple-400'}`} />
-                  </div>
-                  <span className={`font-semibold text-sm whitespace-nowrap ${activeTab === 'ai-module' ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>AI模块</span>
-                  <div className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full transition-all duration-300 ${activeTab === 'ai-module' ? 'bg-white/60 w-12' : 'bg-transparent'}`}></div>
-                </TabsTrigger>
+              {/* AI模块 */}
+              <TabsTrigger
+                value="ai-module"
+                className="group relative flex flex-col items-center justify-center gap-2 py-2 px-2 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md border border-transparent hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 h-auto"
+              >
+                <Brain className={`h-4 w-4 ${activeTab === 'ai-module' ? 'text-white' : 'text-purple-600 dark:text-purple-400'}`} />
+                <span className={`font-semibold text-sm whitespace-nowrap ${activeTab === 'ai-module' ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>AI模块</span>
+              </TabsTrigger>
 
-                {/* 流程引擎 */}
-                <TabsTrigger
-                  value="flow-engine"
-                  className="group relative flex flex-col items-center justify-center gap-2 py-4 px-3 rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/30 data-[state=active]:scale-105 border border-transparent hover:border-blue-400/50 hover:bg-blue-50/80 dark:hover:bg-blue-950/30 transition-all duration-300 min-h-[90px]"
-                >
-                  <div className={`transition-transform duration-300 group-hover:scale-110 ${activeTab === 'flow-engine' ? 'animate-bounce' : ''}`}>
-                    <GitBranch className={`h-6 w-6 ${activeTab === 'flow-engine' ? 'text-white' : 'text-cyan-600 dark:text-cyan-400'}`} />
-                  </div>
-                  <span className={`font-semibold text-sm whitespace-nowrap ${activeTab === 'flow-engine' ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>流程引擎</span>
-                  <div className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full transition-all duration-300 ${activeTab === 'flow-engine' ? 'bg-white/60 w-12' : 'bg-transparent'}`}></div>
-                </TabsTrigger>
+              {/* 流程引擎 */}
+              <TabsTrigger
+                value="flow-engine"
+                className="group relative flex flex-col items-center justify-center gap-2 py-2 px-2 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md border border-transparent hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 h-auto"
+              >
+                <GitBranch className={`h-4 w-4 ${activeTab === 'flow-engine' ? 'text-white' : 'text-cyan-600 dark:text-cyan-400'}`} />
+                <span className={`font-semibold text-sm whitespace-nowrap ${activeTab === 'flow-engine' ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>流程引擎</span>
+              </TabsTrigger>
 
-                {/* 系统日志 */}
-                <TabsTrigger
-                  value="system-logs"
-                  className="group relative flex flex-col items-center justify-center gap-2 py-4 px-3 rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/30 data-[state=active]:scale-105 border border-transparent hover:border-blue-400/50 hover:bg-blue-50/80 dark:hover:bg-blue-950/30 transition-all duration-300 min-h-[90px]"
-                >
-                  <div className={`transition-transform duration-300 group-hover:scale-110 ${activeTab === 'system-logs' ? 'animate-bounce' : ''}`}>
-                    <Server className={`h-6 w-6 ${activeTab === 'system-logs' ? 'text-white' : 'text-slate-600 dark:text-slate-400'}`} />
-                  </div>
-                  <span className={`font-semibold text-sm whitespace-nowrap ${activeTab === 'system-logs' ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>系统日志</span>
-                  <div className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full transition-all duration-300 ${activeTab === 'system-logs' ? 'bg-white/60 w-12' : 'bg-transparent'}`}></div>
-                </TabsTrigger>
+              {/* 系统日志 */}
+              <TabsTrigger
+                value="system-logs"
+                className="group relative flex flex-col items-center justify-center gap-2 py-2 px-2 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md border border-transparent hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 h-auto"
+              >
+                <Server className={`h-4 w-4 ${activeTab === 'system-logs' ? 'text-white' : 'text-slate-600 dark:text-slate-400'}`} />
+                <span className={`font-semibold text-sm whitespace-nowrap ${activeTab === 'system-logs' ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>系统日志</span>
+              </TabsTrigger>
 
-                {/* 系统设置 */}
-                <TabsTrigger
-                  value="settings"
-                  className="group relative flex flex-col items-center justify-center gap-2 py-4 px-3 rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-500/30 data-[state=active]:scale-105 border border-transparent hover:border-blue-400/50 hover:bg-blue-50/80 dark:hover:bg-blue-950/30 transition-all duration-300 min-h-[90px]"
-                >
-                  <div className={`transition-transform duration-300 group-hover:scale-110 ${activeTab === 'settings' ? 'animate-bounce' : ''}`}>
-                    <Settings className={`h-6 w-6 ${activeTab === 'settings' ? 'text-white' : 'text-amber-600 dark:text-amber-400'}`} />
-                  </div>
-                  <span className={`font-semibold text-sm whitespace-nowrap ${activeTab === 'settings' ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>系统设置</span>
-                  <div className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full transition-all duration-300 ${activeTab === 'settings' ? 'bg-white/60 w-12' : 'bg-transparent'}`}></div>
-                </TabsTrigger>
-              </TabsList>
-
-              {/* 底部装饰线条 */}
-              <div className="absolute -bottom-1 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/30 to-transparent"></div>
-            </div>
+              {/* 系统设置 */}
+              <TabsTrigger
+                value="settings"
+                className="group relative flex flex-col items-center justify-center gap-2 py-2 px-2 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md border border-transparent hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 h-auto"
+              >
+                <Settings className={`h-4 w-4 ${activeTab === 'settings' ? 'text-white' : 'text-amber-600 dark:text-amber-400'}`} />
+                <span className={`font-semibold text-sm whitespace-nowrap ${activeTab === 'settings' ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>系统设置</span>
+              </TabsTrigger>
+            </TabsList>
           </div>
 
           <TabsContent value="dashboard" className="space-y-6">
