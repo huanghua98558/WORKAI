@@ -42,7 +42,9 @@ import {
   Code2,
   ImageIcon,
   Database,
-  Check
+  Check,
+  FileJson,
+  FileSearch
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -177,7 +179,10 @@ const getCapabilityText = (cap: string) => {
     conversation: '对话',
     code_generation: '代码生成',
     image_recognition: '图像识别',
-    embedding: '向量化'
+    embedding: '向量化',
+    reasoning: '推理',
+    long_context: '长上下文',
+    document_analysis: '文档分析'
   };
   return map[cap] || cap;
 };
@@ -736,7 +741,10 @@ export default function AIModule() {
                                   conversation: { icon: <MessageSquare className="h-3 w-3" />, color: 'bg-green-100 text-green-700 border-green-200' },
                                   code_generation: { icon: <Code2 className="h-3 w-3" />, color: 'bg-orange-100 text-orange-700 border-orange-200' },
                                   image_recognition: { icon: <ImageIcon className="h-3 w-3" />, color: 'bg-pink-100 text-pink-700 border-pink-200' },
-                                  embedding: { icon: <Database className="h-3 w-3" />, color: 'bg-cyan-100 text-cyan-700 border-cyan-200' }
+                                  embedding: { icon: <Database className="h-3 w-3" />, color: 'bg-cyan-100 text-cyan-700 border-cyan-200' },
+                                  reasoning: { icon: <Brain className="h-3 w-3" />, color: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
+                                  long_context: { icon: <FileJson className="h-3 w-3" />, color: 'bg-rose-100 text-rose-700 border-rose-200' },
+                                  document_analysis: { icon: <FileSearch className="h-3 w-3" />, color: 'bg-amber-100 text-amber-700 border-amber-200' }
                                 };
                                 const config = capConfig[cap] || { icon: <Zap className="h-3 w-3" />, color: 'bg-gray-100 text-gray-700 border-gray-200' };
                                 return (
@@ -1289,12 +1297,15 @@ export default function AIModule() {
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {[
-                    { key: 'intent_recognition', label: '意图识别', icon: <Target className="h-3 w-3" />, color: 'bg-blue-500' },
-                    { key: 'text_generation', label: '文本生成', icon: <FileText className="h-3 w-3" />, color: 'bg-purple-500' },
-                    { key: 'conversation', label: '对话', icon: <MessageSquare className="h-3 w-3" />, color: 'bg-green-500' },
-                    { key: 'code_generation', label: '代码生成', icon: <Code2 className="h-3 w-3" />, color: 'bg-orange-500' },
-                    { key: 'image_recognition', label: '图像识别', icon: <ImageIcon className="h-3 w-3" />, color: 'bg-pink-500' },
-                    { key: 'embedding', label: '向量化', icon: <Database className="h-3 w-3" />, color: 'bg-cyan-500' }
+                    { key: 'intent_recognition', label: '意图识别', icon: <Target className="h-3 w-3" />, color: 'bg-blue-500', listColor: 'bg-blue-100 text-blue-700 border-blue-200' },
+                    { key: 'text_generation', label: '文本生成', icon: <FileText className="h-3 w-3" />, color: 'bg-purple-500', listColor: 'bg-purple-100 text-purple-700 border-purple-200' },
+                    { key: 'conversation', label: '对话', icon: <MessageSquare className="h-3 w-3" />, color: 'bg-green-500', listColor: 'bg-green-100 text-green-700 border-green-200' },
+                    { key: 'code_generation', label: '代码生成', icon: <Code2 className="h-3 w-3" />, color: 'bg-orange-500', listColor: 'bg-orange-100 text-orange-700 border-orange-200' },
+                    { key: 'image_recognition', label: '图像识别', icon: <ImageIcon className="h-3 w-3" />, color: 'bg-pink-500', listColor: 'bg-pink-100 text-pink-700 border-pink-200' },
+                    { key: 'embedding', label: '向量化', icon: <Database className="h-3 w-3" />, color: 'bg-cyan-500', listColor: 'bg-cyan-100 text-cyan-700 border-cyan-200' },
+                    { key: 'reasoning', label: '推理', icon: <Brain className="h-3 w-3" />, color: 'bg-indigo-500', listColor: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
+                    { key: 'long_context', label: '长上下文', icon: <FileJson className="h-3 w-3" />, color: 'bg-rose-500', listColor: 'bg-rose-100 text-rose-700 border-rose-200' },
+                    { key: 'document_analysis', label: '文档分析', icon: <FileSearch className="h-3 w-3" />, color: 'bg-amber-500', listColor: 'bg-amber-100 text-amber-700 border-amber-200' }
                   ].map((cap) => {
                     const isSelected = (selectedModel?.capabilities || []).includes(cap.key);
                     const isBuiltin = selectedModel?.isBuiltin === true;
@@ -1799,7 +1810,10 @@ export default function AIModule() {
                       conversation: { icon: <MessageSquare className="h-3 w-3" />, color: 'bg-green-100 text-green-700 border-green-200' },
                       code_generation: { icon: <Code2 className="h-3 w-3" />, color: 'bg-orange-100 text-orange-700 border-orange-200' },
                       image_recognition: { icon: <ImageIcon className="h-3 w-3" />, color: 'bg-pink-100 text-pink-700 border-pink-200' },
-                      embedding: { icon: <Database className="h-3 w-3" />, color: 'bg-cyan-100 text-cyan-700 border-cyan-200' }
+                      embedding: { icon: <Database className="h-3 w-3" />, color: 'bg-cyan-100 text-cyan-700 border-cyan-200' },
+                      reasoning: { icon: <Brain className="h-3 w-3" />, color: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
+                      long_context: { icon: <FileJson className="h-3 w-3" />, color: 'bg-rose-100 text-rose-700 border-rose-200' },
+                      document_analysis: { icon: <FileSearch className="h-3 w-3" />, color: 'bg-amber-100 text-amber-700 border-amber-200' }
                     };
                     const config = capConfig[cap] || { icon: <Zap className="h-3 w-3" />, color: 'bg-gray-100 text-gray-700 border-gray-200' };
                     return (
