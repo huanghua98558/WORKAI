@@ -304,21 +304,159 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
               <div>
                 <Label htmlFor="riskMode">风险模式</Label>
                 <Select
-                  value={config.autoReply?.riskMode || 'human'}
+                  value={config.autoReply?.riskMode || 'auto_notify'}
                   onValueChange={(value) => updateAutoReplyConfig('riskMode', value)}
                 >
                   <SelectTrigger id="riskMode">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="human">人工接管（推荐）</SelectItem>
+                    <SelectItem value="auto_notify">
+                      <div className="flex flex-col">
+                        <span>AI安抚 + 通知人工（推荐）</span>
+                        <span className="text-xs text-muted-foreground">
+                          AI先处理安抚，人工可选择介入
+                        </span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="human">人工接管（立即转人工）</SelectItem>
+                    <SelectItem value="auto">仅AI处理</SelectItem>
                     <SelectItem value="ignore">忽略</SelectItem>
-                    <SelectItem value="auto">自动回复</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground mt-1">
                   检测到风险内容时的处理方式
                 </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserCheck className="h-5 w-5 text-indigo-500" />
+                工作人员识别配置
+              </CardTitle>
+              <CardDescription>配置如何识别群内的工作人员（用于检测其他人工是否已处理）</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>企业名称（企业微信）</Label>
+                <Textarea
+                  value={(config.staff?.enterpriseNames || []).join('\n')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      enterpriseNames: e.target.value.split('\n').filter(Boolean)
+                    }
+                  })}
+                  placeholder="每行一个企业名，如：&#10;XX公司&#10;XX科技"
+                  rows={3}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  企业微信用户的企业名（支持模糊匹配）
+                </p>
+              </div>
+
+              <div>
+                <Label>备注名关键词</Label>
+                <Textarea
+                  value={(config.staff?.userRemarks || []).join('\n')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      userRemarks: e.target.value.split('\n').filter(Boolean)
+                    }
+                  })}
+                  placeholder="每行一个关键词，如：&#10;客服&#10;专员&#10;支持"
+                  rows={3}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  用户的备注名包含这些关键词时会被识别为工作人员
+                </p>
+              </div>
+
+              <div>
+                <Label>昵称关键词</Label>
+                <Textarea
+                  value={(config.staff?.nicknames || []).join('\n')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      nicknames: e.target.value.split('\n').filter(Boolean)
+                    }
+                  })}
+                  placeholder="每行一个关键词，如：&#10;官方客服&#10;技术支持"
+                  rows={3}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  用户的昵称包含这些关键词时会被识别为工作人员
+                </p>
+              </div>
+
+              <div>
+                <Label>特殊标识</Label>
+                <Input
+                  value={(config.staff?.specialPatterns || []).join(',')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      specialPatterns: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                    }
+                  })}
+                  placeholder="客服,专员,支持,管理员"
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  多个标识用逗号分隔（如：客服,专员,支持）
+                </p>
+              </div>
+
+              <div>
+                <Label>直接指定用户ID</Label>
+                <Textarea
+                  value={(config.staff?.userIds || []).join('\n')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      userIds: e.target.value.split('\n').filter(Boolean)
+                    }
+                  })}
+                  placeholder="每行一个用户ID，如：&#10;user123&#10;user456"
+                  rows={3}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  直接指定哪些用户ID是工作人员（最准确的识别方式）
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t">
+                <div className="space-y-0.5">
+                  <Label htmlFor="enableStaffDetection">启用工作人员检测</Label>
+                  <p className="text-xs text-muted-foreground">
+                    启用后会自动检测工作人员是否已处理风险消息
+                  </p>
+                </div>
+                <Switch
+                  id="enableStaffDetection"
+                  checked={config.staff?.enabled ?? true}
+                  onCheckedChange={(checked) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      enabled: checked
+                    }
+                  })}
+                />
               </div>
             </CardContent>
           </Card>
@@ -459,6 +597,136 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserCheck className="h-5 w-5 text-indigo-500" />
+                工作人员识别配置
+              </CardTitle>
+              <CardDescription>配置如何识别群内的工作人员（用于检测其他人工是否已处理）</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>企业名称（企业微信）</Label>
+                <Textarea
+                  value={(config.staff?.enterpriseNames || []).join('\n')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      enterpriseNames: e.target.value.split('\n').filter(Boolean)
+                    }
+                  })}
+                  placeholder="每行一个企业名，如：&#10;XX公司&#10;XX科技"
+                  rows={3}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  企业微信用户的企业名（支持模糊匹配）
+                </p>
+              </div>
+
+              <div>
+                <Label>备注名关键词</Label>
+                <Textarea
+                  value={(config.staff?.userRemarks || []).join('\n')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      userRemarks: e.target.value.split('\n').filter(Boolean)
+                    }
+                  })}
+                  placeholder="每行一个关键词，如：&#10;客服&#10;专员&#10;支持"
+                  rows={3}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  用户的备注名包含这些关键词时会被识别为工作人员
+                </p>
+              </div>
+
+              <div>
+                <Label>昵称关键词</Label>
+                <Textarea
+                  value={(config.staff?.nicknames || []).join('\n')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      nicknames: e.target.value.split('\n').filter(Boolean)
+                    }
+                  })}
+                  placeholder="每行一个关键词，如：&#10;官方客服&#10;技术支持"
+                  rows={3}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  用户的昵称包含这些关键词时会被识别为工作人员
+                </p>
+              </div>
+
+              <div>
+                <Label>特殊标识</Label>
+                <Input
+                  value={(config.staff?.specialPatterns || []).join(',')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      specialPatterns: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                    }
+                  })}
+                  placeholder="客服,专员,支持,管理员"
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  多个标识用逗号分隔（如：客服,专员,支持）
+                </p>
+              </div>
+
+              <div>
+                <Label>直接指定用户ID</Label>
+                <Textarea
+                  value={(config.staff?.userIds || []).join('\n')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      userIds: e.target.value.split('\n').filter(Boolean)
+                    }
+                  })}
+                  placeholder="每行一个用户ID，如：&#10;user123&#10;user456"
+                  rows={3}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  直接指定哪些用户ID是工作人员（最准确的识别方式）
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t">
+                <div className="space-y-0.5">
+                  <Label htmlFor="enableStaffDetection">启用工作人员检测</Label>
+                  <p className="text-xs text-muted-foreground">
+                    启用后会自动检测工作人员是否已处理风险消息
+                  </p>
+                </div>
+                <Switch
+                  id="enableStaffDetection"
+                  checked={config.staff?.enabled ?? true}
+                  onCheckedChange={(checked) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      enabled: checked
+                    }
+                  })}
+                />
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* 流程配置 */}
@@ -556,6 +824,136 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
                   onChange={(e) => updateFlowConfig('nodeTimeout', {
                     ...config.flow?.nodeTimeout,
                     webhook: parseInt(e.target.value)
+                  })}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserCheck className="h-5 w-5 text-indigo-500" />
+                工作人员识别配置
+              </CardTitle>
+              <CardDescription>配置如何识别群内的工作人员（用于检测其他人工是否已处理）</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>企业名称（企业微信）</Label>
+                <Textarea
+                  value={(config.staff?.enterpriseNames || []).join('\n')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      enterpriseNames: e.target.value.split('\n').filter(Boolean)
+                    }
+                  })}
+                  placeholder="每行一个企业名，如：&#10;XX公司&#10;XX科技"
+                  rows={3}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  企业微信用户的企业名（支持模糊匹配）
+                </p>
+              </div>
+
+              <div>
+                <Label>备注名关键词</Label>
+                <Textarea
+                  value={(config.staff?.userRemarks || []).join('\n')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      userRemarks: e.target.value.split('\n').filter(Boolean)
+                    }
+                  })}
+                  placeholder="每行一个关键词，如：&#10;客服&#10;专员&#10;支持"
+                  rows={3}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  用户的备注名包含这些关键词时会被识别为工作人员
+                </p>
+              </div>
+
+              <div>
+                <Label>昵称关键词</Label>
+                <Textarea
+                  value={(config.staff?.nicknames || []).join('\n')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      nicknames: e.target.value.split('\n').filter(Boolean)
+                    }
+                  })}
+                  placeholder="每行一个关键词，如：&#10;官方客服&#10;技术支持"
+                  rows={3}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  用户的昵称包含这些关键词时会被识别为工作人员
+                </p>
+              </div>
+
+              <div>
+                <Label>特殊标识</Label>
+                <Input
+                  value={(config.staff?.specialPatterns || []).join(',')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      specialPatterns: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                    }
+                  })}
+                  placeholder="客服,专员,支持,管理员"
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  多个标识用逗号分隔（如：客服,专员,支持）
+                </p>
+              </div>
+
+              <div>
+                <Label>直接指定用户ID</Label>
+                <Textarea
+                  value={(config.staff?.userIds || []).join('\n')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      userIds: e.target.value.split('\n').filter(Boolean)
+                    }
+                  })}
+                  placeholder="每行一个用户ID，如：&#10;user123&#10;user456"
+                  rows={3}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  直接指定哪些用户ID是工作人员（最准确的识别方式）
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t">
+                <div className="space-y-0.5">
+                  <Label htmlFor="enableStaffDetection">启用工作人员检测</Label>
+                  <p className="text-xs text-muted-foreground">
+                    启用后会自动检测工作人员是否已处理风险消息
+                  </p>
+                </div>
+                <Switch
+                  id="enableStaffDetection"
+                  checked={config.staff?.enabled ?? true}
+                  onCheckedChange={(checked) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      enabled: checked
+                    }
                   })}
                 />
               </div>
@@ -819,6 +1217,136 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
                     {config.advanced?.uptime || '加载中...'}
                   </p>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserCheck className="h-5 w-5 text-indigo-500" />
+                工作人员识别配置
+              </CardTitle>
+              <CardDescription>配置如何识别群内的工作人员（用于检测其他人工是否已处理）</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>企业名称（企业微信）</Label>
+                <Textarea
+                  value={(config.staff?.enterpriseNames || []).join('\n')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      enterpriseNames: e.target.value.split('\n').filter(Boolean)
+                    }
+                  })}
+                  placeholder="每行一个企业名，如：&#10;XX公司&#10;XX科技"
+                  rows={3}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  企业微信用户的企业名（支持模糊匹配）
+                </p>
+              </div>
+
+              <div>
+                <Label>备注名关键词</Label>
+                <Textarea
+                  value={(config.staff?.userRemarks || []).join('\n')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      userRemarks: e.target.value.split('\n').filter(Boolean)
+                    }
+                  })}
+                  placeholder="每行一个关键词，如：&#10;客服&#10;专员&#10;支持"
+                  rows={3}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  用户的备注名包含这些关键词时会被识别为工作人员
+                </p>
+              </div>
+
+              <div>
+                <Label>昵称关键词</Label>
+                <Textarea
+                  value={(config.staff?.nicknames || []).join('\n')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      nicknames: e.target.value.split('\n').filter(Boolean)
+                    }
+                  })}
+                  placeholder="每行一个关键词，如：&#10;官方客服&#10;技术支持"
+                  rows={3}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  用户的昵称包含这些关键词时会被识别为工作人员
+                </p>
+              </div>
+
+              <div>
+                <Label>特殊标识</Label>
+                <Input
+                  value={(config.staff?.specialPatterns || []).join(',')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      specialPatterns: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                    }
+                  })}
+                  placeholder="客服,专员,支持,管理员"
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  多个标识用逗号分隔（如：客服,专员,支持）
+                </p>
+              </div>
+
+              <div>
+                <Label>直接指定用户ID</Label>
+                <Textarea
+                  value={(config.staff?.userIds || []).join('\n')}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      userIds: e.target.value.split('\n').filter(Boolean)
+                    }
+                  })}
+                  placeholder="每行一个用户ID，如：&#10;user123&#10;user456"
+                  rows={3}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  直接指定哪些用户ID是工作人员（最准确的识别方式）
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t">
+                <div className="space-y-0.5">
+                  <Label htmlFor="enableStaffDetection">启用工作人员检测</Label>
+                  <p className="text-xs text-muted-foreground">
+                    启用后会自动检测工作人员是否已处理风险消息
+                  </p>
+                </div>
+                <Switch
+                  id="enableStaffDetection"
+                  checked={config.staff?.enabled ?? true}
+                  onCheckedChange={(checked) => setConfig({
+                    ...config,
+                    staff: {
+                      ...config.staff,
+                      enabled: checked
+                    }
+                  })}
+                />
               </div>
             </CardContent>
           </Card>
