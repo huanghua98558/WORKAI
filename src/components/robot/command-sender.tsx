@@ -544,10 +544,9 @@ export default function CommandSender() {
         </TabsList>
 
         {/* 标签页：发送指令 */}
-        <TabsContent value="send" className="space-y-4">
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* 发送指令表单 */}
-            <Card>
+        <TabsContent value="send" className="space-y-6">
+          {/* 发送指令表单 */}
+          <Card>
           <CardHeader>
             <CardTitle>发送指令</CardTitle>
             <CardDescription>选择机器人并配置指令参数</CardDescription>
@@ -1077,7 +1076,6 @@ export default function CommandSender() {
             </Table>
           </CardContent>
         </Card>
-          </div>
         </TabsContent>
 
         {/* 标签页：发送历史 */}
