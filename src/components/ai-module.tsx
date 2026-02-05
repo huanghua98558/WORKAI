@@ -229,6 +229,20 @@ export default function AIModule() {
     setLoading(true);
     try {
       const response = await fetch('/api/proxy/ai/models');
+      
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          toast.error(data.error || data.message || '加载AI模型失败');
+        } else {
+          const text = await response.text();
+          console.error('非JSON响应:', text);
+          toast.error('加载AI模型失败：服务器返回了非JSON响应');
+        }
+        return;
+      }
+      
       const data = await response.json();
 
       if (data.success) {
@@ -263,6 +277,20 @@ export default function AIModule() {
   const loadAIPersonas = async () => {
     try {
       const response = await fetch('/api/proxy/ai/personas');
+      
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          toast.error(data.error || data.message || '加载AI角色失败');
+        } else {
+          const text = await response.text();
+          console.error('非JSON响应:', text);
+          toast.error('加载AI角色失败：服务器返回了非JSON响应');
+        }
+        return;
+      }
+      
       const data = await response.json();
 
       if (data.success) {
@@ -288,8 +316,22 @@ export default function AIModule() {
   const loadMessageTemplates = async () => {
     try {
       const response = await fetch('/api/proxy/ai/templates');
+      
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          toast.error(data.error || data.message || '加载话术模板失败');
+        } else {
+          const text = await response.text();
+          console.error('非JSON响应:', text);
+          toast.error('加载话术模板失败：服务器返回了非JSON响应');
+        }
+        return;
+      }
+      
       const data = await response.json();
-
+      
       if (data.success) {
         const formattedTemplates = data.data.map((template: any) => ({
           id: template.id,
@@ -315,6 +357,20 @@ export default function AIModule() {
       const response = await fetch(`/api/proxy/ai/models/${modelId}/${newStatus}`, {
         method: 'POST'
       });
+
+      // 检查响应状态
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          toast.error(data.error || data.message || '操作失败');
+        } else {
+          const text = await response.text();
+          console.error('非JSON响应:', text);
+          toast.error('操作失败：服务器返回了非JSON响应');
+        }
+        return;
+      }
 
       const data = await response.json();
       if (data.success) {
@@ -373,6 +429,20 @@ export default function AIModule() {
       const response = await fetch(`/api/proxy/ai/models/${modelId}`, {
         method: 'DELETE'
       });
+
+      // 检查响应状态
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          toast.error(data.error || data.message || '删除失败');
+        } else {
+          const text = await response.text();
+          console.error('非JSON响应:', text);
+          toast.error('删除失败：服务器返回了非JSON响应');
+        }
+        return;
+      }
 
       const data = await response.json();
       if (data.success) {
@@ -557,8 +627,21 @@ export default function AIModule() {
         method: 'DELETE'
       });
 
-      const data = await response.json();
+      // 检查响应状态
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          toast.error(data.error || data.message || '删除失败');
+        } else {
+          const text = await response.text();
+          console.error('非JSON响应:', text);
+          toast.error('删除失败：服务器返回了非JSON响应');
+        }
+        return;
+      }
 
+      const data = await response.json();
       if (data.success) {
         toast.success('模板删除成功');
         loadMessageTemplates();
@@ -581,9 +664,13 @@ export default function AIModule() {
     if (!confirm(`确定要删除选中的 ${selectedTemplateIds.size} 个模板吗？`)) return;
 
     try {
-      const promises = Array.from(selectedTemplateIds).map(id =>
-        fetch(`/api/proxy/ai/templates/${id}`, { method: 'DELETE' })
-      );
+      const promises = Array.from(selectedTemplateIds).map(async (id) => {
+        const response = await fetch(`/api/proxy/ai/templates/${id}`, { method: 'DELETE' });
+        if (!response.ok) {
+          throw new Error(`删除模板 ${id} 失败`);
+        }
+        return response.json();
+      });
 
       await Promise.all(promises);
 
