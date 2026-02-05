@@ -35,6 +35,7 @@ import {
   Users
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import FlowEditor from '@/components/flow-engine-editor';
 import {
   getFlowDefinitions,
   getFlowDefinition,
@@ -107,6 +108,17 @@ export default function FlowEngineManage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+
+  // 编辑器对话框状态
+  const [editorDialog, setEditorDialog] = useState({
+    isOpen: false,
+    mode: 'create' as 'create' | 'edit',
+    width: 1200,
+    height: 700,
+    isMaximized: false,
+  });
+
   const { toast } = useToast();
 
   // 表单状态
@@ -531,6 +543,15 @@ export default function FlowEngineManage() {
             <Plus className="h-4 w-4" />
             创建流程
           </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => window.location.href = '/flow-engine'}
+            className="gap-2"
+          >
+            <Zap className="h-4 w-4" />
+            新建流程（可视化编辑）
+          </Button>
         </div>
       </div>
 
@@ -764,95 +785,160 @@ export default function FlowEngineManage() {
         </Card>
       )}
 
-      {/* 创建流程对话框 */}
+      {/* 创建流程编辑器对话框 */}
       {isCreateDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <Card className="w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-            <CardHeader>
-              <CardTitle>创建新流程</CardTitle>
-              <CardDescription>
-                创建一个新的业务流程，支持可视化编排
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="flow-name">流程名称 *</Label>
-                <Input
-                  id="flow-name"
-                  placeholder="输入流程名称"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="flow-description">流程描述</Label>
-                <Textarea
-                  id="flow-description"
-                  placeholder="输入流程描述"
-                  rows={3}
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="flow-trigger">触发类型</Label>
-                <select
-                  id="flow-trigger"
-                  value={formData.trigger_type}
-                  onChange={(e) => setFormData({ ...formData, trigger_type: e.target.value as any })}
-                  className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="webhook">Webhook触发</option>
-                  <option value="manual">手动触发</option>
-                  <option value="scheduled">定时触发</option>
-                </select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {TRIGGER_TYPE_CONFIG[formData.trigger_type]?.description}
-                </p>
-              </div>
-              <div className="bg-muted/50 rounded-lg p-4">
-                <p className="text-sm text-muted-foreground mb-3">
-                  可用节点类型:
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(NODE_TYPE_CONFIG).map(([type, config]) => {
-                    const Icon = config.icon;
-                    return (
-                      <Badge key={type} variant="outline" className={`gap-1 ${config.color} border-current`}>
-                        <Icon className="h-3 w-3" />
-                        {config.label}
-                      </Badge>
-                    );
-                  })}
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div
+            className="bg-white rounded-lg shadow-2xl overflow-hidden flex flex-col"
+            style={{
+              width: editorDialog.isMaximized ? '95vw' : `${editorDialog.width}px`,
+              height: editorDialog.isMaximized ? '95vh' : `${editorDialog.height}px`,
+            }}
+          >
+            {/* 对话框顶部工具栏 */}
+            <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-slate-50 to-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                  <GitBranch className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">创建新流程</h2>
+                  <p className="text-xs text-slate-500">可视化流程编排</p>
                 </div>
               </div>
-              <div className="flex items-start gap-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg p-3 border border-yellow-200 dark:border-yellow-800">
-                <AlertCircle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                  💡 提示: 完整的可视化流程编排器正在开发中，目前支持通过配置JSON创建流程。流程创建后，可以在编辑页面添加节点和配置流程逻辑。
-                </p>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setEditorDialog({
+                      ...editorDialog,
+                      isMaximized: !editorDialog.isMaximized,
+                      width: editorDialog.isMaximized ? 1200 : window.innerWidth * 0.95,
+                      height: editorDialog.isMaximized ? 700 : window.innerHeight * 0.95,
+                    });
+                  }}
+                  title={editorDialog.isMaximized ? "还原" : "最大化"}
+                >
+                  {editorDialog.isMaximized ? (
+                    <Minus2 className="w-4 h-4" />
+                  ) : (
+                    <Maximize2 className="w-4 h-4" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setIsCreateDialogOpen(false);
+                    setFormData({
+                      name: '',
+                      description: '',
+                      status: 'draft',
+                      trigger_type: 'webhook',
+                      trigger_config: {},
+                      nodes: [],
+                    });
+                  }}
+                  title="关闭"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
               </div>
-            </CardContent>
-            <div className="flex justify-end gap-2 p-6 pt-0">
-              <Button variant="outline" onClick={() => {
-                setIsCreateDialogOpen(false);
-                setFormData({
-                  name: '',
-                  description: '',
-                  status: 'draft',
-                  trigger_type: 'webhook',
-                  trigger_config: {},
-                  nodes: [],
-                });
-              }}>
-                取消
-              </Button>
-              <Button onClick={handleCreateFlow} disabled={!formData.name.trim()}>
-                <Save className="h-4 w-4 mr-2" />
-                创建流程
-              </Button>
             </div>
-          </Card>
+
+            {/* 调整大小的手柄 */}
+            <div
+              className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                const startX = e.clientX;
+                const startY = e.clientY;
+                const startWidth = editorDialog.width;
+                const startHeight = editorDialog.height;
+
+                const handleMouseMove = (moveEvent: MouseEvent) => {
+                  const newWidth = Math.max(800, startWidth + (moveEvent.clientX - startX));
+                  const newHeight = Math.max(600, startHeight + (moveEvent.clientY - startY));
+                  setEditorDialog({
+                    ...editorDialog,
+                    width: newWidth,
+                    height: newHeight,
+                    isMaximized: false,
+                  });
+                };
+
+                const handleMouseUp = () => {
+                  document.removeEventListener('mousemove', handleMouseMove);
+                  document.removeEventListener('mouseup', handleMouseUp);
+                };
+
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+              }}
+            >
+              <div className="absolute bottom-1 right-1 w-4 h-4 border-b-2 border-r-2 border-slate-300 rounded-br" />
+            </div>
+
+            {/* FlowEditor 内容 */}
+            <div className="flex-1 overflow-hidden">
+              <FlowEditor
+                mode="create"
+                onSave={async (flow) => {
+                  try {
+                    await handleCreateFlow({
+                      ...formData,
+                      name: flow.name,
+                      description: flow.description,
+                      trigger_type: flow.triggerType,
+                      nodes: flow.nodes.map(node => ({
+                        id: node.id,
+                        type: node.type,
+                        name: node.data.name,
+                        config: node.data.config || {},
+                        position: node.position,
+                      })),
+                    });
+
+                    setIsCreateDialogOpen(false);
+                    setFormData({
+                      name: '',
+                      description: '',
+                      status: 'draft',
+                      trigger_type: 'webhook',
+                      trigger_config: {},
+                      nodes: [],
+                    });
+
+                    toast({
+                      title: '流程创建成功',
+                      description: `流程 "${flow.name}" 已创建`,
+                    });
+                  } catch (error) {
+                    console.error('创建流程失败:', error);
+                    toast({
+                      variant: 'destructive',
+                      title: '创建失败',
+                      description: error instanceof Error ? error.message : '未知错误',
+                    });
+                    throw error;
+                  }
+                }}
+                onClose={() => {
+                  setIsCreateDialogOpen(false);
+                  setFormData({
+                    name: '',
+                    description: '',
+                    status: 'draft',
+                    trigger_type: 'webhook',
+                    trigger_config: {},
+                    nodes: [],
+                  });
+                }}
+              />
+            </div>
+          </div>
         </div>
       )}
 
