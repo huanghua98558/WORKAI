@@ -723,12 +723,29 @@ export default function AIModule() {
                             )}
 
                             {/* 能力标签 */}
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {(model.capabilities || []).map((cap) => (
-                                <Badge key={cap} variant="outline" className="text-xs">
-                                  {getCapabilityText(cap)}
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {(model.capabilities || []).map((cap) => {
+                                const capConfig: Record<string, { icon: React.ReactNode; color: string }> = {
+                                  intent_recognition: { icon: <Target className="h-3 w-3" />, color: 'bg-blue-100 text-blue-700 border-blue-200' },
+                                  text_generation: { icon: <FileText className="h-3 w-3" />, color: 'bg-purple-100 text-purple-700 border-purple-200' },
+                                  conversation: { icon: <MessageSquare className="h-3 w-3" />, color: 'bg-green-100 text-green-700 border-green-200' },
+                                  code_generation: { icon: <Code2 className="h-3 w-3" />, color: 'bg-orange-100 text-orange-700 border-orange-200' },
+                                  image_recognition: { icon: <ImageIcon className="h-3 w-3" />, color: 'bg-pink-100 text-pink-700 border-pink-200' },
+                                  embedding: { icon: <Database className="h-3 w-3" />, color: 'bg-cyan-100 text-cyan-700 border-cyan-200' }
+                                };
+                                const config = capConfig[cap] || { icon: <Zap className="h-3 w-3" />, color: 'bg-gray-100 text-gray-700 border-gray-200' };
+                                return (
+                                  <Badge key={cap} variant="outline" className={`text-xs font-medium flex items-center gap-1 px-2 py-0.5 ${config.color}`}>
+                                    {config.icon}
+                                    {getCapabilityText(cap)}
+                                  </Badge>
+                                );
+                              })}
+                              {(!model.capabilities || model.capabilities.length === 0) && (
+                                <Badge variant="outline" className="text-xs text-muted-foreground">
+                                  暂无能力标签
                                 </Badge>
-                              ))}
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1266,25 +1283,45 @@ export default function AIModule() {
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {['intent_recognition', 'text_generation', 'conversation', 'code_generation', 'image_recognition', 'embedding'].map((cap) => (
-                    <div key={cap} className={`flex items-center gap-2 ${selectedModel?.isBuiltin === true ? 'opacity-60' : ''}`}>
-                      <input
-                        type="checkbox"
-                        id={`cap-${cap}`}
-                        checked={(selectedModel?.capabilities || []).includes(cap)}
-                        disabled={selectedModel?.isBuiltin === true}
-                        onChange={(e) => {
+                  {[
+                    { key: 'intent_recognition', label: '意图识别', icon: <Target className="h-3 w-3" />, color: 'bg-blue-500' },
+                    { key: 'text_generation', label: '文本生成', icon: <FileText className="h-3 w-3" />, color: 'bg-purple-500' },
+                    { key: 'conversation', label: '对话', icon: <MessageSquare className="h-3 w-3" />, color: 'bg-green-500' },
+                    { key: 'code_generation', label: '代码生成', icon: <Code2 className="h-3 w-3" />, color: 'bg-orange-500' },
+                    { key: 'image_recognition', label: '图像识别', icon: <ImageIcon className="h-3 w-3" />, color: 'bg-pink-500' },
+                    { key: 'embedding', label: '向量化', icon: <Database className="h-3 w-3" />, color: 'bg-cyan-500' }
+                  ].map((cap) => {
+                    const isSelected = (selectedModel?.capabilities || []).includes(cap.key);
+                    const isBuiltin = selectedModel?.isBuiltin === true;
+                    return (
+                      <button
+                        key={cap.key}
+                        type="button"
+                        disabled={isBuiltin}
+                        onClick={() => {
+                          if (isBuiltin) return;
                           const caps = selectedModel?.capabilities || [];
-                          if (e.target.checked) {
-                            setSelectedModel({ ...selectedModel, capabilities: [...caps, cap] } as AIModel);
+                          if (isSelected) {
+                            setSelectedModel({ ...selectedModel, capabilities: caps.filter(c => c !== cap.key) } as AIModel);
                           } else {
-                            setSelectedModel({ ...selectedModel, capabilities: caps.filter(c => c !== cap) } as AIModel);
+                            setSelectedModel({ ...selectedModel, capabilities: [...caps, cap.key] } as AIModel);
                           }
                         }}
-                      />
-                      <Label htmlFor={`cap-${cap}`} className="text-sm">{getCapabilityText(cap)}</Label>
-                    </div>
-                  ))}
+                        className={`
+                          flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all duration-200
+                          ${isBuiltin ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                          ${isSelected 
+                            ? `${cap.color} text-white border-transparent shadow-md` 
+                            : 'border-gray-300 bg-white hover:border-gray-400 hover:bg-gray-50'
+                          }
+                        `}
+                      >
+                        {cap.icon}
+                        <span className="text-sm font-medium">{cap.label}</span>
+                        {isSelected && <Check className="h-3.5 w-3.5 ml-0.5" />}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </TabsContent>
@@ -1749,12 +1786,29 @@ export default function AIModule() {
 
               <div>
                 <Label className="text-muted-foreground">能力</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {(selectedModel.capabilities || []).map((cap) => (
-                    <Badge key={cap} variant="outline">
-                      {getCapabilityText(cap)}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {(selectedModel.capabilities || []).map((cap) => {
+                    const capConfig: Record<string, { icon: React.ReactNode; color: string }> = {
+                      intent_recognition: { icon: <Target className="h-3 w-3" />, color: 'bg-blue-100 text-blue-700 border-blue-200' },
+                      text_generation: { icon: <FileText className="h-3 w-3" />, color: 'bg-purple-100 text-purple-700 border-purple-200' },
+                      conversation: { icon: <MessageSquare className="h-3 w-3" />, color: 'bg-green-100 text-green-700 border-green-200' },
+                      code_generation: { icon: <Code2 className="h-3 w-3" />, color: 'bg-orange-100 text-orange-700 border-orange-200' },
+                      image_recognition: { icon: <ImageIcon className="h-3 w-3" />, color: 'bg-pink-100 text-pink-700 border-pink-200' },
+                      embedding: { icon: <Database className="h-3 w-3" />, color: 'bg-cyan-100 text-cyan-700 border-cyan-200' }
+                    };
+                    const config = capConfig[cap] || { icon: <Zap className="h-3 w-3" />, color: 'bg-gray-100 text-gray-700 border-gray-200' };
+                    return (
+                      <Badge key={cap} variant="outline" className={`text-xs font-medium flex items-center gap-1 px-2 py-0.5 ${config.color}`}>
+                        {config.icon}
+                        {getCapabilityText(cap)}
+                      </Badge>
+                    );
+                  })}
+                  {(!selectedModel.capabilities || selectedModel.capabilities.length === 0) && (
+                    <Badge variant="outline" className="text-xs text-muted-foreground">
+                      暂无能力标签
                     </Badge>
-                  ))}
+                  )}
                 </div>
               </div>
 
