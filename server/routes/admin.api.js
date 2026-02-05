@@ -78,12 +78,33 @@ const adminApiRoutes = async function (fastify, options) {
       },
       autoReply: config.get('autoReply'),
       monitor: config.get('monitor'),
-      alert: {
-        rules: config.get('alert.rules')
-      },
+      alert: config.get('alert'),
       humanHandover: config.get('humanHandover'),
-      tencentDoc: {
-        enabled: config.get('tencentDoc.enabled')
+      tencentDoc: config.get('tencentDoc'),
+      // 流程引擎配置
+      flow: config.get('flow') || {
+        enabled: false,
+        defaultFlowId: null,
+        autoSave: true
+      },
+      // 工作人员识别配置
+      staff: config.get('staff') || {
+        enabled: false,
+        enterpriseNames: [],
+        userRemarks: [],
+        nicknames: [],
+        specialPatterns: [],
+        userIds: []
+      },
+      // 风险处理模式
+      riskMode: config.get('riskMode') || 'ai_alert',
+      // 通知配置
+      notification: config.get('notification') || {
+        websocket: true,
+        email: false,
+        enterpriseWechat: false,
+        emailRecipients: [],
+        enterpriseWechatWebhook: ''
       }
     };
 
@@ -97,7 +118,7 @@ const adminApiRoutes = async function (fastify, options) {
     console.log('📥 POST /api/admin/config 被调用，请求体:', JSON.stringify(request.body));
     try {
       const updateData = request.body;
-      
+
       // 支持多种更新方式
       if (updateData.ai) {
         // 更新 AI 配置
@@ -106,11 +127,11 @@ const adminApiRoutes = async function (fastify, options) {
             config.set(`ai.${key}`, updateData.ai[key]);
           }
         });
-        
+
         // 重新初始化 AI 服务
         aiService.reinitialize();
       }
-      
+
       if (updateData.autoReply) {
         // 更新自动回复配置
         Object.keys(updateData.autoReply).forEach(key => {
@@ -119,7 +140,7 @@ const adminApiRoutes = async function (fastify, options) {
           }
         });
       }
-      
+
       if (updateData.monitor) {
         // 更新监控配置
         Object.keys(updateData.monitor).forEach(key => {
@@ -128,13 +149,83 @@ const adminApiRoutes = async function (fastify, options) {
           }
         });
       }
-      
+
+      if (updateData.alert) {
+        // 更新告警配置
+        Object.keys(updateData.alert).forEach(key => {
+          const existing = config.get(`alert.${key}`);
+          // 对于嵌套对象（如 alert.recipients），直接更新
+          if (existing !== undefined) {
+            config.set(`alert.${key}`, updateData.alert[key]);
+          }
+        });
+      }
+
+      if (updateData.tencentDoc) {
+        // 更新腾讯文档配置
+        Object.keys(updateData.tencentDoc).forEach(key => {
+          if (config.get(`tencentDoc.${key}`) !== undefined) {
+            config.set(`tencentDoc.${key}`, updateData.tencentDoc[key]);
+          }
+        });
+      }
+
+      if (updateData.flow) {
+        // 更新流程引擎配置
+        const currentFlow = config.get('flow') || {};
+        Object.keys(updateData.flow).forEach(key => {
+          currentFlow[key] = updateData.flow[key];
+        });
+        config.set('flow', currentFlow);
+      }
+
+      if (updateData.staff) {
+        // 更新工作人员识别配置
+        const currentStaff = config.get('staff') || {
+          enabled: false,
+          enterpriseNames: [],
+          userRemarks: [],
+          nicknames: [],
+          specialPatterns: [],
+          userIds: []
+        };
+        Object.keys(updateData.staff).forEach(key => {
+          currentStaff[key] = updateData.staff[key];
+        });
+        config.set('staff', currentStaff);
+      }
+
+      if (updateData.riskMode) {
+        // 更新风险处理模式配置
+        config.set('riskMode', updateData.riskMode);
+      }
+
+      if (updateData.notification) {
+        // 更新通知配置
+        const currentNotification = config.get('notification') || {
+          websocket: true,
+          email: false,
+          enterpriseWechat: false,
+          emailRecipients: [],
+          enterpriseWechatWebhook: ''
+        };
+        Object.keys(updateData.notification).forEach(key => {
+          currentNotification[key] = updateData.notification[key];
+        });
+        config.set('notification', currentNotification);
+      }
+
+      if (updateData.humanHandover) {
+        // 更新人工转接配置
+        config.set('humanHandover', updateData.humanHandover);
+      }
+
       if (updateData.deployment) {
         // 更新部署配置
         Object.keys(updateData.deployment).forEach(key => {
           if (config.get(`deployment.${key}`) !== undefined) {
             config.set(`deployment.${key}`, updateData.deployment[key]);
-            
+
             // 如果是 callbackBaseUrl，同步更新数据库
             if (key === 'callbackBaseUrl') {
               console.log('📝 检测到 callbackBaseUrl 更新，开始同步到数据库...');
@@ -143,7 +234,7 @@ const adminApiRoutes = async function (fastify, options) {
                 console.log('📝 数据库模块加载成功');
                 const existingSetting = db.systemSettings.getByKey('deployment.callbackBaseUrl');
                 console.log('📝 查找现有设置:', existingSetting);
-                
+
                 if (existingSetting) {
                   const updated = db.systemSettings.update(existingSetting.id, { value: updateData.deployment[key] });
                   console.log('📝 数据库更新成功:', updated);
@@ -163,7 +254,7 @@ const adminApiRoutes = async function (fastify, options) {
           }
         });
       }
-      
+
       return { success: true, message: '配置已更新' };
     } catch (error) {
       return reply.status(500).send({

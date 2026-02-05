@@ -306,5 +306,43 @@
       "enabled": true,
       "createdAt": "2026-02-02T13:46:35.918Z"
     }
-  ]
+  ],
+  "staff": {
+    "enabled": true,
+    "enterpriseNames": [
+      "XX公司123124",
+      "XX科技1231241"
+    ],
+    "userRemarks": [
+      "客服",
+      "专员123124"
+    ],
+    "nicknames": [
+      "官方客服",
+      "技术支持"
+    ],
+    "specialPatterns": [
+      "客服",
+      "专员"
+    ],
+    "userIds": [
+      "user123",
+      "user456"
+    ]
+  },
+  "flow": {
+    "enabled": true,
+    "defaultFlowId": "flow_123",
+    "autoSave": true
+  },
+  "riskMode": "ai_alert",
+  "notification": {
+    "websocket": true,
+    "email": true,
+    "enterpriseWechat": false,
+    "emailRecipients": [
+      "admin@example.com"
+    ],
+    "enterpriseWechatWebhook": ""
+  }
 }
