@@ -387,19 +387,19 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
 
       <Tabs defaultValue="autoreply" className="w-full">
         <TabsList className="grid w-full grid-cols-4 h-14 bg-white/90 backdrop-blur-md border-2 border-slate-200/80 shadow-lg shadow-slate-200/50 rounded-2xl p-1.5 mb-6">
-          <TabsTrigger value="autoreply" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-slate-500/10 data-[state=active]:text-slate-600 data-[state=active]:shadow-sm transition-all duration-300">
+          <TabsTrigger value="autoreply" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all duration-300">
             <MessageSquare className="h-5 w-5" />
             自动回复
           </TabsTrigger>
-          <TabsTrigger value="ai" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-slate-500/10 data-[state=active]:text-slate-600 data-[state=active]:shadow-sm transition-all duration-300">
+          <TabsTrigger value="ai" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all duration-300">
             <Bot className="h-5 w-5" />
             AI配置
           </TabsTrigger>
-          <TabsTrigger value="flow" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-slate-500/10 data-[state=active]:text-slate-600 data-[state=active]:shadow-sm transition-all duration-300">
+          <TabsTrigger value="flow" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all duration-300">
             <Zap className="h-5 w-5" />
             流程配置
           </TabsTrigger>
-          <TabsTrigger value="logs" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-slate-500/10 data-[state=active]:text-slate-600 data-[state=active]:shadow-sm transition-all duration-300">
+          <TabsTrigger value="logs" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all duration-300">
             <Server className="h-5 w-5" />
             系统日志
           </TabsTrigger>

@@ -146,7 +146,7 @@ export default function MonitorTab() {
         <TabsList className="grid w-full grid-cols-3 h-14 bg-white/90 backdrop-blur-md border-2 border-slate-200/80 shadow-lg shadow-slate-200/50 rounded-2xl p-1.5 mb-6">
           <TabsTrigger
             value="overview"
-            className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-orange-500/10 data-[state=active]:text-orange-600 data-[state=active]:shadow-sm transition-all duration-300"
+            className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all duration-300"
             onClick={() => setActiveSubTab('overview')}
           >
             <BarChart3 className="h-5 w-5" />
@@ -154,7 +154,7 @@ export default function MonitorTab() {
           </TabsTrigger>
           <TabsTrigger
             value="alerts"
-            className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-orange-500/10 data-[state=active]:text-orange-600 data-[state=active]:shadow-sm transition-all duration-300"
+            className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all duration-300"
             onClick={() => setActiveSubTab('alerts')}
           >
             <Bell className="h-5 w-5" />
@@ -167,7 +167,7 @@ export default function MonitorTab() {
           </TabsTrigger>
           <TabsTrigger
             value="stats"
-            className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-orange-500/10 data-[state=active]:text-orange-600 data-[state=active]:shadow-sm transition-all duration-300"
+            className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all duration-300"
             onClick={() => setActiveSubTab('stats')}
           >
             <Eye className="h-5 w-5" />

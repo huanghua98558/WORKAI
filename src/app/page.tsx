@@ -2930,11 +2930,11 @@ ${callbacks.robotStatus}
               {/* AI模块集成AI交互监控 */}
               <Tabs defaultValue="config" className="w-full">
                 <TabsList className="grid w-full max-w-[600px] grid-cols-2 h-14 bg-white/90 backdrop-blur-md border-2 border-slate-200/80 shadow-lg shadow-slate-200/50 rounded-2xl p-1.5 mb-6">
-                  <TabsTrigger value="config" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-violet-500/10 data-[state=active]:text-violet-600 data-[state=active]:shadow-sm transition-all duration-300">
+                  <TabsTrigger value="config" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all duration-300">
                     <Settings className="h-5 w-5" />
                     AI配置
                   </TabsTrigger>
-                  <TabsTrigger value="monitoring" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-violet-500/10 data-[state=active]:text-violet-600 data-[state=active]:shadow-sm transition-all duration-300">
+                  <TabsTrigger value="monitoring" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all duration-300">
                     <Sparkles className="h-5 w-5" />
                     AI交互监控
                   </TabsTrigger>
