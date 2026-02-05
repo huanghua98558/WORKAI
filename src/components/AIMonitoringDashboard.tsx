@@ -19,17 +19,21 @@ import {
   CheckCircle,
   RefreshCw,
   BarChart3,
-  PieChart
+  PieChart,
+  Shield
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface MonitoringStats {
   totalCalls: number;
   totalTokens: number;
+  totalInputTokens?: number;
+  totalOutputTokens?: number;
   totalCost: number;
   avgResponseTime: number;
   successRate: number;
   errorCount: number;
+  successCount?: number;
 }
 
 interface ProtectionStats {
@@ -149,7 +153,7 @@ export default function AIMonitoringDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{stats?.totalCalls || 0}</div>
             <p className="text-xs text-muted-foreground">
-              成功率: {stats?.successRate.toFixed(1)}%
+              成功率: {stats?.successRate ? stats.successRate.toFixed(1) : '0.0'}%
             </p>
           </CardContent>
         </Card>
@@ -187,7 +191,7 @@ export default function AIMonitoringDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-500">
-              {stats?.successRate > 95 ? '正常' : stats?.successRate > 80 ? '警告' : '异常'}
+              {stats?.successRate && stats.successRate > 95 ? '正常' : stats?.successRate && stats.successRate > 80 ? '警告' : '异常'}
             </div>
             <p className="text-xs text-muted-foreground">
               基于成功率判断
@@ -326,8 +330,8 @@ export default function AIMonitoringDashboard() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">成功率</span>
-                <span className={`font-medium ${stats?.successRate > 95 ? 'text-green-500' : stats?.successRate > 80 ? 'text-orange-500' : 'text-red-500'}`}>
-                  {stats?.successRate.toFixed(1)}%
+                <span className={`font-medium ${stats?.successRate && stats.successRate > 95 ? 'text-green-500' : stats?.successRate && stats.successRate > 80 ? 'text-orange-500' : 'text-red-500'}`}>
+                  {stats?.successRate ? stats.successRate.toFixed(1) : '0.0'}%
                 </span>
               </div>
             </div>

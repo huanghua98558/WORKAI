@@ -848,7 +848,7 @@ export function NotificationSettingsDialog({
                               ) : (
                                 robots.map((robot) => (
                                   <SelectItem key={robot.id} value={robot.robotId}>
-                                    {robot.name} ({robot.robotId})
+                                    {robot.robotName} ({robot.robotId})
                                   </SelectItem>
                                 ))
                               )}

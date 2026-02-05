@@ -485,7 +485,7 @@ export default function AIModule() {
         modelId: selectedModel?.modelId || '',
         type: selectedModel?.type || 'chat',
         capabilities: selectedModel?.capabilities || ['text_generation'],
-        providerId: selectedModel?.providerId || '',
+        provider: selectedModel?.provider || '',
         description: selectedModel?.description || '',
         maxTokens: selectedModel?.maxTokens || 2000,
         priority: selectedModel?.priority || 10,
@@ -1206,7 +1206,7 @@ export default function AIModule() {
                             <Badge
                               variant={
                                 model.healthStatus === 'healthy' ? 'default' :
-                                model.healthStatus === 'degraded' ? 'warning' : 'destructive'
+                                model.healthStatus === 'degraded' ? 'secondary' : 'destructive'
                               }
                             >
                               {getHealthStatusText(model.healthStatus).icon}
@@ -1746,7 +1746,7 @@ export default function AIModule() {
                       <Input
                         id="model-api-key"
                         type="password"
-                        value={selectedModel?.config?.apiKey || ''}
+                        value={(selectedModel?.config as any)?.apiKey || ''}
                         onChange={(e) => setSelectedModel({
                           ...selectedModel,
                           config: { ...selectedModel?.config, apiKey: e.target.value }
@@ -1763,7 +1763,7 @@ export default function AIModule() {
                       <Input
                         id="model-api-secret"
                         type="password"
-                        value={selectedModel?.config?.apiSecret || ''}
+                        value={(selectedModel?.config as any)?.apiSecret || ''}
                         onChange={(e) => setSelectedModel({
                           ...selectedModel,
                           config: { ...selectedModel?.config, apiSecret: e.target.value }
@@ -1780,7 +1780,7 @@ export default function AIModule() {
                       <Input
                         id="model-endpoint"
                         type="url"
-                        value={selectedModel?.config?.endpoint || ''}
+                        value={(selectedModel?.config as any)?.endpoint || ''}
                         onChange={(e) => setSelectedModel({
                           ...selectedModel,
                           config: { ...selectedModel?.config, endpoint: e.target.value }
@@ -1796,7 +1796,7 @@ export default function AIModule() {
                       <Label htmlFor="model-region">Region</Label>
                       <Input
                         id="model-region"
-                        value={selectedModel?.config?.region || ''}
+                        value={(selectedModel?.config as any)?.region || ''}
                         onChange={(e) => setSelectedModel({
                           ...selectedModel,
                           config: { ...selectedModel?.config, region: e.target.value }
@@ -2079,7 +2079,7 @@ export default function AIModule() {
                       ...selectedModel,
                       config: {
                         ...selectedModel?.config,
-                        memory: { ...selectedModel?.config?.memory, maxContextMessages: parseInt(e.tokenValue) }
+                        memory: { ...selectedModel?.config?.memory, maxContextMessages: parseInt(e.target.value) }
                       }
                     } as AIModel)}
                   />

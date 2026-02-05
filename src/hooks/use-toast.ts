@@ -9,10 +9,6 @@ export type ToastProps = {
   duration?: number;
 };
 
-type Toast = ToastProps & {
-  id: string;
-};
-
 type ToastAction = {
   type: 'ADD_TOAST' | 'UPDATE_TOAST' | 'DISMISS_TOAST' | 'REMOVE_TOAST';
   toast?: Toast;

@@ -40,6 +40,8 @@ import BusinessMessageMonitor from '@/components/business-message-monitor';
 import AIInteractionMonitor from '@/components/ai-interaction-monitor';
 import AIModule from '@/components/ai-module';
 import FlowEngineManage from '@/components/flow-engine-manage';
+import { cn } from '@/lib/utils';
+
 import { 
   BarChart3, 
   MessageSquare,
@@ -1783,7 +1785,7 @@ ${callbacks.robotStatus}
                     <span className="text-xs text-muted-foreground">在线用户</span>
                   </div>
                   <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                    {monitorData?.summary.onlineUsers || sessions.length}
+                    {sessions.length}
                   </div>
                 </div>
 
@@ -1794,7 +1796,7 @@ ${callbacks.robotStatus}
                     <span className="text-xs text-muted-foreground">今日消息</span>
                   </div>
                   <div className="text-xl font-bold text-purple-600 dark:text-purple-400">
-                    {monitorData?.summary.todayMessages || 0}
+                    {sessions.reduce((sum, s) => sum + s.messageCount, 0)}
                   </div>
                 </div>
 
