@@ -272,51 +272,75 @@ export default function AdminDashboard() {
     }
   };
 
+  // 添加超时的fetch包装器
+  const fetchWithTimeout = async (url: string, timeoutMs: number = 3000): Promise<Response> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    try {
+      const response = await fetch(url, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.warn(`API请求超时: ${url}`);
+        // 返回一个假的响应
+        return { ok: false, json: async () => ({}) } as Response;
+      }
+      throw error;
+    }
+  };
+
   const loadData = async () => {
     setIsLoading(true);
+    const startTime = Date.now();
+    
     try {
-      // 使用 Promise.allSettled 而不是 Promise.all，确保单个API失败不会影响其他API
-      const results = await Promise.allSettled([
-        fetch('/api/proxy/admin/callbacks'),
-        fetch('/api/proxy/admin/monitor/summary'),
-        fetch('/api/proxy/admin/alerts/stats'),
-        fetch('/api/proxy/admin/sessions/active?limit=20'),
-        fetch('/api/proxy/health'),
-        fetch('http://localhost:5001/api/alerts/stats')
-      ]);
+      // 优化：按优先级分组，减少并行请求数
+      // 关键数据：需要立即显示
+      const criticalPromises = [
+        fetchWithTimeout('/api/proxy/admin/sessions/active?limit=20', 2000),
+      ];
+      
+      // 重要数据：监控相关
+      const importantPromises = [
+        fetchWithTimeout('/api/proxy/admin/monitor/summary', 3000),
+        fetchWithTimeout('/api/proxy/admin/callbacks', 3000),
+      ];
+      
+      // 可选数据：即使失败也不影响主要功能
+      const optionalPromises = [
+        fetchWithTimeout('/api/proxy/health', 2000),
+        fetchWithTimeout('/api/proxy/admin/alerts/stats', 3000),
+        fetchWithTimeout('http://localhost:5001/api/alerts/stats', 2000), // 跨域请求
+      ];
 
-      // 提取 Response 对象，如果是 rejected 则返回一个 mock Response
-      const resultsWithFallback = results.map(r => 
+      // 分批加载：先加载关键数据
+      console.log('[数据加载] 开始加载关键数据...');
+      const criticalResults = await Promise.allSettled(criticalPromises);
+      const sessionsRes = criticalResults[0].status === 'fulfilled' ? criticalResults[0].value : { ok: false, json: async () => ({}) } as Response;
+      
+      if (sessionsRes.ok) {
+        const data = await sessionsRes.json();
+        const uniqueSessions = (data.data || []).reduce((acc: Session[], session: Session) => {
+          if (!acc.find(s => s.sessionId === session.sessionId)) {
+            acc.push(session);
+          }
+          return acc;
+        }, []);
+        setSessions(uniqueSessions);
+      }
+      console.log(`[数据加载] 关键数据加载完成，耗时: ${Date.now() - startTime}ms`);
+
+      // 并行加载重要数据
+      console.log('[数据加载] 开始加载重要数据...');
+      const importantResults = await Promise.allSettled(importantPromises);
+      const [monitorRes, callbacksRes] = importantResults.map(r => 
         r.status === 'fulfilled' ? r.value : { ok: false, json: async () => ({}) } as Response
       );
-
-      const [callbacksRes, monitorRes, alertRes, sessionsRes, uptimeRes, newAlertRes] = resultsWithFallback;
-
-      // 检查连接状态
-      if (uptimeRes.ok) {
-        setConnectionStatus('connected');
-        try {
-          const data = await uptimeRes.json();
-          if (data.startTime) {
-            const uptimeMs = Date.now() - data.startTime;
-            setServerUptime(formatUptime(uptimeMs));
-          }
-        } catch (e) {
-          console.error('解析uptime数据失败:', e);
-        }
-      } else {
-        setConnectionStatus('disconnected');
-      }
-
-      // 独立处理每个API响应
-      if (callbacksRes.ok) {
-        try {
-          const data = await callbacksRes.json();
-          setCallbacks(data.data);
-        } catch (e) {
-          console.error('解析callbacks数据失败:', e);
-        }
-      }
 
       if (monitorRes.ok) {
         try {
@@ -327,49 +351,76 @@ export default function AdminDashboard() {
         }
       }
 
-      if (alertRes.ok) {
+      if (callbacksRes.ok) {
         try {
-          const data = await alertRes.json();
-          setAlertData(data.data);
+          const data = await callbacksRes.json();
+          setCallbacks(data.data);
         } catch (e) {
-          console.error('解析alert数据失败:', e);
+          console.error('解析callbacks数据失败:', e);
         }
       }
+      console.log(`[数据加载] 重要数据加载完成，耗时: ${Date.now() - startTime}ms`);
 
-      // 处理新的告警系统API
-      if (newAlertRes.ok) {
-        try {
-          const data = await newAlertRes.json();
-          if (data.success) {
-            setAlertStats(data.data);
+      // 更新最后加载时间
+      setLastUpdateTime(new Date());
+
+      // 可选数据在后台加载，不阻塞UI
+      Promise.allSettled(optionalPromises).then(optionalResults => {
+        const [uptimeRes, alertRes, newAlertRes] = optionalResults.map(r => 
+          r.status === 'fulfilled' ? r.value : { ok: false, json: async () => ({}) } as Response
+        );
+
+        // 检查连接状态
+        if (uptimeRes.ok) {
+          setConnectionStatus('connected');
+          try {
+            const data = uptimeRes.json();
+            data.then(d => {
+              if (d.startTime) {
+                const uptimeMs = Date.now() - d.startTime;
+                setServerUptime(formatUptime(uptimeMs));
+              }
+            });
+          } catch (e) {
+            console.error('解析uptime数据失败:', e);
           }
-        } catch (e) {
-          console.error('解析新告警数据失败:', e);
+        } else {
+          setConnectionStatus('disconnected');
         }
-      }
 
-      if (sessionsRes.ok) {
-        try {
-          const data = await sessionsRes.json();
-          // 去重：确保sessionId唯一
-          const uniqueSessions = (data.data || []).reduce((acc: Session[], session: Session) => {
-            if (!acc.find(s => s.sessionId === session.sessionId)) {
-              acc.push(session);
-            }
-            return acc;
-          }, []);
-          setSessions(uniqueSessions);
-        } catch (e) {
-          console.error('解析sessions数据失败:', e);
+        // 处理告警数据
+        if (alertRes.ok) {
+          try {
+            const data = alertRes.json();
+            data.then(d => setAlertData(d.data));
+          } catch (e) {
+            console.error('解析alert数据失败:', e);
+          }
         }
-      }
+
+        // 处理新告警系统API
+        if (newAlertRes.ok) {
+          try {
+            const data = newAlertRes.json();
+            data.then(d => {
+              if (d.success) {
+                setAlertStats(d.data);
+              }
+            });
+          } catch (e) {
+            console.error('解析新告警数据失败:', e);
+          }
+        }
+        
+        console.log(`[数据加载] 可选数据加载完成，耗时: ${Date.now() - startTime}ms`);
+      });
+
     } catch (error) {
-      // 整体加载数据失败
       setConnectionStatus('disconnected');
       console.error('加载数据失败:', error);
     } finally {
       setIsLoading(false);
-      setLastUpdateTime(new Date());
+      console.log(`[数据加载] 总耗时: ${Date.now() - startTime}ms`);
     }
   };
 
@@ -391,9 +442,8 @@ export default function AdminDashboard() {
     }
   };
 
-  // 自动刷新：每隔 60 秒刷新一次会话数据
-  // 当打开会话详情时停止刷新，关闭会话详情后恢复刷新
-  // 当切换到监控标签页时停止刷新（监控组件有自己的刷新机制）
+  // 自动刷新：每60秒只刷新关键数据（会话列表）
+  // 其他数据在后台刷新，不阻塞UI
   useEffect(() => {
     // 如果会话详情打开，不进行自动刷新
     if (showSessionDetail) {
@@ -406,9 +456,25 @@ export default function AdminDashboard() {
     }
 
     const interval = setInterval(() => {
+      console.log('[自动刷新] 刷新关键数据...');
+      // 只刷新会话数据，快速响应
+      fetchWithTimeout('/api/proxy/admin/sessions/active?limit=20', 2000).then(res => {
+        if (res.ok) {
+          res.json().then(data => {
+            const uniqueSessions = (data.data || []).reduce((acc: Session[], session: Session) => {
+              if (!acc.find(s => s.sessionId === session.sessionId)) {
+                acc.push(session);
+              }
+              return acc;
+            }, []);
+            setSessions(uniqueSessions);
+          });
+        }
+      });
+
+      // 后台刷新其他数据
       loadData();
-      loadRobots();
-    }, 60000); // 每 60 秒刷新一次（优化性能）
+    }, 60000); // 每 60 秒刷新一次
 
     return () => clearInterval(interval);
   }, [showSessionDetail, activeTab]);
@@ -825,14 +891,25 @@ export default function AdminDashboard() {
     }
   };
 
-  // 初始化加载（只执行一次）- 优化：分批加载关键数据
+  // 初始化加载（只执行一次）- 优化：优先加载关键数据
   useEffect(() => {
-    // 立即加载最关键的数据
+    const startTime = Date.now();
+    console.log('[初始化] 开始加载数据...');
+    
+    // 立即加载最关键的数据（会话列表）
     const loadCriticalData = async () => {
       checkConnection();
-      // 只加载sessions数据用于显示首页
+      
       try {
-        const sessionsRes = await fetch('/api/proxy/admin/sessions/active?limit=20');
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        
+        const sessionsRes = await fetch('/api/proxy/admin/sessions/active?limit=20', {
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
         if (sessionsRes.ok) {
           const data = await sessionsRes.json();
           const uniqueSessions = (data.data || []).reduce((acc: Session[], session: Session) => {
@@ -842,6 +919,7 @@ export default function AdminDashboard() {
             return acc;
           }, []);
           setSessions(uniqueSessions);
+          console.log(`[初始化] 关键数据加载完成，耗时: ${Date.now() - startTime}ms`);
         }
       } catch (e) {
         console.error('加载会话数据失败:', e);
@@ -850,20 +928,23 @@ export default function AdminDashboard() {
 
     loadCriticalData();
 
-    // 延迟加载次要数据（500ms后）
+    // 300ms后加载次要数据（不阻塞首次渲染）
     const delayedLoad = setTimeout(() => {
+      console.log(`[初始化] 开始加载次要数据，耗时: ${Date.now() - startTime}ms`);
       loadRobots();
       loadAiConfig();
-    }, 500);
+    }, 300);
 
-    // 延迟加载监控数据（1秒后）
+    // 800ms后加载监控数据（确保首屏渲染完成后再加载）
     const delayedMonitorLoad = setTimeout(() => {
-      loadData(); // 这里会加载callbacks, monitorData, alertData等
-    }, 1000);
+      console.log(`[初始化] 开始加载监控数据，耗时: ${Date.now() - startTime}ms`);
+      loadData();
+    }, 800);
 
     return () => {
       clearTimeout(delayedLoad);
       clearTimeout(delayedMonitorLoad);
+      console.log(`[初始化] 清理定时器，总耗时: ${Date.now() - startTime}ms`);
     };
   }, []);
 
