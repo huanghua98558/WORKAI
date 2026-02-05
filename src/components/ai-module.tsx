@@ -103,19 +103,19 @@ interface AIPersona {
 // 常用模型名称列表
 const COMMON_MODEL_NAMES = [
   // 豆包（内置模型）
-  { value: 'doubao-pro-4k', label: 'doubao-pro-4k（豆包Pro 4K）', provider: 'doubao', isBuiltin: true },
-  { value: 'doubao-pro-32k', label: 'doubao-pro-32k（豆包Pro 32K）', provider: 'doubao', isBuiltin: true },
-  { value: 'doubao-pro-128k', label: 'doubao-pro-128k（豆包Pro 128K）', provider: 'doubao', isBuiltin: true },
+  { value: 'doubao-pro-4k', label: 'doubao-pro-4k（豆包Pro 4K）', provider: 'doubao', isBuiltin: true, capabilities: ['intent_recognition', 'conversation', 'text_generation'] },
+  { value: 'doubao-pro-32k', label: 'doubao-pro-32k（豆包Pro 32K）', provider: 'doubao', isBuiltin: true, capabilities: ['conversation', 'text_generation', 'code_generation'] },
+  { value: 'doubao-pro-128k', label: 'doubao-pro-128k（豆包Pro 128K）', provider: 'doubao', isBuiltin: true, capabilities: ['conversation', 'text_generation', 'embedding'] },
 
   // DeepSeek（内置模型）
-  { value: 'deepseek-v3', label: 'deepseek-v3（DeepSeek V3）', provider: 'deepseek', isBuiltin: true },
-  { value: 'deepseek-r1', label: 'deepseek-r1（DeepSeek R1）', provider: 'deepseek', isBuiltin: true },
+  { value: 'deepseek-v3', label: 'deepseek-v3（DeepSeek V3）', provider: 'deepseek', isBuiltin: true, capabilities: ['conversation', 'text_generation', 'code_generation', 'reasoning'] },
+  { value: 'deepseek-r1', label: 'deepseek-r1（DeepSeek R1）', provider: 'deepseek', isBuiltin: true, capabilities: ['conversation', 'text_generation', 'code_generation', 'reasoning'] },
 
   // Kimi（内置模型）
-  { value: 'kimi-k2', label: 'kimi-k2（Kimi K2）', provider: 'kimi', isBuiltin: true },
-  { value: 'moonshot-v1-8k', label: 'moonshot-v1-8k（Moonshot 8K）', provider: 'kimi', isBuiltin: true },
-  { value: 'moonshot-v1-32k', label: 'moonshot-v1-32k（Moonshot 32K）', provider: 'kimi', isBuiltin: true },
-  { value: 'moonshot-v1-128k', label: 'moonshot-v1-128k（Moonshot 128K）', provider: 'kimi', isBuiltin: true },
+  { value: 'kimi-k2', label: 'kimi-k2（Kimi K2）', provider: 'kimi', isBuiltin: true, capabilities: ['conversation', 'text_generation', 'embedding'] },
+  { value: 'moonshot-v1-8k', label: 'moonshot-v1-8k（Moonshot 8K）', provider: 'kimi', isBuiltin: true, capabilities: ['conversation', 'text_generation'] },
+  { value: 'moonshot-v1-32k', label: 'moonshot-v1-32k（Moonshot 32K）', provider: 'kimi', isBuiltin: true, capabilities: ['conversation', 'text_generation', 'code_generation'] },
+  { value: 'moonshot-v1-128k', label: 'moonshot-v1-128k（Moonshot 128K）', provider: 'kimi', isBuiltin: true, capabilities: ['conversation', 'text_generation', 'embedding'] },
 
   // OpenAI（自定义模型，需要API密钥）
   { value: 'gpt-4', label: 'gpt-4（GPT-4）', provider: 'openai', isBuiltin: false },
@@ -1057,7 +1057,8 @@ export default function AIModule() {
                           name: value,
                           provider: selected?.provider || '',
                           displayName: selected?.label || value,
-                          isBuiltin: selected?.isBuiltin || false
+                          isBuiltin: selected?.isBuiltin || false,
+                          capabilities: selected?.capabilities || []
                         } as AIModel);
                       }}
                     >
@@ -1256,14 +1257,22 @@ export default function AIModule() {
               )}
 
               <div>
-                <Label>能力标签</Label>
+                <div className="flex items-center justify-between">
+                  <Label>能力标签</Label>
+                  {selectedModel?.isBuiltin === true && (
+                    <span className="text-xs text-muted-foreground">
+                      内置模型能力已预配置，不可更改
+                    </span>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {['intent_recognition', 'text_generation', 'conversation', 'code_generation', 'image_recognition', 'embedding'].map((cap) => (
-                    <div key={cap} className="flex items-center gap-2">
+                    <div key={cap} className={`flex items-center gap-2 ${selectedModel?.isBuiltin === true ? 'opacity-60' : ''}`}>
                       <input
                         type="checkbox"
                         id={`cap-${cap}`}
                         checked={(selectedModel?.capabilities || []).includes(cap)}
+                        disabled={selectedModel?.isBuiltin === true}
                         onChange={(e) => {
                           const caps = selectedModel?.capabilities || [];
                           if (e.target.checked) {
