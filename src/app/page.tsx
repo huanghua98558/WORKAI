@@ -41,6 +41,7 @@ const BusinessMessageMonitor = lazy(() => import('@/components/business-message-
 const AIInteractionMonitor = lazy(() => import('@/components/ai-interaction-monitor'));
 const AIModule = lazy(() => import('@/components/ai-module'));
 const FlowEngineManage = lazy(() => import('@/components/flow-engine-manage'));
+const CollabAnalytics = lazy(() => import('@/app/collab-analytics/page'));
 
 import { cn } from '@/lib/utils';
 
@@ -57,28 +58,13 @@ function LoadingSpinner() {
 }
 
 import { 
-  BarChart3, 
-  MessageSquare,
-  Settings,
-  Activity,
-  AlertTriangle,
-  AlertCircle,
-  FileText,
-  Bot,
-  Zap,
-  Copy,
-  Check,
-  Play,
-  RefreshCw,
-  TrendingUp,
+  LayoutDashboard,
   Users,
-  User,
-  Shield,
-  Database,
-  Globe,
-  Clock,
-  CheckCircle,
-  XCircle,
+  Bot,
+  Activity,
+  Brain,
+  GitBranch,
+  Settings,
   ArrowUp,
   ArrowDown,
   MoreHorizontal,
@@ -98,6 +84,9 @@ import {
   Radio,
   Code,
   Terminal,
+  Handshake,
+  BarChart3,
+} from 'lucide-react';
   Link2,
   ExternalLink,
   FileJson,
@@ -2897,6 +2886,13 @@ ${callbacks.robotStatus}
               <span className="font-semibold text-base sm:text-lg">流程引擎</span>
             </TabsTrigger>
             <TabsTrigger
+              value="collab-analytics"
+              className="gap-2.5 py-2.5 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/25 border border-transparent hover:border-blue-300/60 hover:bg-blue-50/70 transition-all duration-250"
+            >
+              <Handshake className="h-5 w-5" />
+              <span className="font-semibold text-base sm:text-lg">协同分析</span>
+            </TabsTrigger>
+            <TabsTrigger
               value="settings"
               className="gap-2.5 py-2.5 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/25 border border-transparent hover:border-blue-300/60 hover:bg-blue-50/70 transition-all duration-250"
             >
@@ -2958,6 +2954,12 @@ ${callbacks.robotStatus}
           <TabsContent value="flow-engine" className="space-y-6">
             <Suspense fallback={<LoadingSpinner />}>
               <FlowEngineManage />
+            </Suspense>
+          </TabsContent>
+
+          <TabsContent value="collab-analytics" className="space-y-6">
+            <Suspense fallback={<LoadingSpinner />}>
+              <CollabAnalytics />
             </Suspense>
           </TabsContent>
 

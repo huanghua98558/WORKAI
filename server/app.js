@@ -41,6 +41,7 @@ const notificationApiRoutes = require('./routes/notification.api');
 const intentConfigApiRoutes = require('./routes/intent-config.api');
 const flowEngineApiRoutes = require('./routes/flow-engine.api');
 const riskApiRoutes = require('./routes/risk.api');
+const collabApiRoutes = require('./routes/collab.api');
 console.log('[app.js] Attempting to load ai-module.api...');
 const aiModuleApiRoutes = require('./routes/ai-module.api');
 console.log('[app.js] ai-module.api loaded successfully');
@@ -144,6 +145,7 @@ fastify.register(intentConfigApiRoutes, { prefix: '/api/ai/intents' });
 fastify.register(flowEngineApiRoutes, { prefix: '/api/flow-engine' });
 fastify.register(riskApiRoutes, { prefix: '/api' });
 fastify.register(aiModuleApiRoutes, { prefix: '/api/ai' });
+fastify.register(collabApiRoutes, { prefix: '/api/collab' });
 
 // WebSocket 路由
 fastify.register(async function (fastify) {
