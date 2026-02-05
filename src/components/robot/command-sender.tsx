@@ -986,25 +986,22 @@ export default function CommandSender() {
                   commands.map(command => {
                     const robot = robots.find(r => r.robotId === command.robotId);
                     const cmdType = COMMAND_TYPES.find(c => c.value === command.commandType);
-                    
+
                     // 格式化执行结果
                     let resultText = '-';
                     if (command.result) {
                       if (command.result.success) {
                         resultText = '✓ 成功';
-                        if (command.result.sendId) {
-                          resultText += ` (ID: ${command.result.sendId})`;
+                        if (command.result.message) {
+                          resultText += ` - ${command.result.message}`;
                         }
-                        if (command.result.data) {
-                          resultText += ` - ${command.result.data}`;
-                        }
-                      } else if (command.result.message) {
-                        resultText = command.result.message;
+                      } else {
+                        resultText = command.result.message || '执行失败';
                       }
                     } else if (command.errorMessage) {
                       resultText = `✗ ${command.errorMessage}`;
                     }
-                    
+
                     return (
                       <TableRow key={command.id}>
                         <TableCell className="max-w-xs truncate">
@@ -1015,9 +1012,6 @@ export default function CommandSender() {
                         </TableCell>
                         <TableCell>{getPriorityBadge(command.priority)}</TableCell>
                         <TableCell>{getCommandStatusBadge(command.status)}</TableCell>
-                        <TableCell className="text-sm">
-                          {command.retryCount !== undefined ? `${command.retryCount}/${command.maxRetries || 0}` : '-'}
-                        </TableCell>
                         <TableCell className="max-w-xs truncate text-sm">
                           {resultText}
                         </TableCell>
