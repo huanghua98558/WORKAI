@@ -1089,7 +1089,7 @@ export default function CommandSender() {
               </TableHeader>
               <TableBody>
                 {commands.length === 0 ? (
-                  <TableRow>
+                  <TableRow key="empty">
                     <TableCell colSpan={9} className="text-center text-muted-foreground py-12">
                       <div className="space-y-2">
                         <Clock className="h-12 w-12 mx-auto opacity-30" />
@@ -1302,13 +1302,13 @@ export default function CommandSender() {
                 </TableHeader>
                 <TableBody>
                   {historyLoading ? (
-                    <TableRow>
+                    <TableRow key="loading">
                       <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                         加载中...
                       </TableCell>
                     </TableRow>
                   ) : messageHistory.length === 0 ? (
-                    <TableRow>
+                    <TableRow key="empty-history">
                       <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                         <div className="space-y-2">
                           <div className="text-base font-medium">暂无消息历史</div>
