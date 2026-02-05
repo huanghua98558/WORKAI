@@ -47,7 +47,10 @@ import {
   FileSearch,
   CheckSquare,
   Square,
-  Sparkles
+  Sparkles,
+  Upload,
+  File,
+  Globe
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -220,6 +223,11 @@ export default function AIModule() {
   // 知识库导入
   const [showKnowledgeImportDialog, setShowKnowledgeImportDialog] = useState(false);
   const [importingToKnowledge, setImportingToKnowledge] = useState(false);
+  const [showKnowledgeUploadDialog, setShowKnowledgeUploadDialog] = useState(false);
+  const [uploadingToKnowledge, setUploadingToKnowledge] = useState(false);
+  const [knowledgeUploadType, setKnowledgeUploadType] = useState<'text' | 'url' | 'file'>('text');
+  const [knowledgeUploadContent, setKnowledgeUploadContent] = useState('');
+  const [knowledgeUploadUrl, setKnowledgeUploadUrl] = useState('');
 
   // AI调试
   const [testInput, setTestInput] = useState('');
@@ -770,10 +778,10 @@ export default function AIModule() {
 
   // 批量导入选中的知识库问答到知识库
   const handleBatchImportToKnowledge = async () => {
-    const selectedTemplates = templates.filter(t => 
-      selectedTemplateIds.has(t.id) && 
-      t.type === 'qa' && 
-      t.qaPairs && 
+    const selectedTemplates = templates.filter(t =>
+      selectedTemplateIds.has(t.id) &&
+      t.type === 'qa' &&
+      t.qaPairs &&
       t.qaPairs.length > 0
     );
 
@@ -827,6 +835,77 @@ export default function AIModule() {
       toast.error('导入失败');
     } finally {
       setImportingToKnowledge(false);
+    }
+  };
+
+  // 上传知识库
+  const handleUploadToKnowledge = async () => {
+    if (knowledgeUploadType === 'text' && !knowledgeUploadContent.trim()) {
+      toast.warning('请输入要上传的内容');
+      return;
+    }
+
+    if (knowledgeUploadType === 'url' && !knowledgeUploadUrl.trim()) {
+      toast.warning('请输入URL');
+      return;
+    }
+
+    setUploadingToKnowledge(true);
+    try {
+      let documents;
+
+      if (knowledgeUploadType === 'text') {
+        documents = [{
+          type: 'text' as const,
+          content: knowledgeUploadContent
+        }];
+      } else if (knowledgeUploadType === 'url') {
+        documents = [{
+          type: 'url' as const,
+          content: knowledgeUploadUrl
+        }];
+      } else {
+        toast.warning('暂不支持文件上传');
+        return;
+      }
+
+      const response = await fetch('/api/knowledge/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documents,
+          dataset: 'worktool_knowledge'
+        })
+      });
+
+      // 检查响应状态
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          toast.error(data.error || data.message || '上传失败');
+        } else {
+          const text = await response.text();
+          console.error('非JSON响应:', text);
+          toast.error('上传失败：服务器返回了非JSON响应');
+        }
+        return;
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success(`成功上传 ${documents.length} 个文档到知识库`);
+        setShowKnowledgeUploadDialog(false);
+        setKnowledgeUploadContent('');
+        setKnowledgeUploadUrl('');
+      } else {
+        toast.error(data.error || '上传失败');
+      }
+    } catch (error) {
+      console.error('上传失败:', error);
+      toast.error('上传失败');
+    } finally {
+      setUploadingToKnowledge(false);
     }
   };
 
@@ -1256,6 +1335,13 @@ export default function AIModule() {
                       </Button>
                     </>
                   )}
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowKnowledgeUploadDialog(true)}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    上传知识库
+                  </Button>
                   <Button onClick={() => setShowTemplateDialog(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     添加模板
@@ -2609,6 +2695,110 @@ export default function AIModule() {
             <Button onClick={handleSaveTemplate}>
               <Save className="h-4 w-4 mr-2" />
               保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 上传知识库对话框 */}
+      <Dialog open={showKnowledgeUploadDialog} onOpenChange={setShowKnowledgeUploadDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              上传知识库
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* 上传类型选择 */}
+            <div>
+              <Label htmlFor="upload-type">上传方式</Label>
+              <Select
+                value={knowledgeUploadType}
+                onValueChange={(value: 'text' | 'url' | 'file') => setKnowledgeUploadType(value)}
+              >
+                <SelectTrigger id="upload-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text">
+                    <FileText className="h-4 w-4 mr-2 inline" />
+                    文本内容 - 直接输入文本
+                  </SelectItem>
+                  <SelectItem value="url">
+                    <Globe className="h-4 w-4 mr-2 inline" />
+                    URL地址 - 从网页获取内容
+                  </SelectItem>
+                  <SelectItem value="file" disabled>
+                    <File className="h-4 w-4 mr-2 inline" />
+                    文件上传 - 上传本地文件（暂不支持）
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 根据类型显示不同的输入方式 */}
+            {knowledgeUploadType === 'text' && (
+              <div>
+                <Label htmlFor="upload-content">文本内容</Label>
+                <Textarea
+                  id="upload-content"
+                  value={knowledgeUploadContent}
+                  onChange={(e) => setKnowledgeUploadContent(e.target.value)}
+                  placeholder="输入要上传到知识库的文本内容..."
+                  rows={10}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  支持纯文本、Markdown 格式
+                </p>
+              </div>
+            )}
+
+            {knowledgeUploadType === 'url' && (
+              <div>
+                <Label htmlFor="upload-url">URL地址</Label>
+                <Input
+                  id="upload-url"
+                  value={knowledgeUploadUrl}
+                  onChange={(e) => setKnowledgeUploadUrl(e.target.value)}
+                  placeholder="https://example.com/document"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  系统会自动抓取网页内容并导入到知识库
+                </p>
+              </div>
+            )}
+
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                知识库文档将存储在 'worktool_knowledge' 数据集中，可用于智能问答和语义检索。
+              </AlertDescription>
+            </Alert>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowKnowledgeUploadDialog(false);
+                setKnowledgeUploadContent('');
+                setKnowledgeUploadUrl('');
+              }}
+            >
+              取消
+            </Button>
+            <Button onClick={handleUploadToKnowledge} disabled={uploadingToKnowledge}>
+              {uploadingToKnowledge ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  上传中...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  上传
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
