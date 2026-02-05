@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Settings,
   Bot,
@@ -30,7 +31,8 @@ import {
   HardDrive,
   Network,
   Globe,
-  Clock
+  Clock,
+  Info
 } from 'lucide-react';
 import SystemLogs from '@/components/system-logs';
 
@@ -145,6 +147,42 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
         [field]: value
       }
     });
+  };
+
+  // 测试工作人员识别规则
+  const handleTestStaffIdentifier = async () => {
+    // 创建测试消息
+    const testMessage = {
+      userId: 'test_user_001',
+      receivedName: 'XX公司-客服',
+      userRemark: '客服专员',
+      platform: 'enterprise'
+    };
+
+    try {
+      const res = await fetch('/api/risk/test-staff-identifier', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: testMessage,
+          staffConfig: config.staff
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.isStaff) {
+          alert(`✅ 识别成功！\n\n用户ID: ${data.message.userId}\n用户名: ${data.message.userName}\n平台: ${data.message.platform}\n\n匹配规则: ${data.matchedRule?.reason || '未知'}`);
+        } else {
+          alert(`⚠️ 未识别为工作人员\n\n请检查识别规则配置是否正确。`);
+        }
+      } else {
+        const errorData = await res.json();
+        alert(`❌ 测试失败: ${errorData.error || '未知错误'}`);
+      }
+    } catch (error) {
+      alert('❌ 测试请求失败');
+    }
   };
 
   if (isLoading || isLoadingAiConfig) {
@@ -458,6 +496,29 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
                   })}
                 />
               </div>
+
+              {/* 保存提示 */}
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>配置保存提示</AlertTitle>
+                <AlertDescription>
+                  修改配置后，请点击页面顶部的{" "}
+                  <span className="font-semibold">"保存配置"</span>{" "}
+                  按钮以保存工作人员识别设置。
+                </AlertDescription>
+              </Alert>
+
+              {/* 测试按钮 */}
+              <div className="pt-2 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => handleTestStaffIdentifier()}
+                  className="w-full"
+                >
+                  <UserCheck className="h-4 w-4 mr-2" />
+                  测试工作人员识别规则
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -725,6 +786,29 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
                   })}
                 />
               </div>
+
+              {/* 保存提示 */}
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>配置保存提示</AlertTitle>
+                <AlertDescription>
+                  修改配置后，请点击页面顶部的{" "}
+                  <span className="font-semibold">"保存配置"</span>{" "}
+                  按钮以保存工作人员识别设置。
+                </AlertDescription>
+              </Alert>
+
+              {/* 测试按钮 */}
+              <div className="pt-2 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => handleTestStaffIdentifier()}
+                  className="w-full"
+                >
+                  <UserCheck className="h-4 w-4 mr-2" />
+                  测试工作人员识别规则
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -956,6 +1040,29 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
                     }
                   })}
                 />
+              </div>
+
+              {/* 保存提示 */}
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>配置保存提示</AlertTitle>
+                <AlertDescription>
+                  修改配置后，请点击页面顶部的{" "}
+                  <span className="font-semibold">"保存配置"</span>{" "}
+                  按钮以保存工作人员识别设置。
+                </AlertDescription>
+              </Alert>
+
+              {/* 测试按钮 */}
+              <div className="pt-2 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => handleTestStaffIdentifier()}
+                  className="w-full"
+                >
+                  <UserCheck className="h-4 w-4 mr-2" />
+                  测试工作人员识别规则
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -1347,6 +1454,29 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
                     }
                   })}
                 />
+              </div>
+
+              {/* 保存提示 */}
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>配置保存提示</AlertTitle>
+                <AlertDescription>
+                  修改配置后，请点击页面顶部的{" "}
+                  <span className="font-semibold">"保存配置"</span>{" "}
+                  按钮以保存工作人员识别设置。
+                </AlertDescription>
+              </Alert>
+
+              {/* 测试按钮 */}
+              <div className="pt-2 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => handleTestStaffIdentifier()}
+                  className="w-full"
+                >
+                  <UserCheck className="h-4 w-4 mr-2" />
+                  测试工作人员识别规则
+                </Button>
               </div>
             </CardContent>
           </Card>
