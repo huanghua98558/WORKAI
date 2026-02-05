@@ -119,6 +119,33 @@ export default function FlowEngineManage() {
     isMaximized: false,
   });
 
+  // 辅助函数：转换后端FlowNode到FlowEditor的NodeData
+  const convertToEditorNodes = (flowNodes: FlowNode[]) => {
+    return flowNodes.map((node, index) => ({
+      id: node.id,
+      type: node.type,
+      position: {
+        x: 100 + (index % 3) * 250,
+        y: 100 + Math.floor(index / 3) * 150
+      },
+      data: {
+        name: node.name,
+        description: '',
+        config: node.config || {},
+      },
+    }));
+  };
+
+  // 辅助函数：转换FlowEditor的NodeData到后端FlowNode
+  const convertToBackendNodes = (editorNodes: any[]) => {
+    return editorNodes.map(node => ({
+      id: node.id,
+      type: node.type,
+      name: node.data.name,
+      config: node.data.config || {},
+    }));
+  };
+
   const { toast } = useToast();
 
   // 表单状态
@@ -258,15 +285,13 @@ export default function FlowEngineManage() {
       const result = await getFlowDefinition(flowId);
       if (result.success && result.data) {
         setSelectedFlow(result.data);
-        setFormData({
-          name: result.data.name,
-          description: result.data.description || '',
-          status: result.data.status,
-          trigger_type: result.data.trigger_type || 'webhook',
-          trigger_config: result.data.trigger_config || {},
-          nodes: result.data.nodes || [],
+
+        // 设置编辑器对话框状态
+        setEditorDialog({
+          ...editorDialog,
+          isOpen: true,
+          mode: 'edit',
         });
-        setIsEditDialogOpen(true);
       } else {
         toast({
           title: "加载失败",
@@ -546,7 +571,7 @@ export default function FlowEngineManage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => window.location.href = '/flow-engine'}
+            onClick={() => setIsCreateDialogOpen(true)}
             className="gap-2"
           >
             <Zap className="h-4 w-4" />
@@ -942,79 +967,150 @@ export default function FlowEngineManage() {
         </div>
       )}
 
-      {/* 编辑流程对话框 */}
-      {isEditDialogOpen && selectedFlow && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <Card className="w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-            <CardHeader>
-              <CardTitle>编辑流程</CardTitle>
-              <CardDescription>
-                编辑流程配置和节点
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-flow-name">流程名称 *</Label>
-                <Input
-                  id="edit-flow-name"
-                  placeholder="输入流程名称"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
+      {/* 编辑流程编辑器对话框 */}
+      {editorDialog.isOpen && editorDialog.mode === 'edit' && selectedFlow && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div
+            className="bg-white rounded-lg shadow-2xl overflow-hidden flex flex-col"
+            style={{
+              width: editorDialog.isMaximized ? '95vw' : `${editorDialog.width}px`,
+              height: editorDialog.isMaximized ? '95vh' : `${editorDialog.height}px`,
+            }}
+          >
+            {/* 对话框顶部工具栏 */}
+            <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-slate-50 to-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                  <GitBranch className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">编辑流程</h2>
+                  <p className="text-xs text-slate-500">{selectedFlow.name}</p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-flow-description">流程描述</Label>
-                <Textarea
-                  id="edit-flow-description"
-                  placeholder="输入流程描述"
-                  rows={3}
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-flow-status">流程状态</Label>
-                <select
-                  id="edit-flow-status"
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                  className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setEditorDialog({
+                      ...editorDialog,
+                      isMaximized: !editorDialog.isMaximized,
+                      width: editorDialog.isMaximized ? 1200 : window.innerWidth * 0.95,
+                      height: editorDialog.isMaximized ? 700 : window.innerHeight * 0.95,
+                    });
+                  }}
+                  title={editorDialog.isMaximized ? "还原" : "最大化"}
                 >
-                  <option value="draft">草稿</option>
-                  <option value="active">运行中</option>
-                  <option value="inactive">已停用</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-flow-trigger">触发类型</Label>
-                <select
-                  id="edit-flow-trigger"
-                  value={formData.trigger_type}
-                  onChange={(e) => setFormData({ ...formData, trigger_type: e.target.value as any })}
-                  className="w-full mt-1 px-3 py-2 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  {editorDialog.isMaximized ? (
+                    <Minus2 className="w-4 h-4" />
+                  ) : (
+                    <Maximize2 className="w-4 h-4" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setEditorDialog({ ...editorDialog, isOpen: false });
+                    setSelectedFlow(null);
+                  }}
+                  title="关闭"
                 >
-                  <option value="webhook">Webhook触发</option>
-                  <option value="manual">手动触发</option>
-                  <option value="scheduled">定时触发</option>
-                </select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {TRIGGER_TYPE_CONFIG[formData.trigger_type]?.description}
-                </p>
+                  <X className="w-4 h-4" />
+                </Button>
               </div>
-            </CardContent>
-            <div className="flex justify-end gap-2 p-6 pt-0">
-              <Button variant="outline" onClick={() => {
-                setIsEditDialogOpen(false);
-                setSelectedFlow(null);
-              }}>
-                取消
-              </Button>
-              <Button onClick={handleUpdateFlow} disabled={!formData.name.trim()}>
-                <Save className="h-4 w-4 mr-2" />
-                保存更改
-              </Button>
             </div>
-          </Card>
+
+            {/* 调整大小的手柄 */}
+            <div
+              className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                const startX = e.clientX;
+                const startY = e.clientY;
+                const startWidth = editorDialog.width;
+                const startHeight = editorDialog.height;
+
+                const handleMouseMove = (moveEvent: MouseEvent) => {
+                  const newWidth = Math.max(800, startWidth + (moveEvent.clientX - startX));
+                  const newHeight = Math.max(600, startHeight + (moveEvent.clientY - startY));
+                  setEditorDialog({
+                    ...editorDialog,
+                    width: newWidth,
+                    height: newHeight,
+                    isMaximized: false,
+                  });
+                };
+
+                const handleMouseUp = () => {
+                  document.removeEventListener('mousemove', handleMouseMove);
+                  document.removeEventListener('mouseup', handleMouseUp);
+                };
+
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+              }}
+            >
+              <div className="absolute bottom-1 right-1 w-4 h-4 border-b-2 border-r-2 border-slate-300 rounded-br" />
+            </div>
+
+            {/* FlowEditor 内容 */}
+            <div className="flex-1 overflow-hidden">
+              <FlowEditor
+                mode="edit"
+                initialFlow={{
+                  id: selectedFlow.id,
+                  name: selectedFlow.name,
+                  description: selectedFlow.description || '',
+                  triggerType: selectedFlow.trigger_type || 'webhook',
+                  nodes: convertToEditorNodes(selectedFlow.nodes || []),
+                  edges: selectedFlow.edges?.map((edge, index) => ({
+                    id: `edge_${index}`,
+                    source: edge.source,
+                    target: edge.target,
+                  })) || [],
+                }}
+                onSave={async (flow) => {
+                  try {
+                    await handleUpdateFlow({
+                      ...formData,
+                      name: flow.name,
+                      description: flow.description,
+                      trigger_type: flow.triggerType,
+                      nodes: convertToBackendNodes(flow.nodes),
+                      edges: flow.edges.map(edge => ({
+                        source: edge.source,
+                        target: edge.target,
+                        condition: edge.sourceHandle,
+                      })),
+                    });
+
+                    setEditorDialog({ ...editorDialog, isOpen: false });
+                    setSelectedFlow(null);
+
+                    toast({
+                      title: '流程更新成功',
+                      description: `流程 "${flow.name}" 已更新`,
+                    });
+                  } catch (error) {
+                    console.error('更新流程失败:', error);
+                    toast({
+                      variant: 'destructive',
+                      title: '更新失败',
+                      description: error instanceof Error ? error.message : '未知错误',
+                    });
+                    throw error;
+                  }
+                }}
+                onClose={() => {
+                  setEditorDialog({ ...editorDialog, isOpen: false });
+                  setSelectedFlow(null);
+                }}
+              />
+            </div>
+          </div>
         </div>
       )}
 
