@@ -25,13 +25,13 @@ class KimiService {
    * 创建LLM客户端
    */
   createClient() {
-    return new LLMClient({
-      model: this.modelId,
-      temperature: this.temperature,
-      maxTokens: this.maxTokens,
-      apiKey: this.apiKey,
-      endpoint: this.apiEndpoint
-    });
+    const { LLMClient, Config } = require('coze-coding-dev-sdk');
+
+    // 创建Config对象，SDK会自动从环境变量加载API密钥
+    const config = new Config();
+    const client = new LLMClient(config);
+
+    return client;
   }
 
   /**
@@ -68,7 +68,10 @@ class KimiService {
         { role: 'user', content: input }
       ];
 
-      const response = await client.invoke(messages);
+      const response = await client.invoke(messages, {
+        model: this.modelId,
+        temperature: this.temperature,
+      });
 
       let result;
       try {
@@ -139,7 +142,10 @@ class KimiService {
 
       let response;
       try {
-        response = await client.invoke(messages);
+        response = await client.invoke(messages, {
+          model: this.modelId,
+          temperature: this.temperature,
+        });
       } catch (apiError) {
         // 如果API Key缺失或API调用失败，返回模拟结果用于测试
         logger.warn('AI API调用失败，返回模拟结果', { error: apiError.message });
@@ -235,7 +241,10 @@ class KimiService {
       const startTime = Date.now();
       await client.invoke([
         { role: 'user', content: '你好' }
-      ]);
+      ], {
+        model: this.modelId,
+        temperature: this.temperature,
+      });
       const responseTime = Date.now() - startTime;
 
       return {
