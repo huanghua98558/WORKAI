@@ -15,6 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X, Settings, Save } from 'lucide-react';
 import { NodeData } from '../types';
+import { NODE_TYPES, NODE_METADATA } from '../types';
 
 interface NodeConfigPanelProps {
   node: NodeData;
@@ -57,6 +58,35 @@ export default function NodeConfigPanel({ node, onUpdate }: NodeConfigPanelProps
 
       {/* 节点基本信息 */}
       <div className="space-y-3 mb-4 pb-4 border-b border-slate-200">
+        <div>
+          <Label htmlFor="node-type">节点类型</Label>
+          <Select
+            value={node.data.type || ''}
+            onValueChange={(value) =>
+              onUpdate({
+                data: {
+                  ...node.data,
+                  type: value,
+                  name: NODE_METADATA[value as keyof typeof NODE_METADATA]?.name || node.data.name,
+                  description: NODE_METADATA[value as keyof typeof NODE_METADATA]?.description || node.data.description,
+                  icon: NODE_METADATA[value as keyof typeof NODE_METADATA]?.icon || node.data.icon,
+                  color: NODE_METADATA[value as keyof typeof NODE_METADATA]?.color || node.data.color,
+                },
+              })
+            }
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="选择节点类型" />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(NODE_METADATA).map(([type, meta]) => (
+                <SelectItem key={type} value={type}>
+                  {meta.icon} {meta.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div>
           <Label htmlFor="node-name">节点名称</Label>
           <Input
@@ -123,13 +153,6 @@ export default function NodeConfigPanel({ node, onUpdate }: NodeConfigPanelProps
 
       {node.data.type === 'execute_notification' && (
         <ExecuteNotificationConfig config={config} onChange={handleConfigChange} />
-      )}
-
-      {/* 未识别的节点类型 */}
-      {!node.data.type && (
-        <div className="text-sm text-slate-500 text-center py-4">
-          请选择节点类型以查看配置选项
-        </div>
       )}
     </Card>
   );

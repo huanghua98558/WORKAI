@@ -95,6 +95,7 @@ export default function FlowCanvas({
         type: 'custom',
         position,
         data: {
+          type: type,
           name: metadata?.name || '新节点',
           description: metadata?.description || '',
           config: {},
