@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import FlowEditor from '@/components/flow-engine-editor';
+import { NODE_TYPES, NODE_METADATA } from '@/app/flow-engine/types';
 import {
   getFlowDefinitions,
   getFlowDefinition,
@@ -120,19 +121,27 @@ export default function FlowEngineManage() {
 
   // 辅助函数：转换后端FlowNode到FlowEditor的NodeData
   const convertToEditorNodes = (flowNodes: FlowNode[]) => {
-    return flowNodes.map((node, index) => ({
-      id: node.id,
-      type: node.type,
-      position: node.position || {
-        x: 100 + (index % 3) * 250,
-        y: 100 + Math.floor(index / 3) * 150
-      },
-      data: {
-        name: node.name,
-        description: '',
-        config: node.config || {},
-      },
-    }));
+    return flowNodes.map((node, index) => {
+      const nodeType = node.type as keyof typeof NODE_TYPES;
+      const metadata = NODE_METADATA[nodeType];
+
+      return {
+        id: node.id,
+        type: 'custom',  // React Flow 节点类型
+        position: node.position || {
+          x: 100 + (index % 3) * 250,
+          y: 100 + Math.floor(index / 3) * 150
+        },
+        data: {
+          type: node.type,  // 业务节点类型
+          name: node.name,
+          description: metadata?.description || '',
+          config: node.config || {},
+          icon: metadata?.icon || '⚙️',
+          color: metadata?.color || 'bg-gray-500',
+        },
+      };
+    });
   };
 
   // 辅助函数：转换FlowEditor的NodeData到后端FlowNode
@@ -143,6 +152,15 @@ export default function FlowEngineManage() {
       name: node.data.name,
       config: node.data.config || {},
       position: node.position,
+    }));
+  };
+
+  // 辅助函数：转换FlowEditor的Edge到后端Edge
+  const convertToBackendEdges = (editorEdges: any[]) => {
+    return editorEdges.map(edge => ({
+      source: edge.source,
+      target: edge.target,
+      condition: edge.sourceHandle,
     }));
   };
 
@@ -800,6 +818,7 @@ export default function FlowEngineManage() {
                         trigger_config: {},
                         version: '1.0.0',
                         nodes: convertToBackendNodes(flow.nodes),
+                        edges: convertToBackendEdges(flow.edges),
                       });
 
                       if (result.success) {
@@ -851,11 +870,7 @@ export default function FlowEngineManage() {
                         trigger_config: selectedFlow!.trigger_config || {},
                         version: selectedFlow!.version || '1.0.0',
                         nodes: convertToBackendNodes(flow.nodes),
-                        edges: flow.edges.map(edge => ({
-                          source: edge.source,
-                          target: edge.target,
-                          condition: edge.sourceHandle,
-                        })),
+                        edges: convertToBackendEdges(flow.edges),
                       });
 
                       if (result.success) {
