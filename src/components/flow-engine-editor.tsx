@@ -17,27 +17,25 @@ import FlowNodeLibrary from '@/app/flow-engine/components/FlowNodeLibrary';
 import NodeConfigPanel from '@/app/flow-engine/components/NodeConfigPanel';
 import FlowTestPanel from '@/app/flow-engine/components/FlowTestPanel';
 import FlowJsonEditor from '@/app/flow-engine/components/FlowJsonEditor';
+import { NodeData as BaseNodeData, EdgeData } from '@/app/flow-engine/types';
 
-// 节点类型定义
+// 节点数据类型（适配 React Flow）
 export interface NodeData {
   id: string;
-  type: string;
+  type: string;  // React Flow 节点类型（'custom'）
   position: { x: number; y: number };
   data: {
+    type: string;  // 业务节点类型（'message_receive', 'intent' 等）
     name: string;
     description?: string;
     config?: Record<string, any>;
+    icon?: string;
+    color?: string;
   };
 }
 
 // 边类型定义
-export interface EdgeData {
-  id: string;
-  source: string;
-  target: string;
-  sourceHandle?: string;
-  targetHandle?: string;
-}
+export type Edge = EdgeData;
 
 // 流程定义类型
 export interface FlowDefinition {
@@ -46,7 +44,8 @@ export interface FlowDefinition {
   description: string;
   triggerType: 'webhook' | 'manual' | 'scheduled';
   nodes: NodeData[];
-  edges: EdgeData[];
+  edges: Edge[];
+  version?: string;
 }
 
 interface FlowEditorProps {
@@ -135,7 +134,7 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
       results.push({
         nodeId: node.id,
         nodeName: node.data.name,
-        nodeType: node.type,
+        nodeType: node.data.type,
         status: 'running',
         duration: Math.floor(Math.random() * 2000) + 100,
         timestamp: new Date().toISOString()
@@ -146,7 +145,7 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
 
       // 根据节点类型返回不同的结果
       let output = {};
-      switch (node.type) {
+      switch (node.data.type) {
         case 'message_receive':
           output = { messageId: `msg_${Date.now()}`, sessionId: `session_${Date.now()}` };
           break;

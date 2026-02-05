@@ -5,6 +5,7 @@ export interface FlowNode {
   type: string;
   name: string;
   config?: Record<string, any>;
+  position?: { x: number; y: number };
 }
 
 export interface FlowDefinition {

@@ -126,7 +126,7 @@ export default function FlowEngineManage() {
     return flowNodes.map((node, index) => ({
       id: node.id,
       type: node.type,
-      position: {
+      position: node.position || {
         x: 100 + (index % 3) * 250,
         y: 100 + Math.floor(index / 3) * 150
       },
@@ -142,9 +142,10 @@ export default function FlowEngineManage() {
   const convertToBackendNodes = (editorNodes: any[]) => {
     return editorNodes.map(node => ({
       id: node.id,
-      type: node.type,
+      type: node.data.type || node.type,  // 使用 node.data.type 作为业务节点类型
       name: node.data.name,
       config: node.data.config || {},
+      position: node.position,
     }));
   };
 
@@ -922,13 +923,7 @@ export default function FlowEngineManage() {
                       trigger_type: flow.triggerType,
                       trigger_config: {},
                       version: '1.0.0',
-                      nodes: flow.nodes.map(node => ({
-                        id: node.id,
-                        type: node.type,
-                        name: node.data.name,
-                        config: node.data.config || {},
-                        position: node.position,
-                      })),
+                      nodes: convertToBackendNodes(flow.nodes),
                     });
 
                     setIsCreateDialogOpen(false);

@@ -14,8 +14,21 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X, Settings, Save } from 'lucide-react';
-import { NodeData } from '../types';
 import { NODE_TYPES, NODE_METADATA } from '../types';
+
+interface NodeData {
+  id: string;
+  type: string;
+  position: { x: number; y: number };
+  data: {
+    type: string;
+    name: string;
+    description?: string;
+    config?: Record<string, any>;
+    icon?: string;
+    color?: string;
+  };
+}
 
 interface NodeConfigPanelProps {
   node: NodeData;
