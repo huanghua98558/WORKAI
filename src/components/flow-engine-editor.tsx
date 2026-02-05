@@ -245,28 +245,30 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
       </div>
 
       {/* 主编辑器区域 */}
-      <div className="flex-1 overflow-hidden">
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'visual' | 'json')} className="h-full">
-          <TabsList className="ml-4 mt-4">
-            <TabsTrigger value="visual">
-              <Settings className="w-4 h-4 mr-2" />
-              可视化编辑
-            </TabsTrigger>
-            <TabsTrigger value="json">
-              <FileJson className="w-4 h-4 mr-2" />
-              JSON编辑
-            </TabsTrigger>
-          </TabsList>
+      <div className="flex-1 overflow-hidden flex flex-col">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'visual' | 'json')} className="flex-1 flex flex-col">
+          <div className="px-4 py-3 border-b">
+            <TabsList>
+              <TabsTrigger value="visual">
+                <Settings className="w-4 h-4 mr-2" />
+                可视化编辑
+              </TabsTrigger>
+              <TabsTrigger value="json">
+                <FileJson className="w-4 h-4 mr-2" />
+                JSON编辑
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-          <TabsContent value="visual" className="h-full p-4">
-            <div className="grid grid-cols-12 gap-4 h-full">
+          <TabsContent value="visual" className="flex-1 p-4 overflow-hidden">
+            <div className="grid grid-cols-12 gap-4 h-full min-h-0">
               {/* 左侧：节点库 */}
-              <div className="col-span-2">
+              <div className="col-span-2 overflow-hidden">
                 <FlowNodeLibrary />
               </div>
 
               {/* 中间：画布 */}
-              <div className="col-span-7">
+              <div className="col-span-7 overflow-hidden">
                 <FlowCanvas
                   nodes={flow.nodes}
                   edges={flow.edges}
@@ -298,7 +300,7 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
             </div>
           </TabsContent>
 
-          <TabsContent value="json" className="h-full p-4">
+          <TabsContent value="json" className="flex-1 p-4 overflow-hidden">
             <FlowJsonEditor
               flow={flow}
               onChange={setFlow}

@@ -909,7 +909,7 @@ export default function FlowEngineManage() {
             </div>
 
             {/* FlowEditor 内容 */}
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-y-auto">
               <FlowEditor
                 mode="create"
                 onSave={async (flow) => {
@@ -1059,7 +1059,7 @@ export default function FlowEngineManage() {
             </div>
 
             {/* FlowEditor 内容 */}
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-y-auto">
               <FlowEditor
                 mode="edit"
                 initialFlow={{
