@@ -249,33 +249,6 @@ export default function RobotGroupManager() {
                     max={100}
                   />
                 </div>
-
-                <div>
-                  <Label htmlFor="routing_strategy">路由策略</Label>
-                  <Select value={formData.routing_strategy} onValueChange={(value) => setFormData({ ...formData, routing_strategy: value })}>
-                    <SelectTrigger id="routing_strategy">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ROUTING_STRATEGIES.map(strategy => (
-                        <SelectItem key={strategy.value} value={strategy.value}>
-                          {strategy.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="load_balancing_config">负载均衡配置 (JSON)</Label>
-                <Textarea
-                  id="load_balancing_config"
-                  value={formData.load_balancing_config}
-                  onChange={(e) => setFormData({ ...formData, load_balancing_config: e.target.value })}
-                  placeholder='{"enable": true, "algorithm": "weighted"}'
-                  rows={4}
-                />
               </div>
 
               <div className="flex justify-end gap-2">
@@ -347,11 +320,6 @@ export default function RobotGroupManager() {
                       {group.description || '-'}
                     </TableCell>
                     <TableCell>{group.priority}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {ROUTING_STRATEGIES.find(s => s.value === group.routing_strategy)?.label || group.routing_strategy}
-                      </Badge>
-                    </TableCell>
                     <TableCell>{group.robot_count || 0}</TableCell>
                     <TableCell>
                       {new Date(group.created_at).toLocaleString('zh-CN')}

@@ -18,9 +18,7 @@ interface RobotRole {
   name: string;
   description: string | null;
   priority: number;
-  permissions: string[];
-  allowed_operations: string[];
-  rate_limits: any;
+  permissions: string[] | Record<string, boolean>;
   created_at: string;
   updated_at: string;
   robot_count?: number;
@@ -44,22 +42,6 @@ const AVAILABLE_PERMISSIONS = [
   { code: 'callback:read', label: '读取回调' },
   { code: 'metrics:read', label: '读取指标' },
   { code: 'metrics:write', label: '记录指标' }
-];
-
-const AVAILABLE_OPERATIONS = [
-  { code: 'send_text', label: '发送文本' },
-  { code: 'send_image', label: '发送图片' },
-  { code: 'send_file', label: '发送文件' },
-  { code: 'create_room', label: '创建群组' },
-  { code: 'invite_to_room', label: '邀请入群' },
-  { code: 'forward_message', label: '转发消息' },
-  { code: 'reply_message', label: '回复消息' },
-  { code: 'upload_file', label: '上传文件' },
-  { code: 'download_file', label: '下载文件' },
-  { code: 'get_contacts', label: '获取联系人' },
-  { code: 'get_rooms', label: '获取群组' },
-  { code: 'update_profile', label: '更新资料' },
-  { code: 'set_status', label: '设置状态' }
 ];
 
 export default function RobotRoleManager() {
@@ -156,10 +138,19 @@ export default function RobotRoleManager() {
   // 编辑角色
   const handleEdit = (role: RobotRole) => {
     setEditingRole(role);
+    // 处理 permissions 字段，支持对象和数组两种格式
+    const permissions = role.permissions
+      ? Array.isArray(role.permissions)
+        ? role.permissions
+        : Object.keys(role.permissions).filter(key => {
+            const permObj = role.permissions as Record<string, boolean>;
+            return permObj[key];
+          })
+      : [];
     setFormData({
       name: role.name || '',
       description: role.description || '',
-      permissions: Array.isArray(role.permissions) ? role.permissions : []
+      permissions
     });
     setIsDialogOpen(true);
   };
@@ -190,15 +181,6 @@ export default function RobotRoleManager() {
     }));
   };
 
-  // 切换操作
-  const toggleOperation = (operationCode: string) => {
-    setFormData(prev => ({
-      ...prev,
-      allowed_operations: Array.isArray(prev.allowed_operations) && prev.allowed_operations.includes(operationCode)
-        ? prev.allowed_operations.filter(o => o !== operationCode)
-        : [...(Array.isArray(prev.allowed_operations) ? prev.allowed_operations : []), operationCode]
-    }));
-  };
 
   return (
     <div className="space-y-6">
@@ -232,17 +214,6 @@ export default function RobotRoleManager() {
                     required
                   />
                 </div>
-                <div>
-                  <Label htmlFor="priority">优先级</Label>
-                  <Input
-                    id="priority"
-                    type="number"
-                    value={formData.priority}
-                    onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) })}
-                    min={0}
-                    max={100}
-                  />
-                </div>
               </div>
 
               <div>
@@ -271,31 +242,7 @@ export default function RobotRoleManager() {
                 </div>
               </div>
 
-              <div>
-                <Label>允许的操作 ({formData.allowed_operations?.length || 0} 项)</Label>
-                <div className="mt-2 grid grid-cols-2 gap-2 p-4 border rounded-lg max-h-48 overflow-y-auto">
-                  {AVAILABLE_OPERATIONS.map(({ code, label }) => (
-                    <label key={code} className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox
-                        checked={Array.isArray(formData.allowed_operations) && formData.allowed_operations.includes(code)}
-                        onCheckedChange={() => toggleOperation(code)}
-                      />
-                      <span className="text-sm">{label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
 
-              <div>
-                <Label htmlFor="rate_limits">速率限制 (JSON)</Label>
-                <Textarea
-                  id="rate_limits"
-                  value={formData.rate_limits}
-                  onChange={(e) => setFormData({ ...formData, rate_limits: e.target.value })}
-                  placeholder='{"per_minute": 60, "per_hour": 1000}'
-                  rows={4}
-                />
-              </div>
 
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -354,9 +301,6 @@ export default function RobotRoleManager() {
                     <TableCell>{role.priority}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{role.permissions?.length || 0}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{role.allowed_operations?.length || 0}</Badge>
                     </TableCell>
                     <TableCell>{role.robot_count || 0}</TableCell>
                     <TableCell>
