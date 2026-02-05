@@ -4,3 +4,4 @@ export * from './sessions';
 export * from './robots';
 export * from './staff';
 export * from './intents';
+export * from './interventions';
