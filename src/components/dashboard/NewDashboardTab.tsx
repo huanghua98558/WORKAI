@@ -164,7 +164,7 @@ export default function NewDashboardTab({
 
     // 检查是否为新接口数据结构（MonitorSummary）
     if ('executions' in monitorData) {
-      return monitorData as MonitorSummary;
+      return monitorData as unknown as MonitorSummary;
     }
 
     // 老接口数据结构（MonitorData），需要转换
@@ -322,8 +322,8 @@ export default function NewDashboardTab({
       {/* 顶部状态栏 */}
       <div className="grid gap-4 md:grid-cols-3">
         {/* 系统状态 */}
-        <Card className="bg-gradient-to-br from-green-500 to-emerald-600 border-none text-white shadow-lg shadow-green-500/20 flex flex-col h-40">
-          <CardHeader className="pb-3 flex-shrink-0 py-3">
+        <Card className="bg-gradient-to-br from-green-500 to-emerald-600 border-none text-white shadow-lg shadow-green-500/20 flex flex-col min-h-32">
+          <CardHeader className="pb-2 flex-shrink-0 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-5 w-5" />
@@ -332,15 +332,15 @@ export default function NewDashboardTab({
               <Badge className="bg-white/20 text-white border-white/30">正常</Badge>
             </div>
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col justify-center px-6">
-            <div className="text-4xl font-bold">运行中</div>
-            <p className="text-sm text-white/80 mt-2">所有服务运行正常</p>
+          <CardContent className="flex-1 flex flex-col justify-center px-5 py-3">
+            <div className="text-3xl font-bold leading-tight">运行中</div>
+            <p className="text-sm text-white/80 mt-1.5">所有服务运行正常</p>
           </CardContent>
         </Card>
 
         {/* 在线机器人 */}
-        <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 border-none text-white shadow-lg shadow-blue-500/20 flex flex-col h-40">
-          <CardHeader className="pb-3 flex-shrink-0 py-3">
+        <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 border-none text-white shadow-lg shadow-blue-500/20 flex flex-col min-h-32">
+          <CardHeader className="pb-2 flex-shrink-0 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Bot className="h-5 w-5" />
@@ -351,15 +351,15 @@ export default function NewDashboardTab({
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col justify-center px-6">
-            <div className="text-4xl font-bold">{onlineRobots.length}</div>
-            <p className="text-sm text-white/80 mt-2">共 {robots.length} 个机器人</p>
+          <CardContent className="flex-1 flex flex-col justify-center px-5 py-3">
+            <div className="text-3xl font-bold leading-tight">{onlineRobots.length}</div>
+            <p className="text-sm text-white/80 mt-1.5">共 {robots.length} 个机器人</p>
           </CardContent>
         </Card>
 
         {/* 今日回调 */}
-        <Card className="bg-gradient-to-br from-purple-500 to-pink-600 border-none text-white shadow-lg shadow-purple-500/20 flex flex-col h-40">
-          <CardHeader className="pb-3 flex-shrink-0 py-3">
+        <Card className="bg-gradient-to-br from-purple-500 to-pink-600 border-none text-white shadow-lg shadow-purple-500/20 flex flex-col min-h-32">
+          <CardHeader className="pb-2 flex-shrink-0 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Activity className="h-5 w-5" />
@@ -372,9 +372,9 @@ export default function NewDashboardTab({
               )}
             </div>
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col justify-center px-6">
-            <div className="text-4xl font-bold">{monitorSummary?.executions?.total || 0}</div>
-            <p className="text-sm text-white/80 mt-2">
+          <CardContent className="flex-1 flex flex-col justify-center px-5 py-3">
+            <div className="text-3xl font-bold leading-tight">{monitorSummary?.executions?.total || 0}</div>
+            <p className="text-sm text-white/80 mt-1.5 leading-tight">
               成功 {monitorSummary?.executions?.success || 0} / 失败 {monitorSummary?.executions?.error || 0}
             </p>
           </CardContent>
@@ -384,16 +384,16 @@ export default function NewDashboardTab({
       {/* 主要内容区域 */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* 左侧列 - 监控数据 */}
-        <div className="space-y-6">
+        <div className="space-y-6 flex flex-col">
           {/* 今日监控摘要 */}
-          <Card className="shadow-md hover:shadow-lg transition-shadow min-h-96 flex flex-col">
-            <CardHeader className="flex-shrink-0 py-4">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+          <Card className="shadow-md hover:shadow-lg transition-shadow flex-1 flex flex-col h-96 overflow-hidden">
+            <CardHeader className="flex-shrink-0 py-3 px-6">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <BarChart3 className="h-5 w-5 text-blue-500" />
                 今日监控摘要
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 space-y-5 px-6 pb-6">
+            <CardContent className="flex-1 space-y-4 px-6 pb-6 overflow-y-auto">
               {/* 执行统计 */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
@@ -433,13 +433,13 @@ export default function NewDashboardTab({
               </div>
 
               {/* 会话统计 */}
-              <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+              <div className="pt-3 border-t border-slate-200 dark:border-slate-700">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <MessageSquare className="h-4 w-4 text-purple-500" />
                     <span className="text-sm text-slate-600 dark:text-slate-400">活跃会话</span>
                   </div>
-                  <span className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+                  <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                     {monitorSummary?.sessions?.active || sessions.length}
                   </span>
                 </div>
@@ -449,13 +449,13 @@ export default function NewDashboardTab({
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div className="text-center p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
                   <div className="text-xs text-slate-600 dark:text-slate-400">AI错误</div>
-                  <div className="text-2xl font-bold text-red-500">
+                  <div className="text-xl font-bold text-red-500">
                     {monitorSummary?.aiErrors || 0}
                   </div>
                 </div>
                 <div className="text-center p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
                   <div className="text-xs text-slate-600 dark:text-slate-400">回调错误</div>
-                  <div className="text-2xl font-bold text-orange-500">
+                  <div className="text-xl font-bold text-orange-500">
                     {monitorSummary?.systemMetrics?.callbackError || 0}
                   </div>
                 </div>
@@ -464,14 +464,14 @@ export default function NewDashboardTab({
           </Card>
 
           {/* 机器人状态 */}
-          <Card className="shadow-md hover:shadow-lg transition-shadow min-h-96 flex flex-col">
-            <CardHeader className="flex-shrink-0 py-4">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+          <Card className="shadow-md hover:shadow-lg transition-shadow flex-1 flex flex-col h-96 overflow-hidden">
+            <CardHeader className="flex-shrink-0 py-3 px-6">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <Bot className="h-5 w-5 text-indigo-500" />
                 机器人状态
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 space-y-3 px-6 pb-6">
+            <CardContent className="flex-1 space-y-3 px-6 pb-6 overflow-y-auto">
               <div className="space-y-3">
                 {onlineRobots.slice(0, 4).map((robot) => (
                   <div
@@ -505,12 +505,12 @@ export default function NewDashboardTab({
         </div>
 
         {/* 中间列 - 告警分析 */}
-        <div className="space-y-6">
+        <div className="space-y-6 flex flex-col">
           {/* 告警概览 */}
-          <Card className="shadow-md hover:shadow-lg transition-shadow min-h-96 flex flex-col">
-            <CardHeader className="flex-shrink-0 py-4">
+          <Card className="shadow-md hover:shadow-lg transition-shadow flex-1 flex flex-col h-96 overflow-hidden">
+            <CardHeader className="flex-shrink-0 py-3 px-6">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
                   <Bell className="h-5 w-5 text-red-500" />
                   告警概览
                 </CardTitle>
@@ -521,27 +521,27 @@ export default function NewDashboardTab({
                 )}
               </div>
             </CardHeader>
-            <CardContent className="flex-1 space-y-5 px-6 pb-6">
+            <CardContent className="flex-1 space-y-4 px-6 pb-6 overflow-y-auto">
               <div className="grid grid-cols-3 gap-3">
                 {/* 待处理 */}
-                <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                <div className="text-center p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                     {alertOverview?.pending || 0}
                   </div>
                   <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">待处理</div>
                 </div>
 
                 {/* 已处理 */}
-                <div className="text-center p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-                  <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                <div className="text-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                     {alertOverview?.handled || 0}
                   </div>
                   <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">已处理</div>
                 </div>
 
                 {/* 已升级 */}
-                <div className="text-center p-4 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                  <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                <div className="text-center p-3 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                     {alertOverview?.escalated || 0}
                   </div>
                   <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">已升级</div>
@@ -601,14 +601,14 @@ export default function NewDashboardTab({
           </Card>
 
           {/* 关键指标 */}
-          <Card className="shadow-md hover:shadow-lg transition-shadow min-h-96 flex flex-col">
-            <CardHeader className="flex-shrink-0 py-4">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+          <Card className="shadow-md hover:shadow-lg transition-shadow flex-1 flex flex-col h-96 overflow-hidden">
+            <CardHeader className="flex-shrink-0 py-3 px-6">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-green-500" />
                 关键指标
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 space-y-4 px-6 pb-6">
+            <CardContent className="flex-1 space-y-3 px-6 pb-6 overflow-y-auto">
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-2">
                   <span className="text-sm text-slate-600 dark:text-slate-400">平均响应时间</span>
@@ -634,16 +634,16 @@ export default function NewDashboardTab({
         </div>
 
         {/* 右侧列 - 活跃排行 */}
-        <div className="space-y-6">
+        <div className="space-y-6 flex flex-col">
           {/* Top活跃群组 */}
-          <Card className="shadow-md hover:shadow-lg transition-shadow min-h-96 flex flex-col">
-            <CardHeader className="flex-shrink-0 py-4">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+          <Card className="shadow-md hover:shadow-lg transition-shadow flex-1 flex flex-col h-96 overflow-hidden">
+            <CardHeader className="flex-shrink-0 py-3 px-6">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <Flame className="h-5 w-5 text-orange-500" />
                 Top活跃群组
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 space-y-2 px-6 pb-6">
+            <CardContent className="flex-1 space-y-2 px-6 pb-6 overflow-y-auto">
               <div className="space-y-2">
                 {activeGroups.length > 0 ? (
                   activeGroups.map((group, index) => (
@@ -683,14 +683,14 @@ export default function NewDashboardTab({
           </Card>
 
           {/* Top活跃用户 */}
-          <Card className="shadow-md hover:shadow-lg transition-shadow min-h-96 flex flex-col">
-            <CardHeader className="flex-shrink-0 py-4">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+          <Card className="shadow-md hover:shadow-lg transition-shadow flex-1 flex flex-col h-96 overflow-hidden">
+            <CardHeader className="flex-shrink-0 py-3 px-6">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <Users className="h-5 w-5 text-cyan-500" />
                 Top活跃用户
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 space-y-2 px-6 pb-6">
+            <CardContent className="flex-1 space-y-2 px-6 pb-6 overflow-y-auto">
               <div className="space-y-2">
                 {activeUsers.length > 0 ? (
                   activeUsers.map((user, index) => (
