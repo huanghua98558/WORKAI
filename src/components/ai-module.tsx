@@ -46,7 +46,8 @@ import {
   FileJson,
   FileSearch,
   CheckSquare,
-  Square
+  Square,
+  Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -141,12 +142,16 @@ const COMMON_MODEL_NAMES = [
 
 interface MessageTemplate {
   id: string;
+  type: 'template' | 'qa'; // 类型：template=话术模板, qa=知识库问答
   category: string;
   name: string;
   description: string;
-  template: string;
+  template?: string; // 话术模板内容（type='template'时使用）
+  qaPairs?: { question: string; answer: string; keywords: string[] }[]; // 问答对（type='qa'时使用）
   variables: string[];
   isActive: boolean;
+  keywords?: string[]; // 关键词（用于知识库检索）
+  autoGenerateFAQ?: boolean; // 是否自动生成FAQ
 }
 
 // 中文映射函数
@@ -211,6 +216,10 @@ export default function AIModule() {
   const [selectedTemplate, setSelectedTemplate] = useState<MessageTemplate | null>(null);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<Set<string>>(new Set());
+
+  // 知识库导入
+  const [showKnowledgeImportDialog, setShowKnowledgeImportDialog] = useState(false);
+  const [importingToKnowledge, setImportingToKnowledge] = useState(false);
 
   // AI调试
   const [testInput, setTestInput] = useState('');
@@ -707,6 +716,120 @@ export default function AIModule() {
     }
   };
 
+  // 导入到知识库
+  const handleImportToKnowledge = async (template: MessageTemplate) => {
+    if (template.type !== 'qa' || !template.qaPairs || template.qaPairs.length === 0) {
+      toast.warning('只有包含问答对的知识库问答才能导入到知识库');
+      return;
+    }
+
+    setImportingToKnowledge(true);
+    try {
+      // 将问答对转换为文档格式
+      const documents = template.qaPairs.map(qa => ({
+        type: 'text' as const,
+        content: `问题: ${qa.question}\n回答: ${qa.answer}\n关键词: ${qa.keywords?.join(', ') || '无'}`
+      }));
+
+      const response = await fetch('/api/knowledge/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documents,
+          dataset: 'worktool_knowledge'
+        })
+      });
+
+      // 检查响应状态
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          toast.error(data.error || data.message || '导入失败');
+        } else {
+          const text = await response.text();
+          console.error('非JSON响应:', text);
+          toast.error('导入失败：服务器返回了非JSON响应');
+        }
+        return;
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success(`成功导入 ${template.qaPairs.length} 个问答对到知识库`);
+      } else {
+        toast.error(data.error || '导入失败');
+      }
+    } catch (error) {
+      console.error('导入失败:', error);
+      toast.error('导入失败');
+    } finally {
+      setImportingToKnowledge(false);
+    }
+  };
+
+  // 批量导入选中的知识库问答到知识库
+  const handleBatchImportToKnowledge = async () => {
+    const selectedTemplates = templates.filter(t => 
+      selectedTemplateIds.has(t.id) && 
+      t.type === 'qa' && 
+      t.qaPairs && 
+      t.qaPairs.length > 0
+    );
+
+    if (selectedTemplates.length === 0) {
+      toast.warning('请先选择包含问答对的知识库问答');
+      return;
+    }
+
+    setImportingToKnowledge(true);
+    try {
+      // 将所有选中的问答对转换为文档格式
+      const documents = selectedTemplates.flatMap(template =>
+        template.qaPairs!.map(qa => ({
+          type: 'text' as const,
+          content: `问答库: ${template.name}\n问题: ${qa.question}\n回答: ${qa.answer}\n关键词: ${qa.keywords?.join(', ') || '无'}`
+        }))
+      );
+
+      const response = await fetch('/api/knowledge/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documents,
+          dataset: 'worktool_knowledge'
+        })
+      });
+
+      // 检查响应状态
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          toast.error(data.error || data.message || '导入失败');
+        } else {
+          const text = await response.text();
+          console.error('非JSON响应:', text);
+          toast.error('导入失败：服务器返回了非JSON响应');
+        }
+        return;
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success(`成功导入 ${documents.length} 个问答对到知识库`);
+        setSelectedTemplateIds(new Set());
+      } else {
+        toast.error(data.error || '导入失败');
+      }
+    } catch (error) {
+      console.error('导入失败:', error);
+      toast.error('导入失败');
+    } finally {
+      setImportingToKnowledge(false);
+    }
+  };
+
   // 批量删除话术模板
   const handleBatchDeleteTemplates = async () => {
     if (selectedTemplateIds.size === 0) {
@@ -1107,21 +1230,31 @@ export default function AIModule() {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <MessageCircle className="h-5 w-5 text-primary" />
-                    话术模板
+                    话术模板 & 知识库问答
                   </CardTitle>
                   <CardDescription className="mt-2">
-                    管理 {templates.length} 个话术模板，覆盖各类场景
+                    管理 {templates.filter(t => t.type === 'template').length} 个话术模板和 {templates.filter(t => t.type === 'qa').length} 个知识库问答
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
                   {selectedTemplateIds.size > 0 && (
-                    <Button
-                      variant="destructive"
-                      onClick={handleBatchDeleteTemplates}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      批量删除 ({selectedTemplateIds.size})
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={handleBatchImportToKnowledge}
+                        disabled={importingToKnowledge}
+                      >
+                        <Database className="h-4 w-4 mr-2" />
+                        导入选中到知识库
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={handleBatchDeleteTemplates}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        批量删除 ({selectedTemplateIds.size})
+                      </Button>
+                    </>
                   )}
                   <Button onClick={() => setShowTemplateDialog(true)}>
                     <Plus className="h-4 w-4 mr-2" />
@@ -1134,7 +1267,7 @@ export default function AIModule() {
               <Alert className="mb-4">
                 <Info className="h-4 w-4" />
                 <AlertDescription>
-                  目前已加载 {templates.length} 个话术模板示例，完整版本包含更多模板。
+                  支持话术模板（用于固定格式的消息回复）和知识库问答（用于问答对和FAQ管理）。
                 </AlertDescription>
               </Alert>
 
@@ -1185,21 +1318,50 @@ export default function AIModule() {
                         )}
                       </button>
 
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <MessageCircle className="h-5 w-5 text-primary" />
+                      <div className={`p-2 rounded-lg ${template.type === 'qa' ? 'bg-blue-10' : 'bg-primary/10'}`}>
+                        {template.type === 'qa' ? (
+                          <Database className="h-5 w-5 text-blue-500" />
+                        ) : (
+                          <MessageCircle className="h-5 w-5 text-primary" />
+                        )}
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold">{template.name}</h3>
-                          <Badge variant="secondary">{template.category}</Badge>
+                          <Badge variant={template.type === 'qa' ? 'default' : 'secondary'}>
+                            {template.type === 'qa' ? '知识库问答' : '话术模板'}
+                          </Badge>
+                          <Badge variant="outline">{template.category}</Badge>
                           {template.isActive && <Badge variant="default">启用</Badge>}
+                          {template.autoGenerateFAQ && template.type === 'qa' && (
+                            <Badge variant="outline" className="text-blue-600">
+                              <Sparkles className="h-3 w-3 mr-1" />
+                              自动FAQ
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
                           {template.description}
                         </p>
+                        {template.type === 'qa' && template.qaPairs && template.qaPairs.length > 0 && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {template.qaPairs.length} 个问答对
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      {template.type === 'qa' && template.qaPairs && template.qaPairs.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleImportToKnowledge(template)}
+                          disabled={importingToKnowledge}
+                        >
+                          <Database className="h-4 w-4 mr-1" />
+                          导入知识库
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
@@ -2250,13 +2412,37 @@ export default function AIModule() {
 
       {/* 话术模板对话框 */}
       <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {selectedTemplate ? '编辑话术模板' : '添加话术模板'}
+              {selectedTemplate ? '编辑' : '添加'}
+              {selectedTemplate?.type === 'qa' ? '知识库问答' : '话术模板'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* 类型选择 */}
+            <div>
+              <Label htmlFor="template-type">类型</Label>
+              <Select
+                value={selectedTemplate?.type || 'template'}
+                onValueChange={(value) => setSelectedTemplate({ ...selectedTemplate, type: value as 'template' | 'qa' } as MessageTemplate)}
+              >
+                <SelectTrigger id="template-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="template">
+                    <MessageCircle className="h-4 w-4 mr-2 inline" />
+                    话术模板 - 用于固定格式的消息回复
+                  </SelectItem>
+                  <SelectItem value="qa">
+                    <Database className="h-4 w-4 mr-2 inline" />
+                    知识库问答 - 用于问答对和FAQ
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div>
               <Label htmlFor="template-category">分类</Label>
               <Input
@@ -2266,51 +2452,154 @@ export default function AIModule() {
                 placeholder="分类代码"
               />
             </div>
+
             <div>
-              <Label htmlFor="template-name">模板名称</Label>
+              <Label htmlFor="template-name">名称</Label>
               <Input
                 id="template-name"
                 value={selectedTemplate?.name || ''}
                 onChange={(e) => setSelectedTemplate({ ...selectedTemplate, name: e.target.value } as MessageTemplate)}
-                placeholder="模板名称"
+                placeholder="模板或问答库名称"
               />
             </div>
+
             <div>
               <Label htmlFor="template-description">描述</Label>
               <Textarea
                 id="template-description"
                 value={selectedTemplate?.description || ''}
                 onChange={(e) => setSelectedTemplate({ ...selectedTemplate, description: e.target.value } as MessageTemplate)}
-                placeholder="模板描述"
+                placeholder="描述信息"
                 rows={2}
               />
             </div>
-            <div>
-              <Label htmlFor="template-content">模板内容</Label>
-              <Textarea
-                id="template-content"
-                value={selectedTemplate?.template || ''}
-                onChange={(e) => setSelectedTemplate({ ...selectedTemplate, template: e.target.value } as MessageTemplate)}
-                placeholder="模板内容，可以使用 {变量名} 格式"
-                rows={6}
-              />
-            </div>
-            <div>
-              <Label htmlFor="template-variables">变量（逗号分隔）</Label>
-              <Input
-                id="template-variables"
-                value={selectedTemplate?.variables?.join(', ') || ''}
-                onChange={(e) => setSelectedTemplate({ ...selectedTemplate, variables: e.target.value.split(',').map(v => v.trim()) } as MessageTemplate)}
-                placeholder="变量1, 变量2, 变量3"
-              />
-            </div>
+
+            {/* 根据类型显示不同的编辑界面 */}
+            {selectedTemplate?.type === 'qa' ? (
+              /* 知识库问答编辑 */
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label>问答对列表</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const qaPairs = selectedTemplate?.qaPairs || [];
+                        setSelectedTemplate({
+                          ...selectedTemplate,
+                          qaPairs: [...qaPairs, { question: '', answer: '', keywords: [] }]
+                        } as MessageTemplate);
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      添加问答对
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3 max-h-60 overflow-y-auto">
+                    {(selectedTemplate?.qaPairs || []).map((qa, index) => (
+                      <Card key={index} className="p-3">
+                        <div className="space-y-2">
+                          <div className="flex items-start gap-2">
+                            <Label className="w-16 mt-1">问题：</Label>
+                            <Input
+                              value={qa.question}
+                              onChange={(e) => {
+                                const qaPairs = [...(selectedTemplate?.qaPairs || [])];
+                                qaPairs[index] = { ...qa, question: e.target.value };
+                                setSelectedTemplate({ ...selectedTemplate, qaPairs } as MessageTemplate);
+                              }}
+                              placeholder="输入问题"
+                            />
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <Label className="w-16 mt-1">回答：</Label>
+                            <Textarea
+                              value={qa.answer}
+                              onChange={(e) => {
+                                const qaPairs = [...(selectedTemplate?.qaPairs || [])];
+                                qaPairs[index] = { ...qa, answer: e.target.value };
+                                setSelectedTemplate({ ...selectedTemplate, qaPairs } as MessageTemplate);
+                              }}
+                              placeholder="输入回答"
+                              rows={2}
+                            />
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <Label className="w-16 mt-1">关键词：</Label>
+                            <Input
+                              value={qa.keywords?.join(', ') || ''}
+                              onChange={(e) => {
+                                const qaPairs = [...(selectedTemplate?.qaPairs || [])];
+                                qaPairs[index] = { ...qa, keywords: e.target.value.split(',').map(k => k.trim()).filter(k => k) };
+                                setSelectedTemplate({ ...selectedTemplate, qaPairs } as MessageTemplate);
+                              }}
+                              placeholder="关键词，用逗号分隔"
+                            />
+                          </div>
+                          <div className="flex justify-end">
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => {
+                                const qaPairs = (selectedTemplate?.qaPairs || []).filter((_, i) => i !== index);
+                                setSelectedTemplate({ ...selectedTemplate, qaPairs } as MessageTemplate);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              删除
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="template-auto-faq"
+                    checked={selectedTemplate?.autoGenerateFAQ ?? false}
+                    onCheckedChange={(checked) => setSelectedTemplate({ ...selectedTemplate, autoGenerateFAQ: checked } as MessageTemplate)}
+                  />
+                  <Label htmlFor="template-auto-faq">自动生成FAQ文档</Label>
+                </div>
+              </div>
+            ) : (
+              /* 话术模板编辑 */
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="template-content">模板内容</Label>
+                  <Textarea
+                    id="template-content"
+                    value={selectedTemplate?.template || ''}
+                    onChange={(e) => setSelectedTemplate({ ...selectedTemplate, template: e.target.value } as MessageTemplate)}
+                    placeholder="模板内容，可以使用 {变量名} 格式"
+                    rows={6}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="template-variables">变量（逗号分隔）</Label>
+                  <Input
+                    id="template-variables"
+                    value={selectedTemplate?.variables?.join(', ') || ''}
+                    onChange={(e) => setSelectedTemplate({ ...selectedTemplate, variables: e.target.value.split(',').map(v => v.trim()) } as MessageTemplate)}
+                    placeholder="变量1, 变量2, 变量3"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center gap-2">
               <Switch
                 id="template-active"
                 checked={selectedTemplate?.isActive ?? true}
                 onCheckedChange={(checked) => setSelectedTemplate({ ...selectedTemplate, isActive: checked } as MessageTemplate)}
               />
-              <Label htmlFor="template-active">启用此模板</Label>
+              <Label htmlFor="template-active">启用</Label>
             </div>
           </div>
           <DialogFooter>

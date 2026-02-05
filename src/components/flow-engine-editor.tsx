@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Play, Save, TestTube, FileJson, Settings, X, Minus2, Maximize2 } from 'lucide-react';
+import { Play, Save, TestTube, FileJson, Settings, X, Minimize2, Maximize2 } from 'lucide-react';
 import FlowCanvas from '@/app/flow-engine/components/FlowCanvas';
 import FlowNodeLibrary from '@/app/flow-engine/components/FlowNodeLibrary';
 import NodeConfigPanel from '@/app/flow-engine/components/NodeConfigPanel';
