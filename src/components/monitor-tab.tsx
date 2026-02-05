@@ -377,36 +377,126 @@ export default function MonitorTab() {
         </TabsContent>
 
         {/* 统计分析标签页 */}
-        <TabsContent value="stats" className="space-y-4 mt-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h4 className="text-lg font-semibold">统计分析</h4>
-              <p className="text-sm text-muted-foreground">
-                查看告警趋势和统计数据
-              </p>
-            </div>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => window.location.href = '/alerts/stats'}
-              className="gap-2"
-            >
-              <BarChart3 className="h-4 w-4" />
-              查看详细统计
-            </Button>
+        <TabsContent value="stats" className="space-y-6 mt-6">
+          <div className="mb-2">
+            <h4 className="text-lg font-semibold">统计分析</h4>
+            <p className="text-sm text-muted-foreground">
+              查看告警趋势和统计数据
+            </p>
           </div>
+
+          {/* 统计概览 */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>总告警数</CardDescription>
+                <CardTitle className="text-3xl">{health?.alerts?.total || 0}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xs text-gray-500">所有告警</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>待处理</CardDescription>
+                <CardTitle className="text-3xl text-blue-600">{health?.alerts?.pending || 0}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center text-xs text-gray-500">
+                  <Clock className="h-3 w-3 mr-1" />
+                  需要处理
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>紧急告警</CardDescription>
+                <CardTitle className="text-3xl text-red-600">{health?.alerts?.critical || 0}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center text-xs text-gray-500">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  需要立即处理
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>警告</CardDescription>
+                <CardTitle className="text-3xl text-yellow-600">{health?.alerts?.warning || 0}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center text-xs text-gray-500">
+                  <Bell className="h-3 w-3 mr-1" />
+                  需要关注
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>信息</CardDescription>
+                <CardTitle className="text-3xl text-gray-600">{health?.alerts?.info || 0}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center text-xs text-gray-500">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  一般提示
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 告警级别分布 */}
           <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>请访问告警统计页面查看详细的图表分析</p>
-              <Button 
-                variant="outline" 
-                className="mt-4 gap-2"
-                onClick={() => window.location.href = '/alerts/stats'}
-              >
-                前往统计页面
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+            <CardHeader>
+              <CardTitle>告警级别分布</CardTitle>
+              <CardDescription>不同级别告警的数量占比</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>紧急</span>
+                    <span>{health?.alerts?.critical || 0} ({health?.alerts?.total && health.alerts.total > 0 ? ((health.alerts.critical / health.alerts.total) * 100).toFixed(1) : 0}%)</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-red-500 h-2 rounded-full transition-all"
+                      style={{ width: health?.alerts?.total && health.alerts.total > 0 ? `${(health.alerts.critical / health.alerts.total) * 100}%` : '0%' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>警告</span>
+                    <span>{health?.alerts?.warning || 0} ({health?.alerts?.total && health.alerts.total > 0 ? ((health.alerts.warning / health.alerts.total) * 100).toFixed(1) : 0}%)</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-yellow-500 h-2 rounded-full transition-all"
+                      style={{ width: health?.alerts?.total && health.alerts.total > 0 ? `${(health.alerts.warning / health.alerts.total) * 100}%` : '0%' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>信息</span>
+                    <span>{health?.alerts?.info || 0} ({health?.alerts?.total && health.alerts.total > 0 ? ((health.alerts.info / health.alerts.total) * 100).toFixed(1) : 0}%)</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-gray-500 h-2 rounded-full transition-all"
+                      style={{ width: health?.alerts?.total && health.alerts.total > 0 ? `${(health.alerts.info / health.alerts.total) * 100}%` : '0%' }}
+                    />
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
