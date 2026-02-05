@@ -10,14 +10,14 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  Settings, 
-  Bot, 
-  Save, 
-  RefreshCw, 
-  Database, 
-  Cpu, 
-  Bell, 
+import {
+  Settings,
+  Bot,
+  Save,
+  RefreshCw,
+  Database,
+  Cpu,
+  Bell,
   AlertTriangle,
   MessageSquare,
   FileText,
@@ -25,8 +25,14 @@ import {
   Shield,
   Activity,
   Mail,
-  UserCheck
+  UserCheck,
+  Server,
+  HardDrive,
+  Network,
+  Globe,
+  Clock
 } from 'lucide-react';
+import SystemLogs from '@/components/system-logs';
 
 interface SettingsTabProps {
   aiConfig: any;
@@ -81,24 +87,31 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
     }
   };
 
-  const updateAiConfig = (provider: string, field: string, value: any) => {
-    setConfig({
-      ...config,
-      ai: {
-        ...config.ai,
-        [provider]: {
-          ...config.ai?.[provider],
-          [field]: value
-        }
-      }
-    });
-  };
-
   const updateAutoReplyConfig = (field: string, value: any) => {
     setConfig({
       ...config,
       autoReply: {
         ...config.autoReply,
+        [field]: value
+      }
+    });
+  };
+
+  const updateAiConfig = (field: string, value: any) => {
+    setConfig({
+      ...config,
+      ai: {
+        ...config.ai,
+        [field]: value
+      }
+    });
+  };
+
+  const updateFlowConfig = (field: string, value: any) => {
+    setConfig({
+      ...config,
+      flow: {
+        ...config.flow,
         [field]: value
       }
     });
@@ -124,6 +137,16 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
     });
   };
 
+  const updateNotificationConfig = (field: string, value: any) => {
+    setConfig({
+      ...config,
+      notification: {
+        ...config.notification,
+        [field]: value
+      }
+    });
+  };
+
   if (isLoading || isLoadingAiConfig) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -142,7 +165,7 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
             <Settings className="h-6 w-6 text-gray-500" />
             系统设置
           </h3>
-          <p className="text-muted-foreground mt-1">配置系统参数、自动回复、监控和告警规则</p>
+          <p className="text-muted-foreground mt-1">配置系统参数、自动回复、AI、流程、日志等</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={loadConfig} disabled={isLoading}>
@@ -157,18 +180,22 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
       </div>
 
       <Tabs defaultValue="autoreply" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="autoreply">
             <MessageSquare className="h-4 w-4 mr-2" />
             自动回复
           </TabsTrigger>
-          <TabsTrigger value="monitor">
-            <Activity className="h-4 w-4 mr-2" />
-            监控
+          <TabsTrigger value="ai">
+            <Bot className="h-4 w-4 mr-2" />
+            AI配置
           </TabsTrigger>
-          <TabsTrigger value="alert">
-            <Bell className="h-4 w-4 mr-2" />
-            告警
+          <TabsTrigger value="flow">
+            <Zap className="h-4 w-4 mr-2" />
+            流程配置
+          </TabsTrigger>
+          <TabsTrigger value="logs">
+            <Server className="h-4 w-4 mr-2" />
+            系统日志
           </TabsTrigger>
         </TabsList>
 
@@ -297,42 +324,202 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
           </Card>
         </TabsContent>
 
-        {/* 监控配置 */}
-        <TabsContent value="monitor" className="space-y-4">
+        {/* AI配置 */}
+        <TabsContent value="ai" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5 text-blue-500" />
-                监控开关
+                <Bot className="h-5 w-5 text-purple-500" />
+                AI模型配置
               </CardTitle>
-              <CardDescription>启用或禁用系统监控功能</CardDescription>
+              <CardDescription>配置意图识别、服务回复、闲聊使用的AI模型</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="monitorEnabled">启用监控</Label>
-                  <p className="text-xs text-muted-foreground">
-                    开启后系统将实时监控各项指标
-                  </p>
-                </div>
-                <Switch
-                  id="monitorEnabled"
-                  checked={config.monitor?.enabled !== false}
-                  onCheckedChange={(checked) => updateMonitorConfig('enabled', checked)}
+              <div>
+                <Label htmlFor="intentModel">意图识别模型</Label>
+                <Select
+                  value={config.ai?.intentRecognition?.builtinModelId || 'doubao-pro-4k'}
+                  onValueChange={(value) => updateAiConfig('intentRecognition', {
+                    ...config.ai?.intentRecognition,
+                    builtinModelId: value
+                  })}
+                >
+                  <SelectTrigger id="intentModel">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {builtinModels.map((model: any) => (
+                      <SelectItem key={model.id} value={model.id}>
+                        {model.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="serviceModel">服务回复模型</Label>
+                <Select
+                  value={config.ai?.serviceReply?.builtinModelId || 'doubao-pro-32k'}
+                  onValueChange={(value) => updateAiConfig('serviceReply', {
+                    ...config.ai?.serviceReply,
+                    builtinModelId: value
+                  })}
+                >
+                  <SelectTrigger id="serviceModel">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {builtinModels.map((model: any) => (
+                      <SelectItem key={model.id} value={model.id}>
+                        {model.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="chatModel">闲聊模型</Label>
+                <Select
+                  value={config.ai?.chat?.builtinModelId || 'doubao-pro-4k'}
+                  onValueChange={(value) => updateAiConfig('chat', {
+                    ...config.ai?.chat,
+                    builtinModelId: value
+                  })}
+                >
+                  <SelectTrigger id="chatModel">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {builtinModels.map((model: any) => (
+                      <SelectItem key={model.id} value={model.id}>
+                        {model.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-yellow-500" />
+                AI预算控制
+              </CardTitle>
+              <CardDescription>配置AI调用的预算上限和超限策略</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="dailyBudget">每日预算上限（元）</Label>
+                <Input
+                  id="dailyBudget"
+                  type="number"
+                  value={config.ai?.budget?.dailyLimit || 100}
+                  onChange={(e) => updateAiConfig('budget', {
+                    ...config.ai?.budget,
+                    dailyLimit: parseFloat(e.target.value)
+                  })}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="singleBudget">单次成本上限（元）</Label>
+                <Input
+                  id="singleBudget"
+                  type="number"
+                  value={config.ai?.budget?.singleLimit || 10}
+                  onChange={(e) => updateAiConfig('budget', {
+                    ...config.ai?.budget,
+                    singleLimit: parseFloat(e.target.value)
+                  })}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="overLimitStrategy">超限策略</Label>
+                <Select
+                  value={config.ai?.budget?.overLimitStrategy || 'downgrade'}
+                  onValueChange={(value) => updateAiConfig('budget', {
+                    ...config.ai?.budget,
+                    overLimitStrategy: value
+                  })}
+                >
+                  <SelectTrigger id="overLimitStrategy">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="stop">停止服务</SelectItem>
+                    <SelectItem value="downgrade">降级服务</SelectItem>
+                    <SelectItem value="notify">仅通知</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 流程配置 */}
+        <TabsContent value="flow" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-blue-500" />
+                流程引擎设置
+              </CardTitle>
+              <CardDescription>配置流程引擎的全局参数</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="defaultFlow">默认流程</Label>
+                <Select
+                  value={config.flow?.defaultFlow || 'customer-service'}
+                  onValueChange={(value) => updateFlowConfig('defaultFlow', value)}
+                >
+                  <SelectTrigger id="defaultFlow">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="customer-service">客服回复流程</SelectItem>
+                    <SelectItem value="alert">告警流程</SelectItem>
+                    <SelectItem value="command">指令执行流程</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="flowTimeout">流程超时时间（秒）</Label>
+                <Input
+                  id="flowTimeout"
+                  type="number"
+                  value={config.flow?.timeout || 300}
+                  onChange={(e) => updateFlowConfig('timeout', parseInt(e.target.value))}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="retryCount">错误重试次数</Label>
+                <Input
+                  id="retryCount"
+                  type="number"
+                  value={config.flow?.retryCount || 3}
+                  onChange={(e) => updateFlowConfig('retryCount', parseInt(e.target.value))}
                 />
               </div>
 
               <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="alertEnabled">启用告警</Label>
+                <div className="space-y-0.5">
+                  <Label htmlFor="versionManagement">流程版本管理</Label>
                   <p className="text-xs text-muted-foreground">
-                    开启后监控异常时将发送告警通知
+                    启用后，流程修改会创建新版本
                   </p>
                 </div>
                 <Switch
-                  id="alertEnabled"
-                  checked={config.monitor?.alertEnabled !== false}
-                  onCheckedChange={(checked) => updateMonitorConfig('alertEnabled', checked)}
+                  id="versionManagement"
+                  checked={config.flow?.versionManagement || false}
+                  onCheckedChange={(checked) => updateFlowConfig('versionManagement', checked)}
                 />
               </div>
             </CardContent>
@@ -341,367 +528,302 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5 text-green-500" />
-                监控指标
+                <Activity className="h-5 w-5 text-green-500" />
+                节点配置
               </CardTitle>
-              <CardDescription>选择需要监控的系统指标</CardDescription>
+              <CardDescription>配置各类型节点的超时时间</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="metricSystem">系统指标</Label>
-                  <p className="text-xs text-muted-foreground">
-                    CPU、内存、磁盘使用率
-                  </p>
-                </div>
-                <Switch
-                  id="metricSystem"
-                  checked={config.monitor?.metrics?.system !== false}
-                  onCheckedChange={(checked) => {
-                    setConfig({
-                      ...config,
-                      monitor: {
-                        ...config.monitor,
-                        metrics: {
-                          ...config.monitor?.metrics,
-                          system: checked
-                        }
-                      }
-                    });
-                  }}
+              <div>
+                <Label htmlFor="aiNodeTimeout">AI节点超时时间（秒）</Label>
+                <Input
+                  id="aiNodeTimeout"
+                  type="number"
+                  value={config.flow?.nodeTimeout?.ai || 30}
+                  onChange={(e) => updateFlowConfig('nodeTimeout', {
+                    ...config.flow?.nodeTimeout,
+                    ai: parseInt(e.target.value)
+                  })}
                 />
               </div>
 
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="metricGroup">群组指标</Label>
-                  <p className="text-xs text-muted-foreground">
-                    群组消息数、活跃度
-                  </p>
-                </div>
-                <Switch
-                  id="metricGroup"
-                  checked={config.monitor?.metrics?.group !== false}
-                  onCheckedChange={(checked) => {
-                    setConfig({
-                      ...config,
-                      monitor: {
-                        ...config.monitor,
-                        metrics: {
-                          ...config.monitor?.metrics,
-                          group: checked
-                        }
-                      }
-                    });
-                  }}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="metricUser">用户指标</Label>
-                  <p className="text-xs text-muted-foreground">
-                    用户活跃度、消息数
-                  </p>
-                </div>
-                <Switch
-                  id="metricUser"
-                  checked={config.monitor?.metrics?.user !== false}
-                  onCheckedChange={(checked) => {
-                    setConfig({
-                      ...config,
-                      monitor: {
-                        ...config.monitor,
-                        metrics: {
-                          ...config.monitor?.metrics,
-                          user: checked
-                        }
-                      }
-                    });
-                  }}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="metricAi">AI 指标</Label>
-                  <p className="text-xs text-muted-foreground">
-                    AI 调用成功率、响应时间
-                  </p>
-                </div>
-                <Switch
-                  id="metricAi"
-                  checked={config.monitor?.metrics?.ai !== false}
-                  onCheckedChange={(checked) => {
-                    setConfig({
-                      ...config,
-                      monitor: {
-                        ...config.monitor,
-                        metrics: {
-                          ...config.monitor?.metrics,
-                          ai: checked
-                        }
-                      }
-                    });
-                  }}
+              <div>
+                <Label htmlFor="webhookNodeTimeout">Webhook节点超时时间（秒）</Label>
+                <Input
+                  id="webhookNodeTimeout"
+                  type="number"
+                  value={config.flow?.nodeTimeout?.webhook || 10}
+                  onChange={(e) => updateFlowConfig('nodeTimeout', {
+                    ...config.flow?.nodeTimeout,
+                    webhook: parseInt(e.target.value)
+                  })}
                 />
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* 告警配置 */}
-        <TabsContent value="alert" className="space-y-4">
+        {/* 系统日志 */}
+        <TabsContent value="logs" className="space-y-4">
+          <SystemLogs />
+        </TabsContent>
+
+        {/* 数据管理（暂未实现） */}
+        <TabsContent value="data" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5 text-purple-500" />
-                告警规则
+                <Database className="h-5 w-5 text-blue-500" />
+                数据备份
               </CardTitle>
-              <CardDescription>配置系统告警规则和通知方式</CardDescription>
+              <CardDescription>配置数据备份策略</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {config.alert?.rules?.map((rule: any, index: number) => (
-                <div key={rule.id} className="p-4 border rounded-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Badge variant={rule.enabled ? 'default' : 'secondary'}>
-                        {rule.enabled ? '启用' : '禁用'}
-                      </Badge>
-                      <span className="font-medium">{rule.name}</span>
-                    </div>
-                    <Switch
-                      checked={rule.enabled}
-                      onCheckedChange={(checked) => {
-                        const newRules = [...(config.alert?.rules || [])];
-                        newRules[index].enabled = checked;
-                        updateAlertConfig('rules', newRules);
-                      }}
-                    />
-                  </div>
-                  <p className="text-sm text-muted-foreground">{rule.description}</p>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="autoBackup">自动备份</Label>
+                  <p className="text-xs text-muted-foreground">
+                    定期自动备份系统数据
+                  </p>
                 </div>
-              )) || <div className="text-center py-4 text-muted-foreground">暂无告警规则</div>}
+                <Switch
+                  id="autoBackup"
+                  checked={config.data?.autoBackup || false}
+                  onCheckedChange={(checked) => setConfig({
+                    ...config,
+                    data: { ...config.data, autoBackup: checked }
+                  })}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="backupFrequency">备份频率</Label>
+                <Select
+                  value={config.data?.backupFrequency || 'daily'}
+                  onValueChange={(value) => setConfig({
+                    ...config,
+                    data: { ...config.data, backupFrequency: value }
+                  })}
+                >
+                  <SelectTrigger id="backupFrequency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">每天</SelectItem>
+                    <SelectItem value="weekly">每周</SelectItem>
+                    <SelectItem value="monthly">每月</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="retentionDays">保留天数</Label>
+                <Input
+                  id="retentionDays"
+                  type="number"
+                  value={config.data?.retentionDays || 30}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    data: { ...config.data, retentionDays: parseInt(e.target.value) }
+                  })}
+                />
+              </div>
+
+              <Button variant="outline">
+                <Database className="h-4 w-4 mr-2" />
+                手动备份
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 通知配置（暂未实现） */}
+        <TabsContent value="notification" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5 text-purple-500" />
+                邮件通知配置
+              </CardTitle>
+              <CardDescription>配置SMTP邮件服务器</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="smtpHost">SMTP服务器</Label>
+                <Input
+                  id="smtpHost"
+                  value={config.notification?.email?.smtpHost || ''}
+                  onChange={(e) => updateNotificationConfig('email', {
+                    ...config.notification?.email,
+                    smtpHost: e.target.value
+                  })}
+                  placeholder="smtp.example.com"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="smtpPort">SMTP端口</Label>
+                <Input
+                  id="smtpPort"
+                  type="number"
+                  value={config.notification?.email?.smtpPort || 587}
+                  onChange={(e) => updateNotificationConfig('email', {
+                    ...config.notification?.email,
+                    smtpPort: parseInt(e.target.value)
+                  })}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="smtpUsername">SMTP用户名</Label>
+                <Input
+                  id="smtpUsername"
+                  value={config.notification?.email?.smtpUsername || ''}
+                  onChange={(e) => updateNotificationConfig('email', {
+                    ...config.notification?.email,
+                    smtpUsername: e.target.value
+                  })}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="smtpPassword">SMTP密码</Label>
+                <Input
+                  id="smtpPassword"
+                  type="password"
+                  value={config.notification?.email?.smtpPassword || ''}
+                  onChange={(e) => updateNotificationConfig('email', {
+                    ...config.notification?.email,
+                    smtpPassword: e.target.value
+                  })}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="enableEmail">启用邮件通知</Label>
+                  <p className="text-xs text-muted-foreground">
+                    启用后，告警通知将通过邮件发送
+                  </p>
+                </div>
+                <Switch
+                  id="enableEmail"
+                  checked={config.notification?.email?.enabled || false}
+                  onCheckedChange={(checked) => updateNotificationConfig('email', {
+                    ...config.notification?.email,
+                    enabled: checked
+                  })}
+                />
+              </div>
+
+              <Button variant="outline">
+                <Mail className="h-4 w-4 mr-2" />
+                测试邮件发送
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 高级设置（暂未实现） */}
+        <TabsContent value="advanced" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Cpu className="h-5 w-5 text-gray-500" />
+                系统性能
+              </CardTitle>
+              <CardDescription>配置系统性能相关参数</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="maxConcurrency">最大并发数</Label>
+                <Input
+                  id="maxConcurrency"
+                  type="number"
+                  value={config.advanced?.maxConcurrency || 100}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    advanced: { ...config.advanced, maxConcurrency: parseInt(e.target.value) }
+                  })}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="cacheTimeout">缓存超时时间（秒）</Label>
+                <Input
+                  id="cacheTimeout"
+                  type="number"
+                  value={config.advanced?.cacheTimeout || 3600}
+                  onChange={(e) => setConfig({
+                    ...config,
+                    advanced: { ...config.advanced, cacheTimeout: parseInt(e.target.value) }
+                  })}
+                />
+              </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Mail className="h-5 w-5 text-blue-500" />
-                邮件通知
+                <Network className="h-5 w-5 text-blue-500" />
+                集成配置（只读）
               </CardTitle>
-              <CardDescription>配置告警邮件通知</CardDescription>
+              <CardDescription>查看第三方服务配置状态</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="enableEmail">启用邮件通知</Label>
-                  <p className="text-xs text-muted-foreground">
-                    通过邮件发送告警通知
-                  </p>
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div className="flex items-center gap-2">
+                  <HardDrive className="h-4 w-4" />
+                  <span>S3对象存储</span>
                 </div>
-                <Switch
-                  id="enableEmail"
-                  checked={config.alert?.email?.enabled || false}
-                  onCheckedChange={(checked) => {
-                    setConfig({
-                      ...config,
-                      alert: {
-                        ...config.alert,
-                        email: {
-                          ...(config.alert?.email || {}),
-                          enabled: checked
-                        }
-                      }
-                    });
-                  }}
-                />
+                <Badge variant="outline">已连接</Badge>
               </div>
 
-              <div>
-                <Label htmlFor="alertEmail">接收邮箱</Label>
-                <Input
-                  id="alertEmail"
-                  type="email"
-                  value={config.alert?.email?.to || ''}
-                  onChange={(e) => {
-                    setConfig({
-                      ...config,
-                      alert: {
-                        ...config.alert,
-                        email: {
-                          ...(config.alert?.email || {}),
-                          to: e.target.value
-                        }
-                      }
-                    });
-                  }}
-                  placeholder="example@domain.com"
-                />
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Database className="h-4 w-4" />
+                  <span>PostgreSQL数据库</span>
+                </div>
+                <Badge variant="outline">已连接</Badge>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Network className="h-4 w-4" />
+                  <span>Redis缓存</span>
+                </div>
+                <Badge variant="outline">已连接</Badge>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5 text-green-500" />
+                系统信息
+              </CardTitle>
+              <CardDescription>查看系统运行状态</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>系统版本</Label>
+                  <p className="text-sm font-medium">v2.1.0</p>
+                </div>
+                <div>
+                  <Label>运行时间</Label>
+                  <p className="text-sm font-medium">
+                    <Clock className="h-4 w-4 inline mr-1" />
+                    {config.advanced?.uptime || '加载中...'}
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
-  );
-}
-
-// AI 提供商配置组件
-interface AIProviderConfigProps {
-  provider: string;
-  config: any;
-  builtinModels: any[];
-  onUpdate: (provider: string, field: string, value: any) => void;
-  icon: React.ReactNode;
-  name: string;
-}
-
-function AIProviderConfig({ provider, config, builtinModels, onUpdate, icon, name }: AIProviderConfigProps) {
-  const [modelType, setModelType] = useState<'builtin' | 'custom'>(
-    config?.useBuiltin ? 'builtin' : 'custom'
-  );
-
-  const handleModelTypeChange = (type: 'builtin' | 'custom') => {
-    setModelType(type);
-    onUpdate(provider, 'useBuiltin', type === 'builtin');
-    onUpdate(provider, 'useCustom', type === 'custom');
-  };
-
-  const suitableModels = builtinModels.filter((m: any) => 
-    m.category?.includes(name === '意图识别' ? 'intent' : 
-                       name === '服务回复' ? 'service' : 
-                       name === '报告生成' ? 'report' : 'conversion')
-  );
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-4">
-        {icon}
-        <span className="font-medium">{name}</span>
-      </div>
-
-      {/* 模型类型选择 */}
-      <div className="flex gap-4">
-        <div className="flex items-center gap-2">
-          <Switch
-            id={`${provider}-builtin`}
-            checked={modelType === 'builtin'}
-            onCheckedChange={() => handleModelTypeChange('builtin')}
-          />
-          <Label htmlFor={`${provider}-builtin`} className="cursor-pointer">
-            内置模型
-          </Label>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Switch
-            id={`${provider}-custom`}
-            checked={modelType === 'custom'}
-            onCheckedChange={() => handleModelTypeChange('custom')}
-          />
-          <Label htmlFor={`${provider}-custom`} className="cursor-pointer">
-            自定义模型
-          </Label>
-        </div>
-      </div>
-
-      {modelType === 'builtin' && (
-        <div>
-          <Label>选择内置模型</Label>
-          <Select
-            value={config?.builtinModelId || ''}
-            onValueChange={(value) => onUpdate(provider, 'builtinModelId', value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="请选择模型" />
-            </SelectTrigger>
-            <SelectContent>
-              {suitableModels.map((model: any) => (
-                <SelectItem key={model.id} value={model.id}>
-                  {model.name} - {model.description}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {modelType === 'custom' && (
-        <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
-          <div>
-            <Label>API 提供商</Label>
-            <Select
-              value={config?.customModel?.provider || 'openai'}
-              onValueChange={(value) => onUpdate(provider, 'customModel', {
-                ...config?.customModel,
-                provider: value
-              })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="openai">OpenAI</SelectItem>
-                <SelectItem value="anthropic">Anthropic</SelectItem>
-                <SelectItem value="azure">Azure OpenAI</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label>模型名称</Label>
-            <Input
-              value={config?.customModel?.model || ''}
-              onChange={(e) => onUpdate(provider, 'customModel', {
-                ...config?.customModel,
-                model: e.target.value
-              })}
-              placeholder="gpt-4o"
-            />
-          </div>
-
-          <div>
-            <Label>API Key</Label>
-            <Input
-              type="password"
-              value={config?.customModel?.apiKey || ''}
-              onChange={(e) => onUpdate(provider, 'customModel', {
-                ...config?.customModel,
-                apiKey: e.target.value
-              })}
-              placeholder="请输入 API Key"
-            />
-          </div>
-
-          <div>
-            <Label>API Base URL（可选）</Label>
-            <Input
-              value={config?.customModel?.apiBase || ''}
-              onChange={(e) => onUpdate(provider, 'customModel', {
-                ...config?.customModel,
-                apiBase: e.target.value
-              })}
-              placeholder="https://api.openai.com/v1"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* 系统提示词 */}
-      <div>
-        <Label>系统提示词</Label>
-        <Textarea
-          value={config?.systemPrompt || ''}
-          onChange={(e) => onUpdate(provider, 'systemPrompt', e.target.value)}
-          placeholder="请输入系统提示词"
-          rows={4}
-        />
-        <p className="text-xs text-muted-foreground mt-1">
-          用于指导 AI 的行为和回复风格
-        </p>
-      </div>
     </div>
   );
 }
