@@ -37,7 +37,12 @@ import {
   ShieldCheck,
   Edit,
   AlertTriangle,
-  Key
+  Key,
+  Target,
+  Code2,
+  ImageIcon,
+  Database,
+  Check
 } from 'lucide-react';
 import { toast } from 'sonner';
 
