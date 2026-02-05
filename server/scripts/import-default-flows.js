@@ -12,6 +12,7 @@ const path = require('path');
 const fs = require('fs');
 const { getDb } = require('coze-coding-dev-sdk');
 const { flowDefinitions } = require('../database/schema');
+const { eq } = require('drizzle-orm');
 const { getLogger } = require('../lib/logger');
 
 const logger = getLogger('IMPORT_DEFAULT_FLOWS');
@@ -87,12 +88,9 @@ async function importFlow(flowConfig) {
     const exists = await flowExists(db, flowData.id);
 
     if (exists) {
-      logger.warn(`流程已存在，跳过导入: ${flowConfig.name}`, { id: flowData.id });
-      return {
-        success: false,
-        skipped: true,
-        message: '流程已存在'
-      };
+      logger.warn(`流程已存在，删除后重新导入: ${flowConfig.name}`, { id: flowData.id });
+      // 先删除已存在的流程
+      await db.delete(flowDefinitions).where(eq(flowDefinitions.id, flowData.id));
     }
 
     // 添加创建时间

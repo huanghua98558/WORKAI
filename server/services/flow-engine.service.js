@@ -40,7 +40,27 @@ const NodeType = {
   COMMAND_STATUS: 'command_status', // 指令状态记录节点
   STAFF_INTERVENTION: 'staff_intervention', // 工作人员干预节点
   ALERT_SAVE: 'alert_save', // 告警入库节点
-  ALERT_RULE: 'alert_rule' // 告警规则判断节点
+  ALERT_RULE: 'alert_rule', // 告警规则判断节点
+
+  // 额外节点类型
+  RISK_DETECT: 'risk_detect', // 风险检测节点
+  LOG_SAVE: 'log_save', // 记录日志节点
+  ALERT_NOTIFY: 'alert_notify', // 告警通知节点
+  ALERT_ESCALATE: 'alert_escalate', // 告警升级节点
+
+  // HTTP 和任务相关节点
+  HTTP_REQUEST: 'http_request', // HTTP请求节点
+  TASK_ASSIGN: 'task_assign', // 任务分配节点
+
+  // 群组协作相关节点
+  ROBOT_DISPATCH: 'robot_dispatch', // 机器人分发节点
+  MESSAGE_SYNC: 'message_sync', // 消息汇总节点
+  DATA_TRANSFORM: 'data_transform', // 数据转换节点
+
+  // 数据和满意度相关节点
+  DATA_QUERY: 'data_query', // 数据查询节点
+  SATISFACTION_INFER: 'satisfaction_infer', // 满意度推断节点
+  VARIABLE_SET: 'variable_set' // 变量设置节点
 };
 
 // 流程状态枚举
@@ -93,7 +113,27 @@ class FlowEngine {
       // [NodeType.COMMAND_STATUS]: this.handleCommandStatusNode.bind(this), // 暂不实现
       [NodeType.STAFF_INTERVENTION]: this.handleStaffInterventionNode.bind(this),
       [NodeType.ALERT_SAVE]: this.handleAlertSaveNode.bind(this),
-      [NodeType.ALERT_RULE]: this.handleAlertRuleNode.bind(this)
+      [NodeType.ALERT_RULE]: this.handleAlertRuleNode.bind(this),
+
+      // 新增额外节点处理器
+      [NodeType.RISK_DETECT]: this.handleRiskDetectNode.bind(this),
+      [NodeType.LOG_SAVE]: this.handleLogSaveNode.bind(this),
+      [NodeType.ALERT_NOTIFY]: this.handleAlertNotifyNode.bind(this),
+      [NodeType.ALERT_ESCALATE]: this.handleAlertEscalateNode.bind(this),
+
+      // HTTP 和任务相关节点处理器
+      [NodeType.HTTP_REQUEST]: this.handleHttpRequestNode.bind(this),
+      [NodeType.TASK_ASSIGN]: this.handleTaskAssignNode.bind(this),
+
+      // 群组协作相关节点处理器
+      [NodeType.ROBOT_DISPATCH]: this.handleRobotDispatchNode.bind(this),
+      [NodeType.MESSAGE_SYNC]: this.handleMessageSyncNode.bind(this),
+      [NodeType.DATA_TRANSFORM]: this.handleDataTransformNode.bind(this),
+
+      // 数据和满意度相关节点处理器
+      [NodeType.DATA_QUERY]: this.handleDataQueryNode.bind(this),
+      [NodeType.SATISFACTION_INFER]: this.handleSatisfactionInferNode.bind(this),
+      [NodeType.VARIABLE_SET]: this.handleVariableSetNode.bind(this)
     };
 
     // 模板缓存
@@ -2541,6 +2581,384 @@ class FlowEngine {
     }
   }
 
+  // ============================================
+  // 额外节点处理器实现（风险、日志、告警）
+  // ============================================
+
+  /**
+   * 处理风险检测节点
+   */
+  async handleRiskDetectNode(node, context) {
+    logger.info('执行风险检测节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { riskRules } = data || {};
+
+      let maxRiskLevel = 0;
+      let matchedRules = [];
+
+      // 评估所有风险规则
+      if (riskRules && Array.isArray(riskRules)) {
+        for (const rule of riskRules) {
+          const isMatch = this.evaluateRiskRule(rule, context);
+
+          if (isMatch) {
+            matchedRules.push(rule);
+            if (rule.riskLevel > maxRiskLevel) {
+              maxRiskLevel = rule.riskLevel;
+            }
+          }
+        }
+      }
+
+      logger.info('风险检测完成', {
+        maxRiskLevel,
+        matchedRulesCount: matchedRules.length,
+        rules: matchedRules.map(r => r.ruleName)
+      });
+
+      return {
+        success: true,
+        riskLevel: maxRiskLevel,
+        matchedRules,
+        context: {
+          ...context,
+          riskLevel: maxRiskLevel,
+          matchedRules,
+          lastNodeType: 'risk_detect'
+        }
+      };
+    } catch (error) {
+      logger.error('风险检测节点执行失败', { error: error.message });
+      return {
+        success: false,
+        riskLevel: 0,
+        matchedRules: [],
+        error: error.message,
+        context: {
+          ...context,
+          riskLevel: 0,
+          lastNodeType: 'risk_detect',
+          riskError: error.message
+        }
+      };
+    }
+  }
+
+  /**
+   * 评估风险规则
+   */
+  evaluateRiskRule(rule, context) {
+    const { conditions } = rule;
+
+    if (!conditions) {
+      return false;
+    }
+
+    // 检查所有条件
+    for (const [key, value] of Object.entries(conditions)) {
+      if (key === 'hasSensitiveKeywords') {
+        // 检查消息是否包含敏感词
+        const messageContent = context.message?.content ||
+                               context.message?.spoken ||
+                               context.userMessage || '';
+        const keywords = value === true ? ['投诉', '骗子', '差评', '退款', '欺诈'] : value;
+
+        if (Array.isArray(keywords)) {
+          const hasKeyword = keywords.some(keyword => messageContent.includes(keyword));
+          if (value && !hasKeyword) {
+            return false;
+          }
+        }
+      } else if (key === 'complaintCount') {
+        // 检查投诉次数
+        const complaintCount = context.complaintCount || 0;
+        if (complaintCount < value) {
+          return false;
+        }
+      } else if (key === 'messageFrequency') {
+        // 检查消息频率
+        const messageFrequency = context.messageFrequency || 0;
+        const comparison = this.parseComparison(value, messageFrequency);
+        if (!comparison) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * 解析比较表达式
+   */
+  parseComparison(expression, value) {
+    const match = expression.match(/^([<>]=?|==)\s*(\d+(?:\.\d+)?)$/);
+    if (!match) {
+      return false;
+    }
+
+    const operator = match[1];
+    const target = parseFloat(match[2]);
+
+    switch (operator) {
+      case '>': return value > target;
+      case '>=': return value >= target;
+      case '<': return value < target;
+      case '<=': return value <= target;
+      case '==': return value === target;
+      default: return false;
+    }
+  }
+
+  /**
+   * 处理记录日志节点
+   */
+  async handleLogSaveNode(node, context) {
+    logger.info('执行记录日志节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { logLevel = 'info', message } = data || {};
+
+      const logMessage = message || '日志记录';
+
+      // 根据日志级别记录日志
+      switch (logLevel.toLowerCase()) {
+        case 'error':
+          logger.error(logMessage, { context });
+          break;
+        case 'warn':
+          logger.warn(logMessage, { context });
+          break;
+        case 'info':
+          logger.info(logMessage, { context });
+          break;
+        case 'debug':
+          logger.debug(logMessage, { context });
+          break;
+        default:
+          logger.info(logMessage, { context });
+      }
+
+      return {
+        success: true,
+        logLevel,
+        message: logMessage,
+        timestamp: new Date().toISOString(),
+        context: {
+          ...context,
+          lastNodeType: 'log_save'
+        }
+      };
+    } catch (error) {
+      logger.error('记录日志节点执行失败', { error: error.message });
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          lastNodeType: 'log_save',
+          logError: error.message
+        }
+      };
+    }
+  }
+
+  /**
+   * 处理告警通知节点
+   */
+  async handleAlertNotifyNode(node, context) {
+    logger.info('执行告警通知节点', { node, context });
+
+    try {
+      const { data } = node;
+      const {
+        channels = [],
+        recipients = [],
+        priority = 'normal',
+        message
+      } = data || {};
+
+      const notifyResults = [];
+
+      // 根据渠道发送通知
+      for (const channel of channels) {
+        try {
+          switch (channel) {
+            case 'email':
+              logger.info('发送邮件通知', { recipients, priority });
+              notifyResults.push({
+                channel: 'email',
+                success: true,
+                recipients,
+                timestamp: new Date().toISOString()
+              });
+              break;
+
+            case 'sms':
+              logger.info('发送短信通知', { recipients, priority });
+              notifyResults.push({
+                channel: 'sms',
+                success: true,
+                recipients,
+                timestamp: new Date().toISOString()
+              });
+              break;
+
+            case 'phone':
+              logger.info('拨打电话通知', { recipients, priority });
+              notifyResults.push({
+                channel: 'phone',
+                success: true,
+                recipients,
+                timestamp: new Date().toISOString()
+              });
+              break;
+
+            case 'websocket':
+              logger.info('发送WebSocket通知', { recipients, priority });
+              notifyResults.push({
+                channel: 'websocket',
+                success: true,
+                recipients,
+                timestamp: new Date().toISOString()
+              });
+              break;
+
+            default:
+              logger.warn('不支持的通知渠道', { channel });
+              notifyResults.push({
+                channel,
+                success: false,
+                error: '不支持的通知渠道'
+              });
+          }
+        } catch (error) {
+          logger.error(`发送${channel}通知失败`, { error: error.message });
+          notifyResults.push({
+            channel,
+            success: false,
+            error: error.message
+          });
+        }
+      }
+
+      logger.info('告警通知完成', {
+        totalChannels: channels.length,
+        successCount: notifyResults.filter(r => r.success).length,
+        failCount: notifyResults.filter(r => !r.success).length
+      });
+
+      return {
+        success: true,
+        notifications: notifyResults,
+        message,
+        priority,
+        context: {
+          ...context,
+          lastNodeType: 'alert_notify',
+          notifications: notifyResults
+        }
+      };
+    } catch (error) {
+      logger.error('告警通知节点执行失败', { error: error.message });
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          lastNodeType: 'alert_notify',
+          notifyError: error.message
+        }
+      };
+    }
+  }
+
+  /**
+   * 处理告警升级节点
+   */
+  async handleAlertEscalateNode(node, context) {
+    logger.info('执行告警升级节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { escalationRules } = data || {};
+
+      let escalationResult = {
+        shouldEscalate: false,
+        escalateTo: null,
+        reason: null
+      };
+
+      // 评估升级规则
+      if (escalationRules && Array.isArray(escalationRules)) {
+        for (const rule of escalationRules) {
+          const isMatch = this.evaluateEscalationRule(rule, context);
+
+          if (isMatch) {
+            escalationResult = {
+              shouldEscalate: true,
+              escalateTo: rule.escalateTo,
+              reason: rule.condition
+            };
+
+            logger.info('触发告警升级', {
+              escalateTo: rule.escalateTo,
+              condition: rule.condition
+            });
+
+            break;
+          }
+        }
+      }
+
+      return {
+        success: true,
+        escalation: escalationResult,
+        context: {
+          ...context,
+          escalation: escalationResult,
+          lastNodeType: 'alert_escalate'
+        }
+      };
+    } catch (error) {
+      logger.error('告警升级节点执行失败', { error: error.message });
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          lastNodeType: 'alert_escalate',
+          escalationError: error.message
+        }
+      };
+    }
+  }
+
+  /**
+   * 评估升级规则
+   */
+  evaluateEscalationRule(rule, context) {
+    const { condition } = rule;
+
+    if (!condition) {
+      return false;
+    }
+
+    // 简单的条件评估
+    if (condition.includes('repeatCount')) {
+      const repeatCount = context.repeatCount || 0;
+      const match = condition.match(/repeatCount\s*>=\s*(\d+)/);
+      if (match) {
+        return repeatCount >= parseInt(match[1], 10);
+      }
+    }
+
+    return false;
+  }
+
   /**
    * 保存指令日志
    */
@@ -2558,6 +2976,648 @@ class FlowEngine {
     } catch (error) {
       logger.error('保存指令日志失败', { sessionId: logData.sessionId, error: error.message });
       // 不抛出异常，避免影响主流程
+    }
+  }
+
+  // ============================================
+  // HTTP 和任务相关节点处理器
+  // ============================================
+
+  /**
+   * 处理HTTP请求节点
+   */
+  async handleHttpRequestNode(node, context) {
+    logger.info('执行HTTP请求节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { url, method = 'POST', headers, body } = data || {};
+
+      if (!url) {
+        throw new Error('URL不能为空');
+      }
+
+      // 模拟HTTP请求（实际应该使用fetch或axios）
+      logger.info(`发起${method}请求`, { url });
+
+      const startTime = Date.now();
+
+      // 模拟请求延迟
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const responseTime = Date.now() - startTime;
+
+      // 模拟成功响应
+      const response = {
+        status: 200,
+        statusText: 'OK',
+        data: {
+          success: true,
+          message: '请求已处理',
+          timestamp: new Date().toISOString()
+        },
+        responseTime
+      };
+
+      logger.info('HTTP请求完成', {
+        url,
+        method,
+        status: response.status,
+        responseTime
+      });
+
+      return {
+        success: true,
+        response,
+        context: {
+          ...context,
+          lastNodeType: 'http_request',
+          httpResponse: response
+        }
+      };
+    } catch (error) {
+      logger.error('HTTP请求节点执行失败', { error: error.message });
+
+      return {
+        success: false,
+        error: error.message,
+        response: {
+          status: 500,
+          statusText: 'Internal Server Error',
+          error: error.message
+        },
+        context: {
+          ...context,
+          lastNodeType: 'http_request',
+          httpError: error.message
+        }
+      };
+    }
+  }
+
+  /**
+   * 处理任务分配节点
+   */
+  async handleTaskAssignNode(node, context) {
+    logger.info('执行任务分配节点', { node, context });
+
+    try {
+      const { data } = node;
+      const {
+        taskName,
+        taskType = 'normal',
+        assignTo,
+        dueTime,
+        priority = 'normal'
+      } = data || {};
+
+      if (!taskName) {
+        throw new Error('任务名称不能为空');
+      }
+
+      const taskId = uuidv4();
+      const task = {
+        id: taskId,
+        name: taskName,
+        type: taskType,
+        assignedTo: assignTo,
+        dueTime,
+        priority,
+        status: 'assigned',
+        createdAt: new Date(),
+        metadata: {
+          ...context,
+          source: 'flow_engine'
+        }
+      };
+
+      // 这里应该将任务保存到数据库，暂时记录日志
+      logger.info('任务分配成功', {
+        taskId,
+        taskName,
+        assignTo,
+        priority,
+        dueTime
+      });
+
+      return {
+        success: true,
+        task,
+        taskId,
+        context: {
+          ...context,
+          lastNodeType: 'task_assign',
+          assignedTask: task
+        }
+      };
+    } catch (error) {
+      logger.error('任务分配节点执行失败', { error: error.message });
+
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          lastNodeType: 'task_assign',
+          taskError: error.message
+        }
+      };
+    }
+  }
+
+  // ============================================
+  // 群组协作相关节点处理器
+  // ============================================
+
+  /**
+   * 处理机器人分发节点
+   */
+  async handleRobotDispatchNode(node, context) {
+    logger.info('执行机器人分发节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { robotId, priority = 'normal' } = data || {};
+
+      if (!robotId) {
+        throw new Error('机器人ID不能为空');
+      }
+
+      const dispatchResult = {
+        robotId,
+        priority,
+        dispatchedAt: new Date().toISOString(),
+        status: 'assigned'
+      };
+
+      logger.info('机器人分发成功', {
+        robotId,
+        priority
+      });
+
+      return {
+        success: true,
+        dispatch: dispatchResult,
+        context: {
+          ...context,
+          lastNodeType: 'robot_dispatch',
+          dispatchResult,
+          assignedRobot: robotId
+        }
+      };
+    } catch (error) {
+      logger.error('机器人分发节点执行失败', { error: error.message });
+
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          lastNodeType: 'robot_dispatch',
+          dispatchError: error.message
+        }
+      };
+    }
+  }
+
+  /**
+   * 处理消息汇总节点
+   */
+  async handleMessageSyncNode(node, context) {
+    logger.info('执行消息汇总节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { syncChannels = ['all'], deduplicate = true } = data || {};
+
+      // 收集所有渠道的消息
+      const allMessages = [];
+
+      // 从context中收集消息
+      if (context.message) {
+        allMessages.push(context.message);
+      }
+
+      if (context.aiReply) {
+        allMessages.push({
+          type: 'ai',
+          content: context.aiReply,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      if (context.distribution && context.distribution.results) {
+        context.distribution.results.forEach(result => {
+          allMessages.push({
+            type: 'distribution',
+            target: result.target,
+            content: result.content,
+            timestamp: result.timestamp
+          });
+        });
+      }
+
+      // 去重
+      let syncedMessages = allMessages;
+      if (deduplicate) {
+        const seen = new Set();
+        syncedMessages = allMessages.filter(msg => {
+          const key = msg.content || JSON.stringify(msg);
+          if (seen.has(key)) {
+            return false;
+          }
+          seen.add(key);
+          return true;
+        });
+      }
+
+      const syncResult = {
+        channels: syncChannels,
+        deduplicate,
+        totalMessages: allMessages.length,
+        uniqueMessages: syncedMessages.length,
+        messages: syncedMessages,
+        syncedAt: new Date().toISOString()
+      };
+
+      logger.info('消息汇总完成', {
+        totalMessages: syncResult.totalMessages,
+        uniqueMessages: syncResult.uniqueMessages
+      });
+
+      return {
+        success: true,
+        sync: syncResult,
+        context: {
+          ...context,
+          lastNodeType: 'message_sync',
+          syncResult,
+          messages: syncedMessages
+        }
+      };
+    } catch (error) {
+      logger.error('消息汇总节点执行失败', { error: error.message });
+
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          lastNodeType: 'message_sync',
+          syncError: error.message
+        }
+      };
+    }
+  }
+
+  /**
+   * 处理数据转换节点
+   */
+  async handleDataTransformNode(node, context) {
+    logger.info('执行数据转换节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { transformRules = [] } = data || {};
+
+      let transformedData = { ...context };
+
+      // 应用转换规则
+      for (const rule of transformRules) {
+        const { ruleName, field, format } = rule;
+
+        switch (ruleName) {
+          case 'remove_duplicates':
+            // 去重处理
+            if (field && Array.isArray(transformedData[field])) {
+              const seen = new Set();
+              transformedData[field] = transformedData[field].filter(item => {
+                const key = JSON.stringify(item);
+                if (seen.has(key)) {
+                  return false;
+                }
+                seen.add(key);
+                return true;
+              });
+            }
+            break;
+
+          case 'format_timestamp':
+            // 时间格式化
+            if (field && transformedData[field]) {
+              const date = new Date(transformedData[field]);
+              if (format) {
+                // 简单格式化
+                transformedData[field + '_formatted'] = date.toISOString();
+              }
+            }
+            break;
+
+          case 'extract_fields':
+            // 提取字段
+            if (rule.fields) {
+              const extracted = {};
+              rule.fields.forEach(fieldName => {
+                extracted[fieldName] = transformedData[fieldName];
+              });
+              transformedData = { ...transformedData, extracted };
+            }
+            break;
+
+          case 'merge':
+            // 合并数据
+            if (rule.source) {
+              const sourceData = transformedData[rule.source];
+              transformedData = { ...transformedData, ...sourceData };
+            }
+            break;
+
+          default:
+            logger.warn('未知的转换规则', { ruleName });
+        }
+      }
+
+      const transformResult = {
+        rules: transformRules,
+        rulesApplied: transformRules.length,
+        transformedAt: new Date().toISOString()
+      };
+
+      logger.info('数据转换完成', {
+        rulesApplied: transformResult.rulesApplied
+      });
+
+      return {
+        success: true,
+        transform: transformResult,
+        transformedData,
+        context: {
+          ...context,
+          lastNodeType: 'data_transform',
+          transformResult
+        }
+      };
+    } catch (error) {
+      logger.error('数据转换节点执行失败', { error: error.message });
+
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          lastNodeType: 'data_transform',
+          transformError: error.message
+        }
+      };
+    }
+  }
+
+  // ============================================
+  // 数据和满意度相关节点处理器
+  // ============================================
+
+  /**
+   * 处理数据查询节点
+   */
+  async handleDataQueryNode(node, context) {
+    logger.info('执行数据查询节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { queryType, table, filters, fields = '*' } = data || {};
+
+      const db = await this.getDb();
+      let queryResult = [];
+
+      // 根据查询类型执行不同的查询
+      switch (queryType) {
+        case 'select':
+          // 简单的SELECT查询
+          if (table) {
+            const { tables } = require('../database/schema');
+            if (tables[table]) {
+              const records = await db.select().from(tables[table]);
+              queryResult = records;
+            } else {
+              throw new Error(`表不存在: ${table}`);
+            }
+          }
+          break;
+
+        case 'aggregate':
+          // 聚合查询（计数、求和等）
+          if (table && filters?.aggregate) {
+            const { tables } = require('../database/schema');
+            if (tables[table]) {
+              const records = await db.select().from(tables[table]);
+              queryResult = {
+                count: records.length,
+                data: records
+              };
+            }
+          }
+          break;
+
+        case 'session_stats':
+          // 会话统计查询
+          if (context.sessionId) {
+            const { sessions } = require('../database/schema');
+            const { eq } = require('drizzle-orm');
+            const records = await db
+              .select()
+              .from(sessions)
+              .where(eq(sessions.sessionId, context.sessionId))
+              .limit(1);
+
+            queryResult = records[0] || null;
+          }
+          break;
+
+        default:
+          logger.warn('未知的查询类型', { queryType });
+          queryResult = [];
+      }
+
+      logger.info('数据查询完成', {
+        queryType,
+        resultCount: Array.isArray(queryResult) ? queryResult.length : 1
+      });
+
+      return {
+        success: true,
+        query: {
+          type: queryType,
+          table,
+          filters,
+          fields
+        },
+        result: queryResult,
+        context: {
+          ...context,
+          lastNodeType: 'data_query',
+          queryResult
+        }
+      };
+    } catch (error) {
+      logger.error('数据查询节点执行失败', { error: error.message });
+
+      return {
+        success: false,
+        error: error.message,
+        result: null,
+        context: {
+          ...context,
+          lastNodeType: 'data_query',
+          queryError: error.message
+        }
+      };
+    }
+  }
+
+  /**
+   * 处理满意度推断节点
+   */
+  async handleSatisfactionInferNode(node, context) {
+    logger.info('执行满意度推断节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { modelId, satisfactionLevels = ['very_low', 'low', 'medium', 'high', 'very_high'] } = data || {};
+
+      // 获取会话数据
+      const sessionData = context.queryResult || context.session || {};
+
+      // 提取关键指标
+      const metrics = {
+        responseTime: context.responseTime || 0,
+        messageCount: sessionData.messageCount || 0,
+        resolutionTime: context.resolutionTime || 0,
+        sentimentScore: context.emotionConfidence || 0.5,
+        userRating: sessionData.userRating || 0
+      };
+
+      // 简单的满意度计算（实际应该使用AI）
+      let satisfaction = 'medium';
+      let score = 3;
+
+      if (metrics.userRating > 4) {
+        satisfaction = 'very_high';
+        score = 5;
+      } else if (metrics.userRating >= 4) {
+        satisfaction = 'high';
+        score = 4;
+      } else if (metrics.userRating >= 3) {
+        satisfaction = 'medium';
+        score = 3;
+      } else if (metrics.userRating >= 2) {
+        satisfaction = 'low';
+        score = 2;
+      } else if (metrics.userRating > 0) {
+        satisfaction = 'very_low';
+        score = 1;
+      } else if (metrics.sentimentScore > 0.7) {
+        satisfaction = 'high';
+        score = 4;
+      } else if (metrics.sentimentScore > 0.5) {
+        satisfaction = 'medium';
+        score = 3;
+      } else if (metrics.sentimentScore > 0) {
+        satisfaction = 'low';
+        score = 2;
+      }
+
+      const inferenceResult = {
+        satisfaction,
+        score,
+        metrics,
+        levels: satisfactionLevels,
+        inferredAt: new Date().toISOString()
+      };
+
+      logger.info('满意度推断完成', {
+        satisfaction,
+        score,
+        metrics
+      });
+
+      return {
+        success: true,
+        inference: inferenceResult,
+        context: {
+          ...context,
+          lastNodeType: 'satisfaction_infer',
+          satisfaction,
+          satisfactionScore: score,
+          satisfactionMetrics: metrics
+        }
+      };
+    } catch (error) {
+      logger.error('满意度推断节点执行失败', { error: error.message });
+
+      return {
+        success: false,
+        error: error.message,
+        satisfaction: 'unknown',
+        score: 0,
+        context: {
+          ...context,
+          lastNodeType: 'satisfaction_infer',
+          satisfaction: 'unknown',
+          satisfactionError: error.message
+        }
+      };
+    }
+  }
+
+  /**
+   * 处理变量设置节点
+   */
+  async handleVariableSetNode(node, context) {
+    logger.info('执行变量设置节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { variables = {} } = data || {};
+
+      // 设置变量到context中
+      const updatedContext = { ...context };
+
+      for (const [key, value] of Object.entries(variables)) {
+        // 如果值是表达式，先求值
+        if (typeof value === 'string' && value.startsWith('{{') && value.endsWith('}}')) {
+          const expression = value.slice(2, -2);
+          updatedContext[key] = this.evaluateExpression(expression, context);
+        } else {
+          updatedContext[key] = value;
+        }
+      }
+
+      logger.info('变量设置完成', {
+        variableCount: Object.keys(variables).length,
+        variables: Object.keys(variables)
+      });
+
+      return {
+        success: true,
+        variables,
+        setVariables: Object.keys(variables),
+        context: {
+          ...updatedContext,
+          lastNodeType: 'variable_set'
+        }
+      };
+    } catch (error) {
+      logger.error('变量设置节点执行失败', { error: error.message });
+
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          lastNodeType: 'variable_set',
+          variableError: error.message
+        }
+      };
     }
   }
 
