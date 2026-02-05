@@ -25,7 +25,9 @@ const NodeType = {
   INTENT: 'intent',
   SERVICE: 'service',
   HUMAN_HANDOVER: 'human_handover',
-  NOTIFICATION: 'notification'
+  NOTIFICATION: 'notification',
+  RISK_HANDLER: 'risk_handler', // 风险处理节点
+  MONITOR: 'monitor' // 监控节点
 };
 
 // 流程状态枚举
@@ -63,7 +65,9 @@ class FlowEngine {
       [NodeType.INTENT]: this.handleIntentNode.bind(this),
       [NodeType.SERVICE]: this.handleServiceNode.bind(this),
       [NodeType.HUMAN_HANDOVER]: this.handleHumanHandoverNode.bind(this),
-      [NodeType.NOTIFICATION]: this.handleNotificationNode.bind(this)
+      [NodeType.NOTIFICATION]: this.handleNotificationNode.bind(this),
+      [NodeType.RISK_HANDLER]: this.handleRiskHandlerNode.bind(this),
+      [NodeType.MONITOR]: this.handleMonitorNode.bind(this)
     };
 
     // 模板缓存
@@ -1227,6 +1231,218 @@ class FlowEngine {
       return await this.getFlowDefinition(robotsWithFlow[0].flowDefinitionId);
     } catch (error) {
       logger.error('获取机器人关联的流程定义失败', { robotId, error: error.message });
+      return null;
+    }
+  }
+
+  // ============================================
+  // 风险处理节点处理器
+  // ============================================
+
+  /**
+   * 处理风险处理节点
+   */
+  async handleRiskHandlerNode(node, context) {
+    logger.info('执行风险处理节点', { node, context });
+
+    try {
+      const { data } = node;
+      const {
+        riskMode = 'auto_notify',
+        enableStaffDetection = true,
+        monitoringDuration = 300,
+        modelId,
+        personaId
+      } = data || {};
+
+      const message = context.message || {};
+
+      // 获取系统配置（如果节点未配置）
+      let config = {
+        mode: riskMode,
+        enableStaffDetection,
+        monitoringDuration,
+        modelId,
+        personaId
+      };
+
+      // 如果模型ID未配置，使用系统默认配置
+      if (!config.modelId) {
+        const systemConfig = await this.getSystemConfig();
+        config.modelId = systemConfig?.ai?.serviceReply?.builtinModelId;
+        config.personaId = systemConfig?.ai?.serviceReply?.personaId;
+      }
+
+      // 根据模式处理
+      switch (config.mode) {
+        case 'human':
+          // 人工接管：直接转人工
+          return {
+            success: true,
+            nextNodeId: node.nextNodes?.human,
+            data: {
+              type: 'human_takeover',
+              reason: 'risk_message',
+              priority: 'high'
+            }
+          };
+
+        case 'auto':
+          // 仅AI处理
+          return {
+            success: true,
+            nextNodeId: node.nextNodes?.auto,
+            data: {
+              type: 'ai_reply',
+              modelId: config.modelId,
+              personaId: config.personaId
+            }
+          };
+
+        case 'ignore':
+          // 忽略：结束流程
+          return {
+            success: true,
+            nextNodeId: node.nextNodes?.end,
+            data: {
+              type: 'end'
+            }
+          };
+
+        case 'auto_notify':
+          // AI安抚 + 通知人工
+          const { riskHandlerService } = require('./risk');
+
+          const result = await riskHandlerService.handleRiskMessage(
+            message,
+            context,
+            config
+          );
+
+          if (result.success) {
+            // 启动监控
+            if (config.enableStaffDetection) {
+              const { riskMonitorService } = require('./risk');
+              riskMonitorService.startMonitoring(result.riskId, context, config);
+            }
+
+            return {
+              success: true,
+              nextNodeId: node.nextNodes?.monitor,
+              data: {
+                type: 'risk_processing',
+                riskId: result.riskId,
+                aiReply: result.reply,
+                status: result.status
+              }
+            };
+          } else {
+            throw new Error('风险处理失败');
+          }
+
+        default:
+          throw new Error(`未知的风险处理模式: ${config.mode}`);
+      }
+    } catch (error) {
+      logger.error('风险处理节点执行失败', { error: error.message });
+      return {
+        success: false,
+        error: error.message,
+        nextNodeId: node.nextNodes?.error
+      };
+    }
+  }
+
+  // ============================================
+  // 监控节点处理器
+  // ============================================
+
+  /**
+   * 处理监控节点
+   */
+  async handleMonitorNode(node, context) {
+    logger.info('执行监控节点', { node, context });
+
+    try {
+      const { data } = node;
+      const {
+        duration = 300,
+        detectStaff = true,
+        detectUserSatisfaction = true,
+        detectEscalation = true
+      } = data || {};
+
+      const { riskMonitorService } = require('./risk');
+
+      // 启动监控（异步，不阻塞）
+      const monitoringId = uuidv4();
+
+      // 配置监控任务
+      const monitorConfig = {
+        riskId: context.riskId,
+        sessionId: context.sessionId,
+        enabled: detectStaff,
+        monitoringDuration: duration,
+        detectUserSatisfaction,
+        detectEscalation
+      };
+
+      riskMonitorService.startMonitoring(
+        context.riskId,
+        context.sessionId,
+        monitorConfig
+      );
+
+      logger.info('监控已启动', { monitoringId, riskId: context.riskId });
+
+      // 立即返回，进入挂起状态
+      return {
+        success: true,
+        nextNodeId: node.nextNodes?.pending,
+        data: {
+          type: 'monitoring',
+          monitoringId,
+          duration,
+          status: 'pending'
+        }
+      };
+    } catch (error) {
+      logger.error('监控节点执行失败', { error: error.message });
+      return {
+        success: false,
+        error: error.message,
+        nextNodeId: node.nextNodes?.error
+      };
+    }
+  }
+
+  /**
+   * 获取系统配置
+   */
+  async getSystemConfig() {
+    try {
+      const db = await this.getDb();
+      const { systemSettings } = require('../database/schema');
+
+      const settings = await db.select().from(systemSettings);
+      const config = {};
+
+      for (const setting of settings) {
+        try {
+          const value = JSON.parse(setting.value);
+          // 根据 category 组织配置
+          if (!config[setting.category]) {
+            config[setting.category] = {};
+          }
+          config[setting.category][setting.key] = value;
+        } catch (e) {
+          // 忽略解析错误
+        }
+      }
+
+      return config;
+    } catch (error) {
+      logger.error('获取系统配置失败', { error: error.message });
       return null;
     }
   }

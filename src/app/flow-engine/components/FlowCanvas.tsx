@@ -22,10 +22,13 @@ import {
 import 'reactflow/dist/style.css';
 import { NODE_METADATA, NODE_TYPES } from '../types';
 import CustomNode from './CustomNode';
+import { RiskHandlerNode, MonitorNode } from './nodes';
 
 // 自定义节点类型
 const nodeTypes = {
   custom: CustomNode,
+  risk_handler: RiskHandlerNode,
+  monitor: MonitorNode,
 };
 
 interface FlowCanvasProps {

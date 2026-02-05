@@ -2,7 +2,9 @@
  * 节点类型定义
  */
 
-// 10种节点类型
+// 节点类型定义
+
+// 基础节点类型
 export const NODE_TYPES = {
   // 文档节点1
   MESSAGE_RECEIVE: 'message_receive',
@@ -33,6 +35,12 @@ export const NODE_TYPES = {
 
   // 文档节点B2
   ALERT_RULE: 'alert_rule',
+
+  // 风险处理节点
+  RISK_HANDLER: 'risk_handler',
+
+  // 监控节点
+  MONITOR: 'monitor',
 } as const;
 
 // 节点元数据
@@ -127,6 +135,24 @@ export const NODE_METADATA = {
     hasInputs: true,
     hasOutputs: true,
   },
+  [NODE_TYPES.RISK_HANDLER]: {
+    name: '风险处理',
+    description: 'AI安抚用户并通知人工',
+    icon: '⚠️',
+    color: 'bg-red-500',
+    category: 'risk',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.MONITOR]: {
+    name: '监控节点',
+    description: '实时监听群内消息',
+    icon: '👁️',
+    color: 'bg-cyan-500',
+    category: 'risk',
+    hasInputs: true,
+    hasOutputs: true,
+  },
 } as const;
 
 // 节点分类
@@ -137,6 +163,7 @@ export const NODE_CATEGORIES = {
   action: '操作节点',
   database: '数据库节点',
   alert: '告警节点',
+  risk: '风险节点',
 } as const;
 
 // 节点数据类型
