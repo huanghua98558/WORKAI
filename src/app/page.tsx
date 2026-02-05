@@ -2056,7 +2056,7 @@ ${callbacks.robotStatus}
 
         {/* 子标签切换 */}
         <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as 'sessions' | 'messages')} className="w-full">
-          <TabsList className="grid w-full max-w-[500px] h-11 bg-muted/50 border-2 rounded-xl p-1">
+          <TabsList className="grid grid-cols-2 w-full max-w-[500px] h-11 bg-muted/50 border-2 rounded-xl p-1">
             <TabsTrigger value="sessions" className="gap-2 h-9 rounded-lg text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 dark:data-[state=active]:bg-slate-900">
               <Users className="h-4 w-4" />
               会话列表
