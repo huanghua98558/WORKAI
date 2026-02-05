@@ -486,6 +486,20 @@ export default function AIModule() {
         body: JSON.stringify(payload)
       });
 
+      // 检查响应状态
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          toast.error(data.error || data.message || '操作失败');
+        } else {
+          const text = await response.text();
+          console.error('非JSON响应:', text);
+          toast.error('操作失败：服务器返回了非JSON响应');
+        }
+        return;
+      }
+
       const data = await response.json();
       if (data.success) {
         toast.success(selectedModel?.id ? '模型更新成功' : '模型创建成功');
@@ -538,8 +552,21 @@ export default function AIModule() {
         body: JSON.stringify(payload)
       });
 
-      const data = await response.json();
+      // 检查响应状态
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          toast.error(data.error || data.message || '操作失败');
+        } else {
+          const text = await response.text();
+          console.error('非JSON响应:', text);
+          toast.error('操作失败：服务器返回了非JSON响应');
+        }
+        return;
+      }
 
+      const data = await response.json();
       if (data.success) {
         toast.success(selectedPersona?.id ? '角色更新成功' : '角色创建成功');
         setShowPersonaDialog(false);
@@ -562,8 +589,21 @@ export default function AIModule() {
         method: 'DELETE'
       });
 
-      const data = await response.json();
+      // 检查响应状态
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          toast.error(data.error || data.message || '删除失败');
+        } else {
+          const text = await response.text();
+          console.error('非JSON响应:', text);
+          toast.error('删除失败：服务器返回了非JSON响应');
+        }
+        return;
+      }
 
+      const data = await response.json();
       if (data.success) {
         toast.success('角色删除成功');
         loadAIPersonas();
@@ -603,8 +643,21 @@ export default function AIModule() {
         body: JSON.stringify(payload)
       });
 
-      const data = await response.json();
+      // 检查响应状态
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          toast.error(data.error || data.message || '操作失败');
+        } else {
+          const text = await response.text();
+          console.error('非JSON响应:', text);
+          toast.error('操作失败：服务器返回了非JSON响应');
+        }
+        return;
+      }
 
+      const data = await response.json();
       if (data.success) {
         toast.success(selectedTemplate?.id ? '模板更新成功' : '模板创建成功');
         setShowTemplateDialog(false);
@@ -725,6 +778,20 @@ export default function AIModule() {
           input: testInput
         })
       });
+
+      // 检查响应状态
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          toast.error(data.error || data.message || '测试失败');
+        } else {
+          const text = await response.text();
+          console.error('非JSON响应:', text);
+          toast.error('测试失败：服务器返回了非JSON响应');
+        }
+        return;
+      }
 
       const data = await response.json();
       if (data.success) {
