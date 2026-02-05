@@ -24,7 +24,8 @@ import {
   Zap,
   Shield,
   Activity,
-  Mail
+  Mail,
+  UserCheck
 } from 'lucide-react';
 
 interface SettingsTabProps {

@@ -2581,98 +2581,76 @@ ${callbacks.robotStatus}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           {/* 科幻风格标签栏 */}
-          <TabsList className="grid w-full grid-cols-12 lg:w-auto lg:inline-grid h-auto p-1.5 glass border border-primary/20 gap-1">
-            <TabsTrigger 
-              value="dashboard" 
-              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+          <TabsList className="w-full lg:w-auto flex flex-wrap gap-1.5 p-2 glass border border-primary/20 bg-gradient-to-r from-slate-50/80 to-slate-100/80 dark:from-slate-900/80 dark:to-slate-800/80 backdrop-blur-sm">
+            <TabsTrigger
+              value="dashboard"
+              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
             >
-              <LayoutDashboard className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">仪表盘</span>
+              <LayoutDashboard className="h-5 w-5" />
+              <span className="font-semibold text-sm sm:text-base">仪表盘</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="sessions" 
-              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            <TabsTrigger
+              value="sessions"
+              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
             >
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">会话管理</span>
+              <Users className="h-5 w-5" />
+              <span className="font-semibold text-sm sm:text-base">会话管理</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="robots" 
-              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            <TabsTrigger
+              value="realtime"
+              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
             >
-              <Bot className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">机器人管理</span>
+              <MessageSquare className="h-5 w-5" />
+              <span className="font-semibold text-sm sm:text-base">业务消息监控</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="monitor" 
-              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            <TabsTrigger
+              value="robots"
+              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
             >
-              <Activity className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">监控告警</span>
+              <Bot className="h-5 w-5" />
+              <span className="font-semibold text-sm sm:text-base">机器人管理</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="realtime" 
-              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            <TabsTrigger
+              value="monitor"
+              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
             >
-              <MessageSquare className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">业务消息监控</span>
+              <Activity className="h-5 w-5" />
+              <span className="font-semibold text-sm sm:text-base">监控告警</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="ai-module" 
-              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            <TabsTrigger
+              value="monitoring"
+              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
             >
-              <Brain className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">AI 模块</span>
+              <Sparkles className="h-5 w-5" />
+              <span className="font-semibold text-sm sm:text-base">AI交互监控</span>
             </TabsTrigger>
-
-            <TabsTrigger 
-              value="callbacks" 
-              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300 hidden"
+            <TabsTrigger
+              value="ai-module"
+              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
             >
-              <Link2 className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">回调中心</span>
+              <Brain className="h-5 w-5" />
+              <span className="font-semibold text-sm sm:text-base">AI模块</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="users" 
-              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            <TabsTrigger
+              value="flow-engine"
+              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
             >
-              <UserCheck className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">用户管理</span>
+              <GitBranch className="h-5 w-5" />
+              <span className="font-semibold text-sm sm:text-base">流程引擎</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="qa" 
-              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            <TabsTrigger
+              value="system-logs"
+              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
             >
-              <Database className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">知识库</span>
+              <Server className="h-5 w-5" />
+              <span className="font-semibold text-sm sm:text-base">系统日志</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="flow-engine" 
-              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
+            <TabsTrigger
+              value="settings"
+              className="gap-2.5 py-3 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all duration-300"
             >
-              <GitBranch className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">流程引擎</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="settings" 
-              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
-            >
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">系统设置</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="system-logs" 
-              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
-            >
-              <Server className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">系统日志</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="monitoring" 
-              className="gap-2 py-2.5 px-3 data-[state=active]:bg-primary/10 data-[state=active]:border-primary/50 border border-transparent hover:border-primary/30 transition-all duration-300"
-            >
-              <Brain className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">AI交互监控</span>
+              <Settings className="h-5 w-5" />
+              <span className="font-semibold text-sm sm:text-base">系统设置</span>
             </TabsTrigger>
           </TabsList>
 
@@ -2680,76 +2658,49 @@ ${callbacks.robotStatus}
             <DashboardTab />
           </TabsContent>
 
-          <TabsContent value="callbacks" className="space-y-6 hidden">
-            <CallbackCenter />
+          <TabsContent value="sessions" className="space-y-6">
+            <SessionsTab />
+          </TabsContent>
+
+          <TabsContent value="realtime" className="space-y-6">
+            <BusinessMessageMonitor
+              onNavigateToSession={(sessionId) => {
+                setActiveTab('sessions');
+                console.log('跳转到会话:', sessionId);
+              }}
+            />
           </TabsContent>
 
           <TabsContent value="robots" className="space-y-6">
             <RobotManagement />
           </TabsContent>
 
-          <TabsContent value="qa" className="space-y-6">
-            <div className="text-center py-12 space-y-4">
-              <div className="flex justify-center">
-                <Database className="h-16 w-16 text-blue-500" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold">知识库管理</h3>
-                <p className="text-muted-foreground mt-2">
-                  管理问答库、文档和报告
-                </p>
-              </div>
-              <Button 
-                size="lg"
-                onClick={() => window.location.href = '/knowledge-base'}
-                className="gap-2"
-              >
-                <BookOpen className="h-5 w-5" />
-                进入知识库
-              </Button>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="flow-engine" className="space-y-6">
-            <FlowEngineManage />
-          </TabsContent>
-
-          <TabsContent value="sessions" className="space-y-6">
-            <SessionsTab />
-          </TabsContent>
-
           <TabsContent value="monitor" className="space-y-6">
             <MonitorTab />
           </TabsContent>
 
-          <TabsContent value="realtime" className="space-y-6">
-            <BusinessMessageMonitor 
-              onNavigateToSession={(sessionId) => {
-                setActiveTab('sessions');
-                // 可以在这里添加高亮会话的逻辑
-                console.log('跳转到会话:', sessionId);
-              }}
-            />
+          <TabsContent value="monitoring" className="space-y-6">
+            <AIInteractionMonitor />
           </TabsContent>
 
           <TabsContent value="ai-module" className="space-y-6">
             <AIModule />
           </TabsContent>
 
-          <TabsContent value="users" className="space-y-6">
-            <UserManagement />
-          </TabsContent>
-
-          <TabsContent value="settings" className="space-y-6">
-            <SettingsTab aiConfig={aiConfig} isLoadingAiConfig={isLoadingAiConfig} />
+          <TabsContent value="flow-engine" className="space-y-6">
+            <FlowEngineManage />
           </TabsContent>
 
           <TabsContent value="system-logs" className="space-y-6">
             <SystemLogs />
           </TabsContent>
 
-          <TabsContent value="monitoring" className="space-y-6">
-            <AIInteractionMonitor />
+          <TabsContent value="settings" className="space-y-6">
+            <SettingsTab aiConfig={aiConfig} isLoadingAiConfig={isLoadingAiConfig} />
+          </TabsContent>
+
+          <TabsContent value="callbacks" className="space-y-6 hidden">
+            <CallbackCenter />
           </TabsContent>
         </Tabs>
       </main>
