@@ -50,7 +50,7 @@ import {
   Sparkles,
   Upload,
   File,
-  Globe
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -225,9 +225,9 @@ export default function AIModule() {
   const [importingToKnowledge, setImportingToKnowledge] = useState(false);
   const [showKnowledgeUploadDialog, setShowKnowledgeUploadDialog] = useState(false);
   const [uploadingToKnowledge, setUploadingToKnowledge] = useState(false);
-  const [knowledgeUploadType, setKnowledgeUploadType] = useState<'text' | 'url' | 'file'>('text');
-  const [knowledgeUploadContent, setKnowledgeUploadContent] = useState('');
-  const [knowledgeUploadUrl, setKnowledgeUploadUrl] = useState('');
+  const [knowledgeDocName, setKnowledgeDocName] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
 
   // AI调试
   const [testInput, setTestInput] = useState('');
@@ -840,34 +840,35 @@ export default function AIModule() {
 
   // 上传知识库
   const handleUploadToKnowledge = async () => {
-    if (knowledgeUploadType === 'text' && !knowledgeUploadContent.trim()) {
-      toast.warning('请输入要上传的内容');
+    if (selectedFiles.length === 0) {
+      toast.warning('请先选择要上传的文件');
       return;
     }
 
-    if (knowledgeUploadType === 'url' && !knowledgeUploadUrl.trim()) {
-      toast.warning('请输入URL');
+    if (!knowledgeDocName.trim()) {
+      toast.warning('请填写知识库文档名称');
       return;
     }
 
     setUploadingToKnowledge(true);
     try {
-      let documents;
-
-      if (knowledgeUploadType === 'text') {
-        documents = [{
-          type: 'text' as const,
-          content: knowledgeUploadContent
-        }];
-      } else if (knowledgeUploadType === 'url') {
-        documents = [{
-          type: 'url' as const,
-          content: knowledgeUploadUrl
-        }];
-      } else {
-        toast.warning('暂不支持文件上传');
-        return;
-      }
+      // 读取文件内容
+      const documents = await Promise.all(
+        selectedFiles.map(async (file) => {
+          return new Promise<{ type: 'text'; content: string }>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const content = e.target?.result as string;
+              resolve({
+                type: 'text' as const,
+                content: `文档名称: ${knowledgeDocName}\n文件名: ${file.name}\n\n${content}`
+              });
+            };
+            reader.onerror = (e) => reject(e);
+            reader.readAsText(file);
+          });
+        })
+      );
 
       const response = await fetch('/api/knowledge/import', {
         method: 'POST',
@@ -896,8 +897,8 @@ export default function AIModule() {
       if (data.success) {
         toast.success(`成功上传 ${documents.length} 个文档到知识库`);
         setShowKnowledgeUploadDialog(false);
-        setKnowledgeUploadContent('');
-        setKnowledgeUploadUrl('');
+        setSelectedFiles([]);
+        setKnowledgeDocName('');
       } else {
         toast.error(data.error || '上传失败');
       }
@@ -907,6 +908,37 @@ export default function AIModule() {
     } finally {
       setUploadingToKnowledge(false);
     }
+  };
+
+  // 处理文件选择
+  const handleFileSelect = (files: FileList | null) => {
+    if (files) {
+      const newFiles = Array.from(files);
+      setSelectedFiles(prev => [...prev, ...newFiles]);
+    }
+  };
+
+  // 处理拖拽
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    handleFileSelect(files);
+  };
+
+  // 删除文件
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   // 批量删除话术模板
@@ -2702,77 +2734,101 @@ export default function AIModule() {
 
       {/* 上传知识库对话框 */}
       <Dialog open={showKnowledgeUploadDialog} onOpenChange={setShowKnowledgeUploadDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5" />
-              上传知识库
+              上传知识库文档
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {/* 上传类型选择 */}
+            {/* 文档名称 */}
             <div>
-              <Label htmlFor="upload-type">上传方式</Label>
-              <Select
-                value={knowledgeUploadType}
-                onValueChange={(value: 'text' | 'url' | 'file') => setKnowledgeUploadType(value)}
-              >
-                <SelectTrigger id="upload-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="text">
-                    <FileText className="h-4 w-4 mr-2 inline" />
-                    文本内容 - 直接输入文本
-                  </SelectItem>
-                  <SelectItem value="url">
-                    <Globe className="h-4 w-4 mr-2 inline" />
-                    URL地址 - 从网页获取内容
-                  </SelectItem>
-                  <SelectItem value="file" disabled>
-                    <File className="h-4 w-4 mr-2 inline" />
-                    文件上传 - 上传本地文件（暂不支持）
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="doc-name">知识库文档名称 <span className="text-red-500">*</span></Label>
+              <Input
+                id="doc-name"
+                value={knowledgeDocName}
+                onChange={(e) => setKnowledgeDocName(e.target.value)}
+                placeholder="输入文档名称，例如：产品手册、FAQ文档"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                文档名称用于标识和管理知识库中的内容
+              </p>
             </div>
 
-            {/* 根据类型显示不同的输入方式 */}
-            {knowledgeUploadType === 'text' && (
-              <div>
-                <Label htmlFor="upload-content">文本内容</Label>
-                <Textarea
-                  id="upload-content"
-                  value={knowledgeUploadContent}
-                  onChange={(e) => setKnowledgeUploadContent(e.target.value)}
-                  placeholder="输入要上传到知识库的文本内容..."
-                  rows={10}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  支持纯文本、Markdown 格式
-                </p>
+            {/* 文件上传区域 */}
+            <div>
+              <Label>上传文件</Label>
+              <div
+                className={`mt-2 border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                  isDragging
+                    ? 'border-primary bg-primary/5'
+                    : 'border-muted-foreground/25 hover:border-primary/50'
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">
+                    拖拽文件到这里，或者
+                    <label className="ml-2 text-primary cursor-pointer hover:underline">
+                      点击选择
+                      <input
+                        type="file"
+                        className="hidden"
+                        multiple
+                        accept=".txt,.md,.json,.csv,.xml,.html"
+                        onChange={(e) => handleFileSelect(e.target.files)}
+                      />
+                    </label>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    支持的文件格式：TXT、MD、JSON、CSV、XML、HTML
+                  </p>
+                </div>
               </div>
-            )}
+            </div>
 
-            {knowledgeUploadType === 'url' && (
+            {/* 已选文件列表 */}
+            {selectedFiles.length > 0 && (
               <div>
-                <Label htmlFor="upload-url">URL地址</Label>
-                <Input
-                  id="upload-url"
-                  value={knowledgeUploadUrl}
-                  onChange={(e) => setKnowledgeUploadUrl(e.target.value)}
-                  placeholder="https://example.com/document"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  系统会自动抓取网页内容并导入到知识库
-                </p>
+                <Label>已选文件 ({selectedFiles.length})</Label>
+                <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
+                  {selectedFiles.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <File className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {(file.size / 1024).toFixed(2)} KB
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveFile(index)}
+                        className="flex-shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription>
-                知识库文档将存储在 'worktool_knowledge' 数据集中，可用于智能问答和语义检索。
+                知识库文档将存储在 'worktool_knowledge' 数据集中，可用于智能问答和语义检索。上传的内容会自动进行分块和向量化处理。
               </AlertDescription>
             </Alert>
           </div>
@@ -2781,13 +2837,16 @@ export default function AIModule() {
               variant="outline"
               onClick={() => {
                 setShowKnowledgeUploadDialog(false);
-                setKnowledgeUploadContent('');
-                setKnowledgeUploadUrl('');
+                setSelectedFiles([]);
+                setKnowledgeDocName('');
               }}
             >
               取消
             </Button>
-            <Button onClick={handleUploadToKnowledge} disabled={uploadingToKnowledge}>
+            <Button
+              onClick={handleUploadToKnowledge}
+              disabled={uploadingToKnowledge || selectedFiles.length === 0}
+            >
               {uploadingToKnowledge ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
@@ -2796,7 +2855,7 @@ export default function AIModule() {
               ) : (
                 <>
                   <Upload className="h-4 w-4 mr-2" />
-                  上传
+                  上传 ({selectedFiles.length} 个文件)
                 </>
               )}
             </Button>
