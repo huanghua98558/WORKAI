@@ -257,7 +257,8 @@ class FlowEngine {
    */
   async getFlowInstance(id) {
     try {
-      const result = await (await this.getDb()).select()
+      const db = await this.getDb();
+      const result = await db.select()
         .from(flowInstances)
         .where(eq(flowInstances.id, id))
         .limit(1);
