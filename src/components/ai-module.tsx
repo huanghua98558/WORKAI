@@ -44,7 +44,9 @@ import {
   Database,
   Check,
   FileJson,
-  FileSearch
+  FileSearch,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -208,6 +210,7 @@ export default function AIModule() {
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<MessageTemplate | null>(null);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<Set<string>>(new Set());
 
   // AI调试
   const [testInput, setTestInput] = useState('');
@@ -568,6 +571,51 @@ export default function AIModule() {
     }
   };
 
+  // 批量删除话术模板
+  const handleBatchDeleteTemplates = async () => {
+    if (selectedTemplateIds.size === 0) {
+      toast.warning('请先选择要删除的模板');
+      return;
+    }
+
+    if (!confirm(`确定要删除选中的 ${selectedTemplateIds.size} 个模板吗？`)) return;
+
+    try {
+      const promises = Array.from(selectedTemplateIds).map(id =>
+        fetch(`/api/proxy/ai/templates/${id}`, { method: 'DELETE' })
+      );
+
+      await Promise.all(promises);
+
+      toast.success(`成功删除 ${selectedTemplateIds.size} 个模板`);
+      setSelectedTemplateIds(new Set());
+      loadMessageTemplates();
+    } catch (error) {
+      console.error('批量删除失败:', error);
+      toast.error('批量删除失败');
+    }
+  };
+
+  // 切换模板选中状态
+  const handleToggleTemplateSelection = (id: string) => {
+    const newSelected = new Set(selectedTemplateIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedTemplateIds(newSelected);
+  };
+
+  // 全选/取消全选
+  const handleToggleAllTemplates = (checked: boolean) => {
+    if (checked) {
+      setSelectedTemplateIds(new Set(templates.map(t => t.id)));
+    } else {
+      setSelectedTemplateIds(new Set());
+    }
+  };
+
   const handleEditTemplate = (template: MessageTemplate) => {
     setSelectedTemplate(template);
     setShowTemplateDialog(true);
@@ -911,10 +959,21 @@ export default function AIModule() {
                     管理 {templates.length} 个话术模板，覆盖各类场景
                   </CardDescription>
                 </div>
-                <Button onClick={() => setShowTemplateDialog(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  添加模板
-                </Button>
+                <div className="flex items-center gap-2">
+                  {selectedTemplateIds.size > 0 && (
+                    <Button
+                      variant="destructive"
+                      onClick={handleBatchDeleteTemplates}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      批量删除 ({selectedTemplateIds.size})
+                    </Button>
+                  )}
+                  <Button onClick={() => setShowTemplateDialog(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    添加模板
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -924,10 +983,54 @@ export default function AIModule() {
                   目前已加载 {templates.length} 个话术模板示例，完整版本包含更多模板。
                 </AlertDescription>
               </Alert>
+
+              {/* 全选/取消全选 */}
+              {templates.length > 0 && (
+                <div className="flex items-center gap-2 mb-4 p-3 bg-muted/30 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleAllTemplates(selectedTemplateIds.size === 0)}
+                    className="flex items-center gap-2 hover:bg-muted/50 px-2 py-1 rounded transition-colors"
+                  >
+                    {selectedTemplateIds.size === templates.length ? (
+                      <CheckSquare className="h-5 w-5 text-primary" />
+                    ) : (
+                      <Square className="h-5 w-5 text-muted-foreground" />
+                    )}
+                    <span className="text-sm">
+                      {selectedTemplateIds.size === templates.length ? '取消全选' : '全选'}
+                    </span>
+                  </button>
+                  {selectedTemplateIds.size > 0 && (
+                    <span className="text-sm text-muted-foreground">
+                      已选择 {selectedTemplateIds.size} 个模板
+                    </span>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-4">
                 {templates.map((template) => (
-                  <div key={template.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                  <div
+                    key={template.id}
+                    className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
+                      selectedTemplateIds.has(template.id) ? 'bg-primary/5 border-primary' : 'hover:bg-muted/50'
+                    }`}
+                  >
                     <div className="flex items-center gap-4">
+                      {/* 复选框 */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleTemplateSelection(template.id)}
+                        className="flex-shrink-0"
+                      >
+                        {selectedTemplateIds.has(template.id) ? (
+                          <CheckSquare className="h-5 w-5 text-primary" />
+                        ) : (
+                          <Square className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </button>
+
                       <div className="p-2 bg-primary/10 rounded-lg">
                         <MessageCircle className="h-5 w-5 text-primary" />
                       </div>
