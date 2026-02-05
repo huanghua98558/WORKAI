@@ -178,7 +178,9 @@ export default function CommandSender() {
       const response = await fetch('/api/admin/robot-commands?limit=20');
       const result = await response.json();
       
-      if (result.success) {
+      console.log('加载到的指令数据:', result);
+      
+      if (result.code === 0) {
         setCommands(result.data);
       }
     } catch (error) {
@@ -401,7 +403,9 @@ export default function CommandSender() {
 
       const result = await response.json();
 
-      if (result.success) {
+      console.log('发送指令响应:', result);
+
+      if (result.code === 0) {
         toast.success('指令发送成功', {
           description: '指令已加入队列，等待执行'
         });
@@ -429,7 +433,9 @@ export default function CommandSender() {
 
       const result = await response.json();
 
-      if (result.success) {
+      console.log('重试指令响应:', result);
+
+      if (result.code === 0) {
         toast.success('指令重试成功');
         fetchCommands();
       } else {
@@ -482,7 +488,9 @@ export default function CommandSender() {
       const response = await fetch(`/api/admin/robot-commands/${commandId}`);
       const result = await response.json();
       
-      if (result.success) {
+      console.log('加载指令详情响应:', result);
+      
+      if (result.code === 0) {
         setSelectedCommandDetail(result.data);
         setShowCommandDetail(true);
       } else {
