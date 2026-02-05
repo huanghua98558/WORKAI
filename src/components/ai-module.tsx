@@ -258,11 +258,11 @@ export default function AIModule() {
           name: persona.name,
           roleType: persona.type,
           description: persona.description,
-          systemPrompt: persona.system_prompt,
+          systemPrompt: persona.systemPrompt,
           temperature: persona.temperature,
-          maxTokens: persona.max_tokens,
-          isActive: persona.is_active,
-          modelId: persona.model_id
+          maxTokens: persona.maxTokens,
+          isActive: persona.isActive,
+          modelId: persona.modelId
         }));
         setPersonas(formattedPersonas);
       }
