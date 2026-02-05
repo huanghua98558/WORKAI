@@ -175,6 +175,20 @@ class RobotCommandService {
   }
 
   /**
+   * 通过 messageId 查找指令
+   * @param {string} messageId - WorkTool 返回的消息ID
+   * @returns {Promise<Object|null>} 指令详情
+   */
+  async getCommandByMessageId(messageId) {
+    const db = await getDb();
+    const result = await db.select().from(robotCommands)
+      .where(eq(robotCommands.messageId, messageId))
+      .orderBy(desc(robotCommands.createdAt))
+      .limit(1);
+    return result[0] || null;
+  }
+
+  /**
    * 更新指令状态
    * @param {string} commandId - 指令ID
    * @param {string} status - 新状态
@@ -480,28 +494,34 @@ class RobotCommandService {
       const totalExecutionTime = executionEndTime - startTime;
 
       if (result && result.success) {
-        // 执行成功
-        await this.updateCommandStatus(id, 'completed', {
+        // 指令已成功提交到 WorkTool，但还没有实际执行完成
+        // 保存 messageId 并保持状态为 processing，等待回调更新最终结果
+        const messageId = result.data || result.sendId;
+
+        await this.updateCommandStatus(id, 'processing', {
           result,
+          messageId: messageId,
           errorMessage: null
         });
 
-        logger.info('RobotCommand', '指令执行 - 成功', {
+        logger.info('RobotCommand', '指令执行 - 已提交到 WorkTool，等待回调结果', {
           commandId: id,
           robotId,
           commandType,
+          messageId,
           executionTime: totalExecutionTime,
           processingTime: result.processingTime || 'N/A',
           result: {
             success: result.success,
             message: result.message,
+            data: result.data,
             sendId: result.sendId,
             processingTime: result.processingTime
           },
           timestamp: new Date().toISOString()
         });
 
-        return { success: true, commandId: id, result, executionTime: totalExecutionTime };
+        return { success: true, commandId: id, result, messageId, executionTime: totalExecutionTime };
       } else {
         // 执行失败
         const failureReason = result?.message || '执行失败';

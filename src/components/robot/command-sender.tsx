@@ -987,19 +987,27 @@ export default function CommandSender() {
                     const robot = robots.find(r => r.robotId === command.robotId);
                     const cmdType = COMMAND_TYPES.find(c => c.value === command.commandType);
 
-                    // 格式化执行结果
-                    let resultText = '-';
-                    if (command.result) {
-                      if (command.result.success) {
-                        resultText = '✓ 成功';
-                        if (command.result.message) {
-                          resultText += ` - ${command.result.message}`;
+                    // 根据状态显示不同的执行结果
+                    let resultText = '';
+                    switch (command.status) {
+                      case 'pending':
+                        resultText = '待处理';
+                        break;
+                      case 'processing':
+                        resultText = '已提交到队列，等待执行中...';
+                        break;
+                      case 'completed':
+                        if (command.result && command.result.message) {
+                          resultText = `✓ ${command.result.message}`;
+                        } else {
+                          resultText = '✓ 执行成功';
                         }
-                      } else {
-                        resultText = command.result.message || '执行失败';
-                      }
-                    } else if (command.errorMessage) {
-                      resultText = `✗ ${command.errorMessage}`;
+                        break;
+                      case 'failed':
+                        resultText = `✗ ${command.errorMessage || '执行失败'}`;
+                        break;
+                      default:
+                        resultText = '-';
                     }
 
                     return (

@@ -1638,6 +1638,7 @@ exports.robotCommands = pgTable(
     retryCount: integer("retry_count").notNull().default(0),
     maxRetries: integer("max_retries").notNull().default(3),
     errorMessage: text("error_message"),
+    messageId: varchar("message_id", { length: 100 }),
     result: jsonb("result"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -1651,6 +1652,7 @@ exports.robotCommands = pgTable(
     statusIdx: index("robot_commands_status_idx").on(table.status),
     priorityIdx: index("robot_commands_priority_idx").on(table.priority),
     createdAtIdx: index("robot_commands_created_at_idx").on(table.createdAt),
+    messageIdIdx: index("robot_commands_message_id_idx").on(table.messageId),
   })
 );
 

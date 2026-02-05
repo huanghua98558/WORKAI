@@ -435,8 +435,85 @@ const worktoolCallbackRoutes = async function (fastify, options) {
         result: callbackData.result
       });
 
-      // 处理指令结果（记录到数据库、触发后续流程等）
-      // TODO: 根据业务需求处理指令结果
+      // 处理指令结果（通过回调更新指令状态）
+      console.log('[指令回调] 收到指令执行结果', {
+        requestId,
+        robotId,
+        callbackData: {
+          messageId: callbackData.messageId,
+          msgId: callbackData.msgId,
+          command: callbackData.command,
+          status: callbackData.status,
+          result: callbackData.result,
+          timestamp: callbackData.timestamp
+        }
+      });
+
+      const robotCommandService = require('../services/robot-command.service');
+
+      // 获取 messageId（可能是 messageId 或 msgId）
+      const messageId = callbackData.messageId || callbackData.msgId;
+
+      if (!messageId) {
+        console.warn('[指令回调] 回调数据中没有 messageId，无法关联到指令', { callbackData });
+        return reply.send(successResponse({}, 'success'));
+      }
+
+      // 通过 messageId 查找对应的指令
+      try {
+        const command = await robotCommandService.getCommandByMessageId(messageId);
+
+        if (!command) {
+          console.warn('[指令回调] 未找到对应的指令', { messageId, robotId });
+          return reply.send(successResponse({}, 'success'));
+        }
+
+        console.log('[指令回调] 找到对应的指令', {
+          messageId,
+          commandId: command.id,
+          robotId: command.robotId,
+          commandType: command.commandType,
+          currentStatus: command.status
+        });
+
+        // 根据回调结果更新指令状态
+        const isSuccess = callbackData.status === 'success' || callbackData.status === 'completed' || callbackData.success === true;
+
+        if (isSuccess) {
+          await robotCommandService.updateCommandStatus(command.id, 'completed', {
+            result: callbackData.result || { success: true, message: '执行成功' },
+            errorMessage: null
+          });
+
+          console.log('[指令回调] 指令状态已更新为 completed', {
+            commandId: command.id,
+            messageId
+          });
+        } else {
+          // 执行失败
+          const errorMessage = callbackData.errorMessage || callbackData.message || '执行失败';
+
+          await robotCommandService.updateCommandStatus(command.id, 'failed', {
+            errorMessage,
+            result: callbackData.result
+          });
+
+          console.log('[指令回调] 指令状态已更新为 failed', {
+            commandId: command.id,
+            messageId,
+            errorMessage
+          });
+        }
+      } catch (error) {
+        console.error('[指令回调] 处理指令状态更新失败:', error);
+        // 即使更新失败，也返回成功，避免重复回调
+      }
+
+      console.log('[指令回调] 指令结果回调处理完成', {
+        requestId,
+        robotId,
+        messageId
+      });
 
       reply.send(successResponse({}, 'success'));
 
