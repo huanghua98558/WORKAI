@@ -6,14 +6,22 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { Node, Edge } from 'reactflow';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, XCircle, Code } from 'lucide-react';
-import { FlowDefinition } from '../types';
 
 interface FlowJsonEditorProps {
-  flow: FlowDefinition;
-  onChange: (flow: FlowDefinition) => void;
+  flow: {
+    id: string;
+    name: string;
+    description: string;
+    triggerType: 'webhook' | 'manual' | 'scheduled';
+    nodes: Node[];
+    edges: Edge[];
+    version?: string;
+  };
+  onChange: (flow: any) => void;
 }
 
 export default function FlowJsonEditor({ flow, onChange }: FlowJsonEditorProps) {

@@ -6,6 +6,7 @@
  */
 
 import React, { useState } from 'react';
+import { Node } from 'reactflow';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,23 +16,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { X, Settings } from 'lucide-react';
 import { NODE_TYPES, NODE_METADATA } from '../types';
 
-interface NodeData {
-  id: string;
-  type: string;
-  position: { x: number; y: number };
-  data: {
-    type: string;
-    name: string;
-    description?: string;
-    config?: Record<string, any>;
-    icon?: string;
-    color?: string;
-  };
-}
+type FlowNode = Node;
 
 interface NodeConfigPanelProps {
-  node: NodeData;
-  onUpdate: (updates: Partial<NodeData>) => void;
+  node: FlowNode;
+  onUpdate: (updates: Partial<FlowNode>) => void;
 }
 
 export default function NodeConfigPanel({ node, onUpdate }: NodeConfigPanelProps) {

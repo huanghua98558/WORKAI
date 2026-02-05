@@ -35,7 +35,7 @@ interface FlowCanvasProps {
   onEdgesChange: (edges: Edge[]) => void;
   onNodeSelect: (node: Node | null) => void;
   onNodeUpdate: (nodeId: string, updates: Partial<Node>) => void;
-  selectedNodeId?: string;
+  selectedNodeId?: string | null;
 }
 
 export default function FlowCanvas({

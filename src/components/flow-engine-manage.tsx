@@ -111,19 +111,30 @@ export default function FlowEngineManage() {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
 
   // 编辑器对话框状态（统一用于创建和编辑）
-  const [editorDialog, setEditorDialog] = useState({
+  const [editorDialog, setEditorDialog] = useState<{
+    isOpen: boolean;
+    mode: 'create' | 'edit';
+    width: number;
+    height: number | string;
+    isMaximized: boolean;
+  }>({
     isOpen: false,
-    mode: 'create' as 'create' | 'edit',
-    width: 1200,
-    height: 700,
+    mode: 'create',
+    width: 1400,
+    height: window.innerHeight * 0.85,
     isMaximized: false,
   });
 
   // 辅助函数：转换后端FlowNode到FlowEditor的NodeData
   const convertToEditorNodes = (flowNodes: FlowNode[]) => {
     return flowNodes.map((node, index) => {
-      const nodeType = node.type as keyof typeof NODE_TYPES;
-      const metadata = NODE_METADATA[nodeType];
+      // 处理大小写不匹配问题（如 'END' vs 'end'）
+      const nodeTypeLower = node.type.toLowerCase();
+      const nodeTypeKey = Object.keys(NODE_TYPES).find(key =>
+        NODE_TYPES[key as keyof typeof NODE_TYPES].toLowerCase() === nodeTypeLower
+      ) as keyof typeof NODE_TYPES;
+      const nodeType = nodeTypeKey ? NODE_TYPES[nodeTypeKey] : node.type;
+      const metadata = nodeTypeKey ? NODE_METADATA[NODE_TYPES[nodeTypeKey]] : undefined;
 
       return {
         id: node.id,
@@ -133,7 +144,7 @@ export default function FlowEngineManage() {
           y: 100 + Math.floor(index / 3) * 150
         },
         data: {
-          type: node.type,  // 业务节点类型
+          type: nodeType,  // 使用标准化的节点类型
           name: node.name,
           description: metadata?.description || '',
           config: node.config || {},
@@ -744,8 +755,8 @@ export default function FlowEngineManage() {
                     setEditorDialog({
                       ...editorDialog,
                       isMaximized: !editorDialog.isMaximized,
-                      width: editorDialog.isMaximized ? 1200 : window.innerWidth * 0.95,
-                      height: editorDialog.isMaximized ? 700 : window.innerHeight * 0.95,
+                      width: editorDialog.isMaximized ? 1400 : window.innerWidth * 0.95,
+                      height: editorDialog.isMaximized ? '85vh' : window.innerHeight * 0.95,
                     });
                   }}
                   title={editorDialog.isMaximized ? "还原" : "最大化"}
@@ -778,7 +789,9 @@ export default function FlowEngineManage() {
                 const startX = e.clientX;
                 const startY = e.clientY;
                 const startWidth = editorDialog.width;
-                const startHeight = editorDialog.height;
+                const startHeight = typeof editorDialog.height === 'number'
+                  ? editorDialog.height
+                  : parseInt(editorDialog.height as string) || 600;
 
                 const handleMouseMove = (moveEvent: MouseEvent) => {
                   const newWidth = Math.max(800, startWidth + (moveEvent.clientX - startX));
@@ -944,7 +957,7 @@ export default function FlowEngineManage() {
                   </div>
                   <div>
                     <span className="text-muted-foreground">触发类型:</span>
-                    <span className="ml-2">{TRIGGER_TYPE_CONFIG[selectedFlow.trigger_type]?.label || selectedFlow.trigger_type}</span>
+                    <span className="ml-2">{selectedFlow.trigger_type ? (TRIGGER_TYPE_CONFIG[selectedFlow.trigger_type]?.label || selectedFlow.trigger_type) : '未知'}</span>
                   </div>
                   <div>
                     <span className="text-muted-foreground">执行次数:</span>

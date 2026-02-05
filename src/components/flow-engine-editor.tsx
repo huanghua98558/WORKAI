@@ -36,24 +36,13 @@ import NodeConfigPanel from '@/app/flow-engine/components/NodeConfigPanel';
 import FlowTestPanel from '@/app/flow-engine/components/FlowTestPanel';
 import FlowJsonEditor from '@/app/flow-engine/components/FlowJsonEditor';
 import { NodeData as BaseNodeData, EdgeData } from '@/app/flow-engine/types';
+import { Node, Edge } from 'reactflow';
 
 // 节点数据类型（适配 React Flow）
-export interface NodeData {
-  id: string;
-  type: string;  // React Flow 节点类型（'custom'）
-  position: { x: number; y: number };
-  data: {
-    type: string;  // 业务节点类型（'message_receive', 'intent' 等）
-    name: string;
-    description?: string;
-    config?: Record<string, any>;
-    icon?: string;
-    color?: string;
-  };
-}
+export type FlowNode = Node;
 
 // 边类型定义
-export type Edge = EdgeData;
+export type FlowEdge = Edge;
 
 // 流程定义类型
 export interface FlowDefinition {
@@ -61,8 +50,8 @@ export interface FlowDefinition {
   name: string;
   description: string;
   triggerType: 'webhook' | 'manual' | 'scheduled';
-  nodes: NodeData[];
-  edges: Edge[];
+  nodes: FlowNode[];
+  edges: FlowEdge[];
   version?: string;
 }
 
@@ -86,15 +75,66 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
     }
   );
 
-  const [selectedNode, setSelectedNode] = useState<NodeData | null>(null);
   const [activeTab, setActiveTab] = useState<'visual' | 'json'>('visual');
   const [isTesting, setIsTesting] = useState(false);
   const [testResults, setTestResults] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
+  // 性能优化：将流程元数据（名称、描述）拆分为独立 state
+  // 避免在输入时触发整个 flow 对象更新，导致画布重绘
+  const [flowMeta, setFlowMeta] = useState({
+    name: initialFlow?.name || '',
+    description: initialFlow?.description || '',
+  });
+
+  // 状态优化：只存储选中的节点 ID，从 flow.nodes 派生 selectedNode
+  // 避免数据拷贝导致的同步问题，遵循单数据源原则
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const selectedNode = flow.nodes.find(n => n.id === selectedNodeId) ?? null;
+
+  // 同步 initialFlow 到 flowMeta
+  React.useEffect(() => {
+    if (initialFlow) {
+      setFlowMeta({
+        name: initialFlow.name,
+        description: initialFlow.description,
+      });
+    }
+  }, [initialFlow]);
+
+  // 注入自定义滚动条样式
+  React.useEffect(() => {
+    const customScrollbarStyles = `
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f1f5f9;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+    `;
+    const style = document.createElement('style');
+    style.textContent = customScrollbarStyles;
+    document.head.appendChild(style);
+    return () => style.remove();
+  }, []);
+
   // 保存流程
   const handleSaveFlow = async () => {
-    if (!flow.name.trim()) {
+    // 合并 flowMeta 到 flow，确保最新数据被保存
+    const finalFlow = {
+      ...flow,
+      name: flowMeta.name || flow.name,
+      description: flowMeta.description || flow.description,
+    };
+
+    if (!finalFlow.name.trim()) {
       toast({
         title: "验证失败",
         description: "请输入流程名称",
@@ -103,7 +143,7 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
       return;
     }
 
-    if (flow.nodes.length === 0) {
+    if (finalFlow.nodes.length === 0) {
       toast({
         title: "验证失败",
         description: "请至少添加一个节点",
@@ -115,7 +155,7 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
     setIsSaving(true);
     try {
       if (onSave) {
-        await onSave(flow);
+        await onSave(finalFlow);
       }
       // 保存成功后关闭弹窗
       if (onClose) onClose();
@@ -132,19 +172,51 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
   };
 
   // 更新节点数据
-  const handleUpdateNode = useCallback((nodeId: string, updates: Partial<NodeData>) => {
+  const handleUpdateNode = useCallback((nodeId: string, updates: Partial<FlowNode>) => {
     setFlow(prev => ({
       ...prev,
       nodes: prev.nodes.map(node =>
         node.id === nodeId ? { ...node, ...updates } : node
       )
     }));
+    // 不需要手动更新 selectedNode，因为它是从 flow.nodes 派生的
+  }, []);
 
-    // 更新选中的节点
-    if (selectedNode?.id === nodeId) {
-      setSelectedNode(prev => prev ? { ...prev, ...updates } : null);
+  // JSON 编辑校验：防止非法 JSON 破坏流程
+  const validateFlowStructure = (flowToValidate: FlowDefinition): { valid: boolean; error?: string } => {
+    // 校验名称
+    if (!flowToValidate.name || typeof flowToValidate.name !== 'string') {
+      return { valid: false, error: '流程名称无效' };
     }
-  }, [selectedNode]);
+
+    // 校验节点
+    if (!Array.isArray(flowToValidate.nodes)) {
+      return { valid: false, error: 'nodes 必须是数组' };
+    }
+
+    for (const node of flowToValidate.nodes) {
+      if (!node.id || !node.data?.type) {
+        return { valid: false, error: `节点缺少必要字段 (id 或 type): ${JSON.stringify(node)}` };
+      }
+
+      if (typeof node.position?.x !== 'number' || typeof node.position?.y !== 'number') {
+        return { valid: false, error: `节点 ${node.id} 位置信息无效` };
+      }
+    }
+
+    // 校验边
+    if (!Array.isArray(flowToValidate.edges)) {
+      return { valid: false, error: 'edges 必须是数组' };
+    }
+
+    for (const edge of flowToValidate.edges) {
+      if (!edge.source || !edge.target) {
+        return { valid: false, error: `连线缺少 source 或 target: ${JSON.stringify(edge)}` };
+      }
+    }
+
+    return { valid: true };
+  };
 
   // 测试流程
   const handleTestFlow = async () => {
@@ -233,14 +305,16 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
           </h2>
           <div className="flex flex-col gap-1 flex-1 max-w-md min-w-0">
             <Input
-              value={flow.name}
-              onChange={(e) => setFlow({ ...flow, name: e.target.value })}
+              value={flowMeta.name}
+              onChange={(e) => setFlowMeta(prev => ({ ...prev, name: e.target.value }))}
+              onBlur={() => setFlow(prev => ({ ...prev, name: flowMeta.name }))}
               placeholder="流程名称 *"
               className="w-full"
             />
             <Input
-              value={flow.description}
-              onChange={(e) => setFlow({ ...flow, description: e.target.value })}
+              value={flowMeta.description}
+              onChange={(e) => setFlowMeta(prev => ({ ...prev, description: e.target.value }))}
+              onBlur={() => setFlow(prev => ({ ...prev, description: flowMeta.description }))}
               placeholder="流程描述（可选）"
               className="w-full text-sm"
             />
@@ -312,51 +386,90 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
             </TabsList>
           </div>
 
-          <TabsContent value="visual" className="flex-1 p-4 overflow-hidden">
-            <div className="grid grid-cols-12 gap-4 h-full min-h-0">
-              {/* 左侧：节点库 */}
-              <div className="col-span-3 overflow-hidden">
-                <FlowNodeLibrary />
+          <TabsContent value="visual" className="flex-1 min-h-0 flex flex-col p-0 overflow-hidden">
+            <div className="flex h-full w-full bg-slate-50">
+
+              {/* 左侧：节点库 (固定宽度 250px，可滚动) */}
+              <div className="w-[250px] flex-shrink-0 border-r bg-white flex flex-col h-full">
+                <div className="p-3 border-b bg-slate-50/50 font-medium text-sm text-slate-700">
+                  组件库
+                </div>
+                <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+                  <FlowNodeLibrary />
+                </div>
               </div>
 
-              {/* 中间：画布 */}
-              <div className="col-span-5 overflow-hidden">
+              {/* 中间：画布 (自动撑满剩余空间 flex-1) */}
+              <div className="flex-1 h-full relative overflow-hidden bg-slate-100/50">
                 <FlowCanvas
                   nodes={flow.nodes}
                   edges={flow.edges}
                   onNodesChange={(nodes) => setFlow({ ...flow, nodes })}
                   onEdgesChange={(edges) => setFlow({ ...flow, edges })}
-                  onNodeSelect={setSelectedNode}
+                  onNodeSelect={(node) => setSelectedNodeId(node?.id ?? null)}
                   onNodeUpdate={handleUpdateNode}
-                  selectedNodeId={selectedNode?.id}
+                  selectedNodeId={selectedNodeId}
                 />
-              </div>
 
-              {/* 右侧：配置面板 */}
-              <div className="col-span-4 space-y-4 overflow-y-auto">
-                {selectedNode && (
-                  <NodeConfigPanel
-                    node={selectedNode}
-                    onUpdate={(updates) => handleUpdateNode(selectedNode.id, updates)}
-                  />
-                )}
-
-                {/* 测试面板 */}
+                {/* 浮动的测试面板 (不占空间，悬浮在底部) */}
                 {testResults.length > 0 && (
-                  <FlowTestPanel
-                    results={testResults}
-                    isRunning={isTesting}
-                    onClear={() => setTestResults([])}
-                  />
+                  <div className="absolute bottom-4 left-4 right-4 max-h-[30%] bg-white border shadow-lg rounded-lg overflow-hidden flex flex-col animate-in slide-in-from-bottom-5">
+                    <FlowTestPanel
+                      results={testResults}
+                      isRunning={isTesting}
+                      onClear={() => setTestResults([])}
+                    />
+                  </div>
                 )}
               </div>
+
+              {/* 右侧：配置面板 (固定宽度 320px，可滚动) */}
+              <div className="w-[320px] flex-shrink-0 border-l bg-white flex flex-col h-full">
+                <div className="p-3 border-b bg-slate-50/50 font-medium text-sm text-slate-700">
+                  节点属性
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                  {selectedNode ? (
+                    <NodeConfigPanel
+                      node={selectedNode}
+                      onUpdate={(updates) => handleUpdateNode(selectedNodeId!, updates)}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm">
+                      <LayoutGrid className="w-12 h-12 mb-3 opacity-20" />
+                      <p>请点击画布中的节点</p>
+                      <p>进行参数配置</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
           </TabsContent>
 
           <TabsContent value="json" className="flex-1 p-4 overflow-hidden">
             <FlowJsonEditor
               flow={flow}
-              onChange={setFlow}
+              onChange={(newFlow) => {
+                try {
+                  const validation = validateFlowStructure(newFlow);
+                  if (!validation.valid) {
+                    toast({
+                      variant: 'destructive',
+                      title: 'JSON 格式错误',
+                      description: validation.error,
+                    });
+                    return;
+                  }
+                  setFlow(newFlow);
+                } catch (error) {
+                  toast({
+                    variant: 'destructive',
+                    title: 'JSON 解析失败',
+                    description: error instanceof Error ? error.message : '未知错误',
+                  });
+                }
+              }}
             />
           </TabsContent>
         </Tabs>
