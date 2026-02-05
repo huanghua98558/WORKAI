@@ -411,9 +411,8 @@ export default function FlowEngineManage() {
       });
 
       if (result.success) {
-        setFlows(flows.map(flow => 
-          flow.id === selectedFlow.id ? result.data! : flow
-        ));
+        // 刷新流程列表
+        await loadFlows();
         setIsEditDialogOpen(false);
         setSelectedFlow(null);
         toast({
@@ -910,16 +909,19 @@ export default function FlowEngineManage() {
             </div>
 
             {/* FlowEditor 内容 */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-hidden">
               <FlowEditor
                 mode="create"
                 onSave={async (flow) => {
                   try {
                     await handleCreateFlow({
-                      ...formData,
+                      id: flow.id,
                       name: flow.name,
                       description: flow.description,
+                      status: 'active',
                       trigger_type: flow.triggerType,
+                      trigger_config: {},
+                      version: '1.0.0',
                       nodes: flow.nodes.map(node => ({
                         id: node.id,
                         type: node.type,
@@ -1060,7 +1062,7 @@ export default function FlowEngineManage() {
             </div>
 
             {/* FlowEditor 内容 */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-hidden">
               <FlowEditor
                 mode="edit"
                 initialFlow={{
@@ -1078,10 +1080,13 @@ export default function FlowEngineManage() {
                 onSave={async (flow) => {
                   try {
                     await handleUpdateFlow({
-                      ...formData,
+                      id: selectedFlow.id,
                       name: flow.name,
                       description: flow.description,
+                      status: selectedFlow.status,
                       trigger_type: flow.triggerType,
+                      trigger_config: selectedFlow.trigger_config || {},
+                      version: selectedFlow.version || '1.0.0',
                       nodes: convertToBackendNodes(flow.nodes),
                       edges: flow.edges.map(edge => ({
                         source: edge.source,
