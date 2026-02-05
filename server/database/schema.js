@@ -866,6 +866,128 @@ exports.aiBudgetSettings = pgTable(
 // AI预算设置表（下划线式导出）
 exports.ai_budget_settings = exports.aiBudgetSettings;
 
+// ============================================
+// 工作人员协同功能表
+// ============================================
+
+// 工作人员消息表
+exports.staffMessages = pgTable(
+  "staff_messages",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    sessionId: varchar("session_id", { length: 255 }).notNull(),
+    messageId: varchar("message_id", { length: 255 }).notNull().unique(),
+    staffUserId: varchar("staff_user_id", { length: 255 }).notNull(),
+    staffName: varchar("staff_name", { length: 255 }),
+    content: text("content").notNull(),
+    messageType: varchar("message_type", { length: 50 }).default('reply'),
+    isHandlingCommand: boolean("is_handling_command").default(false),
+    linkedRiskId: varchar("linked_risk_id", { length: 36 }),
+    createdAt: timestamp("created_at").defaultNow(),
+    timestamp: timestamp("timestamp"),
+  },
+  (table) => ({
+    sessionIdIdx: index("staff_messages_session_id_idx").on(table.sessionId),
+    staffUserIdIdx: index("staff_messages_staff_user_id_idx").on(table.staffUserId),
+    createdAtIdx: index("staff_messages_created_at_idx").on(table.createdAt),
+    messageTypeIdx: index("staff_messages_message_type_idx").on(table.messageType),
+  })
+);
+
+// 工作人员活动记录表
+exports.staffActivities = pgTable(
+  "staff_activities",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    sessionId: varchar("session_id", { length: 255 }).notNull(),
+    staffUserId: varchar("staff_user_id", { length: 255 }).notNull(),
+    staffName: varchar("staff_name", { length: 255 }),
+    activityType: varchar("activity_type", { length: 50 }).notNull(),
+    activityDetail: text("activity_detail"),
+    messageId: varchar("message_id", { length: 255 }),
+    riskId: varchar("risk_id", { length: 36 }),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    sessionIdIdx: index("staff_activities_session_id_idx").on(table.sessionId),
+    staffUserIdIdx: index("staff_activities_staff_user_id_idx").on(table.staffUserId),
+    activityTypeIdx: index("staff_activities_activity_type_idx").on(table.activityType),
+  })
+);
+
+// 会话工作人员状态表
+exports.sessionStaffStatus = pgTable(
+  "session_staff_status",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    sessionId: varchar("session_id", { length: 255 }).notNull().unique(),
+    hasStaffParticipated: boolean("has_staff_participated").default(false),
+    currentStaffUserId: varchar("current_staff_user_id", { length: 255 }),
+    staffJoinTime: timestamp("staff_join_time"),
+    staffLeaveTime: timestamp("staff_leave_time"),
+    staffMessageCount: integer("staff_message_count").default(0),
+    lastStaffActivity: timestamp("last_staff_activity"),
+    collaborationMode: varchar("collaboration_mode", { length: 50 }).default('adaptive'),
+    aiReplyStrategy: varchar("ai_reply_strategy", { length: 50 }).default('normal'),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => ({
+    sessionIdIdx: index("session_staff_status_session_id_idx").on(table.sessionId),
+    currentStaffIdx: index("session_staff_status_current_staff_user_id_idx").on(table.currentStaffUserId),
+    hasStaffIdx: index("session_staff_status_has_staff_participated_idx").on(table.hasStaffParticipated),
+  })
+);
+
+// 信息检测历史表
+exports.infoDetectionHistory = pgTable(
+  "info_detection_history",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    messageId: varchar("message_id", { length: 255 }).notNull().unique(),
+    sessionId: varchar("session_id", { length: 255 }).notNull(),
+    hasRisk: boolean("has_risk").default(false),
+    riskLevel: varchar("risk_level", { length: 20 }),
+    riskScore: numeric("risk_score", { precision: 3, scale: 2 }),
+    satisfactionLevel: varchar("satisfaction_level", { length: 20 }),
+    satisfactionScore: numeric("satisfaction_score", { precision: 3, scale: 2 }),
+    sentiment: varchar("sentiment", { length: 20 }),
+    sentimentConfidence: numeric("sentiment_confidence", { precision: 3, scale: 2 }),
+    urgencyLevel: varchar("urgency_level", { length: 20 }),
+    urgencyScore: numeric("urgency_score", { precision: 3, scale: 2 }),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    messageIdIdx: index("info_detection_history_message_id_idx").on(table.messageId),
+    sessionIdIdx: index("info_detection_history_session_id_idx").on(table.sessionId),
+    riskLevelIdx: index("info_detection_history_risk_level_idx").on(table.riskLevel),
+  })
+);
+
+// 协同决策日志表
+exports.collaborationDecisionLogs = pgTable(
+  "collaboration_decision_logs",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    sessionId: varchar("session_id", { length: 255 }).notNull(),
+    messageId: varchar("message_id", { length: 255 }),
+    robotId: varchar("robot_id", { length: 255 }),
+    shouldAiReply: boolean("should_ai_reply"),
+    aiAction: varchar("ai_action", { length: 50 }),
+    staffAction: varchar("staff_action", { length: 50 }),
+    priority: varchar("priority", { length: 20 }),
+    reason: varchar("reason", { length: 255 }),
+    staffContext: text("staff_context"),
+    infoContext: text("info_context"),
+    strategy: text("strategy"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    sessionIdIdx: index("collaboration_decision_logs_session_id_idx").on(table.sessionId),
+    createdAtIdx: index("collaboration_decision_logs_created_at_idx").on(table.createdAt),
+    priorityIdx: index("collaboration_decision_logs_priority_idx").on(table.priority),
+  })
+);
+
 
 
 // 运营日志表
@@ -2066,5 +2188,127 @@ exports.aiBudgetSettings = pgTable(
 
 // AI预算设置表（下划线式导出）
 exports.ai_budget_settings = exports.aiBudgetSettings;
+
+// ============================================
+// 工作人员协同功能表
+// ============================================
+
+// 工作人员消息表
+exports.staffMessages = pgTable(
+  "staff_messages",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    sessionId: varchar("session_id", { length: 255 }).notNull(),
+    messageId: varchar("message_id", { length: 255 }).notNull().unique(),
+    staffUserId: varchar("staff_user_id", { length: 255 }).notNull(),
+    staffName: varchar("staff_name", { length: 255 }),
+    content: text("content").notNull(),
+    messageType: varchar("message_type", { length: 50 }).default('reply'),
+    isHandlingCommand: boolean("is_handling_command").default(false),
+    linkedRiskId: varchar("linked_risk_id", { length: 36 }),
+    createdAt: timestamp("created_at").defaultNow(),
+    timestamp: timestamp("timestamp"),
+  },
+  (table) => ({
+    sessionIdIdx: index("staff_messages_session_id_idx").on(table.sessionId),
+    staffUserIdIdx: index("staff_messages_staff_user_id_idx").on(table.staffUserId),
+    createdAtIdx: index("staff_messages_created_at_idx").on(table.createdAt),
+    messageTypeIdx: index("staff_messages_message_type_idx").on(table.messageType),
+  })
+);
+
+// 工作人员活动记录表
+exports.staffActivities = pgTable(
+  "staff_activities",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    sessionId: varchar("session_id", { length: 255 }).notNull(),
+    staffUserId: varchar("staff_user_id", { length: 255 }).notNull(),
+    staffName: varchar("staff_name", { length: 255 }),
+    activityType: varchar("activity_type", { length: 50 }).notNull(),
+    activityDetail: text("activity_detail"),
+    messageId: varchar("message_id", { length: 255 }),
+    riskId: varchar("risk_id", { length: 36 }),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    sessionIdIdx: index("staff_activities_session_id_idx").on(table.sessionId),
+    staffUserIdIdx: index("staff_activities_staff_user_id_idx").on(table.staffUserId),
+    activityTypeIdx: index("staff_activities_activity_type_idx").on(table.activityType),
+  })
+);
+
+// 会话工作人员状态表
+exports.sessionStaffStatus = pgTable(
+  "session_staff_status",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    sessionId: varchar("session_id", { length: 255 }).notNull().unique(),
+    hasStaffParticipated: boolean("has_staff_participated").default(false),
+    currentStaffUserId: varchar("current_staff_user_id", { length: 255 }),
+    staffJoinTime: timestamp("staff_join_time"),
+    staffLeaveTime: timestamp("staff_leave_time"),
+    staffMessageCount: integer("staff_message_count").default(0),
+    lastStaffActivity: timestamp("last_staff_activity"),
+    collaborationMode: varchar("collaboration_mode", { length: 50 }).default('adaptive'),
+    aiReplyStrategy: varchar("ai_reply_strategy", { length: 50 }).default('normal'),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => ({
+    sessionIdIdx: index("session_staff_status_session_id_idx").on(table.sessionId),
+    currentStaffIdx: index("session_staff_status_current_staff_user_id_idx").on(table.currentStaffUserId),
+    hasStaffIdx: index("session_staff_status_has_staff_participated_idx").on(table.hasStaffParticipated),
+  })
+);
+
+// 信息检测历史表
+exports.infoDetectionHistory = pgTable(
+  "info_detection_history",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    messageId: varchar("message_id", { length: 255 }).notNull().unique(),
+    sessionId: varchar("session_id", { length: 255 }).notNull(),
+    hasRisk: boolean("has_risk").default(false),
+    riskLevel: varchar("risk_level", { length: 20 }),
+    riskScore: numeric("risk_score", { precision: 3, scale: 2 }),
+    satisfactionLevel: varchar("satisfaction_level", { length: 20 }),
+    satisfactionScore: numeric("satisfaction_score", { precision: 3, scale: 2 }),
+    sentiment: varchar("sentiment", { length: 20 }),
+    sentimentConfidence: numeric("sentiment_confidence", { precision: 3, scale: 2 }),
+    urgencyLevel: varchar("urgency_level", { length: 20 }),
+    urgencyScore: numeric("urgency_score", { precision: 3, scale: 2 }),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    messageIdIdx: index("info_detection_history_message_id_idx").on(table.messageId),
+    sessionIdIdx: index("info_detection_history_session_id_idx").on(table.sessionId),
+    riskLevelIdx: index("info_detection_history_risk_level_idx").on(table.riskLevel),
+  })
+);
+
+// 协同决策日志表
+exports.collaborationDecisionLogs = pgTable(
+  "collaboration_decision_logs",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    sessionId: varchar("session_id", { length: 255 }).notNull(),
+    messageId: varchar("message_id", { length: 255 }),
+    robotId: varchar("robot_id", { length: 255 }),
+    shouldAiReply: boolean("should_ai_reply"),
+    aiAction: varchar("ai_action", { length: 50 }),
+    staffAction: varchar("staff_action", { length: 50 }),
+    priority: varchar("priority", { length: 20 }),
+    reason: varchar("reason", { length: 255 }),
+    staffContext: text("staff_context"),
+    infoContext: text("info_context"),
+    strategy: text("strategy"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    sessionIdIdx: index("collaboration_decision_logs_session_id_idx").on(table.sessionId),
+    createdAtIdx: index("collaboration_decision_logs_created_at_idx").on(table.createdAt),
+    priorityIdx: index("collaboration_decision_logs_priority_idx").on(table.priority),
+  })
+);
 
 

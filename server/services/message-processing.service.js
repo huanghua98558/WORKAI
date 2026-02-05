@@ -12,6 +12,9 @@ const alertTriggerService = require('./alert-trigger.service');
 const config = require('../lib/config');
 const logger = require('./system-logger.service');
 
+// 工作人员识别服务
+const staffIdentifierService = require('./staff/staff-identifier.service');
+
 class MessageProcessingService {
   /**
    * 处理消息的主入口
@@ -87,6 +90,42 @@ class MessageProcessingService {
         groupName: messageContext.groupName,
         atMe: messageContext.atMe
       });
+
+      // 【新增】步骤1.5: 工作人员识别
+      logger.info('MessageProcessing', '步骤1.5: 工作人员识别', { processingId });
+      const isStaff = staffIdentifierService.isStaffUser({
+        userId: messageData.fromName,
+        receivedName: messageData.fromName,
+        groupName: messageData.groupName,
+        userRemark: messageData.userRemark,
+        platform: messageData.platform || 'enterprise'
+      });
+
+      // 标记消息来源
+      messageData.isStaff = isStaff;
+      messageData.senderType = isStaff ? 'staff' : 'user';
+
+      console.log(`[消息处理] 工作人员识别结果:`, {
+        userId: messageData.fromName,
+        receivedName: messageData.fromName,
+        isStaff,
+        senderType: messageData.senderType
+      });
+
+      logger.info('MessageProcessing', '步骤1.5完成: 工作人员识别完成', {
+        isStaff,
+        senderType: messageData.senderType,
+        processingId
+      });
+
+      // 【新增】如果是工作人员消息，记录特殊处理
+      if (isStaff) {
+        logger.info('MessageProcessing', '检测到工作人员消息', {
+          userId: messageData.fromName,
+          sessionId: session?.sessionId || 'unknown',
+          content: messageContent.substring(0, 50)
+        });
+      }
 
       // 步骤2: 获取或创建会话
       logger.info('MessageProcessing', '步骤2: 获取或创建会话', { processingId });
@@ -279,7 +318,8 @@ class MessageProcessingService {
         session,
         messageContext,
         processingId,
-        robot  // 传递 robot 参数
+        robot,  // 传递 robot 参数
+        isStaff  // 传递工作人员标识
       );
 
       logger.info('MessageProcessing', '步骤7完成: 决策完成', {
@@ -374,7 +414,30 @@ class MessageProcessingService {
   /**
    * 根据意图决策
    */
-  async makeDecision(intentResult, session, messageContext, processingId, robot) {
+  async makeDecision(intentResult, session, messageContext, processingId, robot, isStaff = false) {
+    // 【新增】如果是工作人员消息，AI不回复
+    if (isStaff) {
+      logger.info('MessageProcessing', '工作人员消息，AI不回复', {
+        sessionId: session.sessionId,
+        userId: messageContext.fromName
+      });
+
+      executionTrackerService.updateStep(processingId, 'decision', {
+        status: 'completed',
+        result: {
+          action: 'none',
+          reason: 'staff_message',
+          isStaff: true
+        }
+      });
+
+      return {
+        action: 'none',
+        reason: 'staff_message',
+        isStaff: true
+      };
+    }
+
     // ========== 检查是否为转化客服模式 ==========
     // 1. 检查机器人是否显式开启了转化客服模式
     // 2. 检查机器人分组是否为"营销"
