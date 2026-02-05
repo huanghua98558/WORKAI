@@ -131,7 +131,7 @@ export default function RobotManagement() {
   // 检查所有机器人状态
   const checkAllRobotsStatus = async () => {
     try {
-      const res = await fetch('/api/admin/robots/check-status-all', {
+      const res = await fetch('/api/proxy/admin/robots/check-status-all', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -249,7 +249,7 @@ export default function RobotManagement() {
   // 同步机器人信息
   const handleCheckStatus = async (robot: Robot) => {
     try {
-      const res = await fetch(`/api/admin/robots/check-status/${robot.robotId}`, {
+      const res = await fetch(`/api/proxy/admin/robots/check-status/${robot.robotId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
