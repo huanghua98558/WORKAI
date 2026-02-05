@@ -36,8 +36,10 @@ export default function NodeConfigPanel({ node, onUpdate }: NodeConfigPanelProps
   };
 
   const handleSave = () => {
-    console.log('保存节点配置:', config);
-    // TODO: 调用API保存配置
+    console.log('节点配置已更新:', config);
+    // 配置已经通过onUpdate回调自动保存到flow状态
+    // 提示用户配置已更新
+    alert('节点配置已更新，请点击"保存流程"按钮保存整个流程。');
   };
 
   return (

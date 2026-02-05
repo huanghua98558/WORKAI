@@ -73,12 +73,71 @@ export default function FlowEnginePage() {
   // 保存流程
   const handleSaveFlow = async () => {
     try {
-      console.log('保存流程:', flow);
-      // TODO: 调用API保存流程
-      alert('流程保存成功！');
+      // 验证流程数据
+      if (!flow.name || flow.name.trim() === '') {
+        alert('请输入流程名称');
+        return;
+      }
+
+      if (!flow.description || flow.description.trim() === '') {
+        alert('请输入流程描述');
+        return;
+      }
+
+      // 准备保存的数据
+      const saveData = {
+        id: flow.id,
+        name: flow.name,
+        description: flow.description,
+        status: 'active',
+        triggerType: flow.triggerType,
+        triggerConfig: {},
+        nodes: flow.nodes.map(node => ({
+          id: node.id,
+          type: node.type,
+          position: node.position,
+          data: {
+            name: node.data.name,
+            description: node.data.description || '',
+            config: node.data.config || {}
+          }
+        })),
+        edges: flow.edges.map(edge => ({
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          sourceHandle: edge.sourceHandle,
+          targetHandle: edge.targetHandle
+        }))
+      };
+
+      console.log('保存流程数据:', saveData);
+
+      // 调用API保存流程
+      const response = await fetch('/api/flow-engine/definitions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(saveData)
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        // 更新流程ID（如果是新建流程）
+        if (result.data?.id && result.data.id !== flow.id) {
+          setFlow(prev => ({ ...prev, id: result.data.id }));
+        }
+
+        alert('流程保存成功！');
+        console.log('保存结果:', result);
+      } else {
+        throw new Error(result.error || '保存失败');
+      }
     } catch (error) {
       console.error('保存失败:', error);
-      alert('保存失败，请查看控制台');
+      alert(`保存失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   };
 
