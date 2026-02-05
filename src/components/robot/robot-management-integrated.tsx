@@ -432,7 +432,7 @@ export default function RobotManagement() {
     setTestError(null);
 
     try {
-      const res = await fetch('/api/admin/robots/test', {
+      const res = await fetch('/api/proxy/admin/robots/test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

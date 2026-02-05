@@ -313,7 +313,7 @@ export default function RobotManagement() {
     if (!robotId) {
       setTestingRobotId('form');
       try {
-        const res = await fetch('/api/admin/robots/test', {
+        const res = await fetch('/api/proxy/admin/robots/test', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -344,7 +344,7 @@ export default function RobotManagement() {
     setTestingRobotId(targetRobotId);
 
     try {
-      const res = await fetch('/api/admin/robots/test', {
+      const res = await fetch('/api/proxy/admin/robots/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
