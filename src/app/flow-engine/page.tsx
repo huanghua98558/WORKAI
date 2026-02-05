@@ -12,12 +12,13 @@
  */
 
 import React, { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Play, Save, TestTube, FileJson, Settings } from 'lucide-react';
+import { ArrowLeft, Play, Save, TestTube, FileJson, Settings } from 'lucide-react';
 import FlowCanvas from './components/FlowCanvas';
 import FlowNodeLibrary from './components/FlowNodeLibrary';
 import NodeConfigPanel from './components/NodeConfigPanel';
@@ -56,6 +57,8 @@ export interface FlowDefinition {
 }
 
 export default function FlowEnginePage() {
+  const router = useRouter();
+
   const [flow, setFlow] = useState<FlowDefinition>({
     id: `flow_${Date.now()}`,
     name: '新流程',
@@ -90,17 +93,15 @@ export default function FlowEnginePage() {
         name: flow.name,
         description: flow.description,
         status: 'active',
-        triggerType: flow.triggerType,
-        triggerConfig: {},
+        trigger_type: flow.triggerType,
+        trigger_config: {},
+        version: '1.0.0',
         nodes: flow.nodes.map(node => ({
           id: node.id,
           type: node.type,
           position: node.position,
-          data: {
-            name: node.data.name,
-            description: node.data.description || '',
-            config: node.data.config || {}
-          }
+          name: node.data.name,
+          config: node.data.config || {}
         })),
         edges: flow.edges.map(edge => ({
           id: edge.id,
@@ -130,7 +131,7 @@ export default function FlowEnginePage() {
           setFlow(prev => ({ ...prev, id: result.data.id }));
         }
 
-        alert('流程保存成功！');
+        alert('流程保存成功！\n\n点击"返回列表"按钮可以查看所有流程。');
         console.log('保存结果:', result);
       } else {
         throw new Error(result.error || '保存失败');
@@ -248,6 +249,13 @@ export default function FlowEnginePage() {
               </p>
             </div>
             <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => router.push('/flow-engine-manage')}
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                返回列表
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => setIsTesting(false)}

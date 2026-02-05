@@ -357,7 +357,8 @@ export default function FlowEngineManage() {
       });
 
       if (result.success) {
-        setFlows([result.data!, ...flows]);
+        // 刷新流程列表
+        await loadFlows();
         setIsCreateDialogOpen(false);
         setFormData({
           name: '',
