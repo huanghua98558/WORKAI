@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const response = await fetch(`http://localhost:5001/api/alerts/history/${params.id}/handle`, {
+    const { id } = await params;
+    const response = await fetch(`http://localhost:5001/api/alerts/history/${id}/handle`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

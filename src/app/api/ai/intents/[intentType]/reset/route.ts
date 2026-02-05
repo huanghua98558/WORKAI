@@ -4,10 +4,11 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:500
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { intentType: string } }
+  { params }: { params: Promise<{ intentType: string }> }
 ) {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/ai/intents/${params.intentType}/reset`, {
+    const { intentType } = await params;
+    const response = await fetch(`${BACKEND_URL}/api/ai/intents/${intentType}/reset`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

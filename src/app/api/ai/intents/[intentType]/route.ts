@@ -4,10 +4,11 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:500
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { intentType: string } }
+  { params }: { params: Promise<{ intentType: string }> }
 ) {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/ai/intents/${params.intentType}`, {
+    const { intentType } = await params;
+    const response = await fetch(`${BACKEND_URL}/api/ai/intents/${intentType}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -30,12 +31,13 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { intentType: string } }
+  { params }: { params: Promise<{ intentType: string }> }
 ) {
   try {
+    const { intentType } = await params;
     const body = await request.json();
 
-    const response = await fetch(`${BACKEND_URL}/api/ai/intents/${params.intentType}`, {
+    const response = await fetch(`${BACKEND_URL}/api/ai/intents/${intentType}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
