@@ -965,6 +965,8 @@ export default function CommandSender() {
                 <TableRow>
                   <TableHead>类型</TableHead>
                   <TableHead>机器人</TableHead>
+                  <TableHead>接收者</TableHead>
+                  <TableHead>消息内容</TableHead>
                   <TableHead>优先级</TableHead>
                   <TableHead>状态</TableHead>
                   <TableHead>执行结果</TableHead>
@@ -975,7 +977,7 @@ export default function CommandSender() {
               <TableBody>
                 {commands.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                       <div className="space-y-2">
                         <div className="text-base font-medium">暂无指令记录</div>
                         <div className="text-sm">发送指令后，这里将显示指令执行历史</div>
@@ -986,6 +988,21 @@ export default function CommandSender() {
                   commands.map(command => {
                     const robot = robots.find(r => r.robotId === command.robotId);
                     const cmdType = COMMAND_TYPES.find(c => c.value === command.commandType);
+
+                    // 提取消息详情
+                    let recipient = '-';
+                    let messageContent = '-';
+
+                    if (command.commandData && command.commandData.list && command.commandData.list.length > 0) {
+                      const msg = command.commandData.list[0];
+                      recipient = msg.titleList && msg.titleList.length > 0 ? msg.titleList[0] : '-';
+                      messageContent = msg.receivedContent || '-';
+
+                      // 如果有 @ 的人，显示在接收者后面
+                      if (msg.atList && msg.atList.length > 0) {
+                        recipient += ` ( @${msg.atList.join(', @')} )`;
+                      }
+                    }
 
                     // 根据状态显示不同的执行结果
                     let resultText = '';
@@ -1017,6 +1034,12 @@ export default function CommandSender() {
                         </TableCell>
                         <TableCell className="max-w-xs truncate">
                           {robot?.name || robot?.nickname || command.robotId}
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate text-sm">
+                          {recipient}
+                        </TableCell>
+                        <TableCell className="max-w-sm truncate text-sm">
+                          {messageContent}
                         </TableCell>
                         <TableCell>{getPriorityBadge(command.priority)}</TableCell>
                         <TableCell>{getCommandStatusBadge(command.status)}</TableCell>
