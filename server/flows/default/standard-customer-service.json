@@ -10,9 +10,21 @@
   },
   "nodes": [
     {
+      "id": "node_00",
+      "type": "start",
+      "position": { "x": 0, "y": 100 },
+      "data": {
+        "name": "开始",
+        "description": "流程开始",
+        "config": {
+          "initialVariables": {}
+        }
+      }
+    },
+    {
       "id": "node_01",
       "type": "message_receive",
-      "position": { "x": 100, "y": 100 },
+      "position": { "x": 150, "y": 100 },
       "data": {
         "name": "消息接收",
         "description": "接收WorkTool消息并保存到数据库",
@@ -199,6 +211,7 @@
     }
   ],
   "edges": [
+    { "id": "edge_00", "source": "node_00", "target": "node_01" },
     { "id": "edge_01", "source": "node_01", "target": "node_02" },
     { "id": "edge_02", "source": "node_02", "target": "node_03" },
     { "id": "edge_03", "source": "node_03", "target": "node_04" },
