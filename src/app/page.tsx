@@ -43,6 +43,9 @@ const AIModule = lazy(() => import('@/components/ai-module'));
 const FlowEngineManage = lazy(() => import('@/components/flow-engine-manage'));
 const CollabAnalytics = lazy(() => import('@/app/collab-analytics/page'));
 
+// 引入新的仪表盘组件
+const NewDashboardTab = lazy(() => import('@/components/dashboard/NewDashboardTab'));
+
 import { cn } from '@/lib/utils';
 
 // 加载组件
@@ -2540,263 +2543,21 @@ ${callbacks.robotStatus}
     return '未知';
   };
 
-  // 仪表盘主页面
+  // 仪表盘主页面 - 使用新的设计
   const DashboardTab = () => (
-    <div className="space-y-6">
-      <OverviewTab />
-
-      {/* 监控告警信息 */}
-      {(alertStats && (alertStats.total > 0 || alertStats.byLevel.critical > 0)) && (
-        <Card className={`border-2 ${
-          alertStats.byLevel.critical > 0 
-            ? 'border-red-200 dark:border-red-900 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/20 dark:to-orange-950/20' 
-            : 'border-yellow-200 dark:border-yellow-900 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-950/20 dark:to-amber-950/20'
-        }`}>
-          <CardHeader className={`${
-            alertStats.byLevel.critical > 0
-              ? 'bg-gradient-to-r from-red-500 to-orange-500'
-              : 'bg-gradient-to-r from-yellow-500 to-amber-500'
-          } text-white`}>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5" />
-                监控告警
-              </CardTitle>
-              <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
-                {alertStats.total} 条告警
-              </Badge>
-            </div>
-            <CardDescription className="text-white/90">
-              系统监控告警信息
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="grid gap-4 md:grid-cols-3">
-              {/* 紧急告警 */}
-              <Card className={`${
-                alertStats.byLevel.critical > 0 
-                  ? 'border-red-500 bg-red-50 dark:bg-red-950/20' 
-                  : 'border-gray-200'
-              }`}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className={`h-5 w-5 ${
-                      alertStats.byLevel.critical > 0 ? 'text-red-500' : 'text-gray-400'
-                    }`} />
-                    <CardTitle className="text-sm font-medium">紧急告警</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className={`text-3xl font-bold ${
-                    alertStats.byLevel.critical > 0 ? 'text-red-600' : 'text-gray-500'
-                  }`}>
-                    {alertStats.byLevel.critical}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    需要立即处理
-                  </p>
-                  {alertStats.byLevel.critical > 0 && (
-                    <Button 
-                      size="sm" 
-                      variant="destructive" 
-                      className="mt-3 w-full gap-2"
-                      onClick={() => setActiveTab('monitor')}
-                    >
-                      <Eye className="h-4 w-4" />
-                      立即查看
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* 警告告警 */}
-              <Card className={`${
-                alertStats.byLevel.warning > 0 
-                  ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20' 
-                  : 'border-gray-200'
-              }`}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className={`h-5 w-5 ${
-                      alertStats.byLevel.warning > 0 ? 'text-yellow-500' : 'text-gray-400'
-                    }`} />
-                    <CardTitle className="text-sm font-medium">警告告警</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className={`text-3xl font-bold ${
-                    alertStats.byLevel.warning > 0 ? 'text-yellow-600' : 'text-gray-500'
-                  }`}>
-                    {alertStats.byLevel.warning}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    需要关注
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* 信息告警 */}
-              <Card className={`${
-                alertStats.byLevel.info > 0 
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' 
-                  : 'border-gray-200'
-              }`}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2">
-                    <Info className={`h-5 w-5 ${
-                      alertStats.byLevel.info > 0 ? 'text-blue-500' : 'text-gray-400'
-                    }`} />
-                    <CardTitle className="text-sm font-medium">信息告警</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className={`text-3xl font-bold ${
-                    alertStats.byLevel.info > 0 ? 'text-blue-600' : 'text-gray-500'
-                  }`}>
-                    {alertStats.byLevel.info}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    仅供参考
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* 操作按钮 */}
-            <div className="flex gap-2 mt-4">
-              <Button 
-                variant={alertStats.byLevel.critical > 0 ? "destructive" : "outline"}
-                size="sm"
-                onClick={() => setActiveTab('monitor')}
-                className="gap-2 flex-1"
-              >
-                <Eye className="h-4 w-4" />
-                查看详情
-              </Button>
-              <Button 
-                variant="outline"
-                size="sm"
-                onClick={() => setIsAlertRulesDialogOpen(true)}
-                className="gap-2"
-              >
-                <Settings className="h-4 w-4" />
-                告警设置
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 在线机器人信息 */}
-      {onlineRobots.length > 0 && (
-        <Card className="border-2 border-indigo-200 dark:border-indigo-900">
-          <CardHeader className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Bot className="h-5 w-5" />
-                在线机器人
-              </CardTitle>
-              <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
-                {onlineRobots.length} 个在线
-              </Badge>
-            </div>
-            <CardDescription className="text-indigo-100">
-              当前系统中正在运行的机器人
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {onlineRobots.map((robot) => (
-                <div 
-                  key={robot.id} 
-                  className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950"
-                  onClick={() => {
-                    setSelectedRobot(robot);
-                    setShowRobotDetail(true);
-                  }}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
-                      <Bot className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-sm truncate">{robot.name}</h4>
-                      <p className="text-xs text-muted-foreground font-mono truncate">{robot.robotId}</p>
-                      {robot.nickname && (
-                        <p className="text-xs text-indigo-600 dark:text-indigo-400 truncate">
-                          {robot.nickname}
-                        </p>
-                      )}
-                    </div>
-                    <Badge variant="default" className="gap-1 bg-green-500">
-                      <CheckCircle className="h-3 w-3" />
-                      在线
-                    </Badge>
-                  </div>
-                  
-                  {/* 详细信息 */}
-                  {(robot.company || robot.ipAddress || robot.activatedAt || robot.expiresAt) && (
-                    <div className="mt-3 pt-3 border-t space-y-2">
-                      {robot.company && (
-                        <div className="flex items-center gap-2 text-xs">
-                          <Building2 className="h-3 w-3 text-muted-foreground" />
-                          <span className="truncate">{robot.company}</span>
-                        </div>
-                      )}
-                      {robot.ipAddress && (
-                        <div className="flex items-center gap-2 text-xs">
-                          <Globe className="h-3 w-3 text-muted-foreground" />
-                          <span className="font-mono truncate">{robot.ipAddress}</span>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between text-xs">
-                        {robot.activatedAt && (
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-3 w-3 text-muted-foreground" />
-                            <span>已运行 {calculateRunTime(robot)}</span>
-                          </div>
-                        )}
-                        {robot.expiresAt && (
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-3 w-3 text-muted-foreground" />
-                            <span>剩余 {calculateRemainingTime(robot)}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {robot.description && (
-                    <p className="text-xs text-muted-foreground mt-3 line-clamp-2">{robot.description}</p>
-                  )}
-                  <div className="mt-3 pt-3 border-t text-xs text-muted-foreground flex items-center gap-2">
-                    <Clock className="h-3 w-3" />
-                    <span>
-                      最后检查: {robot.lastCheckAt ? formatTime(robot.lastCheckAt) : '从未检查'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 flex justify-center">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setActiveTab('robots')}
-              >
-                查看所有机器人 <ExternalLink className="h-3 w-3 ml-1" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 告警规则设置对话框 */}
-      <AlertRulesDialog 
-        open={isAlertRulesDialogOpen}
-        onOpenChange={setIsAlertRulesDialogOpen}
+    <Suspense fallback={<div className="p-8 text-center">加载中...</div>}>
+      <NewDashboardTab
+        monitorData={monitorData}
+        alertData={alertData}
+        alertStats={alertStats}
+        robots={robots}
+        sessions={sessions}
+        lastUpdateTime={lastUpdateTime}
+        loadData={loadData}
+        isLoading={isLoading}
+        setActiveTab={setActiveTab}
       />
-    </div>
+    </Suspense>
   );
 
   return (
