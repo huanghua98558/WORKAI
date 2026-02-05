@@ -141,7 +141,7 @@ export default function FlowCanvas({
   }, [onNodeSelect]);
 
   return (
-    <div ref={reactFlowWrapper} className="w-full h-full bg-white rounded-lg shadow-sm border border-slate-200">
+    <div ref={reactFlowWrapper} className="w-full h-full bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -155,6 +155,7 @@ export default function FlowCanvas({
         nodeTypes={nodeTypes}
         fitView
         attributionPosition="bottom-right"
+        className="w-full h-full"
       >
         <Background color="#e2e8f0" gap={16} />
         <Controls />

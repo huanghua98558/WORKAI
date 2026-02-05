@@ -234,10 +234,10 @@ export default function FlowEnginePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <div className="max-w-[1920px] mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 flex flex-col">
+      <div className="max-w-[1920px] mx-auto flex-1 flex flex-col overflow-hidden">
         {/* 页面头部 */}
-        <div className="mb-6">
+        <div className="mb-6 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-900 mb-2">
@@ -311,65 +311,69 @@ export default function FlowEnginePage() {
         </div>
 
         {/* 主编辑器区域 */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'visual' | 'json')}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="visual">
-              <Settings className="w-4 h-4 mr-2" />
-              可视化编辑
-            </TabsTrigger>
-            <TabsTrigger value="json">
-              <FileJson className="w-4 h-4 mr-2" />
-              JSON编辑
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="visual" className="space-y-4">
-            <div className="grid grid-cols-12 gap-4">
-              {/* 左侧：节点库 */}
-              <div className="col-span-2">
-                <FlowNodeLibrary />
-              </div>
-
-              {/* 中间：画布 */}
-              <div className="col-span-7">
-                <FlowCanvas
-                  nodes={flow.nodes}
-                  edges={flow.edges}
-                  onNodesChange={(nodes) => setFlow({ ...flow, nodes })}
-                  onEdgesChange={(edges) => setFlow({ ...flow, edges })}
-                  onNodeSelect={setSelectedNode}
-                  onNodeUpdate={handleUpdateNode}
-                  selectedNodeId={selectedNode?.id}
-                />
-              </div>
-
-              {/* 右侧：配置面板 */}
-              <div className="col-span-3 space-y-4">
-                {selectedNode && (
-                  <NodeConfigPanel
-                    node={selectedNode}
-                    onUpdate={(updates) => handleUpdateNode(selectedNode.id, updates)}
-                  />
-                )}
-
-                {/* 测试面板 */}
-                {testResults.length > 0 && (
-                  <FlowTestPanel
-                    results={testResults}
-                    isRunning={isTesting}
-                  />
-                )}
-              </div>
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'visual' | 'json')} className="flex-1 flex flex-col">
+            <div className="flex-shrink-0 px-4 py-3">
+              <TabsList>
+                <TabsTrigger value="visual">
+                  <Settings className="w-4 h-4 mr-2" />
+                  可视化编辑
+                </TabsTrigger>
+                <TabsTrigger value="json">
+                  <FileJson className="w-4 h-4 mr-2" />
+                  JSON编辑
+                </TabsTrigger>
+              </TabsList>
             </div>
-          </TabsContent>
 
-          <TabsContent value="json">
-            <FlowJsonEditor
-              flow={flow}
-              onChange={setFlow}
-            />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="visual" className="flex-1 m-0 overflow-hidden">
+              <div className="grid grid-cols-12 gap-4 h-full min-h-0">
+                {/* 左侧：节点库 */}
+                <div className="col-span-2 overflow-hidden">
+                  <FlowNodeLibrary />
+                </div>
+
+                {/* 中间：画布 */}
+                <div className="col-span-7 overflow-hidden">
+                  <FlowCanvas
+                    nodes={flow.nodes}
+                    edges={flow.edges}
+                    onNodesChange={(nodes) => setFlow({ ...flow, nodes })}
+                    onEdgesChange={(edges) => setFlow({ ...flow, edges })}
+                    onNodeSelect={setSelectedNode}
+                    onNodeUpdate={handleUpdateNode}
+                    selectedNodeId={selectedNode?.id}
+                  />
+                </div>
+
+                {/* 右侧：配置面板 */}
+                <div className="col-span-3 overflow-y-auto space-y-4 pr-2">
+                  {selectedNode && (
+                    <NodeConfigPanel
+                      node={selectedNode}
+                      onUpdate={(updates) => handleUpdateNode(selectedNode.id, updates)}
+                    />
+                  )}
+
+                  {/* 测试面板 */}
+                  {testResults.length > 0 && (
+                    <FlowTestPanel
+                      results={testResults}
+                      isRunning={isTesting}
+                    />
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="json" className="flex-1 m-0 overflow-hidden">
+              <FlowJsonEditor
+                flow={flow}
+                onChange={setFlow}
+              />
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </div>
   );

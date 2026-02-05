@@ -42,8 +42,8 @@ export default function FlowTestPanel({ results, isRunning }: FlowTestPanelProps
   const totalDuration = results.reduce((sum, r) => sum + r.duration, 0);
 
   return (
-    <Card className="p-4 bg-white shadow-sm">
-      <div className="flex items-center justify-between mb-4">
+    <Card className="p-4 bg-white shadow-sm flex flex-col h-full">
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div className="flex items-center gap-2">
           <Play className="w-5 h-5 text-blue-600" />
           <h3 className="font-semibold text-slate-900">测试结果</h3>
@@ -55,14 +55,14 @@ export default function FlowTestPanel({ results, isRunning }: FlowTestPanelProps
         )}
       </div>
 
-      <ScrollArea className="h-[400px] pr-4">
+      <ScrollArea className="flex-1 pr-4">
         {results.length === 0 ? (
           <div className="text-center text-slate-500 py-8">
             <Play className="w-12 h-12 mx-auto mb-3 text-slate-300" />
             <p className="text-sm">点击"测试流程"按钮开始测试</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 pb-4">
             {results.map((result, index) => (
               <div
                 key={result.nodeId}

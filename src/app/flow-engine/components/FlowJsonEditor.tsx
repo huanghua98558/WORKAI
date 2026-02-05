@@ -62,8 +62,8 @@ export default function FlowJsonEditor({ flow, onChange }: FlowJsonEditorProps) 
   };
 
   return (
-    <Card className="p-4 bg-white shadow-sm">
-      <div className="flex items-center justify-between mb-4">
+    <Card className="p-4 bg-white shadow-sm h-full flex flex-col overflow-hidden">
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div className="flex items-center gap-2">
           <Code className="w-5 h-5 text-slate-600" />
           <h3 className="font-semibold text-slate-900">JSON编辑器</h3>
@@ -89,24 +89,26 @@ export default function FlowJsonEditor({ flow, onChange }: FlowJsonEditorProps) 
         </div>
       </div>
 
-      <div className="relative">
-        <textarea
-          value={jsonContent}
-          onChange={(e) => handleJsonChange(e.target.value)}
-          className={`
-            w-full h-[600px] font-mono text-sm p-4 rounded-lg border-2 resize-none
-            ${isValid ? 'border-slate-200 focus:border-blue-500' : 'border-red-500 focus:border-red-500'}
-          `}
-          placeholder="输入流程定义的JSON..."
-        />
+      <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+        <div className="flex-1 overflow-hidden">
+          <textarea
+            value={jsonContent}
+            onChange={(e) => handleJsonChange(e.target.value)}
+            className={`
+              w-full h-full font-mono text-sm p-4 rounded-lg border-2 resize-none
+              ${isValid ? 'border-slate-200 focus:border-blue-500' : 'border-red-500 focus:border-red-500'}
+            `}
+            placeholder="输入流程定义的JSON..."
+          />
+        </div>
         {!isValid && errorMessage && (
-          <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg flex-shrink-0">
             <p className="text-sm text-red-600">{errorMessage}</p>
           </div>
         )}
       </div>
 
-      <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+      <div className="mt-4 p-3 bg-blue-50 rounded-lg flex-shrink-0">
         <p className="text-xs text-blue-700">
           💡 提示：JSON编辑器会实时同步到可视化编辑器。确保JSON格式正确，否则无法同步。
         </p>
