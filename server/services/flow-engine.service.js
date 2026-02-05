@@ -5,10 +5,10 @@
 
 const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('coze-coding-dev-sdk');
-const { flowDefinitions, flowInstances, flowExecutionLogs } = require('../database/schema');
+const { flowDefinitions, flowInstances, flowExecutionLogs, aiRoles, sessions, promptTemplates, aiIoLogs } = require('../database/schema');
 const { eq, and, or, desc, lt, gt, inArray } = require('drizzle-orm');
 const { getLogger } = require('../lib/logger');
-const { aiCoreService } = require('./ai-core.service'); // AI核心服务
+const AIServiceFactory = require('./ai/AIServiceFactory'); // AI服务工厂
 
 const logger = getLogger('FLOW_ENGINE');
 
@@ -65,6 +65,10 @@ class FlowEngine {
       [NodeType.HUMAN_HANDOVER]: this.handleHumanHandoverNode.bind(this),
       [NodeType.NOTIFICATION]: this.handleNotificationNode.bind(this)
     };
+
+    // 模板缓存
+    this.templateCache = new Map();
+    this.templateCacheExpire = 5 * 60 * 1000; // 5分钟过期
   }
 
   /**
@@ -584,25 +588,60 @@ class FlowEngine {
     logger.info('执行AI对话节点', { node, context });
 
     const { data } = node;
-    const { prompt, modelId, roleId, temperature, maxTokens } = data || {};
+    const { prompt, modelId, roleId, temperature, maxTokens, useRolePrompt, useTemplate, templateId, variables } = data || {};
 
     try {
-      // 构建消息列表
-      const messages = [];
+      // 1. 获取AI服务实例
+      const aiService = await AIServiceFactory.createServiceByModelId(modelId);
 
-      // 如果有prompt，添加为系统消息
-      if (prompt) {
-        messages.push({ role: 'system', content: prompt });
+      // 2. 构建消息
+      const messages = [];
+      let systemPrompt = prompt || '';
+
+      // 3. 如果使用模板，从数据库加载
+      if (useTemplate && templateId) {
+        const template = await this.getTemplateById(templateId);
+        if (template) {
+          systemPrompt = template.template;
+
+          // 替换模板变量
+          systemPrompt = this.replaceTemplateVariables(systemPrompt, {
+            userName: context.userName || '用户',
+            groupName: context.groupName || '群组',
+            robotName: context.robotName || '机器人',
+            ...variables
+          });
+
+          logger.info('使用话术模板', { templateId, templateName: template.name });
+        } else {
+          logger.warn('话术模板不存在，使用角色提示词', { templateId });
+        }
       }
 
-      // 添加用户消息
+      // 4. 如果使用角色提示词，从数据库加载
+      else if (useRolePrompt && roleId) {
+        const role = await this.getRoleById(roleId);
+        if (role) {
+          systemPrompt = role.system_prompt;
+          logger.info('使用角色提示词', { roleId, roleName: role.name });
+        } else {
+          logger.warn('角色不存在，使用默认提示词', { roleId });
+        }
+      }
+
+      // 5. 如果有提示词，添加为系统消息
+      if (systemPrompt) {
+        messages.push({ role: 'system', content: systemPrompt });
+      }
+
+      // 6. 添加用户消息
       if (context.message?.spoken) {
         messages.push({ role: 'user', content: context.message.spoken });
       } else if (context.userMessage) {
         messages.push({ role: 'user', content: context.userMessage });
       }
 
-      // 如果没有消息，返回空响应
+      // 7. 如果没有消息，返回空响应
       if (messages.length === 0) {
         logger.warn('AI对话节点没有可用的消息', { context });
         return {
@@ -617,21 +656,31 @@ class FlowEngine {
         };
       }
 
-      // 调用AI服务
-      const result = await aiCoreService.chat({
-        messages,
-        modelId,
-        roleId,
-        temperature,
-        maxTokens,
-        sessionId: context.sessionId || context.metadata?.sessionId,
-        operationType: 'ai_chat'
+      // 8. 调用AI服务生成回复
+      const result = await aiService.generateReply(messages, {
+        sessionId: context.sessionId,
+        messageId: context.messageId,
+        operationType: 'ai_chat',
+        temperature: temperature || 0.7,
+        maxTokens: maxTokens || 2000
       });
 
       logger.info('AI对话节点执行成功', {
         model: modelId,
         responseLength: result.content.length,
         usage: result.usage
+      });
+
+      // 9. 记录AI IO日志
+      await this.saveAILog(context.sessionId, context.messageId, {
+        robotId: context.robotId,
+        robotName: context.robotName,
+        operationType: 'ai_chat',
+        aiInput: JSON.stringify(messages),
+        aiOutput: result.content,
+        modelId,
+        requestDuration: result.usage?.duration || 0,
+        status: 'success'
       });
 
       return {
@@ -672,7 +721,7 @@ class FlowEngine {
     logger.info('执行意图识别节点', { node, context });
 
     const { data } = node;
-    const { supportedIntents, modelId, roleId } = data || {};
+    const { supportedIntents, modelId } = data || {};
 
     // 如果context中已经有intent，直接返回
     if (context.intent) {
@@ -698,6 +747,8 @@ class FlowEngine {
           success: true,
           intent: 'chat',
           confidence: 50,
+          needReply: false,
+          needHuman: false,
           context: {
             ...context,
             intent: 'chat',
@@ -706,79 +757,43 @@ class FlowEngine {
         };
       }
 
-      // 构建意图识别提示词
-      const intentList = supportedIntents?.join(', ') || 'service, help, chat, admin, risk, spam';
+      // 获取AI服务实例
+      const aiService = await AIServiceFactory.createServiceByModelId(modelId);
 
-      const systemPrompt = `你是一个意图识别专家。请分析用户的输入，识别其意图。
-可用的意图包括：${intentList}
-
-请只返回JSON格式，包含以下字段：
-- intent: 识别出的意图（必须从上述意图列表中选择）
-- confidence: 置信度（0-100的整数）
-- reason: 识别理由（简短说明）
-
-示例：
-用户："我需要帮助"
-响应：{"intent": "help", "confidence": 95, "reason": "用户明确表示需要帮助"}`;
-
-      // 调用AI服务
-      const result = await aiCoreService.chat({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage }
-        ],
-        modelId,
-        roleId,
-        sessionId: context.sessionId || context.metadata?.sessionId,
-        operationType: 'intent_recognition'
+      // 调用意图识别
+      const result = await aiService.recognizeIntent(userMessage, {
+        userId: context.userId,
+        userName: context.userName,
+        groupId: context.groupId,
+        groupName: context.groupName,
+        sessionId: context.sessionId,
+        messageId: context.messageId,
+        robotId: context.robotId,
+        robotName: context.robotName,
+        history: context.history || []
       });
 
-      // 解析AI响应
-      let detectedIntent = 'chat';
-      let confidence = 70;
-      let reason = '';
-
-      try {
-        // 尝试解析JSON
-        const parsed = JSON.parse(result.content);
-        detectedIntent = parsed.intent || 'chat';
-        confidence = parsed.confidence || 70;
-        reason = parsed.reason || '';
-
-        // 验证意图是否在支持的列表中
-        if (supportedIntents && supportedIntents.length > 0 && !supportedIntents.includes(detectedIntent)) {
-          detectedIntent = supportedIntents[0];
-          confidence = 50;
-          reason = '识别的意图不在支持的列表中，使用默认意图';
-        }
-      } catch (parseError) {
-        logger.warn('解析意图识别响应失败', { content: result.content, error: parseError.message });
-        // 简单的关键词匹配
-        const content = result.content.toLowerCase();
-        if (content.includes('service') || content.includes('服务')) {
-          detectedIntent = 'service';
-        } else if (content.includes('help') || content.includes('帮助')) {
-          detectedIntent = 'help';
-        } else if (content.includes('chat') || content.includes('聊天') || content.includes('闲聊')) {
-          detectedIntent = 'chat';
-        }
-      }
-
       logger.info('意图识别节点执行成功', {
-        detectedIntent,
-        confidence,
-        reason,
+        intent: result.intent,
+        confidence: result.confidence,
+        needReply: result.needReply,
+        needHuman: result.needHuman,
         userMessage: userMessage.substring(0, 50)
       });
 
+      // 更新上下文
       return {
         success: true,
-        intent: detectedIntent,
-        confidence,
-        reason,
+        intent: result.intent,
+        confidence: result.confidence,
+        needReply: result.needReply,
+        needHuman: result.needHuman,
+        reason: result.reason,
         context: {
           ...context,
-          intent: detectedIntent,
+          intent: result.intent,
+          needReply: result.needReply,
+          needHuman: result.needHuman,
           lastNodeType: 'intent'
         }
       };
@@ -793,6 +808,8 @@ class FlowEngine {
         success: false,
         intent: 'chat',
         confidence: 50,
+        needReply: false,
+        needHuman: false,
         error: error.message,
         context: {
           ...context,
@@ -812,94 +829,224 @@ class FlowEngine {
     const { data } = node;
     const { serviceName, parameters } = data || {};
 
-    // Mock服务调用
-    const mockResult = {
-      serviceName: serviceName || 'mock-service',
-      status: 'success',
-      data: {
-        message: '服务调用成功（Mock）',
-        parameters: parameters || {},
-        timestamp: new Date().toISOString()
-      }
-    };
+    try {
+      let result;
 
-    // 模拟延迟
-    await new Promise(resolve => setTimeout(resolve, 50));
+      // 根据serviceName调用不同的服务
+      switch (serviceName) {
+        case 'intent_recognition':
+          // 意图识别
+          const intentService = await AIServiceFactory.createServiceByModelId(parameters.modelId);
+          result = await intentService.recognizeIntent(parameters.message, parameters.context || {});
+          break;
 
-    return {
-      success: true,
-      serviceResult: mockResult,
-      context: {
-        ...context,
-        lastNodeType: 'service',
-        serviceResult: mockResult
+        case 'service_reply':
+          // 服务回复
+          const replyService = await AIServiceFactory.createServiceByModelId(parameters.modelId);
+          result = await replyService.generateReply(parameters.messages, parameters.options || {});
+          break;
+
+        case 'conversion_reply':
+          // 转化客服回复
+          const conversionService = await AIServiceFactory.createServiceByModelId(parameters.modelId);
+          result = await conversionService.generateReply(parameters.messages, parameters.options || {});
+          break;
+
+        default:
+          throw new Error(`未知的服务: ${serviceName}`);
       }
-    };
+
+      logger.info('服务节点执行成功', { serviceName, result });
+
+      return {
+        success: true,
+        serviceResult: result,
+        context: {
+          ...context,
+          lastNodeType: 'service',
+          serviceResult: result
+        }
+      };
+    } catch (error) {
+      logger.error('服务节点执行失败', {
+        serviceName,
+        error: error.message
+      });
+
+      return {
+        success: false,
+        serviceResult: null,
+        error: error.message,
+        context: {
+          ...context,
+          lastNodeType: 'service',
+          serviceError: error.message
+        }
+      };
+    }
   }
 
   /**
-   * 处理人工转接节点（Mock）
+   * 处理人工转接节点（真实实现）
    */
   async handleHumanHandoverNode(node, context) {
     logger.info('执行人工转接节点', { node, context });
 
     const { data } = node;
-    const { targetUser, message } = data || {};
+    const { targetUser, message, sessionId } = data || {};
 
-    // Mock人工转接
-    const handoverResult = {
-      targetUser: targetUser || 'admin',
-      status: 'transferred',
-      message: message || '已转接到人工客服（Mock）',
-      timestamp: new Date().toISOString()
-    };
+    try {
+      const db = await this.getDb();
 
-    logger.info('人工转接结果', handoverResult);
+      // 更新会话状态为人工处理
+      await db.update(sessions)
+        .set({
+          status: 'human',
+          human_reason: message || '流程引擎转人工',
+          human_time: new Date().toISOString(),
+          updated_at: new Date()
+        })
+        .where(eq(sessions.sessionId, sessionId || context.sessionId));
 
-    return {
-      success: true,
-      handoverResult,
-      context: {
-        ...context,
-        lastNodeType: 'human_handover',
-        handoverResult,
-        isHuman: true
-      }
-    };
+      logger.info('人工转接成功', { sessionId: sessionId || context.sessionId, targetUser });
+
+      return {
+        success: true,
+        handoverResult: {
+          targetUser: targetUser || 'admin',
+          status: 'transferred',
+          message: message || '已转接到人工客服',
+          timestamp: new Date().toISOString()
+        },
+        context: {
+          ...context,
+          lastNodeType: 'human_handover',
+          handoverResult: {
+            targetUser: targetUser || 'admin',
+            status: 'transferred'
+          },
+          isHuman: true
+        }
+      };
+    } catch (error) {
+      logger.error('人工转接节点执行失败', {
+        error: error.message
+      });
+
+      return {
+        success: false,
+        handoverResult: null,
+        error: error.message,
+        context: {
+          ...context,
+          lastNodeType: 'human_handover',
+          handoverError: error.message
+        }
+      };
+    }
   }
 
   /**
-   * 处理通知节点（Mock）
+   * 处理通知节点（真实实现）
    */
   async handleNotificationNode(node, context) {
     logger.info('执行通知节点', { node, context });
 
     const { data } = node;
-    const { notificationType, recipients, message } = data || {};
+    const { notificationType, recipients, message, alertLevel } = data || {};
 
-    // Mock通知发送
-    const notificationResult = {
-      type: notificationType || 'robot',
-      recipients: recipients || [],
-      message: message || '通知消息（Mock）',
-      status: 'sent',
-      timestamp: new Date().toISOString()
-    };
+    try {
+      // 如果是告警通知，使用alert-trigger服务
+      if (notificationType === 'alert') {
+        const alertTriggerService = require('./alert-trigger.service');
 
-    // 模拟延迟
-    await new Promise(resolve => setTimeout(resolve, 50));
+        const alertResult = await alertTriggerService.triggerAlert({
+          sessionId: context.sessionId,
+          intentType: context.intent,
+          intent: context.intent,
+          userId: context.userId,
+          userName: context.userName,
+          groupId: context.groupId,
+          groupName: context.groupName,
+          messageContent: context.message?.spoken || context.userMessage,
+          robotId: context.robotId,
+          robotName: context.robotName
+        });
 
-    logger.info('通知发送结果', notificationResult);
+        logger.info('告警通知执行成功', { alertId: alertResult.id });
 
-    return {
-      success: true,
-      notificationResult,
-      context: {
-        ...context,
-        lastNodeType: 'notification',
-        notificationResult
+        return {
+          success: true,
+          notificationResult: alertResult,
+          context: {
+            ...context,
+            lastNodeType: 'notification',
+            alertResult
+          }
+        };
       }
-    };
+
+      // 如果是机器人通知，使用worktool服务
+      else if (notificationType === 'robot') {
+        const worktoolService = require('./worktool.service');
+
+        for (const recipient of recipients) {
+          await worktoolService.sendTextMessage(context.robotId, recipient, message);
+        }
+
+        logger.info('机器人通知执行成功', { recipientCount: recipients.length });
+
+        return {
+          success: true,
+          notificationResult: {
+            type: 'robot',
+            recipients,
+            message,
+            status: 'sent',
+            timestamp: new Date().toISOString()
+          },
+          context: {
+            ...context,
+            lastNodeType: 'notification',
+            notificationResult: {
+              type: 'robot',
+              status: 'sent'
+            }
+          }
+        };
+      }
+
+      // 其他通知类型
+      else {
+        logger.warn('暂不支持的通知类型', { notificationType });
+
+        return {
+          success: false,
+          notificationResult: null,
+          error: `暂不支持的通知类型: ${notificationType}`,
+          context: {
+            ...context,
+            lastNodeType: 'notification',
+            notificationError: `暂不支持的通知类型: ${notificationType}`
+          }
+        };
+      }
+    } catch (error) {
+      logger.error('通知节点执行失败', {
+        error: error.message
+      });
+
+      return {
+        success: false,
+        notificationResult: null,
+        error: error.message,
+        context: {
+          ...context,
+          lastNodeType: 'notification',
+          notificationError: error.message
+        }
+      };
+    }
   }
 
   // ============================================
@@ -945,6 +1092,141 @@ class FlowEngine {
     } catch (error) {
       logger.error('获取流程执行日志失败', { filters, error: error.message });
       throw new Error(`获取流程执行日志失败: ${error.message}`);
+    }
+  }
+
+  // ============================================
+  // 辅助方法
+  // ============================================
+
+  /**
+   * 获取角色信息
+   */
+  async getRoleById(roleId) {
+    try {
+      const db = await this.getDb();
+      const roles = await db.select().from(aiRoles).where(eq(aiRoles.id, roleId)).limit(1);
+      return roles[0] || null;
+    } catch (error) {
+      logger.error('获取角色信息失败', { roleId, error: error.message });
+      return null;
+    }
+  }
+
+  /**
+   * 获取话术模板（带缓存）
+   */
+  async getTemplateById(templateId) {
+    try {
+      const now = Date.now();
+
+      // 检查缓存
+      const cached = this.templateCache.get(templateId);
+      if (cached && now - cached.timestamp < this.templateCacheExpire) {
+        return cached.data;
+      }
+
+      // 从数据库加载
+      const db = await this.getDb();
+      const templates = await db.select()
+        .from(promptTemplates)
+        .where(eq(promptTemplates.id, templateId))
+        .limit(1);
+
+      const template = templates[0] || null;
+
+      // 缓存
+      if (template) {
+        this.templateCache.set(templateId, {
+          data: template,
+          timestamp: now
+        });
+      }
+
+      return template;
+    } catch (error) {
+      logger.error('获取话术模板失败', { templateId, error: error.message });
+      return null;
+    }
+  }
+
+  /**
+   * 替换模板变量
+   */
+  replaceTemplateVariables(template, variables) {
+    let result = template;
+    for (const [key, value] of Object.entries(variables)) {
+      const regex = new RegExp(`{{${key}}}`, 'g');
+      result = result.replace(regex, value);
+    }
+    return result;
+  }
+
+  /**
+   * 保存AI IO日志
+   */
+  async saveAILog(sessionId, messageId, logData) {
+    try {
+      const db = await this.getDb();
+      await db.insert(aiIoLogs).values({
+        sessionId,
+        messageId,
+        robotId: logData.robotId || '',
+        robotName: logData.robotName || '',
+        operationType: logData.operationType,
+        aiInput: logData.aiInput,
+        aiOutput: logData.aiOutput,
+        modelId: logData.modelId,
+        requestDuration: logData.requestDuration,
+        status: logData.status,
+        errorMessage: logData.errorMessage,
+        createdAt: new Date()
+      });
+      logger.info('AI IO日志保存成功', { sessionId, messageId });
+    } catch (error) {
+      logger.error('保存AI IO日志失败', { sessionId, messageId, error: error.message });
+      // 不抛出异常，避免影响主流程
+    }
+  }
+
+  /**
+   * 清除模板缓存
+   */
+  clearTemplateCache(templateId) {
+    if (templateId) {
+      this.templateCache.delete(templateId);
+      logger.info('清除模板缓存', { templateId });
+    } else {
+      this.templateCache.clear();
+      logger.info('清除所有模板缓存');
+    }
+  }
+
+  /**
+   * 获取机器人关联的流程定义
+   */
+  async getFlowDefinitionByRobotId(robotId) {
+    try {
+      const db = await this.getDb();
+      const { robots } = require('../database/schema');
+
+      // 查询机器人关联的流程定义
+      const robotsWithFlow = await db.select({
+        flowDefinitionId: robots.flow_definition_id
+      })
+        .from(robots)
+        .where(eq(robots.robotId, robotId))
+        .limit(1);
+
+      if (robotsWithFlow.length === 0 || !robotsWithFlow[0].flowDefinitionId) {
+        return null;
+      }
+
+      // 查询流程定义
+      return await this.getFlowDefinition(robotsWithFlow[0].flowDefinitionId);
+    } catch (error) {
+      logger.error('获取机器人关联的流程定义失败', { robotId, error: error.message });
+      return null;
     }
   }
 }
