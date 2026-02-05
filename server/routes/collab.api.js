@@ -4,14 +4,14 @@
  */
 
 const { getDb } = require('coze-coding-dev-sdk');
-const { 
+const {
   collaborationDecisionLogs,
   staffMessages,
   staffActivities,
   sessionStaffStatus,
   riskMessages,
-  systemLogs 
-} = require('../../database/schema');
+  systemLogs
+} = require('../database/schema');
 const { eq, and, gte, lte, sql, desc, count, avg, sum } = require('drizzle-orm');
 
 /**
@@ -20,7 +20,7 @@ const { eq, and, gte, lte, sql, desc, count, avg, sum } = require('drizzle-orm')
  */
 async function getCollabStats(req, reply) {
   try {
-    const db = await this.getDb();
+    const db = await getDb();
     const { timeRange = '24h' } = req.query;
 
     // 计算时间范围
@@ -59,7 +59,7 @@ async function getCollabStats(req, reply) {
     const riskStats = await db
       .select({
         total: count(),
-        resolved: sum(sql`CASE WHEN is_resolved THEN 1 ELSE 0 END`)
+        resolved: sum(sql`CASE WHEN resolved_by IS NOT NULL THEN 1 ELSE 0 END`)
       })
       .from(riskMessages)
       .where(gte(riskMessages.createdAt, startTime));
@@ -129,7 +129,7 @@ async function getCollabStats(req, reply) {
  */
 async function getStaffActivity(req, reply) {
   try {
-    const db = await this.getDb();
+    const db = await getDb();
     const { timeRange = '24h', limit = 20 } = req.query;
 
     const timeRanges = {
@@ -278,7 +278,7 @@ async function getRecommendations(req, reply) {
  */
 async function getDecisionLogs(req, reply) {
   try {
-    const db = await this.getDb();
+    const db = await getDb();
     const { sessionId, limit = 50, offset = 0 } = req.query;
 
     const whereConditions = [];

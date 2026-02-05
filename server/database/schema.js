@@ -988,6 +988,51 @@ exports.collaborationDecisionLogs = pgTable(
   })
 );
 
+// 风险消息表
+exports.riskMessages = pgTable(
+  "risk_messages",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    messageId: varchar("message_id", { length: 255 }),
+    sessionId: varchar("session_id", { length: 255 }),
+    userId: varchar("user_id", { length: 255 }),
+    userName: varchar("user_name", { length: 255 }),
+    groupName: varchar("group_name", { length: 255 }),
+    content: text("content"),
+    aiReply: text("ai_reply"),
+    status: varchar("status", { length: 50 }).default("pending"),
+    resolvedBy: varchar("resolved_by", { length: 255 }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    handledByStaff: jsonb("handled_by_staff").default("{}"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    messageIdIdx: index("risk_messages_message_id_idx").on(table.messageId),
+    sessionIdIdx: index("risk_messages_session_id_idx").on(table.sessionId),
+    statusIdx: index("risk_messages_status_idx").on(table.status),
+  })
+);
+
+// 系统日志表
+exports.systemLogs = pgTable(
+  "system_logs",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    level: varchar("level", { length: 20 }).notNull(),
+    module: varchar("module", { length: 100 }),
+    message: text("message"),
+    data: jsonb("data").default("{}"),
+    timestamp: timestamp("timestamp", { withTimezone: true }).defaultNow(),
+    environment: varchar("environment", { length: 50 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    levelIdx: index("system_logs_level_idx").on(table.level),
+    moduleIdx: index("system_logs_module_idx").on(table.module),
+    timestampIdx: index("system_logs_timestamp_idx").on(table.timestamp),
+  })
+);
 
 
 // 运营日志表
@@ -2311,4 +2356,49 @@ exports.collaborationDecisionLogs = pgTable(
   })
 );
 
+// 风险消息表
+exports.riskMessages = pgTable(
+  "risk_messages",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    messageId: varchar("message_id", { length: 255 }),
+    sessionId: varchar("session_id", { length: 255 }),
+    userId: varchar("user_id", { length: 255 }),
+    userName: varchar("user_name", { length: 255 }),
+    groupName: varchar("group_name", { length: 255 }),
+    content: text("content"),
+    aiReply: text("ai_reply"),
+    status: varchar("status", { length: 50 }).default("pending"),
+    resolvedBy: varchar("resolved_by", { length: 255 }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    handledByStaff: jsonb("handled_by_staff").default("{}"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    messageIdIdx: index("risk_messages_message_id_idx").on(table.messageId),
+    sessionIdIdx: index("risk_messages_session_id_idx").on(table.sessionId),
+    statusIdx: index("risk_messages_status_idx").on(table.status),
+  })
+);
+
+// 系统日志表
+exports.systemLogs = pgTable(
+  "system_logs",
+  {
+    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+    level: varchar("level", { length: 20 }).notNull(),
+    module: varchar("module", { length: 100 }),
+    message: text("message"),
+    data: jsonb("data").default("{}"),
+    timestamp: timestamp("timestamp", { withTimezone: true }).defaultNow(),
+    environment: varchar("environment", { length: 50 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    levelIdx: index("system_logs_level_idx").on(table.level),
+    moduleIdx: index("system_logs_module_idx").on(table.module),
+    timestampIdx: index("system_logs_timestamp_idx").on(table.timestamp),
+  })
+);
 
