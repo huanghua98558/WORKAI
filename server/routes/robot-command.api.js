@@ -114,7 +114,7 @@ const robotCommandApiRoutes = async function (fastify, options) {
         commandType,
         commandPayload: typeof commandPayload === 'string' ? JSON.parse(commandPayload) : commandPayload,
         priority: priority || 5,
-        maxRetries: maxRetries || 3
+        maxRetries: maxRetries !== undefined ? maxRetries : 3
       });
 
       logger.info('RobotCommandAPI', '创建指令成功', {

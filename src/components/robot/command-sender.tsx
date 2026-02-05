@@ -230,8 +230,8 @@ export default function CommandSender() {
 
   // 定时刷新（只执行一次，持续运行）- 不显示加载状态，避免闪烁
   useEffect(() => {
-    const commandsInterval = setInterval(fetchCommands, 10000); // 优化：从5秒增加到10秒
-    const historyInterval = setInterval(() => fetchMessageHistory(false), 10000); // 优化：从5秒增加到10秒
+    const commandsInterval = setInterval(fetchCommands, 3000); // 缩短到3秒，更快看到重试状态
+    const historyInterval = setInterval(() => fetchMessageHistory(false), 3000);
     return () => {
       clearInterval(commandsInterval);
       clearInterval(historyInterval);
@@ -397,7 +397,8 @@ export default function CommandSender() {
           robotId: selectedRobot,
           commandType,
           commandPayload: payload,
-          priority
+          priority,
+          maxRetries: 0
         })
       });
 
@@ -1014,6 +1015,9 @@ export default function CommandSender() {
                         </TableCell>
                         <TableCell>{getPriorityBadge(command.priority)}</TableCell>
                         <TableCell>{getCommandStatusBadge(command.status)}</TableCell>
+                        <TableCell className="text-sm">
+                          {command.retryCount !== undefined ? `${command.retryCount}/${command.maxRetries || 0}` : '-'}
+                        </TableCell>
                         <TableCell className="max-w-xs truncate text-sm">
                           {resultText}
                         </TableCell>

@@ -345,7 +345,35 @@ const worktoolCallbackRoutes = async function (fastify, options) {
       });
 
       // 处理指令结果（记录到数据库、触发后续流程等）
-      // TODO: 根据业务需求处理指令结果
+      // 根据 callbackData 中的关联信息查找对应的指令并更新状态
+      console.log('[指令回调] 收到指令执行结果', {
+        requestId,
+        robotId,
+        callbackData: {
+          messageId: callbackData.messageId,
+          command: callbackData.command,
+          status: callbackData.status,
+          result: callbackData.result
+        }
+      });
+
+      // 尝试通过 messageId 查找对应的指令
+      // 注意：目前 callbackData 中可能没有直接的字段关联到 commandId
+      // 我们需要根据业务逻辑来确定如何关联
+      // 这里假设 callbackData 中的 command 包含指令的相关信息
+      const robotCommandService = require('../services/robot-command.service');
+
+      // TODO: 根据实际的回调数据格式，找到对应的 commandId 并更新状态
+      // 可能的方案：
+      // 1. 在 commandData 中保存 correlationId，回调时通过这个 ID 查找
+      // 2. 通过 messageId 和 commandType 查找最近的相关指令
+      // 3. 在发送指令时，将 commandId 传递给机器人，回调时返回
+
+      console.log('[指令回调] 指令结果回调处理完成', {
+        requestId,
+        robotId,
+        message: '指令结果已接收（状态更新功能待完善）'
+      });
 
       reply.send(successResponse({}, 'success'));
 
