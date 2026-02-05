@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, memo, useCallback, lazy, Suspense } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -25,22 +25,36 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import RobotManagement from '@/components/robot/robot-management-integrated';
-import AlertConfigTab from '@/components/alert-config-tab';
-import EnhancedAlertManagement from '@/components/enhanced-alert-management';
-import SystemLogs from '@/components/system-logs';
 
-import MonitoringTab from '@/components/monitoring-tab';
-import MonitorTab from '@/components/monitor-tab';
-import RealtimeIOTab from '@/components/realtime-io-tab';
-import UserManagement from '@/components/user-management';
-import SettingsTab from '@/components/settings-tab';
-import AlertRulesDialog from '@/components/monitoring/AlertRulesDialog';
-import BusinessMessageMonitor from '@/components/business-message-monitor';
-import AIInteractionMonitor from '@/components/ai-interaction-monitor';
-import AIModule from '@/components/ai-module';
-import FlowEngineManage from '@/components/flow-engine-manage';
+// 懒加载大型组件
+const RobotManagement = lazy(() => import('@/components/robot/robot-management-integrated'));
+const AlertConfigTab = lazy(() => import('@/components/alert-config-tab'));
+const EnhancedAlertManagement = lazy(() => import('@/components/enhanced-alert-management'));
+const SystemLogs = lazy(() => import('@/components/system-logs'));
+const MonitoringTab = lazy(() => import('@/components/monitoring-tab'));
+const MonitorTab = lazy(() => import('@/components/monitor-tab'));
+const RealtimeIOTab = lazy(() => import('@/components/realtime-io-tab'));
+const UserManagement = lazy(() => import('@/components/user-management'));
+const SettingsTab = lazy(() => import('@/components/settings-tab'));
+const AlertRulesDialog = lazy(() => import('@/components/monitoring/AlertRulesDialog'));
+const BusinessMessageMonitor = lazy(() => import('@/components/business-message-monitor'));
+const AIInteractionMonitor = lazy(() => import('@/components/ai-interaction-monitor'));
+const AIModule = lazy(() => import('@/components/ai-module'));
+const FlowEngineManage = lazy(() => import('@/components/flow-engine-manage'));
+
 import { cn } from '@/lib/utils';
+
+// 加载组件
+function LoadingSpinner() {
+  return (
+    <div className="flex items-center justify-center p-8">
+      <div className="text-center">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+        <p className="mt-2 text-sm text-muted-foreground">加载中...</p>
+      </div>
+    </div>
+  );
+}
 
 import { 
   BarChart3, 
@@ -811,12 +825,46 @@ export default function AdminDashboard() {
     }
   };
 
-  // 初始化加载（只执行一次）
+  // 初始化加载（只执行一次）- 优化：分批加载关键数据
   useEffect(() => {
-    loadData();
-    loadRobots();
-    checkConnection();
-    loadAiConfig(); // 只在组件挂载时加载一次 AI 配置
+    // 立即加载最关键的数据
+    const loadCriticalData = async () => {
+      checkConnection();
+      // 只加载sessions数据用于显示首页
+      try {
+        const sessionsRes = await fetch('/api/proxy/admin/sessions/active?limit=20');
+        if (sessionsRes.ok) {
+          const data = await sessionsRes.json();
+          const uniqueSessions = (data.data || []).reduce((acc: Session[], session: Session) => {
+            if (!acc.find(s => s.sessionId === session.sessionId)) {
+              acc.push(session);
+            }
+            return acc;
+          }, []);
+          setSessions(uniqueSessions);
+        }
+      } catch (e) {
+        console.error('加载会话数据失败:', e);
+      }
+    };
+
+    loadCriticalData();
+
+    // 延迟加载次要数据（500ms后）
+    const delayedLoad = setTimeout(() => {
+      loadRobots();
+      loadAiConfig();
+    }, 500);
+
+    // 延迟加载监控数据（1秒后）
+    const delayedMonitorLoad = setTimeout(() => {
+      loadData(); // 这里会加载callbacks, monitorData, alertData等
+    }, 1000);
+
+    return () => {
+      clearTimeout(delayedLoad);
+      clearTimeout(delayedMonitorLoad);
+    };
   }, []);
 
   // 复制回调地址
@@ -2792,47 +2840,63 @@ ${callbacks.robotStatus}
           </TabsContent>
 
           <TabsContent value="robots" className="space-y-6">
-            <RobotManagement />
+            <Suspense fallback={<LoadingSpinner />}>
+              <RobotManagement />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="monitor" className="space-y-6">
-            <MonitorTab />
+            <Suspense fallback={<LoadingSpinner />}>
+              <MonitorTab />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="ai-module" className="space-y-6">
-            {/* AI模块集成AI交互监控 */}
-            <Tabs defaultValue="config" className="w-full">
-              <TabsList className="grid w-full max-w-[400px] grid-cols-2">
-                <TabsTrigger value="config" className="gap-2">
-                  <Settings className="h-4 w-4" />
-                  AI配置
-                </TabsTrigger>
-                <TabsTrigger value="monitoring" className="gap-2">
-                  <Sparkles className="h-4 w-4" />
-                  AI交互监控
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="config" className="mt-5">
-                <AIModule />
-              </TabsContent>
-              
-              <TabsContent value="monitoring" className="mt-5">
-                <AIInteractionMonitor />
-              </TabsContent>
-            </Tabs>
+            <Suspense fallback={<LoadingSpinner />}>
+              {/* AI模块集成AI交互监控 */}
+              <Tabs defaultValue="config" className="w-full">
+                <TabsList className="grid w-full max-w-[400px] grid-cols-2">
+                  <TabsTrigger value="config" className="gap-2">
+                    <Settings className="h-4 w-4" />
+                    AI配置
+                  </TabsTrigger>
+                  <TabsTrigger value="monitoring" className="gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    AI交互监控
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="config" className="mt-5">
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <AIModule />
+                  </Suspense>
+                </TabsContent>
+                
+                <TabsContent value="monitoring" className="mt-5">
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <AIInteractionMonitor />
+                  </Suspense>
+                </TabsContent>
+              </Tabs>
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="flow-engine" className="space-y-6">
-            <FlowEngineManage />
+            <Suspense fallback={<LoadingSpinner />}>
+              <FlowEngineManage />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="system-logs" className="space-y-6">
-            <SystemLogs />
+            <Suspense fallback={<LoadingSpinner />}>
+              <SystemLogs />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
-            <SettingsTab aiConfig={aiConfig} isLoadingAiConfig={isLoadingAiConfig} />
+            <Suspense fallback={<LoadingSpinner />}>
+              <SettingsTab aiConfig={aiConfig} isLoadingAiConfig={isLoadingAiConfig} />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="callbacks" className="space-y-6 hidden">
