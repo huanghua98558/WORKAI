@@ -131,7 +131,7 @@ export default function RobotManagement() {
   // 检查所有机器人状态
   const checkAllRobotsStatus = async () => {
     try {
-      const res = await fetch('/api/proxy/admin/robots/check-status-all', {
+      const res = await fetch('/api/admin/robots/check-status-all', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -159,7 +159,7 @@ export default function RobotManagement() {
   const loadRobots = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/proxy/admin/robots');
+      const res = await fetch('/api/admin/robots');
       if (res.ok) {
         const data = await res.json();
         if (data.code === 0) {
@@ -249,7 +249,7 @@ export default function RobotManagement() {
   // 同步机器人信息
   const handleCheckStatus = async (robot: Robot) => {
     try {
-      const res = await fetch(`/api/proxy/admin/robots/check-status/${robot.robotId}`, {
+      const res = await fetch(`/api/admin/robots/check-status/${robot.robotId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -293,7 +293,7 @@ export default function RobotManagement() {
     if (!confirmed) return;
 
     try {
-      const res = await fetch(`/api/proxy/admin/robots/${robot.id}`, {
+      const res = await fetch(`/api/admin/robots/${robot.id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -321,7 +321,7 @@ export default function RobotManagement() {
 
     setIsSaving(true);
     try {
-      const response = await fetch(`/api/proxy/admin/robots/${selectedRobot.id}/regenerate-urls`, {
+      const response = await fetch(`/api/admin/robots/${selectedRobot.id}/regenerate-urls`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
@@ -368,7 +368,7 @@ export default function RobotManagement() {
     setSaveError(null);
 
     try {
-      const res = await fetch(`/api/proxy/admin/robots/${selectedRobot.id}`, {
+      const res = await fetch(`/api/admin/robots/${selectedRobot.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -400,7 +400,7 @@ export default function RobotManagement() {
     setSaveError(null);
 
     try {
-      const res = await fetch(`/api/proxy/admin/robots/${selectedRobot.id}`, {
+      const res = await fetch(`/api/admin/robots/${selectedRobot.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -432,7 +432,7 @@ export default function RobotManagement() {
     setTestError(null);
 
     try {
-      const res = await fetch('/api/proxy/admin/robots/test', {
+      const res = await fetch('/api/admin/robots/test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -468,7 +468,7 @@ export default function RobotManagement() {
     
     setTestingEndpoint(endpointType);
     try {
-      const response = await fetch(`/api/proxy/admin/robots/${selectedRobot.id}/api-endpoints/test`, {
+      const response = await fetch(`/api/admin/robots/${selectedRobot.id}/api-endpoints/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ endpointType })
@@ -515,7 +515,7 @@ export default function RobotManagement() {
     
     setTestingEndpoint('all');
     try {
-      const response = await fetch(`/api/proxy/admin/robots/${selectedRobot.id}/api-endpoints/test-all`, {
+      const response = await fetch(`/api/admin/robots/${selectedRobot.id}/api-endpoints/test-all`, {
         method: 'POST'
       });
       
@@ -545,7 +545,7 @@ export default function RobotManagement() {
     
     setLogsLoading(true);
     try {
-      const response = await fetch(`/api/proxy/admin/robots/${selectedRobot.id}/api-endpoints/logs?page=1&pageSize=20`);
+      const response = await fetch(`/api/admin/robots/${selectedRobot.id}/api-endpoints/logs?page=1&pageSize=20`);
       const result = await response.json();
       
       if (result.code === 0) {
@@ -585,7 +585,7 @@ export default function RobotManagement() {
     setSaveError(null);
 
     try {
-      const res = await fetch('/api/proxy/admin/robots', {
+      const res = await fetch('/api/admin/robots', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

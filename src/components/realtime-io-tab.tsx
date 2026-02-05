@@ -130,7 +130,7 @@ export default function RealtimeIOTab() {
 
   const loadRobots = async () => {
     try {
-      const res = await fetch('/api/proxy/admin/robots');
+      const res = await fetch('/api/admin/robots');
       if (res.ok) {
         const data = await res.json();
         if (data.code === 0) {

@@ -119,7 +119,7 @@ export default function RobotManagement() {
   const loadRobots = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/proxy/admin/robots');
+      const res = await fetch('/api/admin/robots');
       if (res.ok) {
         const data = await res.json();
         if (data.code === 0) {
@@ -221,7 +221,7 @@ export default function RobotManagement() {
   // 验证配置
   const validateConfig = async () => {
     try {
-      const res = await fetch('/api/proxy/admin/robots/validate', {
+      const res = await fetch('/api/admin/robots/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -259,7 +259,7 @@ export default function RobotManagement() {
     if (!robotId) {
       setTestingRobotId('form');
       try {
-        const res = await fetch('/api/proxy/admin/robots/test', {
+        const res = await fetch('/api/admin/robots/test', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -290,7 +290,7 @@ export default function RobotManagement() {
     setTestingRobotId(targetRobotId);
 
     try {
-      const res = await fetch('/api/proxy/admin/robots/test', {
+      const res = await fetch('/api/admin/robots/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -353,8 +353,8 @@ export default function RobotManagement() {
 
     try {
       const url = editingRobot 
-        ? `/api/proxy/admin/robots/${editingRobot.id}`
-        : '/api/proxy/admin/robots';
+        ? `/api/admin/robots/${editingRobot.id}`
+        : '/api/admin/robots';
       
       const method = editingRobot ? 'PUT' : 'POST';
       
@@ -387,7 +387,7 @@ export default function RobotManagement() {
     }
 
     try {
-      const res = await fetch(`/api/proxy/admin/robots/${robot.id}`, {
+      const res = await fetch(`/api/admin/robots/${robot.id}`, {
         method: 'DELETE'
       });
 
@@ -408,7 +408,7 @@ export default function RobotManagement() {
   const handleCheckStatus = async (robot: Robot) => {
     setRefreshingRobotId(robot.robotId);
     try {
-      const res = await fetch(`/api/proxy/admin/robots/check-status/${robot.robotId}`, {
+      const res = await fetch(`/api/admin/robots/check-status/${robot.robotId}`, {
         method: 'POST'
       });
 
@@ -431,7 +431,7 @@ export default function RobotManagement() {
   const handleRefreshAll = async () => {
     setIsRefreshingAll(true);
     try {
-      const res = await fetch('/api/proxy/admin/robots/check-status-all', {
+      const res = await fetch('/api/admin/robots/check-status-all', {
         method: 'POST'
       });
 
@@ -465,7 +465,7 @@ export default function RobotManagement() {
   // 获取回调地址
   const getCallbackUrl = async (robot: Robot) => {
     try {
-      const res = await fetch(`/api/proxy/admin/robots/${robot.id}/callback-url`);
+      const res = await fetch(`/api/admin/robots/${robot.id}/callback-url`);
       const data = await res.json();
 
       if (data.code === 0) {
@@ -494,7 +494,7 @@ export default function RobotManagement() {
     setConfiguringRobotId(robot.id);
 
     try {
-      const res = await fetch(`/api/proxy/admin/robots/${robot.id}/config-callback`, {
+      const res = await fetch(`/api/admin/robots/${robot.id}/config-callback`, {
         method: 'POST'
       });
 
@@ -521,7 +521,7 @@ export default function RobotManagement() {
   const queryCallbackConfig = async (robot: Robot) => {
     setQueryingRobotId(robot.id);
     try {
-      const res = await fetch(`/api/proxy/admin/robots/${robot.id}/callback-config`);
+      const res = await fetch(`/api/admin/robots/${robot.id}/callback-config`);
       const data = await res.json();
       if (data.code === 0) {
         setCallbackConfigs(prev => ({

@@ -291,7 +291,7 @@ export default function RobotManagement() {
     
     setTestingEndpoint(endpointType);
     try {
-      const response = await fetch(`/api/proxy/admin/robots/${editingRobot.id}/api-endpoints/test`, {
+      const response = await fetch(`/api/admin/robots/${editingRobot.id}/api-endpoints/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ endpointType })
@@ -342,7 +342,7 @@ export default function RobotManagement() {
     
     setTestingEndpoint('all');
     try {
-      const response = await fetch(`/api/proxy/admin/robots/${editingRobot.id}/api-endpoints/test-all`, {
+      const response = await fetch(`/api/admin/robots/${editingRobot.id}/api-endpoints/test-all`, {
         method: 'POST'
       });
       
@@ -376,7 +376,7 @@ export default function RobotManagement() {
     
     setLogsLoading(true);
     try {
-      const response = await fetch(`/api/proxy/admin/robots/${editingRobot.id}/api-endpoints/logs?page=1&pageSize=20`);
+      const response = await fetch(`/api/admin/robots/${editingRobot.id}/api-endpoints/logs?page=1&pageSize=20`);
       const result = await response.json();
       
       if (result.code === 0) {

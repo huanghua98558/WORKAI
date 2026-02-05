@@ -43,7 +43,7 @@ export function CallbackConfigPanel({ robotId, robotName }: CallbackConfigPanelP
     setError(null);
 
     try {
-      const response = await fetch(`/api/proxy/robots/${robotId}/callback-config`, {
+      const response = await fetch(`/api/admin/robots/${robotId}/callback-config`, {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -92,8 +92,8 @@ export function CallbackConfigPanel({ robotId, robotName }: CallbackConfigPanelP
 
     try {
       const endpoint = callbackType === '11'
-        ? `/api/proxy/robots/${robotId}/config-callback`
-        : `/api/proxy/robots/${robotId}/config-callback-type`;
+        ? `/api/admin/robots/${robotId}/config-callback`
+        : `/api/admin/robots/${robotId}/config-callback-type`;
 
       const body = callbackType === '11'
         ? { replyAll }
@@ -137,7 +137,7 @@ export function CallbackConfigPanel({ robotId, robotName }: CallbackConfigPanelP
     setSuccess(null);
 
     try {
-      const response = await fetch(`/api/proxy/robots/${robotId}/delete-callback-type`, {
+      const response = await fetch(`/api/admin/robots/${robotId}/delete-callback-type`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

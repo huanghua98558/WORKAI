@@ -80,7 +80,7 @@ export function CallbackHistoryPanel({ robotId }: CallbackHistoryPanelProps) {
         params.append('endTime', endTime);
       }
 
-      const response = await fetch(`/api/proxy/robots/${robotId}/callback-history?${params.toString()}`, {
+      const response = await fetch(`/api/admin/robots/${robotId}/callback-history?${params.toString()}`, {
         headers: {
           'Content-Type': 'application/json'
         }

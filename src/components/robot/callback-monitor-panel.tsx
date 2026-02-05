@@ -47,7 +47,7 @@ export function CallbackMonitorPanel({ robotId }: CallbackMonitorPanelProps) {
     setError(null);
 
     try {
-      const response = await fetch(`/api/proxy/robots/${robotId}/callback-stats?timeRange=${timeRange}`, {
+      const response = await fetch(`/api/admin/robots/${robotId}/callback-stats?timeRange=${timeRange}`, {
         headers: {
           'Content-Type': 'application/json'
         }
