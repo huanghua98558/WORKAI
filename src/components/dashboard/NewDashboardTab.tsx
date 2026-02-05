@@ -158,37 +158,50 @@ export default function NewDashboardTab({
   isLoading,
   setActiveTab
 }: NewDashboardTabProps) {
-  // 转换 MonitorData 为 MonitorSummary
-  const monitorSummary: MonitorSummary | null = monitorData ? {
-    date: monitorData.date,
-    executions: {
-      total: monitorData.summary.totalCallbacks,
-      success: monitorData.system.callback_processed,
-      error: monitorData.system.callback_error,
-      processing: 0,
-      successRate: monitorData.summary.successRate
-    },
-    ai: {
-      total: 0,
-      success: 0,
-      error: monitorData.system.ai_errors,
-      successRate: monitorData.summary.aiSuccessRate
-    },
-    sessions: {
-      active: sessions.length,
-      total: sessions.length
-    },
-    aiErrors: monitorData.system.ai_errors,
-    totalCallbacks: monitorData.summary.totalCallbacks,
-    aiSuccessRate: monitorData.summary.aiSuccessRate,
-    systemMetrics: {
-      callbackReceived: monitorData.system.callback_received,
-      callbackProcessed: monitorData.system.callback_processed,
-      callbackError: monitorData.system.callback_error,
-      aiRequests: monitorData.system.ai_requests,
-      aiErrors: monitorData.system.ai_errors
+  // 兼容新旧接口数据结构，转换为 MonitorSummary
+  const monitorSummary: MonitorSummary | null = (() => {
+    if (!monitorData) return null;
+
+    // 检查是否为新接口数据结构（MonitorSummary）
+    if ('executions' in monitorData) {
+      return monitorData as MonitorSummary;
     }
-  } : null;
+
+    // 老接口数据结构（MonitorData），需要转换
+    const oldData = monitorData as any;
+    if (!oldData.summary) return null;
+
+    return {
+      date: oldData.date,
+      executions: {
+        total: oldData.summary.totalCallbacks,
+        success: oldData.system?.callback_processed || 0,
+        error: oldData.system?.callback_error || 0,
+        processing: 0,
+        successRate: oldData.summary.successRate
+      },
+      ai: {
+        total: 0,
+        success: 0,
+        error: oldData.system?.ai_errors || 0,
+        successRate: oldData.summary.aiSuccessRate
+      },
+      sessions: {
+        active: sessions.length,
+        total: sessions.length
+      },
+      aiErrors: oldData.system?.ai_errors || 0,
+      totalCallbacks: oldData.summary.totalCallbacks,
+      aiSuccessRate: oldData.summary.aiSuccessRate,
+      systemMetrics: {
+        callbackReceived: oldData.system?.callback_received || 0,
+        callbackProcessed: oldData.system?.callback_processed || 0,
+        callbackError: oldData.system?.callback_error || 0,
+        aiRequests: oldData.system?.ai_requests || 0,
+        aiErrors: oldData.system?.ai_errors || 0
+      }
+    };
+  })();
   // 获取健康状态颜色
   const getHealthStatusColor = (status: string) => {
     switch (status) {

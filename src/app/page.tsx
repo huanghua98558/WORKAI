@@ -163,7 +163,39 @@ interface Robot {
   extraData?: any;
 }
 
-interface MonitorData {
+interface MonitorSummary {
+  date: string;
+  executions: {
+    total: number;
+    success: number;
+    error: number;
+    processing: number;
+    successRate: string;
+  };
+  ai: {
+    total: number;
+    success: number;
+    error: number;
+    successRate: string;
+  };
+  sessions: {
+    active: number;
+    total: number;
+  };
+  aiErrors: number;
+  totalCallbacks: number;
+  aiSuccessRate: string;
+  systemMetrics: {
+    callbackReceived: number;
+    callbackProcessed: number;
+    callbackError: number;
+    aiRequests: number;
+    aiErrors: number;
+  };
+}
+
+// 兼容性：支持老接口数据结构
+interface MonitorDataOld {
   date: string;
   system: {
     callback_received: number;
@@ -183,6 +215,42 @@ interface MonitorData {
     aiSuccessRate: string;
   };
 }
+
+// 使用联合类型支持新旧接口
+type MonitorData = MonitorSummary | MonitorDataOld;
+
+// 辅助函数：兼容新旧数据结构，获取回调接收数
+const getCallbackReceived = (data: MonitorData | null): number => {
+  if (!data) return 0;
+  // 新接口
+  if ('systemMetrics' in data) {
+    return data.systemMetrics?.callbackReceived || 0;
+  }
+  // 老接口
+  return (data as any).system?.callback_received || 0;
+};
+
+// 辅助函数：兼容新旧数据结构，获取成功率
+const getSuccessRate = (data: MonitorData | null): string => {
+  if (!data) return '0%';
+  // 新接口
+  if ('executions' in data) {
+    return data.executions?.successRate || '0%';
+  }
+  // 老接口
+  return (data as any).summary?.successRate || '0%';
+};
+
+// 辅助函数：兼容新旧数据结构，获取AI成功率
+const getAiSuccessRate = (data: MonitorData | null): string => {
+  if (!data) return '0%';
+  // 新接口
+  if ('ai' in data && typeof (data as any).ai.successRate === 'string') {
+    return (data as any).ai.successRate || '0%';
+  }
+  // 老接口
+  return (data as any).summary?.aiSuccessRate || '0%';
+};
 
 interface AlertData {
   total: number;
@@ -1714,7 +1782,7 @@ ${callbacks.robotStatus}
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{monitorData?.system?.callback_received || 0}</div>
+            <div className="text-2xl font-bold">{getCallbackReceived(monitorData)}</div>
             <p className="text-sm text-white/80 mt-1">今日累计接收消息</p>
           </CardContent>
         </Card>
@@ -1755,11 +1823,11 @@ ${callbacks.robotStatus}
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{monitorData?.system?.callback_received || 0}</div>
+            <div className="text-2xl font-bold">{getCallbackReceived(monitorData)}</div>
             <p className="text-xs text-muted-foreground mt-1">
               今日累计
-              {monitorData?.system?.callback_received && monitorData?.system?.callback_received > 0 && (
-                <span className="ml-1">+{monitorData?.system?.callback_received}</span>
+              {getCallbackReceived(monitorData) > 0 && (
+                <span className="ml-1">+{getCallbackReceived(monitorData)}</span>
               )}
             </p>
           </CardContent>
@@ -1773,7 +1841,7 @@ ${callbacks.robotStatus}
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{monitorData?.summary.successRate || '0%'}</div>
+            <div className="text-2xl font-bold">{getSuccessRate(monitorData)}</div>
             <p className="text-xs text-muted-foreground mt-1">回调处理成功率</p>
           </CardContent>
         </Card>
@@ -1786,7 +1854,7 @@ ${callbacks.robotStatus}
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{monitorData?.summary.aiSuccessRate || '0%'}</div>
+            <div className="text-2xl font-bold">{getAiSuccessRate(monitorData)}</div>
             <p className="text-xs text-muted-foreground mt-1">AI 响应成功率</p>
           </CardContent>
         </Card>
@@ -1944,7 +2012,7 @@ ${callbacks.robotStatus}
                     <span className="text-xs text-muted-foreground">AI成功率</span>
                   </div>
                   <div className="text-xl font-bold text-green-600 dark:text-green-400">
-                    {monitorData?.summary.aiSuccessRate || '0%'}
+                    {getAiSuccessRate(monitorData)}
                   </div>
                 </div>
 
