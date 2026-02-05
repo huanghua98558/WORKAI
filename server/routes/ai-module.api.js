@@ -178,6 +178,23 @@ async function deleteAIModel(request, reply) {
   try {
     const db = await getDb();
 
+    // 检查模型是否被角色关联
+    const rolesUsingModel = await db
+      .select({
+        id: aiRoles.id,
+        name: aiRoles.name
+      })
+      .from(aiRoles)
+      .where(eq(aiRoles.modelId, id));
+
+    if (rolesUsingModel.length > 0) {
+      const roleNames = rolesUsingModel.map(role => role.name).join('、');
+      return reply.code(400).send({
+        success: false,
+        error: `该模型正在被以下角色使用，无法删除：${roleNames}。请先将这些角色切换到其他模型后再删除。`
+      });
+    }
+
     const result = await db.delete(aiModels)
       .where(eq(aiModels.id, id))
       .returning();
