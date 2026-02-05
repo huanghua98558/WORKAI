@@ -62,11 +62,7 @@ export async function GET(request: NextRequest) {
     const result = await execSQL(query, params);
 
     // 获取总数
-    let countQuery = `
-      SELECT COUNT(*) 
-      FROM robot_commands rc
-      WHERE rc.command_type IN ('send_group_message', 'send_private_message', 'send_message', 'batch_send_message')
-    `;
+    let countQuery = `SELECT COUNT(*) FROM robot_commands rc WHERE rc.command_type IN ('send_group_message', 'send_private_message', 'send_message', 'batch_send_message')`;
     const countParams: any[] = [];
     let countParamIndex = 1;
 
@@ -108,71 +104,37 @@ export async function GET(request: NextRequest) {
     `;
     const statsResult = await execSQL(statsQuery, []);
 
-    // 字段映射
-    const mappedData = result.rows.map((row: any) => {
-      let recipient = null;
-      let messageContent = null;
-      let atList = null;
-
-      // 尝试解析 command_data
-      try {
-        if (row.command_data) {
-          let commandData = row.command_data;
-          if (typeof commandData === 'string') {
-            commandData = JSON.parse(commandData);
-          }
-
-          if (commandData.list && commandData.list.length > 0) {
-            const firstItem = commandData.list[0];
-            if (firstItem.titleList && firstItem.titleList.length > 0) {
-              recipient = firstItem.titleList[0];
-            }
-            if (firstItem.receivedContent) {
-              messageContent = firstItem.receivedContent;
-            }
-            if (firstItem.atList) {
-              atList = firstItem.atList;
-            }
-          }
-
-          // 批量发送的特殊处理
-          if (row.command_type === 'batch_send_message') {
-            recipient = '批量发送';
-          }
-        }
-      } catch (error) {
-        console.error('解析 command_data 失败:', error);
-      }
-
-      return {
-        id: row.id,
-        commandId: row.id,
-        robotId: row.robot_id,
-        robotName: row.robot_name || row.robot_nickname,
-        robotCompany: row.robot_company,
-        commandType: row.command_type,
-        recipient,
-        messageContent,
-        atList,
-        status: row.status,
-        priority: row.priority,
-        createdAt: row.created_at,
-        executedAt: row.executed_at,
-        completedAt: row.completed_at,
-        retryCount: row.retry_count,
-        errorMessage: row.error_message,
-        result: row.result
-      };
-    });
+    // 字段映射：将数据库字段名转换为前端期望的字段名
+    const mappedData = result.rows.map((row: any) => ({
+      id: row.id,
+      commandId: row.id,
+      robotId: row.robot_id,
+      robotName: row.robot_name,
+      robotNickname: row.robot_nickname,
+      robotCompany: row.robot_company,
+      commandType: row.command_type,
+      commandPayload: row.command_data,
+      status: row.status,
+      priority: row.priority,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      startedAt: row.started_at,
+      executedAt: row.executed_at,
+      completedAt: row.completed_at,
+      retryCount: row.retry_count,
+      maxRetries: row.max_retries,
+      result: row.result,
+      errorMessage: row.error_message,
+      recipient: null,
+      atList: null,
+      messageContent: row.command_data
+    }));
 
     return NextResponse.json({
       success: true,
       data: mappedData,
       total: parseInt(countResult.rows[0].count),
-      stats: statsResult.rows.map((row: any) => ({
-        status: row.status,
-        count: parseInt(row.count)
-      })),
+      stats: statsResult.rows,
       limit,
       offset
     });
