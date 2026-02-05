@@ -1849,11 +1849,12 @@ ${callbacks.robotStatus}
     </div>
   );
 
-  // 会话管理组件
+  // 会话管理组件（集成业务消息监控）
   const SessionsTab = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'auto' | 'human'>('all');
     const [filterIntent, setFilterIntent] = useState<string>('all');
+    const [activeSubTab, setActiveSubTab] = useState<'sessions' | 'messages'>('sessions');
 
     // 过滤会话
     const filteredSessions = sessions.filter(session => {
@@ -1883,6 +1884,7 @@ ${callbacks.robotStatus}
 
     return (
       <div className="space-y-5">
+        {/* 顶部标题和操作栏 */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h3 className="text-2xl font-bold flex items-center gap-2">
@@ -1890,7 +1892,7 @@ ${callbacks.robotStatus}
               会话管理
             </h3>
             <p className="text-sm text-muted-foreground mt-1">
-              查看和管理活跃的用户会话
+              查看和管理活跃的用户会话，监控业务消息
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -1914,29 +1916,44 @@ ${callbacks.robotStatus}
           </div>
         </div>
 
-        {/* 统计卡片 */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-              <div className="text-center p-3.5 bg-muted/30 rounded-lg">
-                <div className="text-lg md:text-xl font-bold">{stats.total}</div>
-                <div className="text-[11px] text-muted-foreground mt-1">总会话</div>
-              </div>
-              <div className="text-center p-3.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <div className="text-lg md:text-xl font-bold text-blue-600 dark:text-blue-400">{stats.auto}</div>
-                <div className="text-[11px] text-muted-foreground mt-1">自动模式</div>
-              </div>
-              <div className="text-center p-3.5 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                <div className="text-lg md:text-xl font-bold text-orange-600 dark:text-orange-400">{stats.human}</div>
-                <div className="text-[11px] text-muted-foreground mt-1">人工模式</div>
-              </div>
-              <div className="text-center p-3.5 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                <div className="text-lg md:text-xl font-bold text-purple-600 dark:text-purple-400">{stats.totalMessages}</div>
-                <div className="text-[11px] text-muted-foreground mt-1">总消息</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* 子标签切换 */}
+        <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as 'sessions' | 'messages')} className="w-full">
+          <TabsList className="grid w-full max-w-[400px] grid-cols-2">
+            <TabsTrigger value="sessions" className="gap-2">
+              <Users className="h-4 w-4" />
+              会话列表
+            </TabsTrigger>
+            <TabsTrigger value="messages" className="gap-2">
+              <MessageSquare className="h-4 w-4" />
+              业务消息监控
+            </TabsTrigger>
+          </TabsList>
+
+          {/* 会话列表内容 */}
+          <TabsContent value="sessions" className="space-y-5 mt-5">
+            {/* 统计卡片 */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+                  <div className="text-center p-3.5 bg-muted/30 rounded-lg">
+                    <div className="text-lg md:text-xl font-bold">{stats.total}</div>
+                    <div className="text-[11px] text-muted-foreground mt-1">总会话</div>
+                  </div>
+                  <div className="text-center p-3.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="text-lg md:text-xl font-bold text-blue-600 dark:text-blue-400">{stats.auto}</div>
+                    <div className="text-[11px] text-muted-foreground mt-1">自动模式</div>
+                  </div>
+                  <div className="text-center p-3.5 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                    <div className="text-lg md:text-xl font-bold text-orange-600 dark:text-orange-400">{stats.human}</div>
+                    <div className="text-[11px] text-muted-foreground mt-1">人工模式</div>
+                  </div>
+                  <div className="text-center p-3.5 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                    <div className="text-lg md:text-xl font-bold text-purple-600 dark:text-purple-400">{stats.totalMessages}</div>
+                    <div className="text-[11px] text-muted-foreground mt-1">总消息</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
         {/* 最近会话 - 显示最近活跃的会话 */}
         {sessions.length > 0 && (
@@ -2203,8 +2220,24 @@ ${callbacks.robotStatus}
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          {/* 业务消息监控内容 */}
+          <TabsContent value="messages" className="mt-5">
+            <BusinessMessageMonitor
+              onNavigateToSession={(sessionId) => {
+                const targetSession = sessions.find(s => s.sessionId === sessionId);
+                if (targetSession) {
+                  setSelectedSession(targetSession);
+                  setShowSessionDetail(true);
+                  loadSessionMessages(sessionId);
+                }
+              }}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
-  );
+    );
   };
 
   // 计算运行时间
@@ -2580,7 +2613,7 @@ ${callbacks.robotStatus}
       {/* 主内容 */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          {/* 方案A：换行导航栏 */}
+          {/* 精简后的导航栏 - 8个核心功能 */}
           <TabsList className="w-full lg:w-auto flex flex-wrap gap-1.5 p-2 bg-white/80 backdrop-blur-md border border-slate-200/50 shadow-md shadow-slate-200/40 rounded-xl">
             <TabsTrigger
               value="dashboard"
@@ -2597,13 +2630,6 @@ ${callbacks.robotStatus}
               <span className="font-semibold text-sm sm:text-base">会话管理</span>
             </TabsTrigger>
             <TabsTrigger
-              value="realtime"
-              className="gap-2.5 py-2.5 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/25 border border-transparent hover:border-blue-300/60 hover:bg-blue-50/70 transition-all duration-250"
-            >
-              <MessageSquare className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">业务消息监控</span>
-            </TabsTrigger>
-            <TabsTrigger
               value="robots"
               className="gap-2.5 py-2.5 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/25 border border-transparent hover:border-blue-300/60 hover:bg-blue-50/70 transition-all duration-250"
             >
@@ -2616,13 +2642,6 @@ ${callbacks.robotStatus}
             >
               <Activity className="h-5 w-5" />
               <span className="font-semibold text-sm sm:text-base">监控告警</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="monitoring"
-              className="gap-2.5 py-2.5 px-4 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/25 border border-transparent hover:border-blue-300/60 hover:bg-blue-50/70 transition-all duration-250"
-            >
-              <Sparkles className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">AI交互监控</span>
             </TabsTrigger>
             <TabsTrigger
               value="ai-module"
@@ -2662,15 +2681,6 @@ ${callbacks.robotStatus}
             <SessionsTab />
           </TabsContent>
 
-          <TabsContent value="realtime" className="space-y-6">
-            <BusinessMessageMonitor
-              onNavigateToSession={(sessionId) => {
-                setActiveTab('sessions');
-                console.log('跳转到会话:', sessionId);
-              }}
-            />
-          </TabsContent>
-
           <TabsContent value="robots" className="space-y-6">
             <RobotManagement />
           </TabsContent>
@@ -2679,12 +2689,28 @@ ${callbacks.robotStatus}
             <MonitorTab />
           </TabsContent>
 
-          <TabsContent value="monitoring" className="space-y-6">
-            <AIInteractionMonitor />
-          </TabsContent>
-
           <TabsContent value="ai-module" className="space-y-6">
-            <AIModule />
+            {/* AI模块集成AI交互监控 */}
+            <Tabs defaultValue="config" className="w-full">
+              <TabsList className="grid w-full max-w-[400px] grid-cols-2">
+                <TabsTrigger value="config" className="gap-2">
+                  <Settings className="h-4 w-4" />
+                  AI配置
+                </TabsTrigger>
+                <TabsTrigger value="monitoring" className="gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  AI交互监控
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="config" className="mt-5">
+                <AIModule />
+              </TabsContent>
+              
+              <TabsContent value="monitoring" className="mt-5">
+                <AIInteractionMonitor />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="flow-engine" className="space-y-6">
