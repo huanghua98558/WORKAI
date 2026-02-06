@@ -169,7 +169,7 @@ export default function MonitorTab() {
       </div>
 
       {/* 错误提示 */}
-      {healthError && (
+      {healthError && !isLoading && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>监控数据加载失败</AlertTitle>
@@ -215,7 +215,22 @@ export default function MonitorTab() {
 
         {/* 概览标签页 */}
         <TabsContent value="overview" className="space-y-6 mt-6">
-          {health && (
+          {isLoading ? (
+            <div className="flex items-center justify-center min-h-[400px]">
+              <div className="text-center">
+                <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+                <p className="mt-4 text-muted-foreground">加载监控数据中...</p>
+              </div>
+            </div>
+          ) : healthError ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>监控数据加载失败</AlertTitle>
+              <AlertDescription>
+                {healthError}。请检查后端服务是否正常运行，或稍后重试。
+              </AlertDescription>
+            </Alert>
+          ) : health && (
             <>
               {/* 系统健康状态 */}
               <div className="grid gap-4 md:grid-cols-4">

@@ -2067,6 +2067,18 @@ ${callbacks.robotStatus}
     const [filterIntent, setFilterIntent] = useState<string>('all');
     const [activeSubTab, setActiveSubTab] = useState<'sessions' | 'messages'>('sessions');
 
+    // 显示加载状态
+    if (isLoading) {
+      return (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+            <p className="mt-4 text-muted-foreground">加载会话数据中...</p>
+          </div>
+        </div>
+      );
+    }
+
     // 过滤会话
     const filteredSessions = sessions.filter(session => {
       // 搜索过滤
