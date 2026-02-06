@@ -524,6 +524,8 @@ exports.flowDefinitions = pgTable(
     description: text("description"), // 流程描述
     version: varchar("version", { length: 50 }).default("1.0"), // 流程版本
     isActive: boolean("is_active").notNull().default(true), // 是否启用
+    isDefault: boolean("is_default").notNull().default(false), // 是否为默认流程
+    priority: integer("priority").default(0), // 优先级（数字越大优先级越高）
     triggerType: varchar("trigger_type", { length: 50 }).notNull(), // 触发类型: webhook, manual, scheduled
     triggerConfig: jsonb("trigger_config").default("{}"), // 触发配置
     nodes: jsonb("nodes").notNull().default("[]"), // 节点配置列表（JSON数组）
@@ -539,6 +541,8 @@ exports.flowDefinitions = pgTable(
   },
   (table) => ({
     isActiveIdx: index("flow_definitions_is_active_idx").on(table.isActive),
+    isDefaultIdx: index("flow_definitions_is_default_idx").on(table.isDefault),
+    priorityIdx: index("flow_definitions_priority_idx").on(table.priority),
     triggerTypeIdx: index("flow_definitions_trigger_type_idx").on(table.triggerType),
     createdAtIdx: index("flow_definitions_created_at_idx").on(table.createdAt),
   })
@@ -1897,6 +1901,8 @@ exports.flowDefinitions = pgTable(
     description: text("description"), // 流程描述
     version: varchar("version", { length: 50 }).default("1.0"), // 流程版本
     isActive: boolean("is_active").notNull().default(true), // 是否启用
+    isDefault: boolean("is_default").notNull().default(false), // 是否为默认流程
+    priority: integer("priority").default(0), // 优先级（数字越大优先级越高）
     triggerType: varchar("trigger_type", { length: 50 }).notNull(), // 触发类型: webhook, manual, scheduled
     triggerConfig: jsonb("trigger_config").default("{}"), // 触发配置
     nodes: jsonb("nodes").notNull().default("[]"), // 节点配置列表（JSON数组）
@@ -1912,6 +1918,8 @@ exports.flowDefinitions = pgTable(
   },
   (table) => ({
     isActiveIdx: index("flow_definitions_is_active_idx").on(table.isActive),
+    isDefaultIdx: index("flow_definitions_is_default_idx").on(table.isDefault),
+    priorityIdx: index("flow_definitions_priority_idx").on(table.priority),
     triggerTypeIdx: index("flow_definitions_trigger_type_idx").on(table.triggerType),
     createdAtIdx: index("flow_definitions_created_at_idx").on(table.createdAt),
   })

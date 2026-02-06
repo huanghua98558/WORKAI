@@ -4,6 +4,7 @@
   "description": "实时监控群内消息、检测异常行为、员工回复监测",
   "version": "4.0.0",
   "isDefault": false,
+  "priority": 60,
   "category": "监控管理",
   "tags": ["监控", "员工回复", "异常检测"],
   "triggerType": "scheduled",

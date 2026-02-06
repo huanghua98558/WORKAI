@@ -4,6 +4,7 @@
   "description": "用户不满意时触发告警升级，通知更高层级负责人",
   "version": "4.0.0",
   "isDefault": false,
+  "priority": 70,
   "category": "告警管理",
   "tags": ["告警", "升级", "用户不满意"],
   "triggerType": "webhook",

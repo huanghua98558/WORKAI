@@ -9,6 +9,7 @@ const { flowDefinitions, flowInstances, flowExecutionLogs, aiRoles, sessions, pr
 const { eq, and, or, desc, lt, gt, inArray } = require('drizzle-orm');
 const { getLogger } = require('../lib/logger');
 const AIServiceFactory = require('./ai/AIServiceFactory'); // AI服务工厂
+const { flowSelector, SelectionStrategy } = require('./flow-selector.service'); // 流程选择器
 
 const logger = getLogger('FLOW_ENGINE');
 
@@ -392,6 +393,117 @@ class FlowEngine {
       logger.error('更新流程实例失败', { id, error: error.message });
       throw new Error(`更新流程实例失败: ${error.message}`);
     }
+  }
+
+  // ============================================
+  // 流程路由与选择
+  // ============================================
+
+  /**
+   * 路由流程（根据上下文自动选择合适的流程）
+   *
+   * @param {Object} context - 路由上下文
+   * @param {string} context.robotId - 机器人ID
+   * @param {string} context.triggerType - 触发类型
+   * @param {Object} context.message - 消息对象（可选）
+   * @param {string} context.strategy - 选择策略（可选）
+   * @returns {Promise<Array>} 选择的流程定义列表
+   */
+  async routeFlows(context) {
+    logger.info('开始流程路由', {
+      robotId: context.robotId,
+      triggerType: context.triggerType,
+      hasMessage: !!context.message,
+      strategy: context.strategy
+    });
+
+    try {
+      // 使用流程选择器选择流程
+      const selectedFlows = await flowSelector.selectFlows(context);
+
+      logger.info('流程路由完成', {
+        robotId: context.robotId,
+        selectedCount: selectedFlows.length,
+        flows: selectedFlows.map(f => ({
+          id: f.id,
+          name: f.name,
+          isDefault: f.isDefault,
+          priority: f.priority
+        }))
+      });
+
+      return selectedFlows;
+    } catch (error) {
+      logger.error('流程路由失败', {
+        error: error.message,
+        stack: error.stack,
+        context
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * 执行路由后的流程（批量创建并执行流程实例）
+   *
+   * @param {Array} flows - 流程定义列表
+   * @param {Object} triggerData - 触发数据
+   * @param {Object} metadata - 元数据
+   * @returns {Promise<Array>} 创建的流程实例列表
+   */
+  async executeRoutedFlows(flows, triggerData = {}, metadata = {}) {
+    logger.info('开始执行路由后的流程', {
+      flowCount: flows.length
+    });
+
+    const instances = [];
+
+    for (const flowDef of flows) {
+      try {
+        logger.info('创建流程实例', {
+          flowId: flowDef.id,
+          flowName: flowDef.name
+        });
+
+        const instance = await this.createFlowInstance(
+          flowDef.id,
+          triggerData,
+          metadata
+        );
+
+        logger.info('流程实例创建成功，开始异步执行', {
+          instanceId: instance.id,
+          flowName: flowDef.name
+        });
+
+        // 异步执行流程
+        this.executeFlow(instance.id).catch(error => {
+          logger.error('流程执行失败', {
+            instanceId: instance.id,
+            flowName: flowDef.name,
+            error: error.message,
+            stack: error.stack
+          });
+        });
+
+        instances.push(instance);
+      } catch (error) {
+        logger.error('创建流程实例失败', {
+          flowId: flowDef.id,
+          flowName: flowDef.name,
+          error: error.message
+        });
+        // 继续执行其他流程
+      }
+    }
+
+    logger.info('流程实例批量创建完成', {
+      total: flows.length,
+      success: instances.length,
+      failed: flows.length - instances.length
+    });
+
+    return instances;
   }
 
   // ============================================

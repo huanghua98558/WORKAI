@@ -4,6 +4,7 @@
   "description": "投诉、负面情绪、复杂问题转人工处理",
   "version": "4.0.0",
   "isDefault": false,
+  "priority": 80,
   "category": "人工服务",
   "tags": ["人工", "投诉", "负面情绪"],
   "triggerType": "webhook",

@@ -4,6 +4,7 @@
   "description": "处理敏感内容、垃圾信息、攻击性言论等风险消息",
   "version": "4.0.0",
   "isDefault": false,
+  "priority": 90,
   "category": "风险管理",
   "tags": ["风险", "安全", "监控"],
   "triggerType": "webhook",

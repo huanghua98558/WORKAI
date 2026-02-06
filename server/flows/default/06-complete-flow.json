@@ -4,6 +4,7 @@
   "description": "包含所有v4节点的完整流程，展示所有功能",
   "version": "4.0.0",
   "isDefault": false,
+  "priority": 50,
   "category": "完整演示",
   "tags": ["完整", "演示", "所有节点"],
   "triggerType": "webhook",

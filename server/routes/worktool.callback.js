@@ -588,103 +588,73 @@ const worktoolCallbackRoutes = async function (fastify, options) {
         timestamp: message.timestamp
       });
 
-      // 查找Webhook触发的流程定义
-      console.log('[流程引擎] 查找Webhook触发的流程定义', {
+      // 使用智能流程路由器选择流程
+      console.log('[流程引擎] 开始流程路由', {
         robotId: robot.robotId,
-        triggerType: TriggerType.WEBHOOK
+        triggerType: TriggerType.WEBHOOK,
+        message: {
+          messageId: message.messageId,
+          spoken: message.spoken?.substring(0, 50),
+          fromName: message.fromName
+        }
       });
 
-      const webhookFlows = await flowEngine.listFlowDefinitions({
-        isActive: true,
-        triggerType: TriggerType.WEBHOOK
+      // 路由流程（使用默认策略：DEFAULT_FIRST，优先执行默认流程）
+      const selectedFlows = await flowEngine.routeFlows({
+        robotId: robot.robotId,
+        triggerType: TriggerType.WEBHOOK,
+        message,
+        strategy: 'default_first' // 使用默认流程优先策略
       });
 
-      console.log('[流程引擎] 查找到的流程定义', {
-        count: webhookFlows.length,
-        flows: webhookFlows.map(f => ({ id: f.id, name: f.name, triggerConfig: f.triggerConfig }))
+      console.log('[流程引擎] 路由结果', {
+        flowCount: selectedFlows.length,
+        flows: selectedFlows.map(f => ({
+          id: f.id,
+          name: f.name,
+          isDefault: f.isDefault
+        }))
       });
 
-      // 优先使用流程引擎处理
-      if (webhookFlows.length > 0) {
+      // 执行路由后的流程
+      if (selectedFlows.length > 0) {
         console.log('[流程引擎] 使用流程引擎处理消息', {
-          flowCount: webhookFlows.length
+          flowCount: selectedFlows.length
         });
 
-        // 为每个匹配的流程创建实例并执行
-        for (const flowDef of webhookFlows) {
-          try {
-            // 检查触发条件（如果配置了robotId，则只匹配该机器人）
-            const triggerConfig = flowDef.triggerConfig || {};
-            if (triggerConfig.robotId && triggerConfig.robotId !== robot.robotId) {
-              console.log('[流程引擎] 流程定义不匹配当前机器人，跳过', {
-                flowId: flowDef.id,
-                flowName: flowDef.name,
-                triggerRobotId: triggerConfig.robotId,
-                currentRobotId: robot.robotId
-              });
-              continue;
-            }
-
-            console.log('[流程引擎] 创建流程实例', {
-              flowDefinitionId: flowDef.id,
-              flowName: flowDef.name,
-              messageId: message.messageId
-            });
-
-            const instance = await flowEngine.createFlowInstance(
-              flowDef.id,
-              {
-                message,
-                robot,
-                requestId
-              },
-              {
-                messageId: message.messageId,
-                robotId: robot.robotId,
-                groupName: message.groupName
-              }
-            );
-
-            console.log('[流程引擎] 流程实例创建成功，开始执行', {
-              instanceId: instance.id,
-              flowName: flowDef.name
-            });
-
-            // 异步执行流程
-            flowEngine.executeFlow(instance.id).catch(error => {
-              console.error('[流程引擎] 流程执行失败', {
-                instanceId: instance.id,
-                flowName: flowDef.name,
-                error: error.message,
-                stack: error.stack
-              });
-            });
-
-            console.log('[流程引擎] 流程执行已启动', {
-              instanceId: instance.id
-            });
-          } catch (flowError) {
-            console.error('[流程引擎] 创建或执行流程失败', {
-              flowDefinitionId: flowDef.id,
-              flowName: flowDef.name,
-              error: flowError.message,
-              stack: flowError.stack
-            });
+        const instances = await flowEngine.executeRoutedFlows(
+          selectedFlows,
+          {
+            message,
+            robot,
+            requestId
+          },
+          {
+            messageId: message.messageId,
+            robotId: robot.robotId,
+            groupName: message.groupName
           }
-        }
+        );
+
+        console.log('[流程引擎] 流程实例创建完成', {
+          instanceCount: instances.length,
+          instanceIds: instances.map(i => i.id)
+        });
 
         // 记录决策结果（流程引擎模式）
         await monitorService.recordSystemMetric('callback_processed', 1, {
           type: 'message',
           robotId: robot.robotId,
           action: 'flow_engine',
-          flowCount: webhookFlows.length
+          flowCount: selectedFlows.length,
+          instanceCount: instances.length
         });
 
         console.log('[流程引擎] ===== handleMessageAsync 完成（流程引擎模式） =====', {
           requestId,
           robotId: robot.robotId,
-          flowCount: webhookFlows.length
+          flowCount: selectedFlows.length,
+          instanceCount: instances.length
         });
         return;
       }

@@ -4,6 +4,7 @@
   "description": "基于v4节点的标准客服流程：消息入口→智能分析→流程决策→AI代理→消息出口→流程结束",
   "version": "4.0.0",
   "isDefault": true,
+  "priority": 100,
   "category": "客服服务",
   "tags": ["客服", "AI回复", "标准流程"],
   "triggerType": "webhook",
