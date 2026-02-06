@@ -139,9 +139,6 @@ export default function CollabDashboard() {
   const [timeRange, setTimeRange] = useState('24h');
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
-  
-  // 后端API基础URL
-  const API_BASE_URL = 'http://localhost:5001';
 
   // 加载协同统计数据
   useEffect(() => {
@@ -169,9 +166,9 @@ export default function CollabDashboard() {
 
       // 并行加载所有数据
       const [statsRes, activitiesRes, logsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/collab/stats?timeRange=${timeRange}`),
-        fetch(`${API_BASE_URL}/api/collab/staff-activity?timeRange=${timeRange}&limit=10`),
-        fetch(`${API_BASE_URL}/api/collab/decision-logs?limit=10`)
+        fetch(`/api/collab/stats?timeRange=${timeRange}`),
+        fetch(`/api/collab/staff-activity?timeRange=${timeRange}&limit=10`),
+        fetch(`/api/collab/decision-logs?limit=10`)
       ]);
 
       if (!statsRes.ok || !activitiesRes.ok || !logsRes.ok) {
@@ -197,8 +194,8 @@ export default function CollabDashboard() {
   const loadRecommendations = async () => {
     try {
       const [recsRes, statsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/collab/recommendations`),
-        fetch(`${API_BASE_URL}/api/collab/recommendations/stats`)
+        fetch(`/api/collab/recommendations`),
+        fetch(`/api/collab/recommendations/stats`)
       ]);
 
       if (recsRes.ok) {
@@ -217,7 +214,7 @@ export default function CollabDashboard() {
 
   const loadRobotSatisfaction = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/collab/robot-satisfaction?timeRange=${timeRange}`);
+      const res = await fetch(`/api/collab/robot-satisfaction?timeRange=${timeRange}`);
       if (res.ok) {
         const data = await res.json();
         if (data.code === 0) setRobotSatisfaction(data.data || []);
@@ -237,7 +234,7 @@ export default function CollabDashboard() {
   // 导出CSV文件
   const handleExportCSV = async (exportType: 'csv' | 'staff-activity' | 'decision-logs') => {
     try {
-      const url = `${API_BASE_URL}/api/collab/export/${exportType}?timeRange=${timeRange}`;
+      const url = `/api/collab/export/${exportType}?timeRange=${timeRange}`;
       const response = await fetch(url);
 
       if (!response.ok) {

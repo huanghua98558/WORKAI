@@ -91,7 +91,7 @@ export default function MonitoringPage() {
       if (data.code === 0) {
         // 获取告警统计
         try {
-          const alertRes = await fetch('http://localhost:5001/api/alerts/stats');
+          const alertRes = await fetch('/api/alerts/stats');
           const alertData = await alertRes.json();
           if (alertData.success) {
             data.data.alerts = {
