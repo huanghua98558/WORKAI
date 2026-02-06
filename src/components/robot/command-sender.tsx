@@ -1230,10 +1230,10 @@ export default function CommandSender() {
                       <SelectValue placeholder="全部类型" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">全部类型</SelectItem>
-                      <SelectItem value="send_group_message">群发消息</SelectItem>
-                      <SelectItem value="send_private_message">私聊消息</SelectItem>
-                      <SelectItem value="batch_send_message">批量发送</SelectItem>
+                      <SelectItem key="all" value="all">全部类型</SelectItem>
+                      <SelectItem key="send_group_message" value="send_group_message">群发消息</SelectItem>
+                      <SelectItem key="send_private_message" value="send_private_message">私聊消息</SelectItem>
+                      <SelectItem key="batch_send_message" value="batch_send_message">批量发送</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1244,11 +1244,11 @@ export default function CommandSender() {
                       <SelectValue placeholder="全部状态" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">全部状态</SelectItem>
-                      <SelectItem value="pending">待处理</SelectItem>
-                      <SelectItem value="processing">处理中</SelectItem>
-                      <SelectItem value="completed">已完成</SelectItem>
-                      <SelectItem value="failed">失败</SelectItem>
+                      <SelectItem key="all" value="all">全部状态</SelectItem>
+                      <SelectItem key="pending" value="pending">待处理</SelectItem>
+                      <SelectItem key="processing" value="processing">处理中</SelectItem>
+                      <SelectItem key="completed" value="completed">已完成</SelectItem>
+                      <SelectItem key="failed" value="failed">失败</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1259,9 +1259,9 @@ export default function CommandSender() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="20">20条</SelectItem>
-                      <SelectItem value="50">50条</SelectItem>
-                      <SelectItem value="100">100条</SelectItem>
+                      <SelectItem key="20" value="20">20条</SelectItem>
+                      <SelectItem key="50" value="50">50条</SelectItem>
+                      <SelectItem key="100" value="100">100条</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
