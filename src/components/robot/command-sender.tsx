@@ -12,20 +12,17 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { 
-  Bot, 
-  MessageSquare, 
-  Users, 
-  Send, 
-  Zap, 
-  Clock, 
-  ChevronDown,
+import {
+  Bot,
+  MessageSquare,
+  Users,
+  Send,
+  Clock,
   Sparkles,
-  FileText,
-  UserPlus,
-  Upload,
-  Settings,
-  Hash
+  History,
+  Link2,
+  Copy,
+  Trash2
 } from 'lucide-react';
 
 interface Robot {
@@ -78,16 +75,16 @@ interface MessageHistory {
 }
 
 const COMMAND_TYPES = [
-  { value: 'send_group_message', label: '发送群消息', icon: MessageSquare, color: 'blue', gradient: 'from-blue-500 to-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700' },
-  { value: 'send_private_message', label: '发送私聊消息', icon: MessageSquare, color: 'green', gradient: 'from-green-500 to-green-600', bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700' },
-  { value: 'batch_send_message', label: '批量发送消息', icon: Send, color: 'purple', gradient: 'from-purple-500 to-purple-600', bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700' },
-  { value: 'forward_message', label: '转发消息', icon: Send, color: 'orange', gradient: 'from-orange-500 to-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700' },
-  { value: 'create_room', label: '创建群聊', icon: Users, color: 'indigo', gradient: 'from-indigo-500 to-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700' },
-  { value: 'invite_to_room', label: '邀请入群', icon: UserPlus, color: 'teal', gradient: 'from-teal-500 to-teal-600', bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-700' },
-  { value: 'upload_file', label: '上传文件', icon: Upload, color: 'cyan', gradient: 'from-cyan-500 to-cyan-600', bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700' },
-  { value: 'get_contacts', label: '获取联系人', icon: Users, color: 'pink', gradient: 'from-pink-500 to-pink-600', bg: 'bg-pink-50', border: 'border-pink-200', text: 'text-pink-700' },
-  { value: 'get_rooms', label: '获取群聊', icon: Hash, color: 'rose', gradient: 'from-rose-500 to-rose-600', bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700' },
-  { value: 'update_profile', label: '更新资料', icon: Settings, color: 'amber', gradient: 'from-amber-500 to-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700' }
+  { value: 'send_group_message', label: '发送群消息', icon: MessageSquare },
+  { value: 'send_private_message', label: '发送私聊消息', icon: MessageSquare },
+  { value: 'batch_send_message', label: '批量发送消息', icon: Send },
+  { value: 'forward_message', label: '转发消息', icon: Send },
+  { value: 'create_room', label: '创建群聊', icon: Users },
+  { value: 'invite_to_room', label: '邀请入群', icon: Users },
+  { value: 'upload_file', label: '上传文件', icon: Link2 },
+  { value: 'get_contacts', label: '获取联系人', icon: Users },
+  { value: 'get_rooms', label: '获取群聊', icon: Users },
+  { value: 'update_profile', label: '更新资料', icon: Bot }
 ];
 
 const PRIORITIES = [
@@ -131,35 +128,20 @@ export default function CommandSender() {
   
   // 表单字段状态
   const [formData, setFormData] = useState({
-    // 群发消息
     groupName: '',
     groupContent: '',
     groupAtList: '',
-    
-    // 私聊消息
     userName: '',
     privateContent: '',
-    
-    // 批量消息
     batchMessages: [{ recipient: '', content: '' }],
-
-    // 转发消息
     msgId: '',
     forwardToList: '',
-
-    // 创建群聊
     roomName: '',
     members: '',
-
-    // 邀请入群
     chatId: '',
     inviteMembers: '',
-
-    // 上传文件
     filePath: '',
     fileTo: '',
-
-    // 更新资料
     profileName: '',
     profileAlias: '',
     profileMobile: '',
@@ -236,16 +218,16 @@ export default function CommandSender() {
     }
   }, []);
 
-  // 初始化加载数据（只执行一次）
+  // 初始化加载数据
   useEffect(() => {
     fetchRobots();
     fetchCommands();
-    fetchMessageHistory(true); // 初始化时显示加载状态
+    fetchMessageHistory(true);
   }, [fetchMessageHistory]);
 
-  // 定时刷新（只执行一次，持续运行）- 不显示加载状态，避免闪烁
+  // 定时刷新
   useEffect(() => {
-    const commandsInterval = setInterval(fetchCommands, 3000); // 缩短到3秒，更快看到重试状态
+    const commandsInterval = setInterval(fetchCommands, 3000);
     const historyInterval = setInterval(() => fetchMessageHistory(false), 3000);
     return () => {
       clearInterval(commandsInterval);
@@ -253,10 +235,90 @@ export default function CommandSender() {
     };
   }, [fetchMessageHistory]);
 
-  // 当筛选条件变化时，重新加载消息历史 - 显示加载状态
+  // 当筛选条件变化时，重新加载消息历史
   useEffect(() => {
     fetchMessageHistory(true);
   }, [historyFilter, fetchMessageHistory]);
+
+  // 获取状态徽章
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'online':
+        return <Badge className="bg-green-500 hover:bg-green-600">在线</Badge>;
+      case 'offline':
+        return <Badge variant="secondary" className="bg-gray-100 text-gray-600">离线</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  // 获取指令状态徽章
+  const getCommandStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Badge variant="outline" className="border-yellow-500 text-yellow-600">待处理</Badge>;
+      case 'processing':
+        return <Badge variant="outline" className="border-blue-500 text-blue-600">处理中</Badge>;
+      case 'completed':
+        return <Badge className="bg-green-500 hover:bg-green-600">已完成</Badge>;
+      case 'failed':
+        return <Badge variant="destructive">失败</Badge>;
+      default:
+        return <Badge>{status}</Badge>;
+    }
+  };
+
+  // 获取优先级徽章
+  const getPriorityBadge = (priority: number) => {
+    const level = priority <= 3 ? 'high' : priority <= 6 ? 'medium' : 'low';
+    const label = PRIORITIES.find(p => p.value === priority)?.label || '未知';
+    const variant = level === 'high' ? 'destructive' : level === 'medium' ? 'default' : 'secondary';
+    return <Badge variant={variant}>{label}</Badge>;
+  };
+
+  // 查看指令详情
+  const handleViewDetail = async (commandId: string) => {
+    try {
+      const response = await fetch(`/api/admin/robot-commands/${commandId}`);
+      const result = await response.json();
+      
+      console.log('加载指令详情响应:', result);
+      
+      if (result.code === 0) {
+        setSelectedCommandDetail(result.data);
+        setShowCommandDetail(true);
+      } else {
+        toast.error(result.message || '加载指令详情失败');
+      }
+    } catch (error) {
+      console.error('加载指令详情失败:', error);
+      toast.error('加载指令详情失败');
+    }
+  };
+
+  // 重试指令
+  const handleRetryCommand = async (commandId: string) => {
+    try {
+      const response = await fetch(`/api/admin/robot-commands/${commandId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const result = await response.json();
+
+      console.log('重试指令响应:', result);
+
+      if (result.code === 0) {
+        toast.success('指令重试成功');
+        fetchCommands();
+      } else {
+        toast.error(result.message || '重试失败');
+      }
+    } catch (error) {
+      console.error('重试失败:', error);
+      toast.error('重试失败');
+    }
+  };
 
   // 构建指令 payload
   const buildPayload = () => {
@@ -308,7 +370,8 @@ export default function CommandSender() {
           list: validMessages.map(msg => ({
             type: 203,
             titleList: [msg.recipient],
-            receivedContent: msg.content
+            receivedContent: msg.content,
+            atList: []
           }))
         };
 
@@ -316,36 +379,54 @@ export default function CommandSender() {
         if (!formData.msgId) {
           throw new Error('请填写消息ID');
         }
-        const toList = formData.forwardToList
+        const forwardToList = formData.forwardToList
           ? formData.forwardToList.split(/[,，]/).map(s => s.trim()).filter(s => s)
           : [];
         return {
-          msgId: formData.msgId,
-          to: toList
+          socketType: 2,
+          list: [
+            {
+              type: 207,
+              msgId: formData.msgId,
+              ...(forwardToList.length > 0 && { titleList: forwardToList })
+            }
+          ]
         };
 
       case 'create_room':
         if (!formData.roomName) {
           throw new Error('请填写群聊名称');
         }
-        const memberList = formData.members
+        const members = formData.members
           ? formData.members.split(/[,，]/).map(s => s.trim()).filter(s => s)
           : [];
         return {
-          name: formData.roomName,
-          members: memberList
+          socketType: 2,
+          list: [
+            {
+              type: 208,
+              roomName: formData.roomName,
+              ...(members.length > 0 && { memberList: members })
+            }
+          ]
         };
 
       case 'invite_to_room':
         if (!formData.chatId) {
           throw new Error('请填写群聊ID');
         }
-        const inviteList = formData.inviteMembers
+        const inviteMembers = formData.inviteMembers
           ? formData.inviteMembers.split(/[,，]/).map(s => s.trim()).filter(s => s)
           : [];
         return {
-          chatId: formData.chatId,
-          members: inviteList
+          socketType: 2,
+          list: [
+            {
+              type: 209,
+              chatId: formData.chatId,
+              ...(inviteMembers.length > 0 && { memberList: inviteMembers })
+            }
+          ]
         };
 
       case 'upload_file':
@@ -353,20 +434,48 @@ export default function CommandSender() {
           throw new Error('请填写文件路径和发送目标');
         }
         return {
-          filePath: formData.filePath,
-          to: formData.fileTo
+          socketType: 2,
+          list: [
+            {
+              type: 210,
+              filePath: formData.filePath,
+              titleList: [formData.fileTo]
+            }
+          ]
         };
 
       case 'get_contacts':
+        return {
+          socketType: 2,
+          list: [
+            {
+              type: 211
+            }
+          ]
+        };
+
       case 'get_rooms':
-        return {};
+        return {
+          socketType: 2,
+          list: [
+            {
+              type: 212
+            }
+          ]
+        };
 
       case 'update_profile':
         return {
-          ...(formData.profileName && { name: formData.profileName }),
-          ...(formData.profileAlias && { alias: formData.profileAlias }),
-          ...(formData.profileMobile && { mobile: formData.profileMobile }),
-          ...(formData.profileDepartment && { department: formData.profileDepartment })
+          socketType: 2,
+          list: [
+            {
+              type: 213,
+              ...(formData.profileName && { name: formData.profileName }),
+              ...(formData.profileAlias && { alias: formData.profileAlias }),
+              ...(formData.profileMobile && { mobile: formData.profileMobile }),
+              ...(formData.profileDepartment && { department: formData.profileDepartment })
+            }
+          ]
         };
 
       default:
@@ -374,11 +483,11 @@ export default function CommandSender() {
     }
   };
 
-  // 构建预览 payload（用于显示）
+  // 构建预览 payload
   const buildPayloadPreview = () => {
     try {
       return buildPayload();
-    } catch (error) {
+    } catch {
       return {};
     }
   };
@@ -394,24 +503,18 @@ export default function CommandSender() {
 
     try {
       setSending(true);
-      
-      // 构建指令 payload
-      let payload;
-      try {
-        payload = buildPayload();
-      } catch (error: any) {
-        toast.error(error.message || '构建指令失败');
-        setSending(false);
-        return;
-      }
+      const payload = buildPayload();
 
       const response = await fetch('/api/admin/robot-commands', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           robotId: selectedRobot,
           commandType,
           commandPayload: payload,
+          commandData: payload,
           priority,
           maxRetries: 0
         })
@@ -425,7 +528,6 @@ export default function CommandSender() {
         toast.success('指令发送成功', {
           description: '指令已加入队列，等待执行'
         });
-        // 重置表单
         resetForm();
         fetchCommands();
       } else {
@@ -433,88 +535,9 @@ export default function CommandSender() {
       }
     } catch (error) {
       console.error('发送指令失败:', error);
-      toast.error('发送指令失败');
+      toast.error(error instanceof Error ? error.message : '发送指令失败');
     } finally {
       setSending(false);
-    }
-  };
-
-  // 重试指令
-  const handleRetryCommand = async (commandId: string) => {
-    try {
-      const response = await fetch(`/api/admin/robot-commands/${commandId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      const result = await response.json();
-
-      console.log('重试指令响应:', result);
-
-      if (result.code === 0) {
-        toast.success('指令重试成功');
-        fetchCommands();
-      } else {
-        toast.error(result.message || '重试失败');
-      }
-    } catch (error) {
-      console.error('重试失败:', error);
-      toast.error('重试失败');
-    }
-  };
-
-  // 获取机器人状态标签
-  const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { label: string; className: string }> = {
-      online: { label: '在线', className: 'bg-green-500 hover:bg-green-600' },
-      offline: { label: '离线', className: 'bg-gray-100 text-gray-600' },
-      unknown: { label: '未知', className: 'bg-gray-100 text-gray-600' },
-      error: { label: '错误', className: 'bg-red-500' }
-    };
-
-    const config = statusConfig[status] || { label: status, className: 'bg-gray-100' };
-    return <Badge className={config.className}>{config.label}</Badge>;
-  };
-
-  // 获取指令状态标签
-  const getCommandStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-      pending: { label: '待处理', variant: 'default' },
-      processing: { label: '处理中', variant: 'secondary' },
-      completed: { label: '已完成', variant: 'default' },
-      failed: { label: '失败', variant: 'destructive' },
-      cancelled: { label: '已取消', variant: 'outline' }
-    };
-
-    const config = statusConfig[status] || { label: status, variant: 'default' as const };
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
-
-  // 获取优先级标签
-  const getPriorityBadge = (priority: number) => {
-    const level = priority <= 3 ? 'high' : priority <= 6 ? 'medium' : 'low';
-    const label = PRIORITIES.find(p => p.value === priority)?.label || '未知';
-    const variant = level === 'high' ? 'destructive' : level === 'medium' ? 'default' : 'secondary';
-    return <Badge variant={variant}>{label}</Badge>;
-  };
-
-  // 查看指令详情
-  const handleViewDetail = async (commandId: string) => {
-    try {
-      const response = await fetch(`/api/admin/robot-commands/${commandId}`);
-      const result = await response.json();
-      
-      console.log('加载指令详情响应:', result);
-      
-      if (result.code === 0) {
-        setSelectedCommandDetail(result.data);
-        setShowCommandDetail(true);
-      } else {
-        toast.error(result.message || '加载指令详情失败');
-      }
-    } catch (error) {
-      console.error('加载指令详情失败:', error);
-      toast.error('加载指令详情失败');
     }
   };
 
@@ -553,652 +576,568 @@ export default function CommandSender() {
       </div>
 
       <Tabs defaultValue="send" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="send">发送指令</TabsTrigger>
-          <TabsTrigger value="history">发送历史</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 h-12 bg-white/90 backdrop-blur-md border-2 border-slate-200/80 shadow-lg shadow-slate-200/50 rounded-xl p-1.5">
+          <TabsTrigger value="send" className="gap-2 h-10 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all duration-300">
+            <Send className="h-4 w-4" />
+            发送指令
+          </TabsTrigger>
+          <TabsTrigger value="history" className="gap-2 h-10 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all duration-300">
+            <History className="h-4 w-4" />
+            发送历史
+          </TabsTrigger>
         </TabsList>
 
-        {/* 标签页：发送指令 */}
+        {/* 发送指令 */}
         <TabsContent value="send" className="space-y-6">
-          {/* 发送指令表单 */}
-          <Card className="border-2 border-slate-200 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-            <CardTitle className="flex items-center gap-2">
-              <Send className="h-5 w-5" />
-              发送指令
-            </CardTitle>
-            <CardDescription className="text-blue-50">
-              选择机器人并配置指令参数
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <form onSubmit={handleSendCommand} className="space-y-6">
-              {/* 机器人选择 */}
-              <div className="space-y-2">
-                <Label htmlFor="robot" className="text-base font-semibold flex items-center gap-2">
-                  <Bot className="h-4 w-4 text-blue-600" />
-                  机器人
-                </Label>
-                <Select value={selectedRobot} onValueChange={(value) => {
-                  setSelectedRobot(value);
-                  const robot = robots.find(r => r.robotId === value);
-                  setSelectedRobotDisplay(robot?.name || robot?.nickname || '');
-                }} disabled={loading}>
-                  <SelectTrigger id="robot" className="h-12 border-2 border-slate-200 hover:border-blue-400 transition-colors">
-                    <SelectValue placeholder="选择机器人" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {loading ? (
-                      <div className="flex items-center justify-center p-4">
-                        <span className="text-sm text-muted-foreground">加载中...</span>
-                      </div>
-                    ) : robots.filter(r => r.isActive).length === 0 ? (
-                      <div className="flex items-center justify-center p-4">
-                        <span className="text-sm text-muted-foreground">暂无可用的机器人</span>
-                      </div>
-                    ) : (
-                      robots.filter(r => r.isActive).map(robot => (
-                        <SelectItem key={robot.robotId} value={robot.robotId} className="py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1">
-                              <div className="font-semibold text-base">
-                                {robot.name || robot.nickname || '未命名机器人'}
+          <Card>
+            <CardHeader>
+              <CardTitle>发送指令</CardTitle>
+              <CardDescription>选择机器人并配置指令参数</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSendCommand} className="space-y-6">
+                {/* 机器人选择 */}
+                <div className="space-y-2">
+                  <Label htmlFor="robot" className="text-base font-semibold">机器人</Label>
+                  <Select value={selectedRobot} onValueChange={(value) => {
+                    setSelectedRobot(value);
+                    const robot = robots.find(r => r.robotId === value);
+                    setSelectedRobotDisplay(robot?.name || robot?.nickname || '');
+                  }} disabled={loading}>
+                    <SelectTrigger id="robot">
+                      <SelectValue placeholder="选择机器人" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {loading ? (
+                        <div className="flex items-center justify-center p-4">
+                          <span className="text-sm text-muted-foreground">加载中...</span>
+                        </div>
+                      ) : robots.filter(r => r.isActive).length === 0 ? (
+                        <div className="flex items-center justify-center p-4">
+                          <span className="text-sm text-muted-foreground">暂无可用的机器人</span>
+                        </div>
+                      ) : (
+                        robots.filter(r => r.isActive).map(robot => (
+                          <SelectItem key={robot.robotId} value={robot.robotId} className="py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1">
+                                <div className="font-semibold text-sm">
+                                  {robot.name || robot.nickname || '未命名机器人'}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {robot.company && robot.nickname
+                                    ? `${robot.company} - ${robot.nickname}`
+                                    : robot.company || robot.nickname || ''}
+                                </div>
                               </div>
-                              <div className="text-xs text-muted-foreground">
-                                {robot.company && robot.nickname
+                              <div className="flex items-center gap-2">
+                                {getStatusBadge(robot.status)}
+                              </div>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {selectedRobot && selectedRobotDisplay && (
+                    <div className="mt-2 p-3 bg-slate-50 rounded-lg text-sm">
+                      <div className="flex items-center gap-2">
+                        <Bot className="h-4 w-4 text-blue-600" />
+                        <span className="font-medium">已选择:</span>
+                        <span>{selectedRobotDisplay}</span>
+                        {(() => {
+                          const robot = robots.find(r => r.robotId === selectedRobot);
+                          return robot ? (
+                            <>
+                              {getStatusBadge(robot.status)}
+                              <span className="text-muted-foreground">
+                                | {robot.company && robot.nickname
                                   ? `${robot.company} - ${robot.nickname}`
                                   : robot.company || robot.nickname || ''}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {getStatusBadge(robot.status)}
-                            </div>
-                          </div>
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-                {selectedRobot && selectedRobotDisplay && (
-                  <div className="mt-2 p-3 bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-200 rounded-lg text-sm">
-                    <div className="flex items-center gap-2">
-                      <Bot className="h-4 w-4 text-blue-600" />
-                      <span className="font-medium text-blue-700">已选择:</span>
-                      <span className="font-semibold">{selectedRobotDisplay}</span>
-                      {(() => {
-                        const robot = robots.find(r => r.robotId === selectedRobot);
-                        return robot ? (
-                          <>
-                            {getStatusBadge(robot.status)}
-                            <span className="text-blue-600">
-                              | {robot.company && robot.nickname
-                                ? `${robot.company} - ${robot.nickname}`
-                                : robot.company || robot.nickname || ''}
-                            </span>
-                          </>
-                        ) : null;
-                      })()}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 指令类型和优先级 */}
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="commandType" className="text-base font-semibold flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-purple-600" />
-                    指令类型
-                  </Label>
-                  <Select value={commandType} onValueChange={setCommandType}>
-                    <SelectTrigger id="commandType" className="h-12 border-2 border-slate-200 hover:border-purple-400 transition-colors">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {COMMAND_TYPES.map(type => (
-                        <SelectItem key={type.value} value={type.value}>
-                          <div className="flex items-center gap-2">
-                            {type.icon && <type.icon className="h-4 w-4" />}
-                            {type.label}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {(() => {
-                    const currentType = COMMAND_TYPES.find(t => t.value === commandType);
-                    return currentType && (
-                      <div className={`mt-2 p-3 ${currentType.bg} ${currentType.border} border-2 rounded-lg text-xs ${currentType.text}`}>
-                        💡 <strong>{currentType.label}：</strong>
-                        {commandType === 'send_group_message' && '向群聊发送消息，支持 @ 功能。titleList填写群名，atList填写需要@的人名。'}
-                        {commandType === 'send_private_message' && '向个人发送消息，不支持 @ 功能。titleList填写用户昵称。'}
-                        {commandType === 'batch_send_message' && '一次性发送多条消息到不同的群聊或个人。list数组中配置多个消息对象。'}
-                        {commandType === 'forward_message' && '转发已有消息到指定的群聊或个人。'}
-                        {commandType === 'create_room' && '创建新的群聊，可以添加初始成员。'}
-                        {commandType === 'invite_to_room' && '邀请成员加入已存在的群聊。'}
-                        {commandType === 'upload_file' && '向指定的群聊或个人上传文件。'}
-                        {commandType === 'get_contacts' && '获取机器人的联系人列表。'}
-                        {commandType === 'get_rooms' && '获取机器人所在的所有群聊列表。'}
-                        {commandType === 'update_profile' && '更新机器人的个人资料信息。'}
+                              </span>
+                            </>
+                          ) : null;
+                        })()}
                       </div>
-                    );
-                  })()}
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="priority" className="text-base font-semibold flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-orange-600" />
-                    优先级
-                  </Label>
-                  <Select value={String(priority)} onValueChange={(v) => setPriority(parseInt(v))}>
-                    <SelectTrigger id="priority" className="h-12 border-2 border-slate-200 hover:border-orange-400 transition-colors">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PRIORITIES.map(p => (
-                        <SelectItem key={p.value} value={String(p.value)}>
-                          {p.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="mt-2 p-3 bg-gradient-to-r from-orange-50 to-orange-100 border-2 border-orange-200 rounded-lg text-xs text-orange-700">
-                    ⚡ <strong>优先级说明：</strong>数字越小优先级越高，建议根据紧急程度选择合适的优先级。
+                {/* 指令类型和优先级 */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="commandType" className="text-base font-semibold">指令类型</Label>
+                    <Select value={commandType} onValueChange={setCommandType}>
+                      <SelectTrigger id="commandType">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COMMAND_TYPES.map(type => (
+                          <SelectItem key={type.value} value={type.value}>
+                            <div className="flex items-center gap-2">
+                              {type.icon && <type.icon className="h-4 w-4" />}
+                              {type.label}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {commandType === 'send_group_message' && (
+                      <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+                        💡 <strong>群发消息：</strong>向群聊发送消息，支持 @ 功能
+                      </div>
+                    )}
+                    {commandType === 'send_private_message' && (
+                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700">
+                        💡 <strong>私聊消息：</strong>向个人发送消息
+                      </div>
+                    )}
+                    {commandType === 'batch_send_message' && (
+                      <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded text-xs text-purple-700">
+                        💡 <strong>批量发送：</strong>一次性发送多条消息
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="priority" className="text-base font-semibold">优先级</Label>
+                    <Select value={String(priority)} onValueChange={(v) => setPriority(parseInt(v))}>
+                      <SelectTrigger id="priority">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PRIORITIES.map(p => (
+                          <SelectItem key={p.value} value={String(p.value)}>
+                            {p.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded text-xs text-muted-foreground">
+                      ⚡ 数字越小优先级越高
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* 动态表单字段 */}
-              {(() => {
-                const currentType = COMMAND_TYPES.find(t => t.value === commandType);
-                if (!currentType) return null;
+                {/* 动态表单字段 */}
+                {(() => {
+                  const currentType = COMMAND_TYPES.find(t => t.value === commandType);
+                  if (!currentType) return null;
 
-                return (
-                  <div className={`space-y-4 p-6 rounded-xl border-2 ${currentType.bg} ${currentType.border} shadow-md`}>
-                    <div className="flex items-center gap-2">
-                      {currentType.icon && <currentType.icon className={`h-5 w-5 ${currentType.text}`} />}
-                      <h4 className={`font-bold text-lg ${currentType.text}`}>{currentType.label}参数</h4>
-                    </div>
+                  return (
+                    <div className="space-y-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="flex items-center gap-2">
+                        {currentType.icon && <currentType.icon className="h-4 w-4 text-slate-600" />}
+                        <h4 className="font-semibold text-sm">{currentType.label}参数</h4>
+                      </div>
 
-                    {commandType === 'send_group_message' && (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor="groupName" className="text-base font-semibold">
-                            群聊名称 <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            id="groupName"
-                            value={formData.groupName}
-                            onChange={(e) => setFormData({ ...formData, groupName: e.target.value })}
-                            placeholder="例如：产品研发部"
-                            className="h-11 border-2 border-slate-300 focus:border-blue-500"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="groupContent" className="text-base font-semibold">
-                            消息内容 <span className="text-red-500">*</span>
-                          </Label>
-                          <Textarea
-                            id="groupContent"
-                            value={formData.groupContent}
-                            onChange={(e) => setFormData({ ...formData, groupContent: e.target.value })}
-                            placeholder="输入要发送的群消息内容"
-                            rows={4}
-                            className="border-2 border-slate-300 focus:border-blue-500"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="groupAtList" className="text-base font-semibold">@成员（可选）</Label>
-                          <Input
-                            id="groupAtList"
-                            value={formData.groupAtList}
-                            onChange={(e) => setFormData({ ...formData, groupAtList: e.target.value })}
-                            placeholder="使用逗号分隔，例如：张三,李四,王五"
-                            className="h-11 border-2 border-slate-300 focus:border-blue-500"
-                          />
-                          <p className="text-xs text-slate-600 mt-1">支持@群内成员，用逗号分隔多个昵称</p>
-                        </div>
-                      </>
-                    )}
+                      {commandType === 'send_group_message' && (
+                        <>
+                          <div className="space-y-2">
+                            <Label htmlFor="groupName">群聊名称 <span className="text-red-500">*</span></Label>
+                            <Input
+                              id="groupName"
+                              value={formData.groupName}
+                              onChange={(e) => setFormData({ ...formData, groupName: e.target.value })}
+                              placeholder="例如：产品研发部"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="groupContent">消息内容 <span className="text-red-500">*</span></Label>
+                            <Textarea
+                              id="groupContent"
+                              value={formData.groupContent}
+                              onChange={(e) => setFormData({ ...formData, groupContent: e.target.value })}
+                              placeholder="输入要发送的群消息内容"
+                              rows={4}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="groupAtList">@成员（可选）</Label>
+                            <Input
+                              id="groupAtList"
+                              value={formData.groupAtList}
+                              onChange={(e) => setFormData({ ...formData, groupAtList: e.target.value })}
+                              placeholder="使用逗号分隔，例如：张三,李四,王五"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">支持@群内成员，用逗号分隔多个昵称</p>
+                          </div>
+                        </>
+                      )}
 
-                    {commandType === 'send_private_message' && (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor="userName" className="text-base font-semibold">
-                            用户昵称 <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            id="userName"
-                            value={formData.userName}
-                            onChange={(e) => setFormData({ ...formData, userName: e.target.value })}
-                            placeholder="例如：张三"
-                            className="h-11 border-2 border-slate-300 focus:border-green-500"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="privateContent" className="text-base font-semibold">
-                            消息内容 <span className="text-red-500">*</span>
-                          </Label>
-                          <Textarea
-                            id="privateContent"
-                            value={formData.privateContent}
-                            onChange={(e) => setFormData({ ...formData, privateContent: e.target.value })}
-                            placeholder="输入要发送的私聊消息内容"
-                            rows={4}
-                            className="border-2 border-slate-300 focus:border-green-500"
-                          />
-                        </div>
-                      </>
-                    )}
+                      {commandType === 'send_private_message' && (
+                        <>
+                          <div className="space-y-2">
+                            <Label htmlFor="userName">用户昵称 <span className="text-red-500">*</span></Label>
+                            <Input
+                              id="userName"
+                              value={formData.userName}
+                              onChange={(e) => setFormData({ ...formData, userName: e.target.value })}
+                              placeholder="例如：张三"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="privateContent">消息内容 <span className="text-red-500">*</span></Label>
+                            <Textarea
+                              id="privateContent"
+                              value={formData.privateContent}
+                              onChange={(e) => setFormData({ ...formData, privateContent: e.target.value })}
+                              placeholder="输入要发送的私聊消息内容"
+                              rows={4}
+                            />
+                          </div>
+                        </>
+                      )}
 
-                    {commandType === 'batch_send_message' && (
-                      <>
-                        {formData.batchMessages.map((msg, index) => (
-                          <div key={index} className="space-y-3 p-4 bg-white rounded-lg border-2 border-purple-200 shadow-sm">
-                            <div className="flex items-center justify-between">
-                              <span className="text-base font-semibold text-purple-700">消息 {index + 1}</span>
-                              {formData.batchMessages.length > 1 && (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => {
-                                    const newMessages = formData.batchMessages.filter((_, i) => i !== index);
+                      {commandType === 'batch_send_message' && (
+                        <>
+                          {formData.batchMessages.map((msg, index) => (
+                            <div key={index} className="space-y-3 p-3 bg-white rounded border">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium">消息 {index + 1}</span>
+                                {formData.batchMessages.length > 1 && (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => {
+                                      const newMessages = formData.batchMessages.filter((_, i) => i !== index);
+                                      setFormData({ ...formData, batchMessages: newMessages });
+                                    }}
+                                  >
+                                    删除
+                                  </Button>
+                                )}
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor={`recipient-${index}`}>接收者（群聊或个人） <span className="text-red-500">*</span></Label>
+                                <Input
+                                  id={`recipient-${index}`}
+                                  value={msg.recipient}
+                                  onChange={(e) => {
+                                    const newMessages = [...formData.batchMessages];
+                                    newMessages[index].recipient = e.target.value;
                                     setFormData({ ...formData, batchMessages: newMessages });
                                   }}
-                                >
-                                  删除
-                                </Button>
-                              )}
+                                  placeholder="群聊名称或用户昵称"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor={`content-${index}`}>消息内容 <span className="text-red-500">*</span></Label>
+                                <Textarea
+                                  id={`content-${index}`}
+                                  value={msg.content}
+                                  onChange={(e) => {
+                                    const newMessages = [...formData.batchMessages];
+                                    newMessages[index].content = e.target.value;
+                                    setFormData({ ...formData, batchMessages: newMessages });
+                                  }}
+                                  placeholder="输入消息内容"
+                                  rows={3}
+                                />
+                              </div>
                             </div>
-                            <div className="space-y-2">
-                              <Label htmlFor={`recipient-${index}`} className="text-sm font-semibold">
-                                接收者（群聊或个人） <span className="text-red-500">*</span>
-                              </Label>
-                              <Input
-                                id={`recipient-${index}`}
-                                value={msg.recipient}
-                                onChange={(e) => {
-                                  const newMessages = [...formData.batchMessages];
-                                  newMessages[index].recipient = e.target.value;
-                                  setFormData({ ...formData, batchMessages: newMessages });
-                                }}
-                                placeholder="群聊名称或用户昵称"
-                                className="h-10 border-2 border-slate-300 focus:border-purple-500"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor={`content-${index}`} className="text-sm font-semibold">
-                                消息内容 <span className="text-red-500">*</span>
-                              </Label>
-                              <Textarea
-                                id={`content-${index}`}
-                                value={msg.content}
-                                onChange={(e) => {
-                                  const newMessages = [...formData.batchMessages];
-                                  newMessages[index].content = e.target.value;
-                                  setFormData({ ...formData, batchMessages: newMessages });
-                                }}
-                                placeholder="输入消息内容"
-                                rows={3}
-                                className="border-2 border-slate-300 focus:border-purple-500"
-                              />
-                            </div>
+                          ))}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setFormData({
+                              ...formData,
+                              batchMessages: [...formData.batchMessages, { recipient: '', content: '' }]
+                            })}
+                          >
+                            + 添加消息
+                          </Button>
+                        </>
+                      )}
+
+                      {commandType === 'forward_message' && (
+                        <>
+                          <div className="space-y-2">
+                            <Label htmlFor="msgId">消息ID <span className="text-red-500">*</span></Label>
+                            <Input
+                              id="msgId"
+                              value={formData.msgId}
+                              onChange={(e) => setFormData({ ...formData, msgId: e.target.value })}
+                              placeholder="要转发的消息ID"
+                            />
                           </div>
-                        ))}
-                        <Button
-                          type="button"
-                          size="lg"
-                          className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
-                          onClick={() => setFormData({
-                            ...formData,
-                            batchMessages: [...formData.batchMessages, { recipient: '', content: '' }]
-                          })}
-                        >
-                          <Send className="h-4 w-4 mr-2" />
-                          添加消息
-                        </Button>
-                      </>
-                    )}
+                          <div className="space-y-2">
+                            <Label htmlFor="forwardToList">转发目标（可选）</Label>
+                            <Input
+                              id="forwardToList"
+                              value={formData.forwardToList}
+                              onChange={(e) => setFormData({ ...formData, forwardToList: e.target.value })}
+                              placeholder="使用逗号分隔，例如：群聊1,张三"
+                            />
+                          </div>
+                        </>
+                      )}
 
-                    {commandType === 'forward_message' && (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor="msgId" className="text-base font-semibold">
-                            消息ID <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            id="msgId"
-                            value={formData.msgId}
-                            onChange={(e) => setFormData({ ...formData, msgId: e.target.value })}
-                            placeholder="要转发的消息ID"
-                            className="h-11 border-2 border-slate-300 focus:border-orange-500"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="forwardToList" className="text-base font-semibold">转发目标（可选）</Label>
-                          <Input
-                            id="forwardToList"
-                            value={formData.forwardToList}
-                            onChange={(e) => setFormData({ ...formData, forwardToList: e.target.value })}
-                            placeholder="使用逗号分隔，例如：群聊1,张三"
-                            className="h-11 border-2 border-slate-300 focus:border-orange-500"
-                          />
-                        </div>
-                      </>
-                    )}
+                      {commandType === 'create_room' && (
+                        <>
+                          <div className="space-y-2">
+                            <Label htmlFor="roomName">群聊名称 <span className="text-red-500">*</span></Label>
+                            <Input
+                              id="roomName"
+                              value={formData.roomName}
+                              onChange={(e) => setFormData({ ...formData, roomName: e.target.value })}
+                              placeholder="例如：项目讨论组"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="members">成员列表（可选）</Label>
+                            <Textarea
+                              id="members"
+                              value={formData.members}
+                              onChange={(e) => setFormData({ ...formData, members: e.target.value })}
+                              placeholder="使用逗号分隔成员昵称，例如：张三,李四,王五"
+                              rows={3}
+                            />
+                          </div>
+                        </>
+                      )}
 
-                    {commandType === 'create_room' && (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor="roomName" className="text-base font-semibold">
-                            群聊名称 <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            id="roomName"
-                            value={formData.roomName}
-                            onChange={(e) => setFormData({ ...formData, roomName: e.target.value })}
-                            placeholder="例如：项目讨论组"
-                            className="h-11 border-2 border-slate-300 focus:border-indigo-500"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="members" className="text-base font-semibold">成员列表（可选）</Label>
-                          <Textarea
-                            id="members"
-                            value={formData.members}
-                            onChange={(e) => setFormData({ ...formData, members: e.target.value })}
-                            placeholder="使用逗号分隔成员昵称，例如：张三,李四,王五"
-                            rows={3}
-                            className="border-2 border-slate-300 focus:border-indigo-500"
-                          />
-                        </div>
-                      </>
-                    )}
+                      {commandType === 'invite_to_room' && (
+                        <>
+                          <div className="space-y-2">
+                            <Label htmlFor="chatId">群聊ID <span className="text-red-500">*</span></Label>
+                            <Input
+                              id="chatId"
+                              value={formData.chatId}
+                              onChange={(e) => setFormData({ ...formData, chatId: e.target.value })}
+                              placeholder="群聊的chatId"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="inviteMembers">成员列表（可选）</Label>
+                            <Textarea
+                              id="inviteMembers"
+                              value={formData.inviteMembers}
+                              onChange={(e) => setFormData({ ...formData, inviteMembers: e.target.value })}
+                              placeholder="使用逗号分隔成员昵称"
+                              rows={3}
+                            />
+                          </div>
+                        </>
+                      )}
 
-                    {commandType === 'invite_to_room' && (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor="chatId" className="text-base font-semibold">
-                            群聊ID <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            id="chatId"
-                            value={formData.chatId}
-                            onChange={(e) => setFormData({ ...formData, chatId: e.target.value })}
-                            placeholder="群聊的chatId"
-                            className="h-11 border-2 border-slate-300 focus:border-teal-500"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="inviteMembers" className="text-base font-semibold">成员列表（可选）</Label>
-                          <Textarea
-                            id="inviteMembers"
-                            value={formData.inviteMembers}
-                            onChange={(e) => setFormData({ ...formData, inviteMembers: e.target.value })}
-                            placeholder="使用逗号分隔成员昵称"
-                            rows={3}
-                            className="border-2 border-slate-300 focus:border-teal-500"
-                          />
-                        </div>
-                      </>
-                    )}
+                      {commandType === 'upload_file' && (
+                        <>
+                          <div className="space-y-2">
+                            <Label htmlFor="filePath">文件路径 <span className="text-red-500">*</span></Label>
+                            <Input
+                              id="filePath"
+                              value={formData.filePath}
+                              onChange={(e) => setFormData({ ...formData, filePath: e.target.value })}
+                              placeholder="文件在服务器上的路径"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="fileTo">发送目标 <span className="text-red-500">*</span></Label>
+                            <Input
+                              id="fileTo"
+                              value={formData.fileTo}
+                              onChange={(e) => setFormData({ ...formData, fileTo: e.target.value })}
+                              placeholder="群聊名称或用户昵称"
+                            />
+                          </div>
+                        </>
+                      )}
 
-                    {commandType === 'upload_file' && (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor="filePath" className="text-base font-semibold">
-                            文件路径 <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            id="filePath"
-                            value={formData.filePath}
-                            onChange={(e) => setFormData({ ...formData, filePath: e.target.value })}
-                            placeholder="文件在服务器上的路径"
-                            className="h-11 border-2 border-slate-300 focus:border-cyan-500"
-                          />
+                      {commandType === 'update_profile' && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="profileName">昵称（可选）</Label>
+                            <Input
+                              id="profileName"
+                              value={formData.profileName}
+                              onChange={(e) => setFormData({ ...formData, profileName: e.target.value })}
+                              placeholder="新的昵称"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="profileAlias">备注名（可选）</Label>
+                            <Input
+                              id="profileAlias"
+                              value={formData.profileAlias}
+                              onChange={(e) => setFormData({ ...formData, profileAlias: e.target.value })}
+                              placeholder="新的备注名"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="profileMobile">手机号（可选）</Label>
+                            <Input
+                              id="profileMobile"
+                              value={formData.profileMobile}
+                              onChange={(e) => setFormData({ ...formData, profileMobile: e.target.value })}
+                              placeholder="新的手机号"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="profileDepartment">部门（可选）</Label>
+                            <Input
+                              id="profileDepartment"
+                              value={formData.profileDepartment}
+                              onChange={(e) => setFormData({ ...formData, profileDepartment: e.target.value })}
+                              placeholder="新的部门"
+                            />
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="fileTo" className="text-base font-semibold">
-                            发送目标 <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            id="fileTo"
-                            value={formData.fileTo}
-                            onChange={(e) => setFormData({ ...formData, fileTo: e.target.value })}
-                            placeholder="群聊名称或用户昵称"
-                            className="h-11 border-2 border-slate-300 focus:border-cyan-500"
-                          />
-                        </div>
-                      </>
-                    )}
+                      )}
+                    </div>
+                  );
+                })()}
 
-                    {commandType === 'update_profile' && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="profileName" className="text-base font-semibold">昵称（可选）</Label>
-                          <Input
-                            id="profileName"
-                            value={formData.profileName}
-                            onChange={(e) => setFormData({ ...formData, profileName: e.target.value })}
-                            placeholder="新的昵称"
-                            className="h-11 border-2 border-slate-300 focus:border-amber-500"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="profileAlias" className="text-base font-semibold">备注名（可选）</Label>
-                          <Input
-                            id="profileAlias"
-                            value={formData.profileAlias}
-                            onChange={(e) => setFormData({ ...formData, profileAlias: e.target.value })}
-                            placeholder="新的备注名"
-                            className="h-11 border-2 border-slate-300 focus:border-amber-500"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="profileMobile" className="text-base font-semibold">手机号（可选）</Label>
-                          <Input
-                            id="profileMobile"
-                            value={formData.profileMobile}
-                            onChange={(e) => setFormData({ ...formData, profileMobile: e.target.value })}
-                            placeholder="新的手机号"
-                            className="h-11 border-2 border-slate-300 focus:border-amber-500"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="profileDepartment" className="text-base font-semibold">部门（可选）</Label>
-                          <Input
-                            id="profileDepartment"
-                            value={formData.profileDepartment}
-                            onChange={(e) => setFormData({ ...formData, profileDepartment: e.target.value })}
-                            placeholder="新的部门"
-                            className="h-11 border-2 border-slate-300 focus:border-amber-500"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* 预览生成的 JSON（只读） */}
-              <div className="space-y-2">
-                <Label htmlFor="payloadPreview" className="text-base font-semibold flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-slate-600" />
-                  生成的指令内容（JSON）
-                </Label>
-                <div className="relative">
+                {/* 预览生成的 JSON */}
+                <div className="space-y-2">
+                  <Label htmlFor="payloadPreview">生成的指令内容（JSON）</Label>
                   <Textarea
                     id="payloadPreview"
                     value={JSON.stringify(buildPayloadPreview(), null, 2)}
                     readOnly
                     rows={8}
-                    className="font-mono text-sm bg-slate-50 border-2 border-slate-200"
+                    className="font-mono text-sm bg-slate-50"
                   />
-                  <div className="absolute top-2 right-2 px-2 py-1 bg-slate-200 rounded text-xs text-slate-600 font-mono">
-                    只读
-                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">这是根据表单内容自动生成的JSON，只读</p>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">这是根据表单内容自动生成的JSON，只读</p>
-              </div>
 
-              <Button
-                type="submit"
-                disabled={sending || !selectedRobot}
-                className="w-full h-12 text-base font-semibold bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                {sending ? (
-                  <>
-                    <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    发送中...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-5 w-5 mr-2" />
-                    发送指令
-                  </>
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+                <Button type="submit" disabled={sending || !selectedRobot} className="w-full">
+                  {sending ? '发送中...' : '发送指令'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
 
-        {/* 最近指令 */}
-        <Card className="border-2 border-slate-200 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100">
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-slate-600" />
-              最近指令
-            </CardTitle>
-            <CardDescription>查看最近的指令执行状态</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50">
-                  <TableHead className="font-semibold">类型</TableHead>
-                  <TableHead className="font-semibold">机器人</TableHead>
-                  <TableHead className="font-semibold">接收者</TableHead>
-                  <TableHead className="font-semibold">消息内容</TableHead>
-                  <TableHead className="font-semibold">优先级</TableHead>
-                  <TableHead className="font-semibold">状态</TableHead>
-                  <TableHead className="font-semibold">执行结果</TableHead>
-                  <TableHead className="font-semibold">时间</TableHead>
-                  <TableHead className="font-semibold">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {commands.length === 0 ? (
-                  <TableRow key="empty">
-                    <TableCell colSpan={9} className="text-center text-muted-foreground py-12">
-                      <div className="space-y-2">
-                        <Clock className="h-12 w-12 mx-auto opacity-30" />
-                        <div className="text-base font-medium">暂无指令记录</div>
-                        <div className="text-sm">发送指令后，这里将显示指令执行历史</div>
-                      </div>
-                    </TableCell>
+          {/* 最近指令 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>最近指令</CardTitle>
+              <CardDescription>查看最近的指令执行状态</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50">
+                    <TableHead className="font-semibold">类型</TableHead>
+                    <TableHead className="font-semibold">机器人</TableHead>
+                    <TableHead className="font-semibold">接收者</TableHead>
+                    <TableHead className="font-semibold">消息内容</TableHead>
+                    <TableHead className="font-semibold">优先级</TableHead>
+                    <TableHead className="font-semibold">状态</TableHead>
+                    <TableHead className="font-semibold">执行结果</TableHead>
+                    <TableHead className="font-semibold">时间</TableHead>
+                    <TableHead className="font-semibold">操作</TableHead>
                   </TableRow>
-                ) : (
-                  commands.map(command => {
-                    const robot = robots.find(r => r.robotId === command.robotId);
-                    const cmdType = COMMAND_TYPES.find(c => c.value === command.commandType);
+                </TableHeader>
+                <TableBody>
+                  {commands.length === 0 ? (
+                    <TableRow key="empty">
+                      <TableCell colSpan={9} className="text-center text-muted-foreground py-12">
+                        <div className="space-y-2">
+                          <Clock className="h-12 w-12 mx-auto opacity-30" />
+                          <div className="text-base font-medium">暂无指令记录</div>
+                          <div className="text-sm">发送指令后，这里将显示指令执行历史</div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    commands.map(command => {
+                      const robot = robots.find(r => r.robotId === command.robotId);
+                      const cmdType = COMMAND_TYPES.find(c => c.value === command.commandType);
 
-                    // 提取消息详情
-                    let recipient = '-';
-                    let messageContent = '-';
+                      let recipient = '-';
+                      let messageContent = '-';
 
-                    if (command.commandData && command.commandData.list && command.commandData.list.length > 0) {
-                      const msg = command.commandData.list[0];
-                      recipient = msg.titleList && msg.titleList.length > 0 ? msg.titleList[0] : '-';
-                      messageContent = msg.receivedContent || '-';
+                      if (command.commandData && command.commandData.list && command.commandData.list.length > 0) {
+                        const msg = command.commandData.list[0];
+                        recipient = msg.titleList && msg.titleList.length > 0 ? msg.titleList[0] : '-';
+                        messageContent = msg.receivedContent || '-';
 
-                      // 如果有 @ 的人，显示在接收者后面
-                      if (msg.atList && msg.atList.length > 0) {
-                        recipient += ` ( @${msg.atList.join(', @')} )`;
-                      }
-                    }
-
-                    // 根据状态显示不同的执行结果
-                    let resultText = '';
-                    switch (command.status) {
-                      case 'pending':
-                        resultText = '待处理';
-                        break;
-                      case 'processing':
-                        resultText = '已提交到队列，等待执行中...';
-                        break;
-                      case 'completed':
-                        if (command.result && command.result.message) {
-                          resultText = `✓ ${command.result.message}`;
-                        } else {
-                          resultText = '✓ 执行成功';
+                        if (msg.atList && msg.atList.length > 0) {
+                          recipient += ` ( @${msg.atList.join(', @')} )`;
                         }
-                        break;
-                      case 'failed':
-                        resultText = `✗ ${command.errorMessage || '执行失败'}`;
-                        break;
-                      default:
-                        resultText = '-';
-                    }
+                      }
 
-                    return (
-                      <TableRow key={command.commandId} className="hover:bg-slate-50">
-                        <TableCell className="max-w-xs truncate">
-                          <div className="flex items-center gap-2">
-                            {cmdType?.icon && <cmdType.icon className="h-4 w-4 text-slate-500" />}
-                            {cmdType?.label || command.commandType}
-                          </div>
-                        </TableCell>
-                        <TableCell className="max-w-xs truncate">
-                          {robot?.name || robot?.nickname || command.robotId}
-                        </TableCell>
-                        <TableCell className="max-w-xs truncate text-sm">
-                          {recipient}
-                        </TableCell>
-                        <TableCell className="max-w-sm truncate text-sm">
-                          {messageContent}
-                        </TableCell>
-                        <TableCell>{getPriorityBadge(command.priority)}</TableCell>
-                        <TableCell>{getCommandStatusBadge(command.status)}</TableCell>
-                        <TableCell className="max-w-xs truncate text-sm">
-                          {resultText}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {new Date(command.createdAt).toLocaleString('zh-CN')}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8"
-                              onClick={() => handleViewDetail(command.commandId)}
-                            >
-                              详情
-                            </Button>
-                            {command.status === 'failed' && (
+                      let resultText = '';
+                      switch (command.status) {
+                        case 'pending':
+                          resultText = '待处理';
+                          break;
+                        case 'processing':
+                          resultText = '已提交到队列，等待执行中...';
+                          break;
+                        case 'completed':
+                          if (command.result && command.result.message) {
+                            resultText = `✓ ${command.result.message}`;
+                          } else {
+                            resultText = '✓ 执行成功';
+                          }
+                          break;
+                        case 'failed':
+                          resultText = `✗ ${command.errorMessage || '执行失败'}`;
+                          break;
+                        default:
+                          resultText = '-';
+                      }
+
+                      return (
+                        <TableRow key={command.commandId} className="hover:bg-slate-50">
+                          <TableCell className="max-w-xs truncate">
+                            <div className="flex items-center gap-2">
+                              {cmdType?.icon && <cmdType.icon className="h-4 w-4 text-slate-500" />}
+                              {cmdType?.label || command.commandType}
+                            </div>
+                          </TableCell>
+                          <TableCell className="max-w-xs truncate">
+                            {robot?.name || robot?.nickname || command.robotId}
+                          </TableCell>
+                          <TableCell className="max-w-xs truncate text-sm">
+                            {recipient}
+                          </TableCell>
+                          <TableCell className="max-w-sm truncate text-sm">
+                            {messageContent}
+                          </TableCell>
+                          <TableCell>{getPriorityBadge(command.priority)}</TableCell>
+                          <TableCell>{getCommandStatusBadge(command.status)}</TableCell>
+                          <TableCell className="max-w-xs truncate text-sm">
+                            {resultText}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {new Date(command.createdAt).toLocaleString('zh-CN')}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-8 bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
-                                onClick={() => handleRetryCommand(command.commandId)}
+                                onClick={() => handleViewDetail(command.commandId)}
                               >
-                                重试
+                                详情
                               </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                              {command.status === 'failed' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleRetryCommand(command.commandId)}
+                                >
+                                  重试
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        {/* 标签页：发送历史 */}
+        {/* 发送历史 */}
         <TabsContent value="history" className="space-y-4">
           <Card>
             <CardHeader>
@@ -1273,7 +1212,7 @@ export default function CommandSender() {
                   {['pending', 'processing', 'completed', 'failed'].map(status => {
                     const stat = historyStats.find(s => s.status === status);
                     return (
-                      <div key={status} className="p-3 bg-muted rounded-lg">
+                      <div key={status} className="p-3 bg-slate-50 rounded-lg">
                         <div className="text-sm text-muted-foreground">
                           {status === 'pending' && '待处理'}
                           {status === 'processing' && '处理中'}
@@ -1290,14 +1229,14 @@ export default function CommandSender() {
               {/* 历史记录表格 */}
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>时间</TableHead>
-                    <TableHead>机器人</TableHead>
-                    <TableHead>类型</TableHead>
-                    <TableHead>接收者</TableHead>
-                    <TableHead>消息内容</TableHead>
-                    <TableHead>状态</TableHead>
-                    <TableHead>重试次数</TableHead>
+                  <TableRow className="bg-slate-50">
+                    <TableHead className="font-semibold">时间</TableHead>
+                    <TableHead className="font-semibold">机器人</TableHead>
+                    <TableHead className="font-semibold">类型</TableHead>
+                    <TableHead className="font-semibold">接收者</TableHead>
+                    <TableHead className="font-semibold">消息内容</TableHead>
+                    <TableHead className="font-semibold">状态</TableHead>
+                    <TableHead className="font-semibold">重试次数</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1376,90 +1315,100 @@ export default function CommandSender() {
       </Tabs>
 
       {/* 指令详情对话框 */}
-      <Dialog open={showCommandDetail} onOpenChange={setShowCommandDetail}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>指令详情</DialogTitle>
-            <DialogDescription>查看指令的完整执行信息</DialogDescription>
-          </DialogHeader>
-          {selectedCommandDetail && (
+      {showCommandDetail && selectedCommandDetail && (
+        <Dialog open={showCommandDetail} onOpenChange={setShowCommandDetail}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>指令详情</DialogTitle>
+              <DialogDescription>查看指令的详细信息和执行结果</DialogDescription>
+            </DialogHeader>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm text-muted-foreground">指令ID</Label>
-                  <div className="font-mono text-sm">{selectedCommandDetail.commandId}</div>
+                  <Label>指令ID</Label>
+                  <div className="text-sm font-mono">{selectedCommandDetail.commandId}</div>
                 </div>
                 <div>
-                  <Label className="text-sm text-muted-foreground">机器人ID</Label>
-                  <div className="font-mono text-sm">{selectedCommandDetail.robotId}</div>
+                  <Label>指令类型</Label>
+                  <div className="text-sm">{selectedCommandDetail.commandType}</div>
                 </div>
                 <div>
-                  <Label className="text-sm text-muted-foreground">指令类型</Label>
-                  <div>{COMMAND_TYPES.find(c => c.value === selectedCommandDetail.commandType)?.label || selectedCommandDetail.commandType}</div>
+                  <Label>机器人ID</Label>
+                  <div className="text-sm">{selectedCommandDetail.robotId}</div>
                 </div>
                 <div>
-                  <Label className="text-sm text-muted-foreground">优先级</Label>
+                  <Label>优先级</Label>
                   <div>{getPriorityBadge(selectedCommandDetail.priority)}</div>
                 </div>
                 <div>
-                  <Label className="text-sm text-muted-foreground">状态</Label>
+                  <Label>状态</Label>
                   <div>{getCommandStatusBadge(selectedCommandDetail.status)}</div>
                 </div>
                 <div>
-                  <Label className="text-sm text-muted-foreground">创建时间</Label>
-                  <div>{new Date(selectedCommandDetail.createdAt).toLocaleString('zh-CN')}</div>
+                  <Label>重试次数</Label>
+                  <div className="text-sm">{selectedCommandDetail.retryCount || 0}</div>
                 </div>
-                {selectedCommandDetail.executedAt && (
-                  <div>
-                    <Label className="text-sm text-muted-foreground">执行时间</Label>
-                    <div>{new Date(selectedCommandDetail.executedAt).toLocaleString('zh-CN')}</div>
+                <div>
+                  <Label>创建时间</Label>
+                  <div className="text-sm">{new Date(selectedCommandDetail.createdAt).toLocaleString('zh-CN')}</div>
+                </div>
+                <div>
+                  <Label>执行时间</Label>
+                  <div className="text-sm">
+                    {selectedCommandDetail.executedAt
+                      ? new Date(selectedCommandDetail.executedAt).toLocaleString('zh-CN')
+                      : '-'}
                   </div>
-                )}
-                {selectedCommandDetail.completedAt && (
-                  <div>
-                    <Label className="text-sm text-muted-foreground">完成时间</Label>
-                    <div>{new Date(selectedCommandDetail.completedAt).toLocaleString('zh-CN')}</div>
+                </div>
+                <div>
+                  <Label>完成时间</Label>
+                  <div className="text-sm">
+                    {selectedCommandDetail.completedAt
+                      ? new Date(selectedCommandDetail.completedAt).toLocaleString('zh-CN')
+                      : '-'}
                   </div>
-                )}
+                </div>
+                <div>
+                  <Label>消息ID</Label>
+                  <div className="text-sm">{selectedCommandDetail.messageId || '-'}</div>
+                </div>
+              </div>
+
+              <div>
+                <Label>指令内容</Label>
+                <Textarea
+                  value={JSON.stringify(selectedCommandDetail.commandPayload || selectedCommandDetail.commandData, null, 2)}
+                  readOnly
+                  rows={6}
+                  className="font-mono text-sm bg-slate-50"
+                />
               </div>
 
               {selectedCommandDetail.result && (
                 <div>
-                  <Label className="text-sm text-muted-foreground">执行结果</Label>
-                  <div className="mt-2 p-3 bg-muted rounded-lg">
-                    <pre className="text-sm overflow-x-auto">
-                      {JSON.stringify(selectedCommandDetail.result, null, 2)}
-                    </pre>
-                  </div>
+                  <Label>执行结果</Label>
+                  <Textarea
+                    value={JSON.stringify(selectedCommandDetail.result, null, 2)}
+                    readOnly
+                    rows={4}
+                    className="font-mono text-sm bg-slate-50"
+                  />
                 </div>
               )}
 
               {selectedCommandDetail.errorMessage && (
                 <div>
-                  <Label className="text-sm text-muted-foreground">错误信息</Label>
-                  <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
-                    {selectedCommandDetail.errorMessage}
-                  </div>
+                  <Label>错误信息</Label>
+                  <div className="text-sm text-red-600">{selectedCommandDetail.errorMessage}</div>
                 </div>
               )}
-
-              <div>
-                <Label className="text-sm text-muted-foreground">指令内容</Label>
-                <div className="mt-2 p-3 bg-muted rounded-lg">
-                  <pre className="text-sm overflow-x-auto">
-                    {JSON.stringify(selectedCommandDetail.commandPayload || selectedCommandDetail.commandData, null, 2)}
-                  </pre>
-                </div>
-              </div>
             </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCommandDetail(false)}>
-              关闭
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button onClick={() => setShowCommandDetail(false)}>关闭</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
