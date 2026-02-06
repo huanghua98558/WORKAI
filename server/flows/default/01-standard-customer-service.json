@@ -1,0 +1,192 @@
+{
+  "id": "flow_v4_standard_customer_service",
+  "name": "标准客服流程（默认）",
+  "description": "基于v4节点的标准客服流程：消息入口→智能分析→流程决策→AI代理→消息出口→流程结束",
+  "version": "4.0.0",
+  "isDefault": true,
+  "category": "客服服务",
+  "tags": ["客服", "AI回复", "标准流程"],
+  "triggerType": "webhook",
+  "triggerConfig": {
+    "webhookUrl": "/api/worktool/callback/message",
+    "eventType": "message",
+    "method": "POST"
+  },
+  "nodes": [
+    {
+      "id": "node_message_entry",
+      "type": "MESSAGE_ENTRY",
+      "position": { "x": 0, "y": 100 },
+      "data": {
+        "name": "消息入口",
+        "description": "接收、保存、解析消息，创建会话，加载上下文",
+        "icon": "📥",
+        "color": "#10b981",
+        "autoMode": true,
+        "config": {
+          "enabledActions": [
+            "message_receive",
+            "message_save",
+            "message_parse",
+            "session_create",
+            "context_load",
+            "output_variables"
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_smart_analyze",
+      "type": "SMART_ANALYZE",
+      "position": { "x": 200, "y": 100 },
+      "data": {
+        "name": "智能分析",
+        "description": "意图识别、情绪分析、敏感信息检测、实体识别、工作人员识别",
+        "icon": "🧠",
+        "color": "#8b5cf6",
+        "autoMode": true,
+        "config": {
+          "enabledActions": [
+            "intent_recognition",
+            "emotion_analysis",
+            "sensitive_info_detection",
+            "entity_recognition",
+            "staff_identification",
+            "info_center_integration"
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_flow_decision",
+      "type": "FLOW_DECISION",
+      "position": { "x": 400, "y": 100 },
+      "data": {
+        "name": "流程决策",
+        "description": "根据意图、情绪、风险进行决策路由",
+        "icon": "🔀",
+        "color": "#f59e0b",
+        "autoMode": true,
+        "config": {
+          "enabledActions": [
+            "intent_routing",
+            "emotion_routing",
+            "risk_routing",
+            "staff_routing",
+            "rule_routing",
+            "decision_output"
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_ai_agent",
+      "type": "AI_AGENT",
+      "position": { "x": 600, "y": 100 },
+      "data": {
+        "name": "AI代理",
+        "description": "生成智能回复，支持角色人设、话术模板、工作人员联动",
+        "icon": "🤖",
+        "color": "#3b82f6",
+        "autoMode": true,
+        "config": {
+          "enabledActions": [
+            "ai_reply_generation",
+            "staff_reply",
+            "persona_load",
+            "template_load",
+            "ai_optimization",
+            "ai_logging",
+            "reply_quality_evaluation",
+            "multi_model_support"
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_message_exit",
+      "type": "MESSAGE_EXIT",
+      "position": { "x": 800, "y": 100 },
+      "data": {
+        "name": "消息出口",
+        "description": "发送消息，支持企业微信官方机器人和自定义机器人",
+        "icon": "📤",
+        "color": "#22c55e",
+        "autoMode": true,
+        "config": {
+          "enabledActions": [
+            "message_dispatch",
+            "official_robot_send",
+            "custom_robot_send",
+            "send_retry",
+            "priority_and_load_balancing",
+            "message_status_record",
+            "session_update",
+            "websocket_push"
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_flow_end",
+      "type": "FLOW_END",
+      "position": { "x": 1000, "y": 100 },
+      "data": {
+        "name": "流程结束",
+        "description": "结束流程，清理资源，记录完成信息",
+        "icon": "✅",
+        "color": "#22c55e",
+        "autoMode": true,
+        "config": {
+          "enabledActions": [
+            "session_close",
+            "resource_cleanup",
+            "flow_logging",
+            "statistics_summary",
+            "final_output"
+          ]
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_01",
+      "source": "node_message_entry",
+      "target": "node_smart_analyze",
+      "label": "消息接收完成"
+    },
+    {
+      "id": "edge_02",
+      "source": "node_smart_analyze",
+      "target": "node_flow_decision",
+      "label": "分析完成"
+    },
+    {
+      "id": "edge_03",
+      "source": "node_flow_decision",
+      "target": "node_ai_agent",
+      "label": "AI回复路径"
+    },
+    {
+      "id": "edge_04",
+      "source": "node_ai_agent",
+      "target": "node_message_exit",
+      "label": "回复生成完成"
+    },
+    {
+      "id": "edge_05",
+      "source": "node_message_exit",
+      "target": "node_flow_end",
+      "label": "消息发送完成"
+    }
+  ],
+  "metadata": {
+    "nodeCount": 6,
+    "estimatedDuration": "3-5秒",
+    "aiModels": ["doubao-pro-4k-intent", "doubao-pro-32k-service"],
+    "integrations": ["WorkTool", "AI", "企业微信机器人"],
+    "author": "WorkTool AI",
+    "createdAt": "2025-01-04"
+  }
+}

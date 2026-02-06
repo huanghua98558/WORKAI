@@ -1,0 +1,213 @@
+{
+  "id": "flow_v4_complete",
+  "name": "完整流程（所有节点）",
+  "description": "包含所有v4节点的完整流程，展示所有功能",
+  "version": "4.0.0",
+  "isDefault": false,
+  "category": "完整演示",
+  "tags": ["完整", "演示", "所有节点"],
+  "triggerType": "webhook",
+  "triggerConfig": {
+    "webhookUrl": "/api/worktool/callback/message",
+    "eventType": "message",
+    "method": "POST"
+  },
+  "nodes": [
+    {
+      "id": "node_message_entry",
+      "type": "MESSAGE_ENTRY",
+      "position": { "x": 0, "y": 100 },
+      "data": {
+        "name": "消息入口",
+        "description": "接收、保存、解析消息，创建会话，加载上下文",
+        "icon": "📥",
+        "color": "#10b981",
+        "autoMode": true
+      }
+    },
+    {
+      "id": "node_smart_analyze",
+      "type": "SMART_ANALYZE",
+      "position": { "x": 200, "y": 100 },
+      "data": {
+        "name": "智能分析",
+        "description": "意图识别、情绪分析、敏感信息检测、实体识别、工作人员识别",
+        "icon": "🧠",
+        "color": "#8b5cf6",
+        "autoMode": true
+      }
+    },
+    {
+      "id": "node_flow_decision",
+      "type": "FLOW_DECISION",
+      "position": { "x": 400, "y": 100 },
+      "data": {
+        "name": "流程决策",
+        "description": "根据意图、情绪、风险进行决策路由",
+        "icon": "🔀",
+        "color": "#f59e0b",
+        "autoMode": true
+      }
+    },
+    {
+      "id": "node_ai_agent",
+      "type": "AI_AGENT",
+      "position": { "x": 600, "y": 50 },
+      "data": {
+        "name": "AI代理",
+        "description": "生成智能回复",
+        "icon": "🤖",
+        "color": "#3b82f6",
+        "autoMode": true
+      }
+    },
+    {
+      "id": "node_risk_handler",
+      "type": "RISK_HANDLER",
+      "position": { "x": 600, "y": 150 },
+      "data": {
+        "name": "风险处理",
+        "description": "处理风险消息",
+        "icon": "⚠️",
+        "color": "#ef4444",
+        "autoMode": true
+      }
+    },
+    {
+      "id": "node_smart_monitor",
+      "type": "SMART_MONITOR",
+      "position": { "x": 600, "y": 250 },
+      "data": {
+        "name": "智能监控",
+        "description": "实时监控和员工回复监测",
+        "icon": "📊",
+        "color": "#06b6d4",
+        "autoMode": true
+      }
+    },
+    {
+      "id": "node_alert_escalation",
+      "type": "ALERT_ESCALATION",
+      "position": { "x": 800, "y": 50 },
+      "data": {
+        "name": "告警升级",
+        "description": "告警级别升级和用户不满意介入",
+        "icon": "🔔",
+        "color": "#f97316",
+        "autoMode": true
+      }
+    },
+    {
+      "id": "node_human_handover",
+      "type": "HUMAN_HANDOVER",
+      "position": { "x": 800, "y": 150 },
+      "data": {
+        "name": "人工接管",
+        "description": "工作人员分配和会话转移",
+        "icon": "👥",
+        "color": "#8b5cf6",
+        "autoMode": true
+      }
+    },
+    {
+      "id": "node_message_exit",
+      "type": "MESSAGE_EXIT",
+      "position": { "x": 1000, "y": 100 },
+      "data": {
+        "name": "消息出口",
+        "description": "发送消息（企业微信机器人和自定义机器人）",
+        "icon": "📤",
+        "color": "#22c55e",
+        "autoMode": true
+      }
+    },
+    {
+      "id": "node_flow_end",
+      "type": "FLOW_END",
+      "position": { "x": 1200, "y": 100 },
+      "data": {
+        "name": "流程结束",
+        "description": "结束流程，清理资源",
+        "icon": "✅",
+        "color": "#22c55e",
+        "autoMode": true
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_01",
+      "source": "node_message_entry",
+      "target": "node_smart_analyze"
+    },
+    {
+      "id": "edge_02",
+      "source": "node_smart_analyze",
+      "target": "node_flow_decision"
+    },
+    {
+      "id": "edge_03",
+      "source": "node_flow_decision",
+      "target": "node_ai_agent",
+      "label": "AI回复"
+    },
+    {
+      "id": "edge_04",
+      "source": "node_flow_decision",
+      "target": "node_risk_handler",
+      "label": "风险处理"
+    },
+    {
+      "id": "edge_05",
+      "source": "node_flow_decision",
+      "target": "node_smart_monitor",
+      "label": "监控"
+    },
+    {
+      "id": "edge_06",
+      "source": "node_ai_agent",
+      "target": "node_message_exit"
+    },
+    {
+      "id": "edge_07",
+      "source": "node_risk_handler",
+      "target": "node_alert_escalation",
+      "label": "高级别风险"
+    },
+    {
+      "id": "edge_08",
+      "source": "node_risk_handler",
+      "target": "node_message_exit",
+      "label": "低级别风险"
+    },
+    {
+      "id": "edge_09",
+      "source": "node_alert_escalation",
+      "target": "node_human_handover",
+      "label": "严重告警"
+    },
+    {
+      "id": "edge_10",
+      "source": "node_human_handover",
+      "target": "node_flow_end"
+    },
+    {
+      "id": "edge_11",
+      "source": "node_smart_monitor",
+      "target": "node_flow_end",
+      "label": "监控完成"
+    },
+    {
+      "id": "edge_12",
+      "source": "node_message_exit",
+      "target": "node_flow_end"
+    }
+  ],
+  "metadata": {
+    "nodeCount": 10,
+    "estimatedDuration": "3-8秒",
+    "specialFeatures": ["所有节点", "多种分支", "完整演示"],
+    "author": "WorkTool AI",
+    "createdAt": "2025-01-04"
+  }
+}

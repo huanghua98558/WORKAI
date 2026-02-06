@@ -961,8 +961,8 @@ export default function AdminDashboard() {
       
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
-        
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 增加到10秒
+
         console.log('[初始化] 发起会话 API 请求...');
         const sessionsRes = await fetch('/api/proxy/admin/sessions/active?limit=20', {
           signal: controller.signal

@@ -1,0 +1,145 @@
+{
+  "id": "flow_v4_alert_escalation",
+  "name": "告警升级流程",
+  "description": "用户不满意时触发告警升级，通知更高层级负责人",
+  "version": "4.0.0",
+  "isDefault": false,
+  "category": "告警管理",
+  "tags": ["告警", "升级", "用户不满意"],
+  "triggerType": "webhook",
+  "triggerConfig": {
+    "webhookUrl": "/api/worktool/callback/message",
+    "eventType": "message",
+    "method": "POST"
+  },
+  "nodes": [
+    {
+      "id": "node_message_entry",
+      "type": "MESSAGE_ENTRY",
+      "position": { "x": 0, "y": 100 },
+      "data": {
+        "name": "消息入口",
+        "description": "接收、保存、解析消息",
+        "icon": "📥",
+        "color": "#10b981",
+        "autoMode": true
+      }
+    },
+    {
+      "id": "node_smart_analyze",
+      "type": "SMART_ANALYZE",
+      "position": { "x": 200, "y": 100 },
+      "data": {
+        "name": "智能分析",
+        "description": "检测用户不满意（愤怒、负面、投诉、负面关键词）",
+        "icon": "🧠",
+        "color": "#8b5cf6",
+        "autoMode": true,
+        "config": {
+          "focusOn": ["emotion_analysis", "intent_recognition"]
+        }
+      }
+    },
+    {
+      "id": "node_flow_decision",
+      "type": "FLOW_DECISION",
+      "position": { "x": 400, "y": 100 },
+      "data": {
+        "name": "流程决策",
+        "description": "检测到用户不满意时触发告警升级",
+        "icon": "🔀",
+        "color": "#f59e0b",
+        "autoMode": true
+      }
+    },
+    {
+      "id": "node_alert_escalation",
+      "type": "ALERT_ESCALATION",
+      "position": { "x": 600, "y": 100 },
+      "data": {
+        "name": "告警升级",
+        "description": "用户不满意检测、立即介入、告警级别提升、通知负责人",
+        "icon": "🔔",
+        "color": "#f97316",
+        "autoMode": true,
+        "config": {
+          "enabledActions": [
+            "alert_level_detection",
+            "user_dissatisfaction_detection",
+            "escalation_rule_evaluation",
+            "escalation_notification",
+            "escalation_logging",
+            "escalation_workflow",
+            "escalation_decision"
+          ],
+          "userDissatisfactionRules": {
+            "angryEmotion": { "action": "immediate_intervention", "escalateTo": "level_3" },
+            "negativeEmotion": { "action": "elevate_alert", "increment": 1 },
+            "complaintIntent": { "action": "immediate_intervention", "escalateTo": "level_3" },
+            "negativeKeywords": { "action": "elevate_alert", "increment": 2 }
+          }
+        }
+      }
+    },
+    {
+      "id": "node_human_handover",
+      "type": "HUMAN_HANDOVER",
+      "position": { "x": 800, "y": 100 },
+      "data": {
+        "name": "人工接管",
+        "description": "立即介入，通知经理处理",
+        "icon": "👥",
+        "color": "#8b5cf6",
+        "autoMode": true
+      }
+    },
+    {
+      "id": "node_flow_end",
+      "type": "FLOW_END",
+      "position": { "x": 1000, "y": 100 },
+      "data": {
+        "name": "流程结束",
+        "description": "告警升级和人工接管完成",
+        "icon": "✅",
+        "color": "#22c55e",
+        "autoMode": true
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_01",
+      "source": "node_message_entry",
+      "target": "node_smart_analyze"
+    },
+    {
+      "id": "edge_02",
+      "source": "node_smart_analyze",
+      "target": "node_flow_decision"
+    },
+    {
+      "id": "edge_03",
+      "source": "node_flow_decision",
+      "target": "node_alert_escalation",
+      "label": "用户不满意"
+    },
+    {
+      "id": "edge_04",
+      "source": "node_alert_escalation",
+      "target": "node_human_handover",
+      "label": "立即介入"
+    },
+    {
+      "id": "edge_05",
+      "source": "node_human_handover",
+      "target": "node_flow_end"
+    }
+  ],
+  "metadata": {
+    "nodeCount": 6,
+    "estimatedDuration": "2-3秒",
+    "specialFeatures": ["用户不满意检测", "立即介入", "告警级别提升", "通知经理"],
+    "author": "WorkTool AI",
+    "createdAt": "2025-01-04"
+  }
+}

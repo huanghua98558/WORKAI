@@ -1,0 +1,120 @@
+{
+  "id": "flow_v4_human_handover",
+  "name": "人工接管流程",
+  "description": "投诉、负面情绪、复杂问题转人工处理",
+  "version": "4.0.0",
+  "isDefault": false,
+  "category": "人工服务",
+  "tags": ["人工", "投诉", "负面情绪"],
+  "triggerType": "webhook",
+  "triggerConfig": {
+    "webhookUrl": "/api/worktool/callback/message",
+    "eventType": "message",
+    "method": "POST"
+  },
+  "nodes": [
+    {
+      "id": "node_message_entry",
+      "type": "MESSAGE_ENTRY",
+      "position": { "x": 0, "y": 100 },
+      "data": {
+        "name": "消息入口",
+        "description": "接收、保存、解析消息",
+        "icon": "📥",
+        "color": "#10b981",
+        "autoMode": true
+      }
+    },
+    {
+      "id": "node_smart_analyze",
+      "type": "SMART_ANALYZE",
+      "position": { "x": 200, "y": 100 },
+      "data": {
+        "name": "智能分析",
+        "description": "检测投诉意图、负面情绪",
+        "icon": "🧠",
+        "color": "#8b5cf6",
+        "autoMode": true,
+        "config": {
+          "focusOn": ["intent_recognition", "emotion_analysis"]
+        }
+      }
+    },
+    {
+      "id": "node_flow_decision",
+      "type": "FLOW_DECISION",
+      "position": { "x": 400, "y": 100 },
+      "data": {
+        "name": "流程决策",
+        "description": "投诉或负面情绪触发人工接管",
+        "icon": "🔀",
+        "color": "#f59e0b",
+        "autoMode": true
+      }
+    },
+    {
+      "id": "node_human_handover",
+      "type": "HUMAN_HANDOVER",
+      "position": { "x": 600, "y": 100 },
+      "data": {
+        "name": "人工接管",
+        "description": "分配工作人员、发送通知、转移会话、暂停AI",
+        "icon": "👥",
+        "color": "#8b5cf6",
+        "autoMode": true,
+        "config": {
+          "enabledActions": [
+            "staff_assignment",
+            "handover_notification",
+            "session_transfer",
+            "handover_logging",
+            "ai_pause",
+            "handover_decision"
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_flow_end",
+      "type": "FLOW_END",
+      "position": { "x": 800, "y": 100 },
+      "data": {
+        "name": "流程结束",
+        "description": "人工接管完成",
+        "icon": "✅",
+        "color": "#22c55e",
+        "autoMode": true
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_01",
+      "source": "node_message_entry",
+      "target": "node_smart_analyze"
+    },
+    {
+      "id": "edge_02",
+      "source": "node_smart_analyze",
+      "target": "node_flow_decision"
+    },
+    {
+      "id": "edge_03",
+      "source": "node_flow_decision",
+      "target": "node_human_handover",
+      "label": "投诉/负面情绪"
+    },
+    {
+      "id": "edge_04",
+      "source": "node_human_handover",
+      "target": "node_flow_end"
+    }
+  ],
+  "metadata": {
+    "nodeCount": 5,
+    "estimatedDuration": "1-2秒",
+    "specialFeatures": ["工作人员分配", "技能匹配", "工作时间检查"],
+    "author": "WorkTool AI",
+    "createdAt": "2025-01-04"
+  }
+}

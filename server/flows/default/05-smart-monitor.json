@@ -1,0 +1,77 @@
+{
+  "id": "flow_v4_smart_monitor",
+  "name": "智能监控流程",
+  "description": "实时监控群内消息、检测异常行为、员工回复监测",
+  "version": "4.0.0",
+  "isDefault": false,
+  "category": "监控管理",
+  "tags": ["监控", "员工回复", "异常检测"],
+  "triggerType": "scheduled",
+  "triggerConfig": {
+    "schedule": "*/5 * * * *",
+    "description": "每5分钟执行一次"
+  },
+  "nodes": [
+    {
+      "id": "node_realtime_monitoring",
+      "type": "SMART_MONITOR",
+      "position": { "x": 0, "y": 100 },
+      "data": {
+        "name": "实时监控",
+        "description": "监控群内消息、成员、活动、员工回复",
+        "icon": "📊",
+        "color": "#06b6d4",
+        "autoMode": true,
+        "config": {
+          "enabledActions": [
+            "realtime_monitoring",
+            "staff_reply_monitoring",
+            "anomaly_detection",
+            "performance_monitoring",
+            "statistics_logging",
+            "monitoring_alert"
+          ],
+          "staffReplyMonitoring": {
+            "enableStaffReplyMonitoring": true,
+            "frequencyAdjustmentRules": {
+              "staffReplyDetected": { "newFrequency": 30000, "duration": 600000 },
+              "noReplyDetected": { "newFrequency": 2000, "duration": 180000 },
+              "resetFrequency": { "newFrequency": 5000 }
+            },
+            "noReplyRecord": {
+              "enableRecording": true,
+              "recordThreshold": 300000,
+              "alertThreshold": 3
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "node_flow_end",
+      "type": "FLOW_END",
+      "position": { "x": 200, "y": 100 },
+      "data": {
+        "name": "流程结束",
+        "description": "监控完成",
+        "icon": "✅",
+        "color": "#22c55e",
+        "autoMode": true
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_01",
+      "source": "node_realtime_monitoring",
+      "target": "node_flow_end"
+    }
+  ],
+  "metadata": {
+    "nodeCount": 2,
+    "estimatedDuration": "1-2秒",
+    "specialFeatures": ["员工回复监测", "频率自动调整", "不回复记录", "异常行为检测"],
+    "author": "WorkTool AI",
+    "createdAt": "2025-01-04"
+  }
+}

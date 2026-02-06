@@ -1,0 +1,138 @@
+{
+  "id": "flow_v4_risk_handling",
+  "name": "风险处理流程",
+  "description": "处理敏感内容、垃圾信息、攻击性言论等风险消息",
+  "version": "4.0.0",
+  "isDefault": false,
+  "category": "风险管理",
+  "tags": ["风险", "安全", "监控"],
+  "triggerType": "webhook",
+  "triggerConfig": {
+    "webhookUrl": "/api/worktool/callback/message",
+    "eventType": "message",
+    "method": "POST"
+  },
+  "nodes": [
+    {
+      "id": "node_message_entry",
+      "type": "MESSAGE_ENTRY",
+      "position": { "x": 0, "y": 100 },
+      "data": {
+        "name": "消息入口",
+        "description": "接收、保存、解析消息",
+        "icon": "📥",
+        "color": "#10b981",
+        "autoMode": true
+      }
+    },
+    {
+      "id": "node_smart_analyze",
+      "type": "SMART_ANALYZE",
+      "position": { "x": 200, "y": 100 },
+      "data": {
+        "name": "智能分析",
+        "description": "检测风险内容、敏感信息、垃圾信息",
+        "icon": "🧠",
+        "color": "#8b5cf6",
+        "autoMode": true,
+        "config": {
+          "focusOn": ["sensitive_info_detection", "intent_recognition"]
+        }
+      }
+    },
+    {
+      "id": "node_flow_decision",
+      "type": "FLOW_DECISION",
+      "position": { "x": 400, "y": 100 },
+      "data": {
+        "name": "流程决策",
+        "description": "检测到风险时触发风险处理",
+        "icon": "🔀",
+        "color": "#f59e0b",
+        "autoMode": true
+      }
+    },
+    {
+      "id": "node_risk_handler",
+      "type": "RISK_HANDLER",
+      "position": { "x": 600, "y": 100 },
+      "data": {
+        "name": "风险处理",
+        "description": "风险检测、风险评估、风险安抚、风险告警、工作人员通知",
+        "icon": "⚠️",
+        "color": "#ef4444",
+        "autoMode": true,
+        "config": {
+          "enabledActions": [
+            "risk_detection",
+            "risk_level_assessment",
+            "risk_soothing",
+            "risk_alert",
+            "staff_notification",
+            "risk_logging",
+            "risk_decision"
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_message_exit",
+      "type": "MESSAGE_EXIT",
+      "position": { "x": 800, "y": 100 },
+      "data": {
+        "name": "消息出口",
+        "description": "发送安抚消息或风险通知",
+        "icon": "📤",
+        "color": "#22c55e",
+        "autoMode": true
+      }
+    },
+    {
+      "id": "node_flow_end",
+      "type": "FLOW_END",
+      "position": { "x": 1000, "y": 100 },
+      "data": {
+        "name": "流程结束",
+        "description": "记录风险处理完成",
+        "icon": "✅",
+        "color": "#22c55e",
+        "autoMode": true
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_01",
+      "source": "node_message_entry",
+      "target": "node_smart_analyze"
+    },
+    {
+      "id": "edge_02",
+      "source": "node_smart_analyze",
+      "target": "node_flow_decision"
+    },
+    {
+      "id": "edge_03",
+      "source": "node_flow_decision",
+      "target": "node_risk_handler",
+      "label": "检测到风险"
+    },
+    {
+      "id": "edge_04",
+      "source": "node_risk_handler",
+      "target": "node_message_exit"
+    },
+    {
+      "id": "edge_05",
+      "source": "node_message_exit",
+      "target": "node_flow_end"
+    }
+  ],
+  "metadata": {
+    "nodeCount": 6,
+    "estimatedDuration": "2-4秒",
+    "specialFeatures": ["风险检测", "自动安抚", "告警通知"],
+    "author": "WorkTool AI",
+    "createdAt": "2025-01-04"
+  }
+}
