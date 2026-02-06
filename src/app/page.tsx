@@ -318,6 +318,7 @@ export default function AdminDashboard() {
   const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null); // 控制展开的会话
   const [sessionSearchQuery, setSessionSearchQuery] = useState('');
   const [sessionStatusFilter, setSessionStatusFilter] = useState<'all' | 'auto' | 'human'>('all');
+  const [isInitialLoadDone, setIsInitialLoadDone] = useState(false); // 标记初始化是否完成
   const [alertStats, setAlertStats] = useState<AlertData | null>(null); // 新的告警统计数据
   const [isAlertRulesDialogOpen, setIsAlertRulesDialogOpen] = useState(false); // 告警规则对话框状态
   const [isSearchingSessions, setIsSearchingSessions] = useState(false);
@@ -370,17 +371,13 @@ export default function AdminDashboard() {
   };
 
   const loadData = async () => {
-    setIsLoading(true);
     const startTime = Date.now();
     
     try {
-      // 优化：按优先级分组，减少并行请求数
-      // 关键数据：需要立即显示
-      const criticalPromises = [
-        fetchWithTimeout('/api/monitoring/active-sessions?limit=20', 2000), // 使用新接口
-      ];
-      
-      // 重要数据：监控相关（使用新接口）
+      // 注意：会话数据已在初始化时加载，这里不再重复加载
+      // 只加载监控数据和告警数据
+
+      // 监控相关数据（重要数据）
       const importantPromises = [
         fetchWithTimeout('/api/monitoring/summary', 3000),
         fetchWithTimeout('/api/proxy/admin/callbacks', 3000), // 回调配置，保留
@@ -392,25 +389,8 @@ export default function AdminDashboard() {
         fetchWithTimeout('/api/alerts/analytics/overview', 3000), // 使用新接口
       ];
 
-      // 分批加载：先加载关键数据
-      console.log('[数据加载] 开始加载关键数据...');
-      const criticalResults = await Promise.allSettled(criticalPromises);
-      const sessionsRes = criticalResults[0].status === 'fulfilled' ? criticalResults[0].value : { ok: false, json: async () => ({}) } as Response;
-      
-      if (sessionsRes.ok) {
-        const data = await sessionsRes.json();
-        const uniqueSessions = (data.data || []).reduce((acc: Session[], session: Session) => {
-          if (!acc.find(s => s.sessionId === session.sessionId)) {
-            acc.push(session);
-          }
-          return acc;
-        }, []);
-        setSessions(uniqueSessions);
-      }
-      console.log(`[数据加载] 关键数据加载完成，耗时: ${Date.now() - startTime}ms`);
-
+      console.log('[数据加载] 开始加载监控数据...');
       // 并行加载重要数据
-      console.log('[数据加载] 开始加载重要数据...');
       const importantResults = await Promise.allSettled(importantPromises);
       const [monitorRes, callbacksRes] = importantResults.map(r => 
         r.status === 'fulfilled' ? r.value : { ok: false, json: async () => ({}) } as Response
@@ -441,7 +421,7 @@ export default function AdminDashboard() {
           console.error('解析callbacks数据失败:', e);
         }
       }
-      console.log(`[数据加载] 重要数据加载完成，耗时: ${Date.now() - startTime}ms`);
+      console.log(`[数据加载] 监控数据加载完成，耗时: ${Date.now() - startTime}ms`);
 
       // 更新最后加载时间
       setLastUpdateTime(new Date());
@@ -922,14 +902,19 @@ export default function AdminDashboard() {
     }
   };
 
-  // 监听搜索条件变化
+  // 监听搜索条件变化（仅在初始化完成后执行，避免重复加载）
   useEffect(() => {
+    // 初始化未完成时，不执行搜索
+    if (!isInitialLoadDone) {
+      return;
+    }
+
     const debounceTimer = setTimeout(() => {
       handleSearchSessions();
     }, 500);
 
     return () => clearTimeout(debounceTimer);
-  }, [sessionSearchQuery, sessionStatusFilter]);
+  }, [sessionSearchQuery, sessionStatusFilter, isInitialLoadDone]);
 
   const loadAiConfig = async () => {
     if (isLoadingAiConfig) return;
@@ -1003,6 +988,10 @@ export default function AdminDashboard() {
         }
       } catch (e) {
         console.error('[初始化] 加载会话数据失败:', e);
+      } finally {
+        // 标记初始化完成，允许搜索 useEffect 执行
+        console.log('[初始化] 初始化加载完成，允许搜索执行');
+        setIsInitialLoadDone(true);
       }
     };
 
