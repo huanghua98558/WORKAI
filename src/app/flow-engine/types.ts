@@ -2,50 +2,53 @@
  * 流程引擎类型定义 - 12种节点类型
  */
 
-// 基础节点类型（12种）
+// 基础节点类型（13种）
 export const NODE_TYPES = {
-  // 文档节点1
+  // 消息接收节点：接收WorkTool消息并保存到数据库
   MESSAGE_RECEIVE: 'message_receive',
 
-  // 文档节点2
+  // 意图识别节点：使用AI识别用户消息的意图（咨询、投诉、售后等）
   INTENT: 'intent',
 
-  // 文档节点3
+  // 决策节点：根据条件判断后续流程分支（支持表达式和规则匹配）
   DECISION: 'decision',
 
-  // 文档节点4
+  // AI回复节点：使用大语言模型生成智能客服回复
   AI_REPLY: 'ai_reply',
 
-  // 文档节点5
+  // 消息分发节点：判断群发或私发，确定消息发送目标
   MESSAGE_DISPATCH: 'message_dispatch',
 
-  // 文档节点6
+  // 发送指令节点：调用WorkTool API发送消息或指令
   SEND_COMMAND: 'send_command',
 
-  // 文档节点7
+  // 指令状态节点：保存指令执行状态到数据库
   COMMAND_STATUS: 'command_status',
 
-  // 文档节点8
+  // 结束节点：流程结束点，可配置返回消息和清理操作
   END: 'end',
 
-  // 文档节点B1
+  // 告警入库节点：保存告警信息到数据库
   ALERT_SAVE: 'alert_save',
 
-  // 文档节点B2
+  // 告警规则节点：判断告警规则并执行升级操作
   ALERT_RULE: 'alert_rule',
 
-  // 风险处理节点
+  // 风险处理节点：AI安抚用户并通知人工介入
   RISK_HANDLER: 'risk_handler',
 
-  // 监控节点
+  // 监控节点：实时监听群内消息，支持关键词和风险检测
   MONITOR: 'monitor',
+
+  // 机器人分发节点：将消息分发给指定的机器人处理（支持负载均衡）
+  ROBOT_DISPATCH: 'robot_dispatch',
 } as const;
 
-// 节点元数据（12种）
+// 节点元数据（13种）
 export const NODE_METADATA = {
   [NODE_TYPES.MESSAGE_RECEIVE]: {
     name: '消息接收',
-    description: '接收WorkTool消息并保存到数据库',
+    description: '接收WorkTool消息并保存到数据库，提取消息元数据（用户、群组、时间等）',
     icon: '📥',
     color: 'bg-green-500',
     category: 'basic',
@@ -54,7 +57,7 @@ export const NODE_METADATA = {
   },
   [NODE_TYPES.INTENT]: {
     name: '意图识别',
-    description: 'AI识别用户消息意图',
+    description: '使用AI识别用户消息意图（如：咨询、投诉、售后、互动等）',
     icon: '🧠',
     color: 'bg-purple-500',
     category: 'ai',
@@ -63,7 +66,7 @@ export const NODE_METADATA = {
   },
   [NODE_TYPES.DECISION]: {
     name: '决策节点',
-    description: '根据条件判断后续流程',
+    description: '根据条件表达式判断后续流程分支（支持多条件规则）',
     icon: '🔀',
     color: 'bg-orange-500',
     category: 'logic',
@@ -72,7 +75,7 @@ export const NODE_METADATA = {
   },
   [NODE_TYPES.AI_REPLY]: {
     name: 'AI客服回复',
-    description: '生成智能客服回复内容',
+    description: '使用大语言模型生成智能客服回复内容（支持人设、上下文历史）',
     icon: '⚡',
     color: 'bg-yellow-500',
     category: 'ai',
@@ -81,7 +84,7 @@ export const NODE_METADATA = {
   },
   [NODE_TYPES.MESSAGE_DISPATCH]: {
     name: '消息分发',
-    description: '判断群发/私发，确定发送目标',
+    description: '判断群发或私发模式，确定消息发送目标（群组或个人）',
     icon: '🔀',
     color: 'bg-blue-500',
     category: 'logic',
@@ -90,7 +93,7 @@ export const NODE_METADATA = {
   },
   [NODE_TYPES.SEND_COMMAND]: {
     name: '发送指令',
-    description: '调用WorkTool API发送消息',
+    description: '调用WorkTool API发送消息或指令（支持@人、重试、优先级）',
     icon: '💬',
     color: 'bg-cyan-500',
     category: 'action',
@@ -99,7 +102,7 @@ export const NODE_METADATA = {
   },
   [NODE_TYPES.COMMAND_STATUS]: {
     name: '指令状态记录',
-    description: '保存指令状态到数据库',
+    description: '保存指令执行状态到数据库（成功/失败/处理中）',
     icon: '📝',
     color: 'bg-indigo-500',
     category: 'database',
@@ -108,7 +111,7 @@ export const NODE_METADATA = {
   },
   [NODE_TYPES.END]: {
     name: '结束节点',
-    description: '流程结束',
+    description: '流程结束点，可配置返回消息、会话保存和上下文清理',
     icon: '⏹️',
     color: 'bg-gray-500',
     category: 'basic',
@@ -117,7 +120,7 @@ export const NODE_METADATA = {
   },
   [NODE_TYPES.ALERT_SAVE]: {
     name: '告警入库',
-    description: '保存告警信息到数据库',
+    description: '保存告警信息到数据库（类型、级别、内容、负责人等）',
     icon: '🔔',
     color: 'bg-red-500',
     category: 'alert',
@@ -126,7 +129,7 @@ export const NODE_METADATA = {
   },
   [NODE_TYPES.ALERT_RULE]: {
     name: '告警规则判断',
-    description: '判断告警规则并升级',
+    description: '判断告警规则并执行升级操作（阈值、模式、频率）',
     icon: '⚖️',
     color: 'bg-amber-500',
     category: 'alert',
@@ -135,7 +138,7 @@ export const NODE_METADATA = {
   },
   [NODE_TYPES.RISK_HANDLER]: {
     name: '风险处理',
-    description: 'AI安抚用户并通知人工',
+    description: 'AI安抚用户并通知人工介入（风险等级、安抚策略、升级）',
     icon: '⚠️',
     color: 'bg-red-500',
     category: 'risk',
@@ -144,10 +147,19 @@ export const NODE_METADATA = {
   },
   [NODE_TYPES.MONITOR]: {
     name: '监控节点',
-    description: '实时监听群内消息',
+    description: '实时监听群内消息（支持关键词匹配、风险检测、自动告警）',
     icon: '👁️',
     color: 'bg-cyan-500',
     category: 'risk',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.ROBOT_DISPATCH]: {
+    name: '机器人分发',
+    description: '将消息分发给指定的机器人处理（支持负载均衡、重试、故障转移）',
+    icon: '🤖',
+    color: 'bg-blue-600',
+    category: 'action',
     hasInputs: true,
     hasOutputs: true,
   },
@@ -331,6 +343,31 @@ export interface MonitorConfig {
   alertOnMatch: boolean;       // 匹配时是否告警
   realtime: boolean;           // 是否实时监控
   intervalSeconds?: number;    // 间隔（秒）
+}
+
+// ROBOT_DISPATCH 节点配置（第13种节点）
+export interface RobotDispatchConfig {
+  robotId: string;                    // 机器人ID
+  dispatchMode: 'single' | 'round_robin' | 'load_balancing' | 'random'; // 分发模式
+  priority: 'low' | 'normal' | 'high'; // 优先级
+  maxConcurrentTasks?: number;        // 最大并发任务数
+  timeoutSeconds?: number;            // 超时时间（秒）
+  retryOnFailure: boolean;            // 失败时是否重试
+  maxRetries?: number;                // 最大重试次数
+  retryDelaySeconds?: number;         // 重试延迟（秒）
+  fallbackRobotId?: string;           // 失败时的备用机器人ID
+  dispatchRules?: DispatchRule[];     // 分发规则
+  logDispatch: boolean;               // 是否记录分发日志
+  notifyOnFailure: boolean;           // 失败时是否通知
+  notifyChannels?: string[];          // 通知渠道
+}
+
+export interface DispatchRule {
+  id: string;
+  name: string;
+  condition: string;                  // 规则条件表达式
+  robotId: string;                    // 指定机器人ID
+  priority: number;                   // 优先级
 }
 
 // 节点配置联合类型

@@ -130,26 +130,22 @@ export default function NodeConfigPanel({ node, onUpdate }: NodeConfigPanelProps
         <CommandStatusConfig config={config} onChange={handleConfigChange} />
       )}
 
-      {node.data.type === 'end' && (
-        <div className="text-sm text-slate-500 text-center py-4">
-          结束节点无需配置
-        </div>
-      )}
+      {node.data.type === 'end' && <EndConfig config={config} onChange={handleConfigChange} />}
 
       {node.data.type === 'alert_save' && <AlertSaveConfig config={config} onChange={handleConfigChange} />}
 
       {node.data.type === 'alert_rule' && <AlertRuleConfig config={config} onChange={handleConfigChange} />}
 
-      {node.data.type === 'execute_notification' && (
-        <ExecuteNotificationConfig config={config} onChange={handleConfigChange} />
-      )}
-
       {node.data.type === 'risk_handler' && <RiskHandlerConfig config={config} onChange={handleConfigChange} />}
 
       {node.data.type === 'monitor' && <MonitorConfig config={config} onChange={handleConfigChange} />}
 
+      {node.data.type === 'robot_dispatch' && (
+        <RobotDispatchConfig config={config} onChange={handleConfigChange} />
+      )}
+
       {/* 默认情况：未识别的节点类型 */}
-      {!['message_receive', 'intent', 'decision', 'ai_reply', 'message_dispatch', 'send_command', 'command_status', 'end', 'alert_save', 'alert_rule', 'execute_notification', 'risk_handler', 'monitor'].includes(node.data.type || '') && (
+      {!['message_receive', 'intent', 'decision', 'ai_reply', 'message_dispatch', 'send_command', 'command_status', 'end', 'alert_save', 'alert_rule', 'risk_handler', 'monitor', 'robot_dispatch'].includes(node.data.type || '') && (
         <div className="text-sm text-red-500 text-center py-4">
           <p className="font-medium">未知的节点类型</p>
           <p className="text-xs mt-1">类型: {node.data.type || 'undefined'}</p>
@@ -2248,6 +2244,395 @@ function MonitorConfig({ config, onChange }: any) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// END 节点配置
+function EndConfig({ config, onChange }: any) {
+  return (
+    <div className="space-y-4">
+      {/* 结束类型 */}
+      <div>
+        <Label htmlFor="endType">结束类型</Label>
+        <Select
+          value={config.endType || 'success'}
+          onValueChange={(value) => onChange('endType', value)}
+        >
+          <SelectTrigger className="mt-1">
+            <SelectValue placeholder="选择结束类型" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="success">成功结束</SelectItem>
+            <SelectItem value="failure">失败结束</SelectItem>
+            <SelectItem value="manual">手动结束</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-slate-500 mt-1">
+          标记流程的结束状态
+        </p>
+      </div>
+
+      {/* 返回消息 */}
+      <div>
+        <Label htmlFor="returnMessage">返回消息（可选）</Label>
+        <Textarea
+          id="returnMessage"
+          value={config.returnMessage || ''}
+          onChange={(e) => onChange('returnMessage', e.target.value)}
+          placeholder="输入流程结束时的返回消息"
+          className="mt-1 resize-none"
+          rows={3}
+        />
+        <p className="text-xs text-slate-500 mt-1">
+          流程结束时显示给用户的消息，支持变量：{"{{userName}}"}, {"{{intent}}"}等
+        </p>
+      </div>
+
+      {/* 会话处理 */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700">会话处理</Label>
+        <div className="space-y-2 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="saveSession"
+              checked={config.saveSession ?? true}
+              onCheckedChange={(checked) => onChange('saveSession', checked)}
+            />
+            <Label htmlFor="saveSession" className="text-sm">
+              保存会话数据
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="cleanupContext"
+              checked={config.cleanupContext ?? true}
+              onCheckedChange={(checked) => onChange('cleanupContext', checked)}
+            />
+            <Label htmlFor="cleanupContext" className="text-sm">
+              清理流程上下文
+            </Label>
+          </div>
+        </div>
+      </div>
+
+      {/* 日志记录 */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700">日志记录</Label>
+        <div className="space-y-2 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="logEndTime"
+              checked={config.logEndTime ?? true}
+              onCheckedChange={(checked) => onChange('logEndTime', checked)}
+            />
+            <Label htmlFor="logEndTime" className="text-sm">
+              记录结束时间
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="logSummary"
+              checked={config.logSummary ?? false}
+              onCheckedChange={(checked) => onChange('logSummary', checked)}
+            />
+            <Label htmlFor="logSummary" className="text-sm">
+              生成流程执行摘要
+            </Label>
+          </div>
+        </div>
+      </div>
+
+      {/* 配置预览 */}
+      <details className="pt-2 border-t border-slate-200">
+        <summary className="text-xs text-slate-600 cursor-pointer hover:text-slate-800">
+          查看当前配置（JSON）
+        </summary>
+        <pre className="mt-2 p-2 bg-slate-50 rounded text-[10px] text-slate-600 overflow-x-auto">
+          {JSON.stringify(
+            {
+              endType: config.endType || 'success',
+              returnMessage: config.returnMessage || '',
+              saveSession: config.saveSession ?? true,
+              cleanupContext: config.cleanupContext ?? true,
+              logEndTime: config.logEndTime ?? true,
+              logSummary: config.logSummary ?? false,
+            },
+            null,
+            2
+          )}
+        </pre>
+      </details>
+    </div>
+  );
+}
+
+// ROBOT_DISPATCH 节点配置（第13种节点）
+function RobotDispatchConfig({ config, onChange }: any) {
+  return (
+    <div className="space-y-4">
+      {/* 机器人选择 */}
+      <div>
+        <Label htmlFor="robotId">机器人ID</Label>
+        <Input
+          id="robotId"
+          value={config.robotId || ''}
+          onChange={(e) => onChange('robotId', e.target.value)}
+          placeholder="输入机器人ID"
+          className="mt-1"
+        />
+        <p className="text-xs text-slate-500 mt-1">
+          指定处理消息的机器人
+        </p>
+      </div>
+
+      {/* 分发模式 */}
+      <div>
+        <Label htmlFor="dispatchMode">分发模式</Label>
+        <Select
+          value={config.dispatchMode || 'single'}
+          onValueChange={(value) => onChange('dispatchMode', value)}
+        >
+          <SelectTrigger className="mt-1">
+            <SelectValue placeholder="选择分发模式" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="single">单机器人</SelectItem>
+            <SelectItem value="round_robin">轮询</SelectItem>
+            <SelectItem value="load_balancing">负载均衡</SelectItem>
+            <SelectItem value="random">随机</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-slate-500 mt-1">
+          single: 固定机器人；round_robin: 轮询分配；load_balancing: 根据负载分配；random: 随机选择
+        </p>
+      </div>
+
+      {/* 优先级 */}
+      <div>
+        <Label htmlFor="priority">优先级</Label>
+        <Select
+          value={config.priority || 'normal'}
+          onValueChange={(value) => onChange('priority', value)}
+        >
+          <SelectTrigger className="mt-1">
+            <SelectValue placeholder="选择优先级" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="low">低</SelectItem>
+            <SelectItem value="normal">普通（默认）</SelectItem>
+            <SelectItem value="high">高</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* 并发控制 */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700">并发控制</Label>
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <div>
+            <Label htmlFor="maxConcurrentTasks" className="text-xs">
+              最大并发任务数
+            </Label>
+            <Input
+              id="maxConcurrentTasks"
+              type="number"
+              min="1"
+              max="100"
+              value={config.maxConcurrentTasks ?? 10}
+              onChange={(e) => onChange('maxConcurrentTasks', parseInt(e.target.value))}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="timeoutSeconds" className="text-xs">
+              超时时间（秒）
+            </Label>
+            <Input
+              id="timeoutSeconds"
+              type="number"
+              min="1"
+              max="300"
+              value={config.timeoutSeconds ?? 30}
+              onChange={(e) => onChange('timeoutSeconds', parseInt(e.target.value))}
+              className="mt-1"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 重试配置 */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700">重试配置</Label>
+        <div className="space-y-2 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="retryOnFailure"
+              checked={config.retryOnFailure ?? true}
+              onCheckedChange={(checked) => onChange('retryOnFailure', checked)}
+            />
+            <Label htmlFor="retryOnFailure" className="text-sm">
+              失败时重试
+            </Label>
+          </div>
+          {config.retryOnFailure && (
+            <div className="grid grid-cols-2 gap-2 ml-6">
+              <div>
+                <Label htmlFor="maxRetries" className="text-xs">
+                  最大重试次数
+                </Label>
+                <Input
+                  id="maxRetries"
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={config.maxRetries ?? 3}
+                  onChange={(e) => onChange('maxRetries', parseInt(e.target.value))}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="retryDelaySeconds" className="text-xs">
+                  重试延迟（秒）
+                </Label>
+                <Input
+                  id="retryDelaySeconds"
+                  type="number"
+                  min="0"
+                  max="60"
+                  value={config.retryDelaySeconds ?? 2}
+                  onChange={(e) => onChange('retryDelaySeconds', parseInt(e.target.value))}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 故障转移 */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label htmlFor="fallbackRobotId" className="text-sm font-medium text-slate-700">
+          故障转移配置
+        </Label>
+        <div className="mt-2">
+          <Label htmlFor="fallbackRobotId" className="text-xs">
+            备用机器人ID
+          </Label>
+          <Input
+            id="fallbackRobotId"
+            value={config.fallbackRobotId || ''}
+            onChange={(e) => onChange('fallbackRobotId', e.target.value)}
+            placeholder="主机器人失败时切换的备用机器人"
+            className="mt-1"
+          />
+          <p className="text-[10px] text-slate-500 mt-1">
+            主机器人失败时，自动切换到备用机器人
+          </p>
+        </div>
+      </div>
+
+      {/* 分发规则 */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700">分发规则（可选）</Label>
+        <p className="text-xs text-slate-500 mt-1">
+          配置规则后，根据条件动态选择不同的机器人
+        </p>
+        <Textarea
+          value={config.dispatchRules ? JSON.stringify(config.dispatchRules, null, 2) : ''}
+          onChange={(e) => {
+            try {
+              const rules = JSON.parse(e.target.value);
+              onChange('dispatchRules', rules);
+            } catch (err) {
+              // JSON 解析错误
+            }
+          }}
+          className="mt-2 font-mono text-xs resize-none"
+          rows={4}
+          placeholder={`[
+  {
+    "id": "rule1",
+    "name": "规则1",
+    "condition": "context.intent === '投诉'",
+    "robotId": "robot_support",
+    "priority": 10
+  }
+]`}
+        />
+      </div>
+
+      {/* 日志和通知 */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700">日志和通知</Label>
+        <div className="space-y-2 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="logDispatch"
+              checked={config.logDispatch ?? true}
+              onCheckedChange={(checked) => onChange('logDispatch', checked)}
+            />
+            <Label htmlFor="logDispatch" className="text-sm">
+              记录分发日志
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="notifyOnFailure"
+              checked={config.notifyOnFailure ?? false}
+              onCheckedChange={(checked) => onChange('notifyOnFailure', checked)}
+            />
+            <Label htmlFor="notifyOnFailure" className="text-sm">
+              失败时通知
+            </Label>
+          </div>
+          {config.notifyOnFailure && (
+            <div className="ml-6">
+              <Label htmlFor="notifyChannels" className="text-xs">
+                通知渠道（逗号分隔）
+              </Label>
+              <Input
+                id="notifyChannels"
+                value={config.notifyChannels?.join(', ') || ''}
+                onChange={(e) => {
+                  const channels = e.target.value.split(',').map(c => c.trim()).filter(c => c);
+                  onChange('notifyChannels', channels);
+                }}
+                placeholder="email,wechat,webhook"
+                className="mt-1"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 配置预览 */}
+      <details className="pt-2 border-t border-slate-200">
+        <summary className="text-xs text-slate-600 cursor-pointer hover:text-slate-800">
+          查看当前配置（JSON）
+        </summary>
+        <pre className="mt-2 p-2 bg-slate-50 rounded text-[10px] text-slate-600 overflow-x-auto">
+          {JSON.stringify(
+            {
+              robotId: config.robotId || '',
+              dispatchMode: config.dispatchMode || 'single',
+              priority: config.priority || 'normal',
+              maxConcurrentTasks: config.maxConcurrentTasks ?? 10,
+              timeoutSeconds: config.timeoutSeconds ?? 30,
+              retryOnFailure: config.retryOnFailure ?? true,
+              maxRetries: config.maxRetries ?? 3,
+              retryDelaySeconds: config.retryDelaySeconds ?? 2,
+              fallbackRobotId: config.fallbackRobotId || '',
+              dispatchRules: config.dispatchRules || [],
+              logDispatch: config.logDispatch ?? true,
+              notifyOnFailure: config.notifyOnFailure ?? false,
+              notifyChannels: config.notifyChannels || [],
+            },
+            null,
+            2
+          )}
+        </pre>
+      </details>
     </div>
   );
 }
