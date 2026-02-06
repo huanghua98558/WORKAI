@@ -2,7 +2,7 @@
  * 流程引擎类型定义 - 12种节点类型
  */
 
-// 基础节点类型（13种）
+// 基础节点类型（14种）
 export const NODE_TYPES = {
   // 消息接收节点：接收WorkTool消息并保存到数据库
   MESSAGE_RECEIVE: 'message_receive',
@@ -42,6 +42,9 @@ export const NODE_TYPES = {
 
   // 机器人分发节点：将消息分发给指定的机器人处理（支持负载均衡）
   ROBOT_DISPATCH: 'robot_dispatch',
+
+  // 执行通知节点：通过多种渠道发送通知（机器人、邮件、短信、Webhook）
+  EXECUTE_NOTIFICATION: 'execute_notification',
 } as const;
 
 // 节点元数据（13种）
@@ -159,6 +162,15 @@ export const NODE_METADATA = {
     description: '将消息分发给指定的机器人处理（支持负载均衡、重试、故障转移）',
     icon: '🤖',
     color: 'bg-blue-600',
+    category: 'action',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.EXECUTE_NOTIFICATION]: {
+    name: '执行通知',
+    description: '通过多种渠道发送通知（机器人、邮件、短信、Webhook）',
+    icon: '📢',
+    color: 'bg-pink-500',
     category: 'action',
     hasInputs: true,
     hasOutputs: true,
@@ -370,6 +382,52 @@ export interface DispatchRule {
   priority: number;                   // 优先级
 }
 
+// EXECUTE_NOTIFICATION 节点配置（第14种节点）
+export interface ExecuteNotificationConfig {
+  // 通知渠道配置
+  enableRobotNotification?: boolean;  // 机器人通知
+  enableEmailNotification?: boolean;  // 邮件通知
+  enableSMSNotification?: boolean;    // 短信通知
+  enableWebhookNotification?: boolean; // Webhook通知
+
+  // 机器人通知配置
+  robotSendType?: 'private' | 'group' | 'both'; // 发送方式
+  robotTarget?: string;              // 目标用户/群组
+
+  // 邮件通知配置
+  emailRecipients?: string[];        // 邮件接收者列表
+  emailSubject?: string;             // 邮件主题
+  emailBody?: string;                // 邮件正文
+
+  // 短信通知配置
+  smsRecipients?: string[];          // 短信接收者列表
+  smsContent?: string;              // 短信内容
+
+  // Webhook通知配置
+  webhookUrl?: string;              // Webhook URL
+  webhookMethod?: 'POST' | 'GET';    // HTTP方法
+  webhookHeaders?: Record<string, string>; // 请求头
+  webhookIncludeHeaders?: boolean;  // 是否包含请求头
+
+  // 通知内容配置
+  notificationTitle?: string;       // 标题
+  notificationBody?: string;        // 正文内容
+  notificationTemplate?: 'default' | 'simple' | 'detailed' | 'custom'; // 消息模板
+
+  // 优先级配置
+  notificationPriority?: 'low' | 'normal' | 'high' | 'urgent'; // 优先级
+  notificationUrgency?: 'low' | 'medium' | 'high' | 'critical'; // 紧急程度
+
+  // 重试配置
+  enableNotificationRetry?: boolean; // 是否启用重试
+  maxRetryAttempts?: number;        // 最大重试次数
+  retryDelaySeconds?: number;       // 重试延迟（秒）
+
+  // 高级配置
+  asyncNotification?: boolean;     // 异步发送通知
+  batchSend?: boolean;             // 批量发送
+}
+
 // 节点配置联合类型
 export type NodeConfig =
   | MessageReceiveConfig
@@ -383,7 +441,9 @@ export type NodeConfig =
   | AlertSaveConfig
   | AlertRuleConfig
   | RiskHandlerConfig
-  | MonitorConfig;
+  | MonitorConfig
+  | RobotDispatchConfig
+  | ExecuteNotificationConfig;
 
 // 根据节点类型获取配置类型
 export type GetConfigByNodeType<T extends string> = T extends 'message_receive'
@@ -410,4 +470,8 @@ export type GetConfigByNodeType<T extends string> = T extends 'message_receive'
   ? RiskHandlerConfig
   : T extends 'monitor'
   ? MonitorConfig
+  : T extends 'robot_dispatch'
+  ? RobotDispatchConfig
+  : T extends 'execute_notification'
+  ? ExecuteNotificationConfig
   : Record<string, any>;

@@ -144,8 +144,12 @@ export default function NodeConfigPanel({ node, onUpdate }: NodeConfigPanelProps
         <RobotDispatchConfig config={config} onChange={handleConfigChange} />
       )}
 
+      {node.data.type === 'execute_notification' && (
+        <ExecuteNotificationConfig config={config} onChange={handleConfigChange} />
+      )}
+
       {/* 默认情况：未识别的节点类型 */}
-      {!['message_receive', 'intent', 'decision', 'ai_reply', 'message_dispatch', 'send_command', 'command_status', 'end', 'alert_save', 'alert_rule', 'risk_handler', 'monitor', 'robot_dispatch'].includes(node.data.type || '') && (
+      {!['message_receive', 'intent', 'decision', 'ai_reply', 'message_dispatch', 'send_command', 'command_status', 'end', 'alert_save', 'alert_rule', 'risk_handler', 'monitor', 'robot_dispatch', 'execute_notification'].includes(node.data.type || '') && (
         <div className="text-sm text-red-500 text-center py-4">
           <p className="font-medium">未知的节点类型</p>
           <p className="text-xs mt-1">类型: {node.data.type || 'undefined'}</p>
