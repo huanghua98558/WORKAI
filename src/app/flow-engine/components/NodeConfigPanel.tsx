@@ -645,14 +645,14 @@ function AiReplyConfig({ config, onChange }: any) {
       <div>
         <Label htmlFor="personaId">人设ID（可选）</Label>
         <Select
-          value={config.personaId || ''}
-          onValueChange={(value) => onChange('personaId', value)}
+          value={config.personaId || 'none'}
+          onValueChange={(value) => onChange('personaId', value === 'none' ? null : value)}
         >
           <SelectTrigger className="mt-1">
             <SelectValue placeholder="选择人设（可选）" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">无（默认人设）</SelectItem>
+            <SelectItem value="none">无（默认人设）</SelectItem>
             <SelectItem value="customer_service">客服助手</SelectItem>
             <SelectItem value="technical_support">技术支持</SelectItem>
             <SelectItem value="sales_consultant">销售顾问</SelectItem>

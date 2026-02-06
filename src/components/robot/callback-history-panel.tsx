@@ -179,12 +179,12 @@ export function CallbackHistoryPanel({ robotId }: CallbackHistoryPanelProps) {
         <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <Label>回调类型</Label>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <Select value={typeFilter || 'all'} onValueChange={(value) => setTypeFilter(value === 'all' ? '' : value)}>
               <SelectTrigger>
                 <SelectValue placeholder="全部类型" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">全部类型</SelectItem>
+                <SelectItem value="all">全部类型</SelectItem>
                 <SelectItem value="11">消息回调</SelectItem>
                 <SelectItem value="0">群二维码回调</SelectItem>
                 <SelectItem value="1">指令结果回调</SelectItem>

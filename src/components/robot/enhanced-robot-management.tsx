@@ -778,12 +778,12 @@ export default function RobotManagement() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="groupId">分组</Label>
-                <Select value={formData.groupId} onValueChange={(value) => setFormData({ ...formData, groupId: value })}>
+                <Select value={formData.groupId || 'none'} onValueChange={(value) => setFormData({ ...formData, groupId: value === 'none' ? '' : value })}>
                   <SelectTrigger id="groupId">
                     <SelectValue placeholder="选择分组" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">无分组</SelectItem>
+                    <SelectItem value="none">无分组</SelectItem>
                     {groups.map(group => (
                       <SelectItem key={group.id} value={group.id}>
                         {group.icon} {group.name}
@@ -795,12 +795,12 @@ export default function RobotManagement() {
 
               <div>
                 <Label htmlFor="roleId">角色</Label>
-                <Select value={formData.roleId} onValueChange={(value) => setFormData({ ...formData, roleId: value })}>
+                <Select value={formData.roleId || 'none'} onValueChange={(value) => setFormData({ ...formData, roleId: value === 'none' ? '' : value })}>
                   <SelectTrigger id="roleId">
                     <SelectValue placeholder="选择角色" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">无角色</SelectItem>
+                    <SelectItem value="none">无角色</SelectItem>
                     {roles.map(role => (
                       <SelectItem key={role.id} value={role.id}>
                         {role.name} (优先级 {role.priority})
