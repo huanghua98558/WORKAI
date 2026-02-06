@@ -142,6 +142,10 @@ export default function NodeConfigPanel({ node, onUpdate }: NodeConfigPanelProps
       {node.data.type === 'execute_notification' && (
         <ExecuteNotificationConfig config={config} onChange={handleConfigChange} />
       )}
+
+      {node.data.type === 'risk_handler' && <RiskHandlerConfig config={config} onChange={handleConfigChange} />}
+
+      {node.data.type === 'monitor' && <MonitorConfig config={config} onChange={handleConfigChange} />}
     </Card>
   );
 }
@@ -831,6 +835,305 @@ function ExecuteNotificationConfig({ config, onChange }: any) {
           rows={8}
           placeholder='[{"type": "robot", "enabled": true, "priority": 1, "robotConfig": {"sendType": "private"}}]'
         />
+      </div>
+    </div>
+  );
+}
+
+// 风险处理节点配置
+function RiskHandlerConfig({ config, onChange }: any) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="riskModelId">AI模型</Label>
+        <Select
+          value={config.riskModelId || 'doubao'}
+          onValueChange={(value) => onChange('riskModelId', value)}
+        >
+          <SelectTrigger className="mt-1">
+            <SelectValue placeholder="选择AI模型" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="doubao">豆包（默认）</SelectItem>
+            <SelectItem value="deepseek">DeepSeek</SelectItem>
+            <SelectItem value="kimi">Kimi</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label htmlFor="riskLevelThreshold">风险等级阈值</Label>
+        <Select
+          value={config.riskLevelThreshold || 'medium'}
+          onValueChange={(value) => onChange('riskLevelThreshold', value)}
+        >
+          <SelectTrigger className="mt-1">
+            <SelectValue placeholder="选择风险等级阈值" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="low">低风险（low）</SelectItem>
+            <SelectItem value="medium">中风险（medium）</SelectItem>
+            <SelectItem value="high">高风险（high）</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label className="text-sm font-medium text-slate-700">AI安抚消息配置</Label>
+        <div className="space-y-2 mt-2">
+          <div>
+            <Label htmlFor="comfortMessageTemplate">安抚消息模板</Label>
+            <Textarea
+              id="comfortMessageTemplate"
+              value={config.comfortMessageTemplate || '您好，我理解您的担忧。我们会尽快为您处理这个问题。'}
+              onChange={(e) => onChange('comfortMessageTemplate', e.target.value)}
+              placeholder="输入安抚消息模板（支持变量：{{userName}}, {{intent}}等）"
+              className="mt-1 resize-none"
+              rows={3}
+            />
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enableComfort"
+              checked={config.enableComfort ?? true}
+              onCheckedChange={(checked) => onChange('enableComfort', checked)}
+            />
+            <Label htmlFor="enableComfort" className="text-sm">
+              启用AI安抚消息
+            </Label>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <Label className="text-sm font-medium text-slate-700">人工通知配置</Label>
+        <div className="space-y-2 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enableHumanNotify"
+              checked={config.enableHumanNotify ?? true}
+              onCheckedChange={(checked) => onChange('enableHumanNotify', checked)}
+            />
+            <Label htmlFor="enableHumanNotify" className="text-sm">
+              启用人工通知
+            </Label>
+          </div>
+          {config.enableHumanNotify && (
+            <>
+              <div>
+                <Label htmlFor="notifyMessage" className="text-sm">
+                  通知消息内容
+                </Label>
+                <Textarea
+                  id="notifyMessage"
+                  value={config.notifyMessage || '检测到风险对话，需要人工介入处理。'}
+                  onChange={(e) => onChange('notifyMessage', e.target.value)}
+                  placeholder="输入人工通知消息"
+                  className="mt-1 resize-none"
+                  rows={2}
+                />
+              </div>
+              <div>
+                <Label htmlFor="notifyTargets" className="text-sm">
+                  通知目标（管理员用户名，逗号分隔）
+                </Label>
+                <Input
+                  id="notifyTargets"
+                  value={config.notifyTargets || ''}
+                  onChange={(e) => onChange('notifyTargets', e.target.value)}
+                  placeholder="admin1,admin2"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="notifyMethod" className="text-sm">
+                  通知方式
+                </Label>
+                <Select
+                  value={config.notifyMethod || 'private'}
+                  onValueChange={(value) => onChange('notifyMethod', value)}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="选择通知方式" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="private">私聊</SelectItem>
+                    <SelectItem value="group">群消息</SelectItem>
+                    <SelectItem value="both">私聊+群消息</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 监控节点配置
+function MonitorConfig({ config, onChange }: any) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="monitorTarget">监控目标</Label>
+        <Select
+          value={config.monitorTarget || 'group'}
+          onValueChange={(value) => onChange('monitorTarget', value)}
+        >
+          <SelectTrigger className="mt-1">
+            <SelectValue placeholder="选择监控目标" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="group">群组</SelectItem>
+            <SelectItem value="user">用户</SelectItem>
+            <SelectItem value="all">全局监控</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {config.monitorTarget === 'group' && (
+        <div>
+          <Label htmlFor="targetGroupName" className="text-sm">
+            目标群组名称
+          </Label>
+          <Input
+            id="targetGroupName"
+            value={config.targetGroupName || ''}
+            onChange={(e) => onChange('targetGroupName', e.target.value)}
+            placeholder="输入群组名称"
+            className="mt-1"
+          />
+        </div>
+      )}
+
+      {config.monitorTarget === 'user' && (
+        <div>
+          <Label htmlFor="targetUserName" className="text-sm">
+            目标用户名称
+          </Label>
+          <Input
+            id="targetUserName"
+            value={config.targetUserName || ''}
+            onChange={(e) => onChange('targetUserName', e.target.value)}
+            placeholder="输入用户名称"
+            className="mt-1"
+          />
+        </div>
+      )}
+
+      <div>
+        <Label className="text-sm font-medium text-slate-700">监控内容配置</Label>
+        <div className="space-y-2 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="monitorAllMessages"
+              checked={config.monitorAllMessages ?? true}
+              onCheckedChange={(checked) => onChange('monitorAllMessages', checked)}
+            />
+            <Label htmlFor="monitorAllMessages" className="text-sm">
+              监控所有消息
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="monitorAtMentions"
+              checked={config.monitorAtMentions ?? false}
+              onCheckedChange={(checked) => onChange('monitorAtMentions', checked)}
+            />
+            <Label htmlFor="monitorAtMentions" className="text-sm">
+              仅监控@机器人的消息
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="monitorKeywords"
+              checked={config.monitorKeywords ?? false}
+              onCheckedChange={(checked) => onChange('monitorKeywords', checked)}
+            />
+            <Label htmlFor="monitorKeywords" className="text-sm">
+              关键词监控
+            </Label>
+          </div>
+        </div>
+      </div>
+
+      {config.monitorKeywords && (
+        <div>
+          <Label htmlFor="keywordList" className="text-sm">
+            关键词列表（逗号分隔）
+          </Label>
+          <Input
+            id="keywordList"
+            value={config.keywordList || ''}
+            onChange={(e) => onChange('keywordList', e.target.value)}
+            placeholder="告警,故障,问题"
+            className="mt-1"
+          />
+        </div>
+      )}
+
+      <div>
+        <Label className="text-sm font-medium text-slate-700">响应配置</Label>
+        <div className="space-y-2 mt-2">
+          <div>
+            <Label htmlFor="triggerAction" className="text-sm">
+              触发后的动作
+            </Label>
+            <Select
+              value={config.triggerAction || 'passive'}
+              onValueChange={(value) => onChange('triggerAction', value)}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择触发动作" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="passive">仅记录，不触发流程</SelectItem>
+                <SelectItem value="active">触发流程继续执行</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="monitorTimeout" className="text-sm">
+              监控超时时间（秒）
+            </Label>
+            <Input
+              id="monitorTimeout"
+              type="number"
+              min="0"
+              max="3600"
+              value={config.monitorTimeout ?? 300}
+              onChange={(e) => onChange('monitorTimeout', parseInt(e.target.value))}
+              className="mt-1"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <Label className="text-sm font-medium text-slate-700">数据存储配置</Label>
+        <div className="space-y-2 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="saveMonitorData"
+              checked={config.saveMonitorData ?? true}
+              onCheckedChange={(checked) => onChange('saveMonitorData', checked)}
+            />
+            <Label htmlFor="saveMonitorData" className="text-sm">
+              保存监控数据到数据库
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enableWebSocketPush"
+              checked={config.enableWebSocketPush ?? false}
+              onCheckedChange={(checked) => onChange('enableWebSocketPush', checked)}
+            />
+            <Label htmlFor="enableWebSocketPush" className="text-sm">
+              启用WebSocket实时推送
+            </Label>
+          </div>
+        </div>
       </div>
     </div>
   );
