@@ -95,47 +95,41 @@ export function TokenStatsCard() {
         </Button>
       </CardHeader>
       <CardContent className="px-4 pb-4 flex-1 flex flex-col gap-2.5">
-        {/* 今日累计 + 增长率（紧凑） */}
-        <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg p-2.5 text-white shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] text-purple-100 font-medium">今日累计</span>
-            {growthRate !== 0 && (
-              <div className={`flex items-center gap-0.5 text-[11px] ${growthRate > 0 ? 'text-white' : 'text-purple-100'}`}>
-                {growthRate > 0 ? (
-                  <ArrowUpRight className="h-2.5 w-2.5" />
-                ) : (
-                  <ArrowDownRight className="h-2.5 w-2.5" />
-                )}
-                <span>{Math.abs(growthRate).toFixed(1)}%</span>
-              </div>
-            )}
-          </div>
-          <div className="text-2xl font-bold leading-tight mt-0.5">
-            <AnimatedNumber value={stats?.today.total ?? null} formatFn={formatNumber} />
-          </div>
-        </div>
-
-        {/* 输入输出（横向紧凑） */}
+        {/* 第一行：今日累计 + 输入 + 输出（并排） */}
         <div className="flex gap-2">
-          <div className="flex-1 bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2 border border-blue-100 dark:border-blue-900/30">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">输入</span>
-              <span className="text-lg font-bold text-blue-600 dark:text-blue-400 leading-tight">
-                <AnimatedNumber value={stats?.today.input ?? null} formatFn={formatNumber} />
-              </span>
+          <div className="flex-[2] bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg p-3 text-white shadow-sm">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-medium">今日累计</span>
+              {growthRate !== 0 && (
+                <div className={`flex items-center gap-0.5 text-xs ${growthRate > 0 ? 'text-white' : 'text-purple-100'}`}>
+                  {growthRate > 0 ? (
+                    <ArrowUpRight className="h-3 w-3" />
+                  ) : (
+                    <ArrowDownRight className="h-3 w-3" />
+                  )}
+                  <span>{Math.abs(growthRate).toFixed(1)}%</span>
+                </div>
+              )}
+            </div>
+            <div className="text-2xl font-bold leading-tight">
+              <AnimatedNumber value={stats?.today.total ?? null} formatFn={formatNumber} />
             </div>
           </div>
-          <div className="flex-1 bg-green-50 dark:bg-green-950/20 rounded-lg p-2 border border-green-100 dark:border-green-900/30">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">输出</span>
-              <span className="text-lg font-bold text-green-600 dark:text-green-400 leading-tight">
-                <AnimatedNumber value={stats?.today.output ?? null} formatFn={formatNumber} />
-              </span>
+          <div className="flex-1 bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2.5 border border-blue-100 dark:border-blue-900/30 flex flex-col justify-center">
+            <div className="text-[10px] text-blue-600 dark:text-blue-400 mb-0.5 font-medium">输入</div>
+            <div className="text-lg font-bold text-blue-600 dark:text-blue-400 leading-tight">
+              <AnimatedNumber value={stats?.today.input ?? null} formatFn={formatNumber} />
+            </div>
+          </div>
+          <div className="flex-1 bg-green-50 dark:bg-green-950/20 rounded-lg p-2.5 border border-green-100 dark:border-green-900/30 flex flex-col justify-center">
+            <div className="text-[10px] text-green-600 dark:text-green-400 mb-0.5 font-medium">输出</div>
+            <div className="text-lg font-bold text-green-600 dark:text-green-400 leading-tight">
+              <AnimatedNumber value={stats?.today.output ?? null} formatFn={formatNumber} />
             </div>
           </div>
         </div>
 
-        {/* 消耗统计 - 2x2卡片 */}
+        {/* 第二行：2x2时间维度卡片 */}
         <div className="flex-1 grid grid-cols-2 gap-2">
           <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 border border-slate-100 dark:border-slate-700 flex flex-col">
             <div className="flex items-center gap-1 mb-1">
