@@ -12,7 +12,8 @@ const {
   aiRoles,
   promptCategoryTemplates,
   aiModelUsage,
-  aiBudgetSettings
+  aiBudgetSettings,
+  ai_io_logs
 } = require('../database/schema');
 const { eq, asc, desc, and, sql } = require('drizzle-orm');
 const { getLogger } = require('../lib/logger');
@@ -1164,11 +1165,36 @@ async function testAI(request, reply) {
 
     // 调用AI服务生成回复
     const startTime = Date.now();
+    const sessionId = 'test-session-' + Date.now();
+    const messageId = 'test-message-' + Date.now();
+
     const result = await aiService.generateReply(messages, {
       operationType: 'test',
-      sessionId: 'test-session-' + Date.now()
+      sessionId: sessionId
     });
     const responseTime = Date.now() - startTime;
+
+    // 记录AI交互日志
+    try {
+      const db = await getDb();
+      await db.insert(ai_io_logs).values({
+        sessionId: sessionId,
+        messageId: messageId,
+        robotId: modelId,
+        robotName: 'AI调试测试',
+        operationType: 'test',
+        aiInput: input,
+        aiOutput: result.content,
+        modelId: aiService.modelId,
+        temperature: Math.round((aiService.temperature || 0.7) * 100),
+        requestDuration: responseTime,
+        status: 'success'
+      });
+      logger.info('AI调试日志记录成功', { sessionId, messageId });
+    } catch (logError) {
+      // 日志记录失败不影响主流程
+      logger.error('AI调试日志记录失败', { error: logError.message });
+    }
 
     // 返回测试结果
     return reply.send({
