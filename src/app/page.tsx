@@ -513,8 +513,9 @@ export default function AdminDashboard() {
     }
   };
 
-  // 自动刷新：每30秒只刷新关键数据（会话列表）
+  // 自动刷新：每60秒只刷新关键数据（会话列表）
   // 避免频繁刷新导致页面闪烁和性能问题
+  // 仅在用户不活动时刷新，避免干扰用户操作
   useEffect(() => {
     // 如果会话详情打开，不进行自动刷新
     if (showSessionDetail) {
@@ -526,6 +527,9 @@ export default function AdminDashboard() {
       return;
     }
 
+    // 禁用自动刷新，改为手动刷新，避免页面闪烁
+    // 如需自动刷新，请取消下面的注释
+    /*
     const interval = setInterval(() => {
       console.log('[自动刷新] 刷新关键数据...');
       // 只刷新会话数据，快速响应
@@ -542,12 +546,10 @@ export default function AdminDashboard() {
           });
         }
       });
-
-      // 不再刷新全部数据，避免页面闪烁
-      // loadData() 已经改为按需加载，不需要自动刷新
-    }, 30000); // 每 30 秒刷新一次会话数据
+    }, 60000); // 每 60 秒刷新一次会话数据
 
     return () => clearInterval(interval);
+    */
   }, [showSessionDetail, activeTab]);
 
   // 初始化回调测试状态（当回调地址加载完成后）
