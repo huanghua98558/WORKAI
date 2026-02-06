@@ -4,11 +4,11 @@
 -- ============================================
 
 -- 插入AI提供商配置
-INSERT INTO ai_providers (name, display_name, type, api_key, api_endpoint, is_enabled, priority, rate_limit, description) VALUES
-('doubao', '豆包大模型', 'builtin', NULL, 'https://ark.cn-beijing.volces.com/api/v3', true, 10, 60, '字节跳动豆包大模型，支持意图识别、对话、报告生成等多种能力'),
-('deepseek', 'DeepSeek', 'builtin', NULL, 'https://api.deepseek.com', true, 20, 60, 'DeepSeek大模型，强大的推理能力，适合复杂任务处理'),
-('kimi', 'Kimi', 'builtin', NULL, 'https://api.moonshot.cn', true, 30, 60, 'Kimi大模型，长文本处理能力强，适合报告生成和长对话')
-ON CONFLICT (name) DO NOTHING;
+INSERT INTO ai_providers (id, name, display_name, type, api_key, api_endpoint, is_enabled, priority, rate_limit, description)
+VALUES
+  (gen_random_uuid(), 'doubao', '豆包大模型', 'builtin', NULL, 'https://ark.cn-beijing.volces.com/api/v3', true, 10, 60, '字节跳动豆包大模型，支持意图识别、对话、报告生成等多种能力'),
+  (gen_random_uuid(), 'deepseek', 'DeepSeek', 'builtin', NULL, 'https://api.deepseek.com', true, 20, 60, 'DeepSeek大模型，强大的推理能力，适合复杂任务处理'),
+  (gen_random_uuid(), 'kimi', 'Kimi', 'builtin', NULL, 'https://api.moonshot.cn', true, 30, 60, 'Kimi大模型，长文本处理能力强，适合报告生成和长对话');
 
 -- 插入AI模型配置
 -- 1. 意图识别模型（轻量快速）

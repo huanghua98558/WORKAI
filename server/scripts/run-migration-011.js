@@ -18,7 +18,7 @@ async function runMigration() {
     console.log('📝 开始执行迁移: 011_insert_builtin_ai_models.sql');
     
     // 读取SQL文件
-    const sqlFilePath = path.join(__dirname, 'database/migrations/011_insert_builtin_ai_models.sql');
+    const sqlFilePath = path.join(__dirname, '../database/migrations/011_insert_builtin_ai_models.sql');
     const sql = fs.readFileSync(sqlFilePath, 'utf8');
     
     // 执行SQL
