@@ -308,6 +308,66 @@ async function monitoringRoutes(fastify, options) {
       });
     }
   });
+
+  // 7. 获取 Token 统计
+  fastify.get('/monitoring/token-stats', async (request, reply) => {
+    try {
+      const db = await getDb();
+
+      // 计算今天和昨天的日期范围（UTC+8）
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      
+      const yesterdayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      const yesterdayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      // 查询今天的Token使用情况
+      const todayLogs = await db
+        .select()
+        .from(ai_io_logs)
+        .where(and(
+          gte(ai_io_logs.createdAt, todayStart.toISOString()),
+          lte(ai_io_logs.createdAt, todayEnd.toISOString())
+        ));
+
+      // 查询昨天的Token使用情况
+      const yesterdayLogs = await db
+        .select()
+        .from(ai_io_logs)
+        .where(and(
+          gte(ai_io_logs.createdAt, yesterdayStart.toISOString()),
+          lte(ai_io_logs.createdAt, yesterdayEnd.toISOString())
+        ));
+
+      // 统计今天的Token数据
+      const todayTotal = todayLogs.reduce((sum, log) => sum + (log.totalTokens || 0), 0);
+      const todayInput = todayLogs.reduce((sum, log) => sum + (log.inputTokens || 0), 0);
+      const todayOutput = todayLogs.reduce((sum, log) => sum + (log.outputTokens || 0), 0);
+
+      // 统计昨天的Token数据
+      const yesterdayTotal = yesterdayLogs.reduce((sum, log) => sum + (log.totalTokens || 0), 0);
+
+      return reply.send({
+        code: 0,
+        message: 'success',
+        data: {
+          today_total: todayTotal,
+          today_input: todayInput,
+          today_output: todayOutput,
+          yesterday_total: yesterdayTotal,
+          record_count: todayLogs.length
+        }
+      });
+    } catch (error) {
+      console.error('获取 Token 统计失败:', error);
+      return reply.status(500).send({
+        code: -1,
+        message: '获取 Token 统计失败',
+        error: error.message
+      });
+    }
+  });
 }
 
 module.exports = monitoringRoutes;

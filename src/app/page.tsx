@@ -43,6 +43,9 @@ const AIModule = lazy(() => import('@/components/ai-module'));
 const FlowEngineManage = lazy(() => import('@/components/flow-engine-manage'));
 const CollabAnalytics = lazy(() => import('@/app/collab-analytics/page'));
 
+// Token统计组件
+import { TokenStatsCard } from '@/components/token-stats';
+
 // 引入新的仪表盘组件
 const NewDashboardTab = lazy(() => import('@/components/dashboard/NewDashboardTab'));
 
@@ -1862,18 +1865,8 @@ ${callbacks.robotStatus}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">告警数量</CardTitle>
-            <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-              <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{alertStats?.total || 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">近 7 天告警</p>
-          </CardContent>
-        </Card>
+        {/* Token统计 */}
+        <TokenStatsCard />
       </div>
 
       {/* 会话列表和快速操作 */}
