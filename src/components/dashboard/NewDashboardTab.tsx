@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+import { TokenStatsCard } from '@/components/token-stats';
+
 // 类型定义（需要与主页面保持一致）
 interface MonitorData {
   date: string;
@@ -615,37 +617,8 @@ export default function NewDashboardTab({
             </CardContent>
           </Card>
 
-          {/* 关键指标 */}
-          <Card className="shadow-md hover:shadow-lg transition-shadow flex flex-col h-[420px]">
-            <CardHeader className="flex-shrink-0 py-3 px-6">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-green-500" />
-                关键指标
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 space-y-3 px-6 pb-6">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-2">
-                  <span className="text-sm text-slate-600 dark:text-slate-400">平均响应时间</span>
-                  <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                    {(alertOverview?.avgResponseTimeSeconds || 0).toFixed(2)}秒
-                  </span>
-                </div>
-                <div className="flex items-center justify-between p-2">
-                  <span className="text-sm text-slate-600 dark:text-slate-400">平均升级次数</span>
-                  <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                    {(alertOverview?.avgEscalationCount || 0).toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between p-2">
-                  <span className="text-sm text-slate-600 dark:text-slate-400">最大升级次数</span>
-                  <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                    {alertOverview?.maxEscalationCount || 0}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Token监控 */}
+          <TokenStatsCard />
         </div>
 
         {/* 右侧列 - 活跃排行 */}
