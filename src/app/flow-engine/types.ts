@@ -1,10 +1,8 @@
 /**
- * 节点类型定义
+ * 流程引擎类型定义 - 12种节点类型
  */
 
-// 节点类型定义
-
-// 基础节点类型
+// 基础节点类型（12种）
 export const NODE_TYPES = {
   // 文档节点1
   MESSAGE_RECEIVE: 'message_receive',
@@ -43,7 +41,7 @@ export const NODE_TYPES = {
   MONITOR: 'monitor',
 } as const;
 
-// 节点元数据
+// 节点元数据（12种）
 export const NODE_METADATA = {
   [NODE_TYPES.MESSAGE_RECEIVE]: {
     name: '消息接收',
@@ -199,3 +197,180 @@ export interface FlowDefinition {
   version?: string;
   isActive?: boolean;
 }
+
+// ========== 节点配置类型定义 ==========
+
+// MESSAGE_RECEIVE 节点配置
+export interface MessageReceiveConfig {
+  saveToDatabase: boolean;      // 是否保存到数据库
+  validateContent: boolean;     // 是否验证内容
+  allowedSources?: string[];    // 允许的消息来源
+  maxMessageLength?: number;    // 最大消息长度
+}
+
+// INTENT 节点配置
+export interface IntentConfig {
+  modelId: string;              // AI模型ID
+  supportedIntents: string[];   // 支持的意图列表
+  confidenceThreshold?: number; // 置信度阈值（0-1）
+  fallbackIntent?: string;      // 默认意图
+  saveToContext: boolean;       // 是否保存到上下文
+}
+
+// DECISION 节点配置
+export interface DecisionConfig {
+  conditionType: 'expression' | 'rule'; // 条件类型
+  condition: string;          // 条件表达式
+  rules?: DecisionRule[];     // 规则列表
+  trueLabel?: string;         // True分支标签
+  falseLabel?: string;        // False分支标签
+}
+
+export interface DecisionRule {
+  id: string;
+  name: string;
+  condition: string;
+  label: string;
+}
+
+// AI_REPLY 节点配置
+export interface AIReplyConfig {
+  modelId: string;              // AI模型ID
+  temperature?: number;         // 温度参数（0-1）
+  maxTokens?: number;          // 最大token数
+  systemPrompt?: string;       // 系统提示词
+  useContextHistory: boolean;   // 是否使用上下文历史
+  contextWindowSize?: number;   // 上下文窗口大小
+  personaId?: string;          // 人设ID
+  enableThinking: boolean;      // 是否启用思考模式
+}
+
+// MESSAGE_DISPATCH 节点配置
+export interface MessageDispatchConfig {
+  dispatchMode: 'single' | 'broadcast' | 'conditional'; // 分发模式
+  targetType: 'user' | 'group' | 'robot'; // 目标类型
+  rules?: DispatchRule[];      // 分发规则
+  defaultTargets?: string[];   // 默认目标
+}
+
+export interface DispatchRule {
+  id: string;
+  name: string;
+  condition: string;
+  targets: string[];
+}
+
+// SEND_COMMAND 节点配置
+export interface SendCommandConfig {
+  commandType: 'message' | 'notification' | 'command'; // 指令类型
+  messageContent: string;      // 消息内容
+  recipients: string[];        // 接收者列表
+  robotId: string;             // 机器人ID
+  saveLog: boolean;            // 是否保存日志
+  priority?: 'low' | 'normal' | 'high'; // 优先级
+  retryCount?: number;         // 重试次数
+}
+
+// COMMAND_STATUS 节点配置
+export interface CommandStatusConfig {
+  statusType: 'success' | 'failure' | 'pending'; // 状态类型
+  saveToDatabase: boolean;     // 是否保存到数据库
+  customStatus?: string;       // 自定义状态
+  errorMessage?: string;       // 错误消息
+  metadata?: Record<string, any>; // 元数据
+}
+
+// END 节点配置
+export interface EndConfig {
+  endType: 'success' | 'failure' | 'manual'; // 结束类型
+  returnMessage?: string;      // 返回消息
+  saveSession: boolean;        // 是否保存会话
+  cleanupContext: boolean;     // 是否清理上下文
+}
+
+// ALERT_SAVE 节点配置
+export interface AlertSaveConfig {
+  alertType: string;           // 告警类型
+  alertLevel: 'low' | 'medium' | 'high' | 'critical'; // 告警级别
+  alertTitle: string;          // 告警标题
+  alertContent: string;        // 告警内容
+  source: string;              // 告警来源
+  tags?: string[];             // 标签
+  assignee?: string;           // 负责人
+  dueDate?: string;            // 截止日期
+}
+
+// ALERT_RULE 节点配置
+export interface AlertRuleConfig {
+  ruleType: 'threshold' | 'pattern' | 'frequency'; // 规则类型
+  threshold?: number;          // 阈值
+  pattern?: string;            // 匹配模式
+  frequency?: number;          // 频率（次/分钟）
+  escalationLevel: number;     // 升级级别
+  escalateTo: string[];        // 升级目标
+  notifyChannels: string[];    // 通知渠道
+}
+
+// RISK_HANDLER 节点配置
+export interface RiskHandlerConfig {
+  riskLevel: 'low' | 'medium' | 'high' | 'critical'; // 风险级别
+  aiSoothing: boolean;         // 是否启用AI安抚
+  soothingModelId?: string;    // 安抚AI模型ID
+  notifyHumans: boolean;       // 是否通知人工
+  notifyTargets: string[];     // 通知目标
+  escalationStrategy: 'immediate' | 'timeout' | 'manual'; // 升级策略
+  escalateAfterMinutes?: number; // 升级时间（分钟）
+}
+
+// MONITOR 节点配置
+export interface MonitorConfig {
+  monitorType: 'message' | 'user' | 'keyword' | 'risk'; // 监控类型
+  targets: string[];           // 监控目标
+  keywords?: string[];         // 关键词列表
+  riskThreshold?: number;      // 风险阈值
+  alertOnMatch: boolean;       // 匹配时是否告警
+  realtime: boolean;           // 是否实时监控
+  intervalSeconds?: number;    // 间隔（秒）
+}
+
+// 节点配置联合类型
+export type NodeConfig =
+  | MessageReceiveConfig
+  | IntentConfig
+  | DecisionConfig
+  | AIReplyConfig
+  | MessageDispatchConfig
+  | SendCommandConfig
+  | CommandStatusConfig
+  | EndConfig
+  | AlertSaveConfig
+  | AlertRuleConfig
+  | RiskHandlerConfig
+  | MonitorConfig;
+
+// 根据节点类型获取配置类型
+export type GetConfigByNodeType<T extends string> = T extends 'message_receive'
+  ? MessageReceiveConfig
+  : T extends 'intent'
+  ? IntentConfig
+  : T extends 'decision'
+  ? DecisionConfig
+  : T extends 'ai_reply'
+  ? AIReplyConfig
+  : T extends 'message_dispatch'
+  ? MessageDispatchConfig
+  : T extends 'send_command'
+  ? SendCommandConfig
+  : T extends 'command_status'
+  ? CommandStatusConfig
+  : T extends 'end'
+  ? EndConfig
+  : T extends 'alert_save'
+  ? AlertSaveConfig
+  : T extends 'alert_rule'
+  ? AlertRuleConfig
+  : T extends 'risk_handler'
+  ? RiskHandlerConfig
+  : T extends 'monitor'
+  ? MonitorConfig
+  : Record<string, any>;

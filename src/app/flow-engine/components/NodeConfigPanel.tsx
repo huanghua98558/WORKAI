@@ -254,62 +254,83 @@ function MessageReceiveConfig({ config, onChange }: any) {
 function IntentConfig({ config, onChange }: any) {
   return (
     <div className="space-y-4">
+      {/* AI模型选择 */}
       <div>
         <Label htmlFor="modelId">AI模型</Label>
         <Select
-          value={config.modelId || 'default'}
+          value={config.modelId || 'doubao-pro-4k'}
           onValueChange={(value) => onChange('modelId', value)}
         >
           <SelectTrigger className="mt-1">
             <SelectValue placeholder="选择AI模型" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="default">默认意图识别模型</SelectItem>
-            <SelectItem value="custom">自定义模型</SelectItem>
+            <SelectItem value="doubao-pro-4k">豆包 Pro 4K（推荐）</SelectItem>
+            <SelectItem value="doubao-pro-32k">豆包 Pro 32K</SelectItem>
+            <SelectItem value="doubao-pro-128k">豆包 Pro 128K</SelectItem>
+            <SelectItem value="deepseek-chat">DeepSeek Chat</SelectItem>
+            <SelectItem value="kimi-moonshot-v1-8k">Kimi 8K</SelectItem>
+            <SelectItem value="kimi-moonshot-v1-32k">Kimi 32K</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
+      {/* 置信度阈值 */}
       <div>
-        <Label htmlFor="temperature">温度参数</Label>
+        <Label htmlFor="confidenceThreshold">置信度阈值</Label>
         <Input
-          id="temperature"
+          id="confidenceThreshold"
           type="number"
           step="0.1"
           min="0"
           max="1"
-          value={config.temperature ?? 0.1}
-          onChange={(e) => onChange('temperature', parseFloat(e.target.value))}
+          value={config.confidenceThreshold ?? 0.7}
+          onChange={(e) => onChange('confidenceThreshold', parseFloat(e.target.value))}
           className="mt-1"
         />
+        <p className="text-xs text-slate-500 mt-1">
+          0-1之间的值，仅当置信度大于此值时才识别成功，默认0.7
+        </p>
       </div>
 
+      {/* 默认意图 */}
       <div>
-        <Label htmlFor="systemPrompt">自定义提示词</Label>
-        <Textarea
-          id="systemPrompt"
-          value={config.systemPrompt || ''}
-          onChange={(e) => onChange('systemPrompt', e.target.value)}
-          placeholder="输入自定义系统提示词"
-          className="mt-1 resize-none"
-          rows={3}
-        />
+        <Label htmlFor="fallbackIntent">默认意图（未识别时）</Label>
+        <Select
+          value={config.fallbackIntent || 'unknown'}
+          onValueChange={(value) => onChange('fallbackIntent', value)}
+        >
+          <SelectTrigger className="mt-1">
+            <SelectValue placeholder="选择默认意图" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="unknown">未知（unknown）</SelectItem>
+            <SelectItem value="chat">对话（chat）</SelectItem>
+            <SelectItem value="service">服务（service）</SelectItem>
+            <SelectItem value="help">帮助（help）</SelectItem>
+            <SelectItem value="welcome">欢迎（welcome）</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-slate-500 mt-1">
+          当AI无法识别意图时使用的默认值
+        </p>
       </div>
 
-      <div>
-        <Label className="text-sm font-medium text-slate-700">意图过滤</Label>
-        <div className="space-y-2 mt-2">
-          {['service', 'help', 'chat', 'welcome', 'risk', 'spam'].map((intent) => (
+      {/* 支持的意图列表 */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700">支持的意图列表</Label>
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          {['service', 'help', 'chat', 'welcome', 'risk', 'spam', 'complaint', 'praise', 'inquiry', 'order'].map((intent) => (
             <div key={intent} className="flex items-center space-x-2">
               <Checkbox
                 id={`intent-${intent}`}
-                checked={config.allowedIntents?.includes(intent) ?? true}
+                checked={config.supportedIntents?.includes(intent) ?? true}
                 onCheckedChange={(checked) => {
-                  const intents = config.allowedIntents || ['service', 'help', 'chat', 'welcome', 'risk', 'spam'];
+                  const intents = config.supportedIntents || ['service', 'help', 'chat', 'welcome', 'risk', 'spam'];
                   if (checked) {
-                    onChange('allowedIntents', [...intents, intent]);
+                    onChange('supportedIntents', [...intents, intent]);
                   } else {
-                    onChange('allowedIntents', intents.filter((i: string) => i !== intent));
+                    onChange('supportedIntents', intents.filter((i: string) => i !== intent));
                   }
                 }}
               />
@@ -319,7 +340,81 @@ function IntentConfig({ config, onChange }: any) {
             </div>
           ))}
         </div>
+        <p className="text-[10px] text-slate-500 mt-1">
+          勾选允许识别的意图类型，未勾选的将被过滤
+        </p>
       </div>
+
+      {/* 上下文保存 */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700">上下文配置</Label>
+        <div className="space-y-2 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="saveToContext"
+              checked={config.saveToContext ?? true}
+              onCheckedChange={(checked) => onChange('saveToContext', checked)}
+            />
+            <Label htmlFor="saveToContext" className="text-sm">
+              保存识别结果到上下文
+            </Label>
+          </div>
+          {config.saveToContext && (
+            <div className="ml-6">
+              <Label htmlFor="contextKey" className="text-xs">
+                上下文变量名
+              </Label>
+              <Input
+                id="contextKey"
+                value={config.contextKey || 'intent'}
+                onChange={(e) => onChange('contextKey', e.target.value)}
+                placeholder="intent"
+                className="mt-1 font-mono text-xs"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 自定义提示词 */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label htmlFor="systemPrompt" className="text-sm font-medium text-slate-700">
+          自定义提示词（可选）
+        </Label>
+        <Textarea
+          id="systemPrompt"
+          value={config.systemPrompt || ''}
+          onChange={(e) => onChange('systemPrompt', e.target.value)}
+          placeholder="输入自定义系统提示词，用于定义意图识别的行为..."
+          className="mt-1 resize-none font-mono text-xs"
+          rows={3}
+        />
+        <p className="text-[10px] text-slate-500 mt-1">
+          留空则使用默认意图识别提示词
+        </p>
+      </div>
+
+      {/* 配置预览 */}
+      <details className="pt-2 border-t border-slate-200">
+        <summary className="text-xs text-slate-600 cursor-pointer hover:text-slate-800">
+          查看当前配置（JSON）
+        </summary>
+        <pre className="mt-2 p-2 bg-slate-50 rounded text-[10px] text-slate-600 overflow-x-auto">
+          {JSON.stringify(
+            {
+              modelId: config.modelId || 'doubao-pro-4k',
+              confidenceThreshold: config.confidenceThreshold ?? 0.7,
+              fallbackIntent: config.fallbackIntent || 'unknown',
+              supportedIntents: config.supportedIntents || [],
+              saveToContext: config.saveToContext ?? true,
+              contextKey: config.contextKey || 'intent',
+              systemPrompt: config.systemPrompt || '',
+            },
+            null,
+            2
+          )}
+        </pre>
+      </details>
     </div>
   );
 }
@@ -523,60 +618,189 @@ function DecisionConfig({ config, onChange }: any) {
 function AiReplyConfig({ config, onChange }: any) {
   return (
     <div className="space-y-4">
+      {/* AI模型选择 */}
       <div>
-        <Label htmlFor="defaultModelId">默认模型</Label>
+        <Label htmlFor="modelId">AI模型</Label>
         <Select
-          value={config.defaultModelId || 'doubao'}
-          onValueChange={(value) => onChange('defaultModelId', value)}
+          value={config.modelId || 'doubao-pro-4k'}
+          onValueChange={(value) => onChange('modelId', value)}
         >
           <SelectTrigger className="mt-1">
-            <SelectValue placeholder="选择默认AI模型" />
+            <SelectValue placeholder="选择AI模型" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="doubao">豆包（默认）</SelectItem>
-            <SelectItem value="deepseek">DeepSeek</SelectItem>
-            <SelectItem value="kimi">Kimi</SelectItem>
+            <SelectItem value="doubao-pro-4k">豆包 Pro 4K（推荐）</SelectItem>
+            <SelectItem value="doubao-pro-32k">豆包 Pro 32K</SelectItem>
+            <SelectItem value="doubao-pro-128k">豆包 Pro 128K</SelectItem>
+            <SelectItem value="deepseek-chat">DeepSeek Chat</SelectItem>
+            <SelectItem value="deepseek-coder">DeepSeek Coder</SelectItem>
+            <SelectItem value="kimi-moonshot-v1-8k">Kimi 8K</SelectItem>
+            <SelectItem value="kimi-moonshot-v1-32k">Kimi 32K</SelectItem>
+            <SelectItem value="kimi-moonshot-v1-128k">Kimi 128K</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
+      {/* 人设选择 */}
       <div>
+        <Label htmlFor="personaId">人设ID（可选）</Label>
+        <Select
+          value={config.personaId || ''}
+          onValueChange={(value) => onChange('personaId', value)}
+        >
+          <SelectTrigger className="mt-1">
+            <SelectValue placeholder="选择人设（可选）" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">无（默认人设）</SelectItem>
+            <SelectItem value="customer_service">客服助手</SelectItem>
+            <SelectItem value="technical_support">技术支持</SelectItem>
+            <SelectItem value="sales_consultant">销售顾问</SelectItem>
+            <SelectItem value="friendly_assistant">友好助手</SelectItem>
+            <SelectItem value="professional_expert">专业专家</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-slate-500 mt-1">选择后系统会应用对应的人设风格</p>
+      </div>
+
+      {/* 生成参数配置 */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700">生成参数</Label>
+        <div className="grid grid-cols-2 gap-3 mt-2">
+          <div>
+            <Label htmlFor="temperature" className="text-xs">
+              温度参数 ({config.temperature ?? 0.7})
+            </Label>
+            <Input
+              id="temperature"
+              type="number"
+              step="0.1"
+              min="0"
+              max="2"
+              value={config.temperature ?? 0.7}
+              onChange={(e) => onChange('temperature', parseFloat(e.target.value))}
+              className="mt-1"
+            />
+            <p className="text-[10px] text-slate-500 mt-1">
+              0=确定，1=随机，默认0.7
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="maxTokens" className="text-xs">
+              最大Token数
+            </Label>
+            <Input
+              id="maxTokens"
+              type="number"
+              min="1"
+              max="32000"
+              value={config.maxTokens ?? 1000}
+              onChange={(e) => onChange('maxTokens', parseInt(e.target.value))}
+              className="mt-1"
+            />
+            <p className="text-[10px] text-slate-500 mt-1">
+              默认1000，最大32000
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 上下文配置 */}
+      <div className="pt-3 border-t border-slate-200">
         <Label className="text-sm font-medium text-slate-700">上下文配置</Label>
         <div className="space-y-2 mt-2">
           <div className="flex items-center space-x-2">
             <Checkbox
-              id="includeHistory"
-              checked={config.context?.includeHistory ?? true}
-              onCheckedChange={(checked) =>
-                onChange('context', {
-                  ...(config.context || {}),
-                  includeHistory: checked,
-                })
-              }
+              id="useContextHistory"
+              checked={config.useContextHistory ?? true}
+              onCheckedChange={(checked) => onChange('useContextHistory', checked)}
             />
-            <Label htmlFor="includeHistory" className="text-sm">
-              包含历史消息
+            <Label htmlFor="useContextHistory" className="text-sm">
+              使用上下文历史
             </Label>
           </div>
-          <div>
-            <Label htmlFor="maxHistoryMessages" className="text-sm">
-              历史消息条数
-            </Label>
-            <Input
-              id="maxHistoryMessages"
-              type="number"
-              value={config.context?.maxHistoryMessages ?? 5}
-              onChange={(e) =>
-                onChange('context', {
-                  ...(config.context || {}),
-                  maxHistoryMessages: parseInt(e.target.value),
-                })
-              }
-              className="mt-1"
-            />
-          </div>
+          {config.useContextHistory && (
+            <div>
+              <Label htmlFor="contextWindowSize" className="text-xs">
+                上下文窗口大小
+              </Label>
+              <Input
+                id="contextWindowSize"
+                type="number"
+                min="1"
+                max="50"
+                value={config.contextWindowSize ?? 10}
+                onChange={(e) => onChange('contextWindowSize', parseInt(e.target.value))}
+                className="mt-1"
+              />
+              <p className="text-[10px] text-slate-500 mt-1">
+                包含最近N条消息，默认10
+              </p>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* 高级功能 */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700">高级功能</Label>
+        <div className="space-y-2 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enableThinking"
+              checked={config.enableThinking ?? false}
+              onCheckedChange={(checked) => onChange('enableThinking', checked)}
+            />
+            <Label htmlFor="enableThinking" className="text-sm">
+              启用思考模式（Chain of Thought）
+            </Label>
+          </div>
+          <p className="text-[10px] text-slate-500 ml-6">
+            AI会在回答前进行推理，适合复杂问题，但会增加响应时间
+          </p>
+        </div>
+      </div>
+
+      {/* 系统提示词 */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label htmlFor="systemPrompt" className="text-sm font-medium text-slate-700">
+          系统提示词（可选）
+        </Label>
+        <Textarea
+          id="systemPrompt"
+          value={config.systemPrompt || ''}
+          onChange={(e) => onChange('systemPrompt', e.target.value)}
+          placeholder="输入系统提示词，用于定义AI的角色和行为..."
+          className="mt-1 resize-none font-mono text-xs"
+          rows={4}
+        />
+        <p className="text-[10px] text-slate-500 mt-1">
+          系统提示词会影响AI的回复风格和内容，留空则使用默认提示词
+        </p>
+      </div>
+
+      {/* 配置预览 */}
+      <details className="pt-2 border-t border-slate-200">
+        <summary className="text-xs text-slate-600 cursor-pointer hover:text-slate-800">
+          查看当前配置（JSON）
+        </summary>
+        <pre className="mt-2 p-2 bg-slate-50 rounded text-[10px] text-slate-600 overflow-x-auto">
+          {JSON.stringify(
+            {
+              modelId: config.modelId || 'doubao-pro-4k',
+              personaId: config.personaId || '',
+              temperature: config.temperature ?? 0.7,
+              maxTokens: config.maxTokens ?? 1000,
+              useContextHistory: config.useContextHistory ?? true,
+              contextWindowSize: config.contextWindowSize ?? 10,
+              enableThinking: config.enableThinking ?? false,
+              systemPrompt: config.systemPrompt || '',
+            },
+            null,
+            2
+          )}
+        </pre>
+      </details>
     </div>
   );
 }
@@ -721,7 +945,94 @@ function MessageDispatchConfig({ config, onChange }: any) {
 function SendCommandConfig({ config, onChange }: any) {
   return (
     <div className="space-y-4">
+      {/* 指令类型 */}
       <div>
+        <Label htmlFor="commandType">指令类型</Label>
+        <Select
+          value={config.commandType || 'message'}
+          onValueChange={(value) => onChange('commandType', value)}
+        >
+          <SelectTrigger className="mt-1">
+            <SelectValue placeholder="选择指令类型" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="message">消息</SelectItem>
+            <SelectItem value="notification">通知</SelectItem>
+            <SelectItem value="command">指令</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* 机器人ID */}
+      <div>
+        <Label htmlFor="robotId">机器人ID</Label>
+        <Input
+          id="robotId"
+          value={config.robotId || ''}
+          onChange={(e) => onChange('robotId', e.target.value)}
+          placeholder="输入机器人ID"
+          className="mt-1"
+        />
+        <p className="text-xs text-slate-500 mt-1">
+          指定发送消息的机器人
+        </p>
+      </div>
+
+      {/* 接收者配置 */}
+      <div>
+        <Label className="text-sm font-medium text-slate-700">接收者配置</Label>
+        <div className="space-y-2 mt-2">
+          <div>
+            <Label htmlFor="recipients" className="text-xs">
+              接收者列表
+            </Label>
+            <Textarea
+              id="recipients"
+              value={config.recipients?.join('\n') || ''}
+              onChange={(e) => {
+                const recipients = e.target.value
+                  .split('\n')
+                  .map(r => r.trim())
+                  .filter(r => r.length > 0);
+                onChange('recipients', recipients);
+              }}
+              placeholder="每行输入一个接收者ID或名称&#10;例如：&#10;user_123&#10;group_456&#10;admin"
+              className="mt-1 resize-none font-mono text-xs"
+              rows={4}
+            />
+            <p className="text-[10px] text-slate-500 mt-1">
+              每行一个接收者，支持用户ID、群组ID等
+            </p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="recipientsFromContext"
+              checked={config.recipientsFromContext ?? false}
+              onCheckedChange={(checked) => onChange('recipientsFromContext', checked)}
+            />
+            <Label htmlFor="recipientsFromContext" className="text-sm">
+              从上下文获取接收者
+            </Label>
+          </div>
+          {config.recipientsFromContext && (
+            <div>
+              <Label htmlFor="recipientsExpression" className="text-xs">
+                接收者表达式
+              </Label>
+              <Input
+                id="recipientsExpression"
+                value={config.recipientsExpression || ''}
+                onChange={(e) => onChange('recipientsExpression', e.target.value)}
+                placeholder="context.recipients"
+                className="mt-1 font-mono text-xs"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 消息内容 */}
+      <div className="pt-3 border-t border-slate-200">
         <Label htmlFor="messageSource">消息来源</Label>
         <Select
           value={config.messageSource || 'ai_response'}
@@ -741,11 +1052,11 @@ function SendCommandConfig({ config, onChange }: any) {
 
       {config.messageSource === 'fixed' && (
         <div>
-          <Label htmlFor="fixedMessage">固定消息内容</Label>
+          <Label htmlFor="messageContent">消息内容</Label>
           <Textarea
-            id="fixedMessage"
-            value={config.fixedMessage || ''}
-            onChange={(e) => onChange('fixedMessage', e.target.value)}
+            id="messageContent"
+            value={config.messageContent || ''}
+            onChange={(e) => onChange('messageContent', e.target.value)}
             placeholder="输入固定消息内容（支持变量：{{userName}}, {{intent}}等）"
             className="mt-1 resize-none"
             rows={3}
@@ -767,42 +1078,43 @@ function SendCommandConfig({ config, onChange }: any) {
         </div>
       )}
 
-      <div>
-        <Label className="text-sm font-medium text-slate-700">@人配置</Label>
-        <div className="space-y-2 mt-2">
+      {/* 高级配置 */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700">高级配置</Label>
+        <div className="space-y-3 mt-2">
+          {/* 优先级 */}
+          <div>
+            <Label htmlFor="priority" className="text-xs">
+              优先级
+            </Label>
+            <Select
+              value={config.priority || 'normal'}
+              onValueChange={(value) => onChange('priority', value)}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择优先级" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">低</SelectItem>
+                <SelectItem value="normal">普通（默认）</SelectItem>
+                <SelectItem value="high">高</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 日志保存 */}
           <div className="flex items-center space-x-2">
             <Checkbox
-              id="enableAtList"
-              checked={config.enableAtList ?? false}
-              onCheckedChange={(checked) => onChange('enableAtList', checked)}
+              id="saveLog"
+              checked={config.saveLog ?? true}
+              onCheckedChange={(checked) => onChange('saveLog', checked)}
             />
-            <Label htmlFor="enableAtList" className="text-sm">
-              启用@人功能
+            <Label htmlFor="saveLog" className="text-sm">
+              保存发送日志
             </Label>
           </div>
-          {config.enableAtList && (
-            <div>
-              <Label htmlFor="dynamicAtListExpression" className="text-sm">
-                动态表达式
-              </Label>
-              <Input
-                id="dynamicAtListExpression"
-                value={config.dynamicAtListExpression || ''}
-                onChange={(e) => onChange('dynamicAtListExpression', e.target.value)}
-                placeholder="{{userName}}"
-                className="mt-1"
-              />
-              <p className="text-xs text-slate-500 mt-1">
-                支持变量：{"{" + "{userName}" + "}"}, {"{" + "{groupName}" + "}"}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
 
-      <div>
-        <Label className="text-sm font-medium text-slate-700">重试配置</Label>
-        <div className="space-y-2 mt-2">
+          {/* 重试配置 */}
           <div className="flex items-center space-x-2">
             <Checkbox
               id="enableRetry"
@@ -814,24 +1126,24 @@ function SendCommandConfig({ config, onChange }: any) {
             </Label>
           </div>
           {config.enableRetry && (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 ml-6">
               <div>
-                <Label htmlFor="maxRetries" className="text-sm">
-                  最大重试次数
+                <Label htmlFor="retryCount" className="text-xs">
+                  重试次数
                 </Label>
                 <Input
-                  id="maxRetries"
+                  id="retryCount"
                   type="number"
                   min="0"
                   max="10"
-                  value={config.maxRetries ?? 3}
-                  onChange={(e) => onChange('maxRetries', parseInt(e.target.value))}
+                  value={config.retryCount ?? 3}
+                  onChange={(e) => onChange('retryCount', parseInt(e.target.value))}
                   className="mt-1"
                 />
               </div>
               <div>
-                <Label htmlFor="retryDelay" className="text-sm">
-                  重试延迟（毫秒）
+                <Label htmlFor="retryDelay" className="text-xs">
+                  延迟（毫秒）
                 </Label>
                 <Input
                   id="retryDelay"
@@ -847,6 +1159,65 @@ function SendCommandConfig({ config, onChange }: any) {
           )}
         </div>
       </div>
+
+      {/* @人配置 */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700">@人配置</Label>
+        <div className="space-y-2 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enableAtList"
+              checked={config.enableAtList ?? false}
+              onCheckedChange={(checked) => onChange('enableAtList', checked)}
+            />
+            <Label htmlFor="enableAtList" className="text-sm">
+              启用@人功能
+            </Label>
+          </div>
+          {config.enableAtList && (
+            <div>
+              <Label htmlFor="dynamicAtListExpression" className="text-xs">
+                动态表达式
+              </Label>
+              <Input
+                id="dynamicAtListExpression"
+                value={config.dynamicAtListExpression || ''}
+                onChange={(e) => onChange('dynamicAtListExpression', e.target.value)}
+                placeholder="{{userName}}"
+                className="mt-1 font-mono text-xs"
+              />
+              <p className="text-[10px] text-slate-500 mt-1">
+                支持变量：{{'{userName}'}}, {{'{groupName}'}}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 配置预览 */}
+      <details className="pt-2 border-t border-slate-200">
+        <summary className="text-xs text-slate-600 cursor-pointer hover:text-slate-800">
+          查看当前配置（JSON）
+        </summary>
+        <pre className="mt-2 p-2 bg-slate-50 rounded text-[10px] text-slate-600 overflow-x-auto">
+          {JSON.stringify(
+            {
+              commandType: config.commandType || 'message',
+              robotId: config.robotId || '',
+              recipients: config.recipients || [],
+              messageSource: config.messageSource || 'ai_response',
+              messageContent: config.messageContent || '',
+              priority: config.priority || 'normal',
+              saveLog: config.saveLog ?? true,
+              enableRetry: config.enableRetry ?? true,
+              retryCount: config.retryCount ?? 3,
+              retryDelay: config.retryDelay ?? 2000,
+            },
+            null,
+            2
+          )}
+        </pre>
+      </details>
     </div>
   );
 }
