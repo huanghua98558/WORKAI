@@ -53,6 +53,7 @@ interface HealthStatus {
 
 export default function MonitorTab() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
+  const [healthError, setHealthError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState('overview');
   const [isAlertRulesDialogOpen, setIsAlertRulesDialogOpen] = useState(false);
@@ -60,12 +61,16 @@ export default function MonitorTab() {
   // 加载健康状态和告警数据
   const loadHealthData = async () => {
     setIsLoading(true);
+    setHealthError(null);
     try {
       // 获取健康状态
       const healthRes = await fetch('/api/monitoring/health');
       if (healthRes.ok) {
         const data = await healthRes.json();
-        if (data.code === 0) {
+        // 兼容两种返回格式：{ code: 0, data: {...} } 或 { success: true, data: {...} }
+        if (data.code === 0 || data.success === true) {
+          const healthData = data.data || data;
+          
           // 获取告警统计
           try {
             const alertRes = await fetch('/api/alerts/stats', {
@@ -76,13 +81,15 @@ export default function MonitorTab() {
             });
             if (alertRes.ok) {
               const alertData = await alertRes.json();
-              if (alertData.success) {
-                data.data.alerts = {
-                  total: parseInt(alertData.data.total) || 0,
-                  pending: parseInt(alertData.data.pending) || 0,
-                  critical: parseInt(alertData.data.critical) || 0,
-                  warning: parseInt(alertData.data.warning) || 0,
-                  info: parseInt(alertData.data.info) || 0
+              // 兼容两种返回格式
+              if (alertData.success === true || alertData.code === 0) {
+                const alertStats = alertData.data || alertData;
+                healthData.alerts = {
+                  total: parseInt(alertStats.total) || 0,
+                  pending: parseInt(alertStats.pending) || 0,
+                  critical: parseInt(alertStats.critical) || 0,
+                  warning: parseInt(alertStats.warning) || 0,
+                  info: parseInt(alertStats.info) || 0
                 };
               }
             }
@@ -90,11 +97,40 @@ export default function MonitorTab() {
             console.warn('获取告警统计失败，使用默认值:', alertError);
             // 不影响健康状态的显示
           }
-          setHealth(data.data);
+          setHealth(healthData);
+          console.log('[MonitorTab] 健康数据加载成功:', healthData);
+        } else {
+          console.error('[MonitorTab] 健康状态API返回错误:', data);
+          setHealthError(data.message || '加载健康状态失败');
+          // 即使API返回错误，也设置一个默认的健康状态，避免一直显示加载中
+          setHealth({
+            executions: { total: 0, success: 0, error: 0, processing: 0, successRate: '0%' },
+            ai: { total: 0, success: 0, error: 0, successRate: '0%' },
+            sessions: { active: 0 },
+            timestamp: new Date().toISOString()
+          });
         }
+      } else {
+        console.error('[MonitorTab] 健康状态API请求失败:', healthRes.status);
+        setHealthError(`请求失败 (${healthRes.status})`);
+        // 设置默认健康状态
+        setHealth({
+          executions: { total: 0, success: 0, error: 0, processing: 0, successRate: '0%' },
+          ai: { total: 0, success: 0, error: 0, successRate: '0%' },
+          sessions: { active: 0 },
+          timestamp: new Date().toISOString()
+        });
       }
     } catch (error) {
       console.error('加载健康状态失败:', error);
+      setHealthError('网络请求失败');
+      // 设置默认健康状态，避免一直显示加载中
+      setHealth({
+        executions: { total: 0, success: 0, error: 0, processing: 0, successRate: '0%' },
+        ai: { total: 0, success: 0, error: 0, successRate: '0%' },
+        sessions: { active: 0 },
+        timestamp: new Date().toISOString()
+      });
     } finally {
       setIsLoading(false);
     }
@@ -122,24 +158,26 @@ export default function MonitorTab() {
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => setIsAlertRulesDialogOpen(true)}
-            className="gap-2"
-          >
-            <Settings className="h-4 w-4" />
-            告警规则设置
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={loadHealthData} 
+            onClick={() => loadHealthData()}
             disabled={isLoading}
             className="gap-2"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            刷新
+            {isLoading ? '刷新中...' : '刷新'}
           </Button>
         </div>
       </div>
+
+      {/* 错误提示 */}
+      {healthError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>监控数据加载失败</AlertTitle>
+          <AlertDescription>
+            {healthError}。请检查后端服务是否正常运行，或稍后重试。
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* 子标签页 */}
       <Tabs defaultValue="overview" className="w-full">
