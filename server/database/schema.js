@@ -1043,50 +1043,7 @@ exports.systemLogs = pgTable(
 // 协同分析相关表
 // ============================================
 
-// 工作人员消息表
-exports.staffMessages = pgTable(
-  "staff_messages",
-  {
-    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
-    sessionId: varchar("sessionId", { length: 255 }).notNull(),
-    messageId: varchar("messageId", { length: 255 }).notNull().unique(),
-    staffUserId: varchar("staffUserId", { length: 255 }).notNull(),
-    staffName: varchar("staffName", { length: 255 }),
-    content: text("content").notNull(),
-    messageType: varchar("messageType", { length: 50 }).default("reply"),
-    isHandlingCommand: boolean("isHandlingCommand").default(false),
-    linkedRiskId: varchar("linkedRiskId", { length: 36 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-    timestamp: timestamp("timestamp", { withTimezone: true }),
-  },
-  (table) => ({
-    sessionIdIdx: index("staff_messages_session_id_idx").on(table.sessionId),
-    staffUserIdIdx: index("staff_messages_staff_user_id_idx").on(table.staffUserId),
-    createdAtIdx: index("staff_messages_created_at_idx").on(table.createdAt),
-    messageIdIdx: index("staff_messages_message_id_idx").on(table.messageId),
-  })
-);
 
-// 工作人员活动记录表
-exports.staffActivities = pgTable(
-  "staff_activities",
-  {
-    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
-    sessionId: varchar("sessionId", { length: 255 }).notNull(),
-    staffUserId: varchar("staffUserId", { length: 255 }).notNull(),
-    staffName: varchar("staffName", { length: 255 }),
-    activityType: varchar("activityType", { length: 50 }).notNull(),
-    activityDetail: text("activityDetail"),
-    messageId: varchar("messageId", { length: 255 }),
-    riskId: varchar("riskId", { length: 36 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  },
-  (table) => ({
-    sessionIdIdx: index("staff_activities_session_id_idx").on(table.sessionId),
-    staffUserIdIdx: index("staff_activities_staff_user_id_idx").on(table.staffUserId),
-    activityTypeIdx: index("staff_activities_activity_type_idx").on(table.activityType),
-  })
-);
 
 // 会话工作人员状态表
 exports.sessionStaffStatus = pgTable(
@@ -2515,50 +2472,7 @@ exports.systemLogs = pgTable(
 // 协同分析相关表
 // ============================================
 
-// 工作人员消息表
-exports.staffMessages = pgTable(
-  "staff_messages",
-  {
-    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
-    sessionId: varchar("sessionId", { length: 255 }).notNull(),
-    messageId: varchar("messageId", { length: 255 }).notNull().unique(),
-    staffUserId: varchar("staffUserId", { length: 255 }).notNull(),
-    staffName: varchar("staffName", { length: 255 }),
-    content: text("content").notNull(),
-    messageType: varchar("messageType", { length: 50 }).default("reply"),
-    isHandlingCommand: boolean("isHandlingCommand").default(false),
-    linkedRiskId: varchar("linkedRiskId", { length: 36 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-    timestamp: timestamp("timestamp", { withTimezone: true }),
-  },
-  (table) => ({
-    sessionIdIdx: index("staff_messages_session_id_idx").on(table.sessionId),
-    staffUserIdIdx: index("staff_messages_staff_user_id_idx").on(table.staffUserId),
-    createdAtIdx: index("staff_messages_created_at_idx").on(table.createdAt),
-    messageIdIdx: index("staff_messages_message_id_idx").on(table.messageId),
-  })
-);
 
-// 工作人员活动记录表
-exports.staffActivities = pgTable(
-  "staff_activities",
-  {
-    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
-    sessionId: varchar("sessionId", { length: 255 }).notNull(),
-    staffUserId: varchar("staffUserId", { length: 255 }).notNull(),
-    staffName: varchar("staffName", { length: 255 }),
-    activityType: varchar("activityType", { length: 50 }).notNull(),
-    activityDetail: text("activityDetail"),
-    messageId: varchar("messageId", { length: 255 }),
-    riskId: varchar("riskId", { length: 36 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  },
-  (table) => ({
-    sessionIdIdx: index("staff_activities_session_id_idx").on(table.sessionId),
-    staffUserIdIdx: index("staff_activities_staff_user_id_idx").on(table.staffUserId),
-    activityTypeIdx: index("staff_activities_activity_type_idx").on(table.activityType),
-  })
-);
 
 // 会话工作人员状态表
 exports.sessionStaffStatus = pgTable(
