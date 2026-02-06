@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { X, Settings } from 'lucide-react';
 import { NODE_TYPES, NODE_METADATA } from '../types';
 
@@ -325,21 +326,195 @@ function IntentConfig({ config, onChange }: any) {
 
 // 节点3：决策节点配置
 function DecisionConfig({ config, onChange }: any) {
+  // 获取条件列表
+  const conditions = config.conditions || [
+    { expression: '', label: '', targetNodeId: '' }
+  ];
+
+  // 添加新条件
+  const handleAddCondition = () => {
+    const newConditions = [...conditions, { expression: '', label: '', targetNodeId: '' }];
+    onChange('conditions', newConditions);
+  };
+
+  // 删除条件
+  const handleRemoveCondition = (index: number) => {
+    const newConditions = conditions.filter((_: any, i: number) => i !== index);
+    onChange('conditions', newConditions);
+  };
+
+  // 更新条件
+  const handleUpdateCondition = (index: number, field: string, value: any) => {
+    const newConditions = [...conditions];
+    newConditions[index] = { ...newConditions[index], [field]: value };
+    onChange('conditions', newConditions);
+  };
+
   return (
     <div className="space-y-4">
+      {/* 决策模式 */}
       <div>
-        <Label className="text-sm font-medium text-slate-700">决策规则</Label>
-        <p className="text-xs text-slate-500 mt-1">
-          点击节点可在连线中配置目标节点
-        </p>
-        <Textarea
-          value={JSON.stringify(config.rules || [], null, 2)}
-          onChange={(e) => onChange('rules', JSON.parse(e.target.value))}
-          className="mt-2 font-mono text-xs"
-          rows={6}
-          placeholder="配置决策规则（JSON格式）"
+        <Label htmlFor="decisionMode" className="text-sm font-medium text-slate-700">决策模式</Label>
+        <Select
+          value={config.decisionMode || 'priority'}
+          onValueChange={(value) => onChange('decisionMode', value)}
+        >
+          <SelectTrigger className="mt-1">
+            <SelectValue placeholder="选择决策模式" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="priority">优先匹配（按顺序匹配第一个符合条件的条件）</SelectItem>
+            <SelectItem value="all">全部匹配（所有条件都必须满足）</SelectItem>
+            <SelectItem value="any">任意匹配（任一条件满足即可）</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* 默认分支 */}
+      <div>
+        <Label htmlFor="defaultTarget" className="text-sm font-medium text-slate-700">默认分支</Label>
+        <p className="text-xs text-slate-500 mt-1">当所有条件都不满足时跳转到的节点</p>
+        <Input
+          id="defaultTarget"
+          value={config.defaultTarget || ''}
+          onChange={(e) => onChange('defaultTarget', e.target.value)}
+          placeholder="输入默认目标节点ID"
+          className="mt-1"
         />
       </div>
+
+      {/* 条件列表 */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <Label className="text-sm font-medium text-slate-700">决策条件</Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleAddCondition}
+            className="h-7 px-2 text-xs"
+          >
+            + 添加条件
+          </Button>
+        </div>
+
+        <div className="space-y-3">
+          {conditions.map((condition: any, index: number) => (
+            <div key={index} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-slate-600">条件 {index + 1}</span>
+                {conditions.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveCondition(index)}
+                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+
+              {/* 条件名称 */}
+              <div className="mb-2">
+                <Label htmlFor={`condition-label-${index}`} className="text-xs">条件标签</Label>
+                <Input
+                  id={`condition-label-${index}`}
+                  value={condition.label || ''}
+                  onChange={(e) => handleUpdateCondition(index, 'label', e.target.value)}
+                  placeholder="例如：转人工、AI回复"
+                  className="h-8 text-xs"
+                />
+              </div>
+
+              {/* 条件表达式 */}
+              <div className="mb-2">
+                <Label htmlFor={`condition-expression-${index}`} className="text-xs">条件表达式</Label>
+                <Input
+                  id={`condition-expression-${index}`}
+                  value={condition.expression || ''}
+                  onChange={(e) => handleUpdateCondition(index, 'expression', e.target.value)}
+                  placeholder="例如：context.intent === '投诉'"
+                  className="h-8 text-xs font-mono"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  支持变量：context.xxx, data.xxx
+                </p>
+              </div>
+
+              {/* 目标节点 */}
+              <div>
+                <Label htmlFor={`condition-target-${index}`} className="text-xs">目标节点ID</Label>
+                <Input
+                  id={`condition-target-${index}`}
+                  value={condition.targetNodeId || ''}
+                  onChange={(e) => handleUpdateCondition(index, 'targetNodeId', e.target.value)}
+                  placeholder="输入目标节点的ID"
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* 条件为空时的提示 */}
+        {conditions.length === 0 && (
+          <div className="text-center py-4 text-sm text-slate-400">
+            暂无条件，点击上方"添加条件"按钮添加
+          </div>
+        )}
+      </div>
+
+      {/* 高级配置 */}
+      <div className="pt-2 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700">高级配置</Label>
+        <div className="space-y-2 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enableLogging"
+              checked={config.enableLogging ?? false}
+              onCheckedChange={(checked) => onChange('enableLogging', checked)}
+            />
+            <Label htmlFor="enableLogging" className="text-xs">
+              启用决策日志记录
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="strictMode"
+              checked={config.strictMode ?? false}
+              onCheckedChange={(checked) => onChange('strictMode', checked)}
+            />
+            <Label htmlFor="strictMode" className="text-xs">
+              严格模式（表达式错误时停止流程）
+            </Label>
+          </div>
+        </div>
+      </div>
+
+      {/* JSON 视图（可选） */}
+      <details className="pt-2 border-t border-slate-200">
+        <summary className="text-xs text-slate-600 cursor-pointer hover:text-slate-800">
+          查看/编辑 JSON 配置
+        </summary>
+        <Textarea
+          value={JSON.stringify({ conditions, decisionMode: config.decisionMode || 'priority', defaultTarget: config.defaultTarget || '' }, null, 2)}
+          onChange={(e) => {
+            try {
+              const parsed = JSON.parse(e.target.value);
+              onChange('conditions', parsed.conditions || []);
+              onChange('decisionMode', parsed.decisionMode || 'priority');
+              onChange('defaultTarget', parsed.defaultTarget || '');
+            } catch (err) {
+              // JSON 解析错误，不更新
+            }
+          }}
+          className="mt-2 font-mono text-xs"
+          rows={6}
+          placeholder="JSON 格式的决策配置"
+        />
+      </details>
     </div>
   );
 }
@@ -811,19 +986,282 @@ function AlertSaveConfig({ config, onChange }: any) {
 function AlertRuleConfig({ config, onChange }: any) {
   return (
     <div className="space-y-4">
+      {/* 规则类型 */}
       <div>
-        <Label className="text-sm font-medium text-slate-700">告警规则</Label>
-        <p className="text-xs text-slate-500 mt-1">
-          配置告警规则（JSON格式）
-        </p>
+        <Label htmlFor="ruleType" className="text-sm font-medium text-slate-700">规则类型</Label>
+        <Select
+          value={config.ruleType || 'threshold'}
+          onValueChange={(value) => onChange('ruleType', value)}
+        >
+          <SelectTrigger className="mt-1">
+            <SelectValue placeholder="选择规则类型" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="threshold">阈值规则（超过阈值触发）</SelectItem>
+            <SelectItem value="frequency">频率规则（指定时间内触发次数）</SelectItem>
+            <SelectItem value="trend">趋势规则（持续增长/下降）</SelectItem>
+            <SelectItem value="custom">自定义规则（复杂条件）</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* 阈值规则配置 */}
+      {config.ruleType === 'threshold' && (
+        <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+          <Label className="text-xs font-medium text-orange-800">阈值配置</Label>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <div>
+              <Label htmlFor="thresholdValue" className="text-xs">阈值</Label>
+              <Input
+                id="thresholdValue"
+                type="number"
+                value={config.thresholdValue || ''}
+                onChange={(e) => onChange('thresholdValue', parseFloat(e.target.value))}
+                placeholder="输入阈值"
+                className="h-8 text-xs"
+              />
+            </div>
+            <div>
+              <Label htmlFor="thresholdOperator" className="text-xs">比较运算符</Label>
+              <Select
+                value={config.thresholdOperator || '>'}
+                onValueChange={(value) => onChange('thresholdOperator', value)}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="&gt;">大于 (&gt;)</SelectItem>
+                  <SelectItem value="&gt;=">大于等于 (≥)</SelectItem>
+                  <SelectItem value="&lt;">小于 (&lt;)</SelectItem>
+                  <SelectItem value="&lt;=">小于等于 (≤)</SelectItem>
+                  <SelectItem value="==">等于 (==)</SelectItem>
+                  <SelectItem value="!=">不等于 (!=)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="mt-2">
+            <Label htmlFor="thresholdField" className="text-xs">监控字段</Label>
+            <Input
+              id="thresholdField"
+              value={config.thresholdField || ''}
+              onChange={(e) => onChange('thresholdField', e.target.value)}
+              placeholder="例如：alertLevel, severity"
+              className="h-8 text-xs"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 频率规则配置 */}
+      {config.ruleType === 'frequency' && (
+        <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <Label className="text-xs font-medium text-blue-800">频率配置</Label>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <div>
+              <Label htmlFor="frequencyCount" className="text-xs">触发次数</Label>
+              <Input
+                id="frequencyCount"
+                type="number"
+                value={config.frequencyCount || ''}
+                onChange={(e) => onChange('frequencyCount', parseInt(e.target.value))}
+                placeholder="输入次数"
+                className="h-8 text-xs"
+              />
+            </div>
+            <div>
+              <Label htmlFor="frequencyTimeWindow" className="text-xs">时间窗口（秒）</Label>
+              <Input
+                id="frequencyTimeWindow"
+                type="number"
+                value={config.frequencyTimeWindow || ''}
+                onChange={(e) => onChange('frequencyTimeWindow', parseInt(e.target.value))}
+                placeholder="例如：60"
+                className="h-8 text-xs"
+              />
+            </div>
+          </div>
+          <p className="text-[10px] text-blue-600 mt-2">
+            在指定时间窗口内达到触发次数时告警
+          </p>
+        </div>
+      )}
+
+      {/* 趋势规则配置 */}
+      {config.ruleType === 'trend' && (
+        <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+          <Label className="text-xs font-medium text-green-800">趋势配置</Label>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <div>
+              <Label htmlFor="trendType" className="text-xs">趋势类型</Label>
+              <Select
+                value={config.trendType || 'increasing'}
+                onValueChange={(value) => onChange('trendType', value)}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="increasing">持续增长</SelectItem>
+                  <SelectItem value="decreasing">持续下降</SelectItem>
+                  <SelectItem value="sudden_spike">突增</SelectItem>
+                  <SelectItem value="sudden_drop">骤降</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="trendThreshold" className="text-xs">阈值（%）</Label>
+              <Input
+                id="trendThreshold"
+                type="number"
+                value={config.trendThreshold || ''}
+                onChange={(e) => onChange('trendThreshold', parseFloat(e.target.value))}
+                placeholder="例如：50"
+                className="h-8 text-xs"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 升级策略 */}
+      <div>
+        <Label className="text-sm font-medium text-slate-700">升级策略</Label>
+        <div className="space-y-2 mt-2">
+          <div>
+            <Label htmlFor="escalationLevel" className="text-xs">升级级别</Label>
+            <Select
+              value={config.escalationLevel || 'none'}
+              onValueChange={(value) => onChange('escalationLevel', value)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">不升级</SelectItem>
+                <SelectItem value="level1">一级升级（通知组长）</SelectItem>
+                <SelectItem value="level2">二级升级（通知主管）</SelectItem>
+                <SelectItem value="level3">三级升级（通知高管）</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {(config.escalationLevel === 'level1' || config.escalationLevel === 'level2' || config.escalationLevel === 'level3') && (
+            <div>
+              <Label htmlFor="escalationTimeout" className="text-xs">升级超时（分钟）</Label>
+              <Input
+                id="escalationTimeout"
+                type="number"
+                value={config.escalationTimeout || 30}
+                onChange={(e) => onChange('escalationTimeout', parseInt(e.target.value))}
+                placeholder="未处理多久后升级"
+                className="h-8 text-xs"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 通知渠道 */}
+      <div>
+        <Label className="text-sm font-medium text-slate-700">通知渠道</Label>
+        <div className="space-y-2 mt-2">
+          {[
+            { id: 'notifyWebSocket', label: 'WebSocket 实时通知' },
+            { id: 'notifyEmail', label: '邮件通知' },
+            { id: 'notifySMS', label: '短信通知' },
+            { id: 'notifyWebhook', label: 'Webhook 回调' }
+          ].map((channel) => (
+            <div key={channel.id} className="flex items-center space-x-2">
+              <Checkbox
+                id={channel.id}
+                checked={config[channel.id] ?? false}
+                onCheckedChange={(checked) => onChange(channel.id, checked)}
+              />
+              <Label htmlFor={channel.id} className="text-xs">
+                {channel.label}
+              </Label>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 自定义规则配置 */}
+      {config.ruleType === 'custom' && (
+        <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+          <Label className="text-xs font-medium text-purple-800">自定义规则表达式</Label>
+          <Textarea
+            value={config.customExpression || ''}
+            onChange={(e) => onChange('customExpression', e.target.value)}
+            placeholder="输入自定义规则表达式，例如：alertLevel === 'critical' && duration > 300"
+            className="mt-2 font-mono text-xs resize-none"
+            rows={3}
+          />
+          <p className="text-[10px] text-purple-600 mt-1">
+            支持使用 JavaScript 表达式，可访问 alert 对象的所有字段
+          </p>
+        </div>
+      )}
+
+      {/* 高级配置 */}
+      <div className="pt-2 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700">高级配置</Label>
+        <div className="space-y-2 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enableDeduplication"
+              checked={config.enableDeduplication ?? false}
+              onCheckedChange={(checked) => onChange('enableDeduplication', checked)}
+            />
+            <Label htmlFor="enableDeduplication" className="text-xs">
+              启用告警去重（相同内容不重复告警）
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enableAutoResolve"
+              checked={config.enableAutoResolve ?? false}
+              onCheckedChange={(checked) => onChange('enableAutoResolve', checked)}
+            />
+            <Label htmlFor="enableAutoResolve" className="text-xs">
+              启用自动解决（满足条件后自动关闭）
+            </Label>
+          </div>
+          {config.enableAutoResolve && (
+            <div>
+              <Label htmlFor="autoResolveCondition" className="text-xs">自动解决条件</Label>
+              <Input
+                id="autoResolveCondition"
+                value={config.autoResolveCondition || ''}
+                onChange={(e) => onChange('autoResolveCondition', e.target.value)}
+                placeholder="例如：status === 'resolved'"
+                className="h-8 text-xs font-mono"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* JSON 视图（可选） */}
+      <details className="pt-2 border-t border-slate-200">
+        <summary className="text-xs text-slate-600 cursor-pointer hover:text-slate-800">
+          查看/编辑 JSON 配置
+        </summary>
         <Textarea
-          value={JSON.stringify(config.rules || [], null, 2)}
-          onChange={(e) => onChange('rules', JSON.parse(e.target.value))}
+          value={JSON.stringify(config, null, 2)}
+          onChange={(e) => {
+            try {
+              const parsed = JSON.parse(e.target.value);
+              Object.keys(parsed).forEach(key => onChange(key, parsed[key]));
+            } catch (err) {
+              // JSON 解析错误，不更新
+            }
+          }}
           className="mt-2 font-mono text-xs"
           rows={6}
-          placeholder="配置告警规则（JSON格式）"
+          placeholder="JSON 格式的规则配置"
         />
-      </div>
+      </details>
     </div>
   );
 }
@@ -832,19 +1270,314 @@ function AlertRuleConfig({ config, onChange }: any) {
 function ExecuteNotificationConfig({ config, onChange }: any) {
   return (
     <div className="space-y-4">
+      {/* 通知渠道配置 */}
       <div>
-        <Label className="text-sm font-medium text-slate-700">通知方式</Label>
-        <p className="text-xs text-slate-500 mt-1">
-          配置需要执行的通知方式（JSON格式）
-        </p>
-        <Textarea
-          value={JSON.stringify(config.notificationMethods || [], null, 2)}
-          onChange={(e) => onChange('notificationMethods', JSON.parse(e.target.value))}
-          className="mt-2 font-mono text-xs"
-          rows={8}
-          placeholder='[{"type": "robot", "enabled": true, "priority": 1, "robotConfig": {"sendType": "private"}}]'
-        />
+        <Label className="text-sm font-medium text-slate-700">通知渠道</Label>
+        <p className="text-xs text-slate-500 mt-1">选择需要启用的通知方式</p>
+        <div className="space-y-2 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enableRobotNotification"
+              checked={config.enableRobotNotification ?? true}
+              onCheckedChange={(checked) => onChange('enableRobotNotification', checked)}
+            />
+            <Label htmlFor="enableRobotNotification" className="text-xs">
+              机器人通知（企业微信）
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enableEmailNotification"
+              checked={config.enableEmailNotification ?? false}
+              onCheckedChange={(checked) => onChange('enableEmailNotification', checked)}
+            />
+            <Label htmlFor="enableEmailNotification" className="text-xs">
+              邮件通知
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enableSMSNotification"
+              checked={config.enableSMSNotification ?? false}
+              onCheckedChange={(checked) => onChange('enableSMSNotification', checked)}
+            />
+            <Label htmlFor="enableSMSNotification" className="text-xs">
+              短信通知
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enableWebhookNotification"
+              checked={config.enableWebhookNotification ?? false}
+              onCheckedChange={(checked) => onChange('enableWebhookNotification', checked)}
+            />
+            <Label htmlFor="enableWebhookNotification" className="text-xs">
+              Webhook 回调
+            </Label>
+          </div>
+        </div>
       </div>
+
+      {/* 机器人通知配置 */}
+      {config.enableRobotNotification && (
+        <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+          <Label className="text-xs font-medium text-green-800">机器人通知配置</Label>
+          <div className="space-y-2 mt-2">
+            <div>
+              <Label htmlFor="robotSendType" className="text-xs">发送方式</Label>
+              <Select
+                value={config.robotSendType || 'private'}
+                onValueChange={(value) => onChange('robotSendType', value)}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="private">私聊</SelectItem>
+                  <SelectItem value="group">群消息</SelectItem>
+                  <SelectItem value="both">私聊+群消息</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="robotTarget" className="text-xs">目标用户/群组</Label>
+              <Input
+                id="robotTarget"
+                value={config.robotTarget || ''}
+                onChange={(e) => onChange('robotTarget', e.target.value)}
+                placeholder="输入用户名或群名（支持逗号分隔多个）"
+                className="h-8 text-xs"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 邮件通知配置 */}
+      {config.enableEmailNotification && (
+        <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <Label className="text-xs font-medium text-blue-800">邮件通知配置</Label>
+          <div className="space-y-2 mt-2">
+            <div>
+              <Label htmlFor="emailSubject" className="text-xs">邮件主题</Label>
+              <Input
+                id="emailSubject"
+                value={config.emailSubject || ''}
+                onChange={(e) => onChange('emailSubject', e.target.value)}
+                placeholder="输入邮件主题"
+                className="h-8 text-xs"
+              />
+            </div>
+            <div>
+              <Label htmlFor="emailRecipients" className="text-xs">收件人</Label>
+              <Input
+                id="emailRecipients"
+                value={config.emailRecipients || ''}
+                onChange={(e) => onChange('emailRecipients', e.target.value)}
+                placeholder="输入邮箱地址（支持逗号分隔多个）"
+                className="h-8 text-xs"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Webhook 配置 */}
+      {config.enableWebhookNotification && (
+        <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+          <Label className="text-xs font-medium text-purple-800">Webhook 配置</Label>
+          <div className="space-y-2 mt-2">
+            <div>
+              <Label htmlFor="webhookUrl" className="text-xs">Webhook URL</Label>
+              <Input
+                id="webhookUrl"
+                value={config.webhookUrl || ''}
+                onChange={(e) => onChange('webhookUrl', e.target.value)}
+                placeholder="https://example.com/webhook"
+                className="h-8 text-xs"
+              />
+            </div>
+            <div>
+              <Label htmlFor="webhookMethod" className="text-xs">请求方法</Label>
+              <Select
+                value={config.webhookMethod || 'POST'}
+                onValueChange={(value) => onChange('webhookMethod', value)}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="POST">POST</SelectItem>
+                  <SelectItem value="PUT">PUT</SelectItem>
+                  <SelectItem value="PATCH">PATCH</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="webhookIncludeHeaders"
+                checked={config.webhookIncludeHeaders ?? true}
+                onCheckedChange={(checked) => onChange('webhookIncludeHeaders', checked)}
+              />
+              <Label htmlFor="webhookIncludeHeaders" className="text-xs">
+                包含请求头
+              </Label>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 通知内容配置 */}
+      <div>
+        <Label className="text-sm font-medium text-slate-700">通知内容</Label>
+        <div className="space-y-2 mt-2">
+          <div>
+            <Label htmlFor="notificationTitle" className="text-xs">标题</Label>
+            <Input
+              id="notificationTitle"
+              value={config.notificationTitle || ''}
+              onChange={(e) => onChange('notificationTitle', e.target.value)}
+              placeholder="输入通知标题（支持变量：{{alertType}}, {{severity}}等）"
+              className="h-8 text-xs"
+            />
+          </div>
+          <div>
+            <Label htmlFor="notificationBody" className="text-xs">正文内容</Label>
+            <Textarea
+              id="notificationBody"
+              value={config.notificationBody || ''}
+              onChange={(e) => onChange('notificationBody', e.target.value)}
+              placeholder="输入通知正文内容"
+              className="mt-1 resize-none text-xs"
+              rows={3}
+            />
+          </div>
+          <div>
+            <Label htmlFor="notificationTemplate" className="text-xs">消息模板</Label>
+            <Select
+              value={config.notificationTemplate || 'default'}
+              onValueChange={(value) => onChange('notificationTemplate', value)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="选择消息模板" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">默认模板</SelectItem>
+                <SelectItem value="simple">简洁模板</SelectItem>
+                <SelectItem value="detailed">详细模板</SelectItem>
+                <SelectItem value="custom">自定义</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      {/* 通知优先级和紧急程度 */}
+      <div>
+        <Label className="text-sm font-medium text-slate-700">优先级配置</Label>
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <div>
+            <Label htmlFor="notificationPriority" className="text-xs">优先级</Label>
+            <Select
+              value={config.notificationPriority || 'normal'}
+              onValueChange={(value) => onChange('notificationPriority', value)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">低优先级</SelectItem>
+                <SelectItem value="normal">普通优先级</SelectItem>
+                <SelectItem value="high">高优先级</SelectItem>
+                <SelectItem value="urgent">紧急</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="notificationUrgency" className="text-xs">紧急程度</Label>
+            <Select
+              value={config.notificationUrgency || 'medium'}
+              onValueChange={(value) => onChange('notificationUrgency', value)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">低</SelectItem>
+                <SelectItem value="medium">中</SelectItem>
+                <SelectItem value="high">高</SelectItem>
+                <SelectItem value="critical">严重</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      {/* 重试和失败处理 */}
+      <div>
+        <Label className="text-sm font-medium text-slate-700">重试配置</Label>
+        <div className="space-y-2 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enableNotificationRetry"
+              checked={config.enableNotificationRetry ?? true}
+              onCheckedChange={(checked) => onChange('enableNotificationRetry', checked)}
+            />
+            <Label htmlFor="enableNotificationRetry" className="text-xs">
+              启用失败重试
+            </Label>
+          </div>
+          {config.enableNotificationRetry && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="maxRetryAttempts" className="text-xs">最大重试次数</Label>
+                <Input
+                  id="maxRetryAttempts"
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={config.maxRetryAttempts ?? 3}
+                  onChange={(e) => onChange('maxRetryAttempts', parseInt(e.target.value))}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div>
+                <Label htmlFor="retryInterval" className="text-xs">重试间隔（秒）</Label>
+                <Input
+                  id="retryInterval"
+                  type="number"
+                  min="0"
+                  max="3600"
+                  value={config.retryInterval ?? 30}
+                  onChange={(e) => onChange('retryInterval', parseInt(e.target.value))}
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* JSON 视图（可选） */}
+      <details className="pt-2 border-t border-slate-200">
+        <summary className="text-xs text-slate-600 cursor-pointer hover:text-slate-800">
+          查看/编辑 JSON 配置
+        </summary>
+        <Textarea
+          value={JSON.stringify(config, null, 2)}
+          onChange={(e) => {
+            try {
+              const parsed = JSON.parse(e.target.value);
+              Object.keys(parsed).forEach(key => onChange(key, parsed[key]));
+            } catch (err) {
+              // JSON 解析错误，不更新
+            }
+          }}
+          className="mt-2 font-mono text-xs"
+          rows={6}
+          placeholder="JSON 格式的通知配置"
+        />
+      </details>
     </div>
   );
 }
