@@ -1,13 +1,12 @@
 import { eq, and, SQL, like, or } from "drizzle-orm";
 import { getDb } from "coze-coding-dev-sdk";
-import { systemSettings, insertSystemSettingSchema, updateSystemSettingSchema } from "./shared/schema";
-import type { SystemSetting, InsertSystemSetting, UpdateSystemSetting } from "./shared/schema";
+import { systemSettings } from "./shared/schema";
+import type { SystemSetting } from "./shared/schema";
 
 export class SystemSettingManager {
-  async createSetting(data: InsertSystemSetting): Promise<SystemSetting> {
+  async createSetting(data: Partial<SystemSetting>): Promise<SystemSetting> {
     const db = await getDb();
-    const validated = insertSystemSettingSchema.parse(data);
-    const [setting] = await db.insert(systemSettings).values(validated).returning();
+    const [setting] = await db.insert(systemSettings).values(data).returning();
     return setting;
   }
 
@@ -57,12 +56,11 @@ export class SystemSettingManager {
     return setting?.value || defaultValue;
   }
 
-  async updateSetting(id: string, data: UpdateSystemSetting): Promise<SystemSetting | null> {
+  async updateSetting(id: string, data: Partial<SystemSetting>): Promise<SystemSetting | null> {
     const db = await getDb();
-    const validated = updateSystemSettingSchema.parse(data);
     const [setting] = await db
       .update(systemSettings)
-      .set({ ...validated, updatedAt: new Date() })
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(systemSettings.id, id))
       .returning();
     return setting || null;

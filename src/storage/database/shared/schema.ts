@@ -1,192 +1,773 @@
-import { pgTable, text, varchar, timestamp, boolean, integer, jsonb, index } from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
-import { createSchemaFactory } from "drizzle-zod";
-import { z } from "zod";
+import { pgTable, index, unique, varchar, text, timestamp, boolean, integer, jsonb, numeric, date, foreignKey, doublePrecision } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
 
-// 用户表
-export const users = pgTable(
-  "users",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    username: varchar("username", { length: 64 }).notNull().unique(),
-    email: varchar("email", { length: 255 }).unique(),
-    password: text("password").notNull(),
-    role: varchar("role", { length: 20 }).notNull().default("admin"), // admin, operator
-    isActive: boolean("is_active").default(true).notNull(),
-    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }),
-  },
-  (table) => ({
-    usernameIdx: index("users_username_idx").on(table.username),
-    emailIdx: index("users_email_idx").on(table.email),
-  })
-);
 
-// 系统设置表
-export const systemSettings = pgTable(
-  "system_settings",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    key: varchar("key", { length: 128 }).notNull().unique(),
-    value: text("value").notNull(),
-    category: varchar("category", { length: 64 }), // ai, alert, monitor, callback, etc.
-    description: text("description"),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAtBy: varchar("updated_at_by", { length: 36 }), // userId
-  },
-  (table) => ({
-    keyIdx: index("system_settings_key_idx").on(table.key),
-    categoryIdx: index("system_settings_category_idx").on(table.category),
-  })
-);
 
-// 使用 createSchemaFactory 配置 date coercion
-const { createInsertSchema: createCoercedInsertSchema } = createSchemaFactory({
-  coerce: { date: true },
+export const systemSettings = pgTable("system_settings", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	key: varchar({ length: 128 }).notNull(),
+	value: text().notNull(),
+	category: varchar({ length: 64 }),
+	description: text(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAtBy: varchar("updated_at_by", { length: 36 }),
+}, (table) => [
+	index("system_settings_category_idx").using("btree", table.category.asc().nullsLast().op("text_ops")),
+	index("system_settings_key_idx").using("btree", table.key.asc().nullsLast().op("text_ops")),
+	unique("system_settings_key_unique").on(table.key),
+]);
+
+export const users = pgTable("users", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	username: varchar({ length: 64 }).notNull(),
+	email: varchar({ length: 255 }),
+	password: text().notNull(),
+	role: varchar({ length: 20 }).default('admin').notNull(),
+	isActive: boolean("is_active").default(true).notNull(),
+	lastLoginAt: timestamp("last_login_at", { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("users_email_idx").using("btree", table.email.asc().nullsLast().op("text_ops")),
+	index("users_username_idx").using("btree", table.username.asc().nullsLast().op("text_ops")),
+	unique("users_username_unique").on(table.username),
+	unique("users_email_unique").on(table.email),
+]);
+
+export const alertRules = pgTable("alert_rules", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	intentType: varchar("intent_type", { length: 50 }).notNull(),
+	ruleName: varchar("rule_name", { length: 255 }).notNull(),
+	isEnabled: boolean("is_enabled").default(true).notNull(),
+	alertLevel: varchar("alert_level", { length: 20 }).notNull(),
+	threshold: integer().default(1),
+	cooldownPeriod: integer("cooldown_period").default(300),
+	messageTemplate: text("message_template"),
+	keywords: text(),
+	groupId: varchar("group_id", { length: 36 }),
+	enableEscalation: boolean("enable_escalation").default(false),
+	escalationLevel: integer("escalation_level").default(0),
+	escalationThreshold: integer("escalation_threshold").default(3),
+	escalationInterval: integer("escalation_interval").default(1800),
+	escalationConfig: jsonb("escalation_config").default({}),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_alert_rules_intent_type").using("btree", table.intentType.asc().nullsLast().op("text_ops")),
+]);
+
+export const intentConfigs = pgTable("intent_configs", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	intentType: varchar("intent_type", { length: 50 }).notNull(),
+	intentName: varchar("intent_name", { length: 100 }).notNull(),
+	intentDescription: text("intent_description"),
+	systemPrompt: text("system_prompt").notNull(),
+	isEnabled: boolean("is_enabled").default(true).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	unique("intent_configs_intent_type_key").on(table.intentType),
+]);
+
+export const alertGroups = pgTable("alert_groups", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	groupName: varchar("group_name", { length: 255 }).notNull(),
+	groupCode: varchar("group_code", { length: 50 }).notNull(),
+	groupColor: varchar("group_color", { length: 7 }),
+	description: text(),
+	sortOrder: integer("sort_order").default(0),
+	isActive: boolean("is_active").default(true).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_alert_groups_group_code").using("btree", table.groupCode.asc().nullsLast().op("text_ops")),
+	unique("alert_groups_group_name_key").on(table.groupName),
+	unique("alert_groups_group_code_key").on(table.groupCode),
+]);
+
+export const notificationMethods = pgTable("notification_methods", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	alertRuleId: varchar("alert_rule_id", { length: 36 }).notNull(),
+	methodType: varchar("method_type", { length: 50 }).notNull(),
+	isEnabled: boolean("is_enabled").default(true).notNull(),
+	recipientConfig: jsonb("recipient_config"),
+	messageTemplate: text("message_template"),
+	priority: integer().default(10).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_notification_methods_alert_rule_id").using("btree", table.alertRuleId.asc().nullsLast().op("text_ops")),
+]);
+
+export const alertHistory = pgTable("alert_history", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	sessionId: varchar("session_id", { length: 255 }),
+	alertRuleId: varchar("alert_rule_id", { length: 36 }).notNull(),
+	intentType: varchar("intent_type", { length: 50 }).notNull(),
+	alertLevel: varchar("alert_level", { length: 20 }).notNull(),
+	groupId: varchar("group_id", { length: 255 }),
+	groupName: varchar("group_name", { length: 255 }),
+	alertGroupId: varchar("alert_group_id", { length: 36 }),
+	userId: varchar("user_id", { length: 255 }),
+	userName: varchar("user_name", { length: 255 }),
+	groupChatId: varchar("group_chat_id", { length: 255 }),
+	messageContent: text("message_content"),
+	alertMessage: text("alert_message").notNull(),
+	notificationStatus: varchar("notification_status", { length: 20 }).default('pending').notNull(),
+	notificationResult: jsonb("notification_result"),
+	status: varchar({ length: 20 }).default('pending').notNull(),
+	isHandled: boolean("is_handled").default(false).notNull(),
+	handledBy: varchar("handled_by", { length: 36 }),
+	handledAt: timestamp("handled_at", { withTimezone: true, mode: 'string' }),
+	handledNote: text("handled_note"),
+	escalationLevel: integer("escalation_level").default(0),
+	escalationCount: integer("escalation_count").default(0),
+	escalationHistory: jsonb("escalation_history").default([]),
+	parentAlertId: varchar("parent_alert_id", { length: 36 }),
+	batchId: varchar("batch_id", { length: 36 }),
+	batchSize: integer("batch_size").default(1),
+	robotId: varchar("robot_id", { length: 64 }),
+	assignee: varchar({ length: 36 }),
+	confidence: integer(),
+	needReply: boolean("need_reply"),
+	needHuman: boolean("need_human"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_alert_history_alert_level").using("btree", table.alertLevel.asc().nullsLast().op("text_ops")),
+	index("idx_alert_history_alert_rule_id").using("btree", table.alertRuleId.asc().nullsLast().op("text_ops")),
+	index("idx_alert_history_created_at").using("btree", table.createdAt.asc().nullsLast().op("timestamptz_ops")),
+	index("idx_alert_history_intent_type").using("btree", table.intentType.asc().nullsLast().op("text_ops")),
+	index("idx_alert_history_session_id").using("btree", table.sessionId.asc().nullsLast().op("text_ops")),
+	index("idx_alert_history_status").using("btree", table.status.asc().nullsLast().op("text_ops")),
+]);
+
+export const alertDedupRecords = pgTable("alert_dedup_records", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	alertHash: varchar("alert_hash", { length: 64 }).notNull(),
+	alertLevel: varchar("alert_level", { length: 20 }).notNull(),
+	intentType: varchar("intent_type", { length: 50 }),
+	userId: varchar("user_id", { length: 255 }),
+	groupChatId: varchar("group_chat_id", { length: 255 }),
+	firstAlertId: varchar("first_alert_id", { length: 36 }),
+	lastAlertId: varchar("last_alert_id", { length: 36 }),
+	count: integer().default(1),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	unique("alert_dedup_records_alert_hash_key").on(table.alertHash),
+]);
+
+export const systemLogs = pgTable("system_logs", {
+	id: varchar({ length: 255 }).primaryKey().notNull(),
+	level: varchar({ length: 20 }).notNull(),
+	module: varchar({ length: 100 }).notNull(),
+	message: text().notNull(),
+	data: jsonb(),
+	timestamp: timestamp({ withTimezone: true, mode: 'string' }).notNull(),
+	environment: varchar({ length: 50 }).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("system_logs_level_idx").using("btree", table.level.asc().nullsLast().op("text_ops")),
+	index("system_logs_module_idx").using("btree", table.module.asc().nullsLast().op("text_ops")),
+	index("system_logs_timestamp_idx").using("btree", table.timestamp.asc().nullsLast().op("timestamptz_ops")),
+]);
+
+export const alertUpgrades = pgTable("alert_upgrades", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	originalAlertId: varchar("original_alert_id", { length: 36 }).notNull(),
+	escalationLevel: integer("escalation_level").notNull(),
+	escalatedAlertId: varchar("escalated_alert_id", { length: 36 }).notNull(),
+	escalationRuleId: varchar("escalation_rule_id", { length: 36 }),
+	escalationReason: text("escalation_reason"),
+	escalatedAt: timestamp("escalated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 });
 
-// Zod schemas for validation
-export const insertUserSchema = createCoercedInsertSchema(users).pick({
-  username: true,
-  email: true,
-  password: true,
-  role: true,
-  isActive: true,
+export const alertNotifications = pgTable("alert_notifications", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	alertId: varchar("alert_id", { length: 36 }).notNull(),
+	notificationMethodId: varchar("notification_method_id", { length: 36 }),
+	methodType: varchar("method_type", { length: 50 }).notNull(),
+	recipientConfig: jsonb("recipient_config"),
+	message: text(),
+	status: varchar({ length: 20 }).default('pending').notNull(),
+	sentAt: timestamp("sent_at", { withTimezone: true, mode: 'string' }),
+	errorMessage: text("error_message"),
+	retryCount: integer("retry_count").default(0),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 });
 
-export const updateUserSchema = createCoercedInsertSchema(users)
-  .pick({
-    username: true,
-    email: true,
-    password: true,
-    role: true,
-    isActive: true,
-    lastLoginAt: true,
-  })
-  .partial();
+export const staffMessages = pgTable("staff_messages", {
+	id: varchar({ length: 36 }).primaryKey().notNull(),
+	sessionId: varchar("session_id", { length: 255 }).notNull(),
+	messageId: varchar("message_id", { length: 255 }).notNull(),
+	staffUserId: varchar("staff_user_id", { length: 255 }).notNull(),
+	staffName: varchar("staff_name", { length: 255 }),
+	content: text().notNull(),
+	messageType: varchar("message_type", { length: 50 }).default('reply'),
+	isHandlingCommand: boolean("is_handling_command").default(false),
+	linkedRiskId: varchar("linked_risk_id", { length: 36 }),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	timestamp: timestamp({ mode: 'string' }),
+}, (table) => [
+	unique("staff_messages_message_id_key").on(table.messageId),
+]);
 
-export const insertSystemSettingSchema = createCoercedInsertSchema(systemSettings).pick({
-  key: true,
-  value: true,
-  category: true,
-  description: true,
-  updatedAtBy: true,
+export const staffActivities = pgTable("staff_activities", {
+	id: varchar({ length: 36 }).primaryKey().notNull(),
+	sessionId: varchar("session_id", { length: 255 }).notNull(),
+	staffUserId: varchar("staff_user_id", { length: 255 }).notNull(),
+	staffName: varchar("staff_name", { length: 255 }),
+	activityType: varchar("activity_type", { length: 50 }).notNull(),
+	activityDetail: text("activity_detail"),
+	messageId: varchar("message_id", { length: 255 }),
+	riskId: varchar("risk_id", { length: 36 }),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
 });
 
-export const updateSystemSettingSchema = createCoercedInsertSchema(systemSettings)
-  .pick({
-    value: true,
-    description: true,
-    updatedAtBy: true,
-  })
-  .partial();
+export const sessionStaffStatus = pgTable("session_staff_status", {
+	id: varchar({ length: 36 }).primaryKey().notNull(),
+	sessionId: varchar("session_id", { length: 255 }).notNull(),
+	hasStaffParticipated: boolean("has_staff_participated").default(false),
+	currentStaffUserId: varchar("current_staff_user_id", { length: 255 }),
+	staffJoinTime: timestamp("staff_join_time", { mode: 'string' }),
+	staffLeaveTime: timestamp("staff_leave_time", { mode: 'string' }),
+	staffMessageCount: integer("staff_message_count").default(0),
+	lastStaffActivity: timestamp("last_staff_activity", { mode: 'string' }),
+	collaborationMode: varchar("collaboration_mode", { length: 50 }).default('adaptive'),
+	aiReplyStrategy: varchar("ai_reply_strategy", { length: 50 }).default('normal'),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
+}, (table) => [
+	unique("session_staff_status_session_id_key").on(table.sessionId),
+]);
 
-// 风险消息表
-export const riskMessages = pgTable(
-  "risk_messages",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    messageId: varchar("message_id", { length: 36 }).notNull().unique(),
-    sessionId: varchar("session_id", { length: 36 }).notNull(),
-    userId: varchar("user_id", { length: 100 }),
-    userName: varchar("user_name", { length: 100 }),
-    groupName: varchar("group_name", { length: 200 }),
-    content: text("content").notNull(),
-    aiReply: text("ai_reply"),
-    status: varchar("status", { length: 20 }).notNull().default("processing"), // 'processing' | 'resolved' | 'escalated'
-    resolvedBy: varchar("resolved_by", { length: 100 }), // 'AI' or userId
-    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
-    handledByStaff: jsonb("handled_by_staff"), // string[]: 处理过的工作人员列表
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    sessionIdIdx: index("risk_messages_session_id_idx").on(table.sessionId),
-    statusIdx: index("risk_messages_status_idx").on(table.status),
-    createdAtIdx: index("risk_messages_created_at_idx").on(table.createdAt),
-  })
-);
+export const infoDetectionHistory = pgTable("info_detection_history", {
+	id: varchar({ length: 36 }).primaryKey().notNull(),
+	messageId: varchar("message_id", { length: 255 }).notNull(),
+	sessionId: varchar("session_id", { length: 255 }).notNull(),
+	hasRisk: boolean("has_risk").default(false),
+	riskLevel: varchar("risk_level", { length: 20 }),
+	riskScore: numeric("risk_score", { precision: 3, scale:  2 }),
+	satisfactionLevel: varchar("satisfaction_level", { length: 20 }),
+	satisfactionScore: numeric("satisfaction_score", { precision: 3, scale:  2 }),
+	sentiment: varchar({ length: 20 }),
+	sentimentConfidence: numeric("sentiment_confidence", { precision: 3, scale:  2 }),
+	urgencyLevel: varchar("urgency_level", { length: 20 }),
+	urgencyScore: numeric("urgency_score", { precision: 3, scale:  2 }),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+}, (table) => [
+	unique("info_detection_history_message_id_key").on(table.messageId),
+]);
 
-// 风险处理记录表
-export const riskHandlingLogs = pgTable(
-  "risk_handling_logs",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    riskId: varchar("risk_id", { length: 36 }).notNull(),
-    action: varchar("action", { length: 50 }).notNull(), // 'ai_reply' | 'staff_reply' | 'manual_intervention' | 'auto_resolved' | 'notification_sent'
-    actor: varchar("actor", { length: 100 }).notNull(), // 'AI' or userId
-    content: text("content"),
-    metadata: jsonb("metadata"), // 额外的元数据
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (table) => ({
-    riskIdIdx: index("risk_handling_logs_risk_id_idx").on(table.riskId),
-    actionIdx: index("risk_handling_logs_action_idx").on(table.action),
-    createdAtIdx: index("risk_handling_logs_created_at_idx").on(table.createdAt),
-  })
-);
-
-// Zod schemas for risk tables
-export const insertRiskMessageSchema = createCoercedInsertSchema(riskMessages).pick({
-  messageId: true,
-  sessionId: true,
-  userId: true,
-  userName: true,
-  groupName: true,
-  content: true,
-  aiReply: true,
-  status: true,
+export const collaborationDecisionLogs = pgTable("collaboration_decision_logs", {
+	id: varchar({ length: 36 }).primaryKey().notNull(),
+	sessionId: varchar("session_id", { length: 255 }).notNull(),
+	messageId: varchar("message_id", { length: 255 }),
+	robotId: varchar("robot_id", { length: 255 }),
+	shouldAiReply: boolean("should_ai_reply"),
+	aiAction: varchar("ai_action", { length: 50 }),
+	staffAction: varchar("staff_action", { length: 50 }),
+	priority: varchar({ length: 20 }),
+	reason: varchar({ length: 255 }),
+	staffContext: text("staff_context"),
+	infoContext: text("info_context"),
+	strategy: text(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
 });
 
-export const updateRiskMessageSchema = createCoercedInsertSchema(riskMessages)
-  .pick({
-    aiReply: true,
-    status: true,
-    resolvedBy: true,
-    resolvedAt: true,
-    handledByStaff: true,
-  })
-  .partial();
-
-export const insertRiskHandlingLogSchema = createCoercedInsertSchema(riskHandlingLogs).pick({
-  riskId: true,
-  action: true,
-  actor: true,
-  content: true,
-  metadata: true,
+export const alertRecipients = pgTable("alert_recipients", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	alertId: varchar("alert_id", { length: 36 }).notNull(),
+	recipientType: varchar("recipient_type", { length: 50 }).notNull(),
+	recipientId: varchar("recipient_id", { length: 255 }).notNull(),
+	recipientName: varchar("recipient_name", { length: 255 }),
+	notificationStatus: varchar("notification_status", { length: 20 }).default('pending').notNull(),
+	sentAt: timestamp("sent_at", { withTimezone: true, mode: 'string' }),
+	errorMessage: text("error_message"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 });
 
-// TypeScript types
-export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type UpdateUser = z.infer<typeof updateUserSchema>;
+export const alertBatchOperations = pgTable("alert_batch_operations", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	operationType: varchar("operation_type", { length: 50 }).notNull(),
+	batchId: varchar("batch_id", { length: 36 }).notNull(),
+	status: varchar({ length: 20 }).default('pending').notNull(),
+	totalCount: integer("total_count").default(0),
+	successCount: integer("success_count").default(0),
+	failureCount: integer("failure_count").default(0),
+	errorMessage: text("error_message"),
+	createdBy: varchar("created_by", { length: 36 }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	completedAt: timestamp("completed_at", { withTimezone: true, mode: 'string' }),
+});
 
-export type SystemSetting = typeof systemSettings.$inferSelect;
-export type InsertSystemSetting = z.infer<typeof insertSystemSettingSchema>;
-export type UpdateSystemSetting = z.infer<typeof updateSystemSettingSchema>;
+export const alertStatsSnapshots = pgTable("alert_stats_snapshots", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	snapshotDate: date("snapshot_date").notNull(),
+	totalCount: integer("total_count").default(0),
+	pendingCount: integer("pending_count").default(0),
+	handledCount: integer("handled_count").default(0),
+	ignoredCount: integer("ignored_count").default(0),
+	sentCount: integer("sent_count").default(0),
+	criticalCount: integer("critical_count").default(0),
+	warningCount: integer("warning_count").default(0),
+	infoCount: integer("info_count").default(0),
+	escalatedCount: integer("escalated_count").default(0),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	unique("alert_stats_snapshots_snapshot_date_key").on(table.snapshotDate),
+]);
 
-export type RiskMessage = typeof riskMessages.$inferSelect;
-export type InsertRiskMessage = z.infer<typeof insertRiskMessageSchema>;
-export type UpdateRiskMessage = z.infer<typeof updateRiskMessageSchema>;
+export const sessionMessages = pgTable("session_messages", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	sessionId: varchar("session_id", { length: 255 }).notNull(),
+	messageId: varchar("message_id", { length: 255 }),
+	userId: varchar("user_id", { length: 255 }),
+	groupId: varchar("group_id", { length: 255 }),
+	userName: varchar("user_name", { length: 255 }),
+	groupName: varchar("group_name", { length: 255 }),
+	robotId: varchar("robot_id", { length: 64 }),
+	robotName: varchar("robot_name", { length: 255 }),
+	content: text().notNull(),
+	isFromUser: boolean("is_from_user").default(false).notNull(),
+	isFromBot: boolean("is_from_bot").default(false).notNull(),
+	isHuman: boolean("is_human").default(false).notNull(),
+	intent: varchar({ length: 50 }),
+	confidence: integer(),
+	timestamp: timestamp({ withTimezone: true, mode: 'string' }).notNull(),
+	extraData: jsonb("extra_data"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	robotNickname: varchar("robot_nickname", { length: 255 }),
+}, (table) => [
+	index("session_messages_group_id_idx").using("btree", table.groupId.asc().nullsLast().op("text_ops")),
+	index("session_messages_intent_idx").using("btree", table.intent.asc().nullsLast().op("text_ops")),
+	index("session_messages_robot_id_idx").using("btree", table.robotId.asc().nullsLast().op("text_ops")),
+	index("session_messages_session_id_idx").using("btree", table.sessionId.asc().nullsLast().op("text_ops")),
+	index("session_messages_timestamp_idx").using("btree", table.timestamp.asc().nullsLast().op("timestamptz_ops")),
+	index("session_messages_user_id_idx").using("btree", table.userId.asc().nullsLast().op("text_ops")),
+]);
 
-export type RiskHandlingLog = typeof riskHandlingLogs.$inferSelect;
-export type InsertRiskHandlingLog = z.infer<typeof insertRiskHandlingLogSchema>;
+export const robotGroups = pgTable("robot_groups", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	name: varchar({ length: 255 }).notNull(),
+	description: text(),
+	color: varchar({ length: 7 }),
+	icon: varchar({ length: 50 }),
+	priority: integer().default(10),
+	isEnabled: boolean("is_enabled").default(true).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	unique("robot_groups_name_key").on(table.name),
+]);
 
+export const robotRoles = pgTable("robot_roles", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	name: varchar({ length: 255 }).notNull(),
+	description: text(),
+	permissions: jsonb(),
+	isSystem: boolean("is_system").default(false).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	unique("robot_roles_name_key").on(table.name),
+]);
 
+export const robots = pgTable("robots", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	name: varchar({ length: 255 }).notNull(),
+	robotId: varchar("robot_id", { length: 64 }).notNull(),
+	apiBaseUrl: varchar("api_base_url", { length: 255 }).notNull(),
+	description: text(),
+	isActive: boolean("is_active").default(true).notNull(),
+	status: varchar({ length: 20 }).default('unknown').notNull(),
+	nickname: varchar({ length: 255 }),
+	robotGroup: varchar("robot_group", { length: 50 }),
+	robotType: varchar("robot_type", { length: 50 }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	groupId: varchar("group_id", { length: 36 }),
+	roleId: varchar("role_id", { length: 36 }),
+	capabilities: jsonb().default({}),
+	priority: integer().default(10),
+	maxConcurrentSessions: integer("max_concurrent_sessions").default(100),
+	currentSessionCount: integer("current_session_count").default(0),
+	enabledIntents: jsonb("enabled_intents").default([]),
+	aiModelConfig: jsonb("ai_model_config").default({}),
+	responseConfig: jsonb("response_config").default({}),
+	loadBalancingWeight: integer("load_balancing_weight").default(1),
+	healthCheckInterval: integer("health_check_interval").default(60),
+	lastHeartbeatAt: timestamp("last_heartbeat_at", { mode: 'string' }),
+	performanceMetrics: jsonb("performance_metrics").default({}),
+	tags: jsonb().default([]),
+	metadata: jsonb().default({}),
+	lastCheckAt: timestamp("last_check_at", { mode: 'string' }),
+	lastError: text("last_error"),
+	company: varchar({ length: 255 }),
+	ipAddress: varchar("ip_address", { length: 45 }),
+	isValid: boolean("is_valid").default(true),
+	activatedAt: timestamp("activated_at", { mode: 'string' }),
+	expiresAt: timestamp("expires_at", { mode: 'string' }),
+	messageCallbackEnabled: boolean("message_callback_enabled").default(false),
+	conversionMode: boolean("conversion_mode").default(false),
+	extraData: jsonb("extra_data").default({}),
+	messageCallbackUrl: varchar("message_callback_url", { length: 500 }),
+	resultCallbackUrl: varchar("result_callback_url", { length: 500 }),
+	qrcodeCallbackUrl: varchar("qrcode_callback_url", { length: 500 }),
+	onlineCallbackUrl: varchar("online_callback_url", { length: 500 }),
+	offlineCallbackUrl: varchar("offline_callback_url", { length: 500 }),
+	sendMessageApi: varchar("send_message_api", { length: 500 }),
+	updateApi: varchar("update_api", { length: 500 }),
+	getInfoApi: varchar("get_info_api", { length: 500 }),
+	onlineApi: varchar("online_api", { length: 500 }),
+	onlineInfosApi: varchar("online_infos_api", { length: 500 }),
+	listRawMessageApi: varchar("list_raw_message_api", { length: 500 }),
+	rawMsgListApi: varchar("raw_msg_list_api", { length: 500 }),
+	qaLogListApi: varchar("qa_log_list_api", { length: 500 }),
+	callbackBaseUrl: varchar("callback_base_url", { length: 500 }),
+}, (table) => [
+	index("idx_robots_company").using("btree", table.company.asc().nullsLast().op("text_ops")),
+	index("idx_robots_expires_at").using("btree", table.expiresAt.asc().nullsLast().op("timestamp_ops")),
+	index("idx_robots_group_id").using("btree", table.groupId.asc().nullsLast().op("text_ops")),
+	index("idx_robots_is_active").using("btree", table.isActive.asc().nullsLast().op("bool_ops")),
+	index("idx_robots_is_valid").using("btree", table.isValid.asc().nullsLast().op("bool_ops")),
+	index("idx_robots_load_balancing_weight").using("btree", table.loadBalancingWeight.asc().nullsLast().op("int4_ops")),
+	index("idx_robots_priority").using("btree", table.priority.asc().nullsLast().op("int4_ops")),
+	index("idx_robots_robot_id").using("btree", table.robotId.asc().nullsLast().op("text_ops")),
+	index("idx_robots_role_id").using("btree", table.roleId.asc().nullsLast().op("text_ops")),
+	index("idx_robots_status").using("btree", table.status.asc().nullsLast().op("text_ops")),
+	unique("robots_robot_id_key").on(table.robotId),
+]);
 
+export const flowDefinitions = pgTable("flow_definitions", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	name: varchar({ length: 255 }).notNull(),
+	description: text(),
+	version: varchar({ length: 50 }).default('1.0'),
+	isActive: boolean("is_active").default(true).notNull(),
+	triggerType: varchar("trigger_type", { length: 50 }).notNull(),
+	triggerConfig: jsonb("trigger_config").default({}),
+	nodes: jsonb().default([]).notNull(),
+	edges: jsonb().default([]).notNull(),
+	variables: jsonb().default({}),
+	timeout: integer().default(30000),
+	retryConfig: jsonb("retry_config").default({"maxRetries":3,"retryInterval":1000}),
+	createdBy: varchar("created_by", { length: 36 }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("flow_definitions_created_at_idx").using("btree", table.createdAt.asc().nullsLast().op("timestamptz_ops")),
+	index("flow_definitions_is_active_idx").using("btree", table.isActive.asc().nullsLast().op("bool_ops")),
+	index("flow_definitions_trigger_type_idx").using("btree", table.triggerType.asc().nullsLast().op("text_ops")),
+]);
 
+export const flowInstances = pgTable("flow_instances", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	flowDefinitionId: varchar("flow_definition_id", { length: 36 }).notNull(),
+	flowName: varchar("flow_name", { length: 255 }),
+	status: varchar({ length: 50 }).default('running').notNull(),
+	triggerType: varchar("trigger_type", { length: 50 }).notNull(),
+	triggerData: jsonb("trigger_data").default({}),
+	currentNodeId: varchar("current_node_id", { length: 36 }),
+	executionPath: jsonb("execution_path").default([]),
+	context: jsonb().default({}),
+	result: jsonb().default({}),
+	errorMessage: text("error_message"),
+	errorStack: text("error_stack"),
+	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	completedAt: timestamp("completed_at", { withTimezone: true, mode: 'string' }),
+	processingTime: integer("processing_time"),
+	retryCount: integer("retry_count").default(0),
+	metadata: jsonb().default({}),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("flow_instances_created_at_idx").using("btree", table.createdAt.asc().nullsLast().op("timestamptz_ops")),
+	index("flow_instances_current_node_id_idx").using("btree", table.currentNodeId.asc().nullsLast().op("text_ops")),
+	index("flow_instances_flow_definition_id_idx").using("btree", table.flowDefinitionId.asc().nullsLast().op("text_ops")),
+	index("flow_instances_started_at_idx").using("btree", table.startedAt.asc().nullsLast().op("timestamptz_ops")),
+	index("flow_instances_status_idx").using("btree", table.status.asc().nullsLast().op("text_ops")),
+]);
+
+export const flowExecutionLogs = pgTable("flow_execution_logs", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	flowInstanceId: varchar("flow_instance_id", { length: 36 }).notNull(),
+	flowDefinitionId: varchar("flow_definition_id", { length: 36 }),
+	nodeId: varchar("node_id", { length: 36 }).notNull(),
+	nodeType: varchar("node_type", { length: 50 }).notNull(),
+	nodeName: varchar("node_name", { length: 255 }),
+	status: varchar({ length: 50 }).notNull(),
+	inputData: jsonb("input_data").default({}),
+	outputData: jsonb("output_data").default({}),
+	errorMessage: text("error_message"),
+	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	completedAt: timestamp("completed_at", { withTimezone: true, mode: 'string' }),
+	processingTime: integer("processing_time"),
+	retryCount: integer("retry_count").default(0),
+	metadata: jsonb().default({}),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("flow_execution_logs_created_at_idx").using("btree", table.createdAt.asc().nullsLast().op("timestamptz_ops")),
+	index("flow_execution_logs_flow_definition_id_idx").using("btree", table.flowDefinitionId.asc().nullsLast().op("text_ops")),
+	index("flow_execution_logs_flow_instance_id_idx").using("btree", table.flowInstanceId.asc().nullsLast().op("text_ops")),
+	index("flow_execution_logs_node_id_idx").using("btree", table.nodeId.asc().nullsLast().op("text_ops")),
+	index("flow_execution_logs_started_at_idx").using("btree", table.startedAt.asc().nullsLast().op("timestamptz_ops")),
+	index("flow_execution_logs_status_idx").using("btree", table.status.asc().nullsLast().op("text_ops")),
+]);
+
+export const robotCommands = pgTable("robot_commands", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	robotId: varchar("robot_id", { length: 255 }).notNull(),
+	commandType: varchar("command_type", { length: 50 }).notNull(),
+	commandData: jsonb("command_data").notNull(),
+	priority: integer().default(10),
+	status: varchar({ length: 20 }).default('pending').notNull(),
+	retryCount: integer("retry_count").default(0),
+	maxRetries: integer("max_retries").default(3),
+	errorMessage: text("error_message"),
+	sentAt: timestamp("sent_at", { mode: 'string' }),
+	completedAt: timestamp("completed_at", { mode: 'string' }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	result: jsonb(),
+	executedAt: timestamp("executed_at", { mode: 'string' }),
+	messageId: varchar("message_id", { length: 100 }),
+}, (table) => [
+	index("idx_robot_commands_robot_id").using("btree", table.robotId.asc().nullsLast().op("text_ops")),
+	index("idx_robot_commands_status").using("btree", table.status.asc().nullsLast().op("text_ops")),
+	index("robot_commands_message_id_idx").using("btree", table.messageId.asc().nullsLast().op("text_ops")),
+]);
+
+export const staff = pgTable("staff", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	name: varchar({ length: 200 }).notNull(),
+	email: varchar({ length: 255 }).notNull(),
+	avatarUrl: varchar("avatar_url", { length: 500 }),
+	phone: varchar({ length: 50 }),
+	role: varchar({ length: 50 }).default('staff').notNull(),
+	permissions: jsonb().default([]),
+	status: varchar({ length: 20 }).default('offline').notNull(),
+	statusMessage: varchar("status_message", { length: 500 }),
+	currentSessions: integer("current_sessions").default(0).notNull(),
+	maxSessions: integer("max_sessions").default(10).notNull(),
+	workSchedule: jsonb("work_schedule").default({}),
+	timezone: varchar({ length: 50 }).default('Asia/Shanghai').notNull(),
+	totalInterventions: integer("total_interventions").default(0).notNull(),
+	totalMessages: integer("total_messages").default(0).notNull(),
+	avgResponseTime: integer("avg_response_time"),
+	satisfactionRate: numeric("satisfaction_rate", { precision: 3, scale:  2 }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	lastActiveAt: timestamp("last_active_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("staff_email_idx").using("btree", table.email.asc().nullsLast().op("text_ops")),
+	index("staff_role_idx").using("btree", table.role.asc().nullsLast().op("text_ops")),
+	index("staff_status_idx").using("btree", table.status.asc().nullsLast().op("text_ops")),
+	unique("staff_email_key").on(table.email),
+]);
+
+export const robotLoadBalancing = pgTable("robot_load_balancing", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	robotId: varchar("robot_id", { length: 255 }).notNull(),
+	currentSessions: integer("current_sessions").default(0).notNull(),
+	maxSessions: integer("max_sessions").default(100).notNull(),
+	cpuUsage: numeric("cpu_usage", { precision: 5, scale:  2 }),
+	memoryUsage: numeric("memory_usage", { precision: 5, scale:  2 }),
+	avgResponseTime: integer("avg_response_time"),
+	successRate: numeric("success_rate", { precision: 5, scale:  4 }),
+	errorCount: integer("error_count").default(0),
+	healthScore: numeric("health_score", { precision: 5, scale:  2 }).default('100').notNull(),
+	isAvailable: boolean("is_available").default(true).notNull(),
+	lastUpdatedAt: timestamp("last_updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_robot_load_balancing_health_score").using("btree", table.healthScore.asc().nullsLast().op("numeric_ops")),
+	index("idx_robot_load_balancing_robot_id").using("btree", table.robotId.asc().nullsLast().op("text_ops")),
+	unique("robot_load_balancing_robot_id_key").on(table.robotId),
+]);
+
+export const interventions = pgTable("interventions", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	sessionId: varchar("session_id", { length: 36 }).notNull(),
+	staffId: varchar("staff_id", { length: 36 }).notNull(),
+	staffName: varchar("staff_name", { length: 200 }).notNull(),
+	messageId: varchar("message_id", { length: 36 }),
+	interventionType: varchar("intervention_type", { length: 50 }).default('manual').notNull(),
+	reason: text(),
+	interventionContent: text("intervention_content"),
+	messageSnapshot: jsonb("message_snapshot").default({}),
+	sessionSnapshot: jsonb("session_snapshot").default({}),
+	status: varchar({ length: 20 }).default('active').notNull(),
+	resolvedAt: timestamp("resolved_at", { withTimezone: true, mode: 'string' }),
+	resolvedBy: varchar("resolved_by", { length: 36 }),
+	resolutionNote: text("resolution_note"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	closedAt: timestamp("closed_at", { withTimezone: true, mode: 'string' }),
+	durationSeconds: integer("duration_seconds"),
+	metadata: jsonb().default({}),
+}, (table) => [
+	index("interventions_created_at_idx").using("btree", table.createdAt.asc().nullsLast().op("timestamptz_ops")),
+	index("interventions_intervention_type_idx").using("btree", table.interventionType.asc().nullsLast().op("text_ops")),
+	index("interventions_message_id_idx").using("btree", table.messageId.asc().nullsLast().op("text_ops")),
+	index("interventions_session_id_idx").using("btree", table.sessionId.asc().nullsLast().op("text_ops")),
+	index("interventions_staff_id_idx").using("btree", table.staffId.asc().nullsLast().op("text_ops")),
+	index("interventions_status_idx").using("btree", table.status.asc().nullsLast().op("text_ops")),
+	foreignKey({
+			columns: [table.sessionId],
+			foreignColumns: [sessions.id],
+			name: "interventions_session_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.staffId],
+			foreignColumns: [staff.id],
+			name: "interventions_staff_id_fkey"
+		}).onDelete("cascade"),
+]);
+
+export const sessions = pgTable("sessions", {
+	id: varchar({ length: 255 }).primaryKey().notNull(),
+	sessionId: varchar("session_id", { length: 255 }).notNull(),
+	userId: varchar("user_id", { length: 255 }),
+	groupId: varchar("group_id", { length: 255 }),
+	userName: varchar("user_name", { length: 255 }),
+	groupName: varchar("group_name", { length: 255 }),
+	roomType: integer("room_type"),
+	status: varchar({ length: 50 }).default('auto'),
+	context: jsonb().default([]),
+	messageCount: integer("message_count").default(0),
+	lastIntent: varchar("last_intent", { length: 100 }),
+	intentConfidence: doublePrecision("intent_confidence"),
+	lastProcessedAt: timestamp("last_processed_at", { mode: 'string' }),
+	lastMessageAt: timestamp("last_message_at", { mode: 'string' }),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
+	robotId: varchar("robot_id", { length: 255 }),
+	robotName: varchar("robot_name", { length: 255 }),
+	userSessionId: varchar("user_session_id", { length: 36 }),
+	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }),
+	endedAt: timestamp("ended_at", { withTimezone: true, mode: 'string' }),
+	durationSeconds: integer("duration_seconds"),
+	satisfactionScore: integer("satisfaction_score"),
+	satisfactionReason: varchar("satisfaction_reason", { length: 1000 }),
+	issueCategory: varchar("issue_category", { length: 100 }),
+	issueSubcategory: varchar("issue_subcategory", { length: 100 }),
+	issueResolved: boolean("issue_resolved").default(false),
+	staffId: varchar("staff_id", { length: 36 }),
+	staffIntervened: boolean("staff_intervened").default(false),
+	staffInterventionCount: integer("staff_intervention_count").default(0),
+	firstInterventionAt: timestamp("first_intervention_at", { withTimezone: true, mode: 'string' }),
+	sessionType: varchar("session_type", { length: 20 }).default('private'),
+}, (table) => [
+	index("idx_sessions_group_id").using("btree", table.groupId.asc().nullsLast().op("text_ops")),
+	index("idx_sessions_last_processed_at").using("btree", table.lastProcessedAt.asc().nullsLast().op("timestamp_ops")),
+	index("idx_sessions_session_id").using("btree", table.sessionId.asc().nullsLast().op("text_ops")),
+	index("idx_sessions_status").using("btree", table.status.asc().nullsLast().op("text_ops")),
+	index("idx_sessions_user_id").using("btree", table.userId.asc().nullsLast().op("text_ops")),
+	index("sessions_ended_at_idx").using("btree", table.endedAt.asc().nullsLast().op("timestamptz_ops")),
+	index("sessions_staff_id_idx").using("btree", table.staffId.asc().nullsLast().op("text_ops")),
+	index("sessions_staff_intervened_idx").using("btree", table.staffIntervened.asc().nullsLast().op("bool_ops")),
+	index("sessions_started_at_idx").using("btree", table.startedAt.asc().nullsLast().op("timestamptz_ops")),
+	index("sessions_user_session_id_idx").using("btree", table.userSessionId.asc().nullsLast().op("text_ops")),
+	unique("sessions_session_id_key").on(table.sessionId),
+]);
+
+export const userSessions = pgTable("user_sessions", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	userId: varchar("user_id", { length: 100 }).notNull(),
+	robotId: varchar("robot_id", { length: 36 }).notNull(),
+	status: varchar({ length: 20 }).default('active').notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	lastMessageAt: timestamp("last_message_at", { withTimezone: true, mode: 'string' }),
+	totalMessageCount: integer("total_message_count").default(0).notNull(),
+	totalServiceCount: integer("total_service_count").default(0).notNull(),
+	firstServiceSessionId: varchar("first_service_session_id", { length: 36 }),
+	lastServiceSessionId: varchar("last_service_session_id", { length: 36 }),
+	metadata: jsonb().default({}),
+}, (table) => [
+	index("user_sessions_created_at_idx").using("btree", table.createdAt.asc().nullsLast().op("timestamptz_ops")),
+	index("user_sessions_last_message_at_idx").using("btree", table.lastMessageAt.asc().nullsLast().op("timestamptz_ops")),
+	index("user_sessions_robot_id_idx").using("btree", table.robotId.asc().nullsLast().op("text_ops")),
+	index("user_sessions_status_idx").using("btree", table.status.asc().nullsLast().op("text_ops")),
+	index("user_sessions_user_id_idx").using("btree", table.userId.asc().nullsLast().op("text_ops")),
+	unique("user_sessions_user_id_key").on(table.userId),
+]);
+
+export const robotCommandQueue = pgTable("robot_command_queue", {
+	id: varchar({ length: 255 }).primaryKey().notNull(),
+	commandId: varchar("command_id", { length: 255 }).notNull(),
+	robotId: varchar("robot_id", { length: 255 }).notNull(),
+	priority: integer().default(5).notNull(),
+	status: varchar({ length: 50 }).default('pending').notNull(),
+	scheduledFor: timestamp("scheduled_for", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	lockedAt: timestamp("locked_at", { withTimezone: true, mode: 'string' }),
+	lockedBy: varchar("locked_by", { length: 255 }),
+	retryCount: integer("retry_count").default(0).notNull(),
+});
+
+export const riskMessages = pgTable("risk_messages", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	messageId: varchar("message_id", { length: 36 }).notNull(),
+	sessionId: varchar("session_id", { length: 36 }).notNull(),
+	userId: varchar("user_id", { length: 100 }),
+	userName: varchar("user_name", { length: 100 }),
+	groupName: varchar("group_name", { length: 200 }),
+	content: text().notNull(),
+	aiReply: text("ai_reply"),
+	status: varchar({ length: 20 }).default('processing').notNull(),
+	resolvedBy: varchar("resolved_by", { length: 100 }),
+	resolvedAt: timestamp("resolved_at", { withTimezone: true, mode: 'string' }),
+	handledByStaff: jsonb("handled_by_staff"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("risk_messages_created_at_idx").using("btree", table.createdAt.asc().nullsLast().op("timestamptz_ops")),
+	index("risk_messages_session_id_idx").using("btree", table.sessionId.asc().nullsLast().op("text_ops")),
+	index("risk_messages_status_idx").using("btree", table.status.asc().nullsLast().op("text_ops")),
+	unique("risk_messages_message_id_unique").on(table.messageId),
+]);
+
+export const riskHandlingLogs = pgTable("risk_handling_logs", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	riskId: varchar("risk_id", { length: 36 }).notNull(),
+	action: varchar({ length: 50 }).notNull(),
+	actor: varchar({ length: 100 }).notNull(),
+	content: text(),
+	metadata: jsonb(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("risk_handling_logs_action_idx").using("btree", table.action.asc().nullsLast().op("text_ops")),
+	index("risk_handling_logs_created_at_idx").using("btree", table.createdAt.asc().nullsLast().op("timestamptz_ops")),
+	index("risk_handling_logs_risk_id_idx").using("btree", table.riskId.asc().nullsLast().op("text_ops")),
+]);
+
+export const messages = pgTable("messages", {
+	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
+	sessionId: varchar("session_id", { length: 36 }).notNull(),
+	userSessionId: varchar("user_session_id", { length: 36 }),
+	robotId: varchar("robot_id", { length: 36 }).notNull(),
+	content: text().notNull(),
+	contentType: varchar("content_type", { length: 20 }).default('text'),
+	senderId: varchar("sender_id", { length: 100 }).notNull(),
+	senderType: varchar("sender_type", { length: 20 }).notNull(),
+	senderName: varchar("sender_name", { length: 200 }),
+	messageType: varchar("message_type", { length: 20 }).default('message'),
+	aiModel: varchar("ai_model", { length: 100 }),
+	aiProvider: varchar("ai_provider", { length: 50 }),
+	aiResponseTime: integer("ai_response_time"),
+	aiTokensUsed: integer("ai_tokens_used"),
+	aiCost: numeric("ai_cost", { precision: 10, scale:  4 }),
+	aiConfidence: numeric("ai_confidence", { precision: 3, scale:  2 }),
+	intentId: varchar("intent_id", { length: 36 }),
+	intentConfidence: numeric("intent_confidence", { precision: 3, scale:  2 }),
+	emotion: varchar({ length: 50 }),
+	emotionScore: numeric("emotion_score", { precision: 3, scale:  2 }),
+	metadata: jsonb().default({}),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("messages_created_at_idx").using("btree", table.createdAt.asc().nullsLast().op("timestamptz_ops")),
+	index("messages_intent_id_idx").using("btree", table.intentId.asc().nullsLast().op("text_ops")),
+	index("messages_robot_id_idx").using("btree", table.robotId.asc().nullsLast().op("text_ops")),
+	index("messages_sender_id_idx").using("btree", table.senderId.asc().nullsLast().op("text_ops")),
+	index("messages_sender_type_idx").using("btree", table.senderType.asc().nullsLast().op("text_ops")),
+	index("messages_session_id_idx").using("btree", table.sessionId.asc().nullsLast().op("text_ops")),
+	index("messages_user_session_id_idx").using("btree", table.userSessionId.asc().nullsLast().op("text_ops")),
+]);

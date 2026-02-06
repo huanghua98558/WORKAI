@@ -1,3 +1,2 @@
-export { userManager } from "./userManager";
-export { systemSettingManager } from "./systemSettingManager";
+export { robotCommandManager } from "./robotCommandManager";
 export * from "./shared/schema";
