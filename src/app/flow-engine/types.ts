@@ -338,12 +338,15 @@ export interface AlertRuleConfig {
 // RISK_HANDLER 节点配置
 export interface RiskHandlerConfig {
   riskLevel: 'low' | 'medium' | 'high' | 'critical'; // 风险级别
+  riskMode?: 'auto_notify' | 'human' | 'auto' | 'ignore'; // 处理模式
   aiSoothing: boolean;         // 是否启用AI安抚
   soothingModelId?: string;    // 安抚AI模型ID
   notifyHumans: boolean;       // 是否通知人工
   notifyTargets: string[];     // 通知目标
   escalationStrategy: 'immediate' | 'timeout' | 'manual'; // 升级策略
   escalateAfterMinutes?: number; // 升级时间（分钟）
+  enableStaffDetection?: boolean; // 是否启用工作人员检测（协同分析匹配）
+  monitoringDuration?: number; // 监听时长（秒）
 }
 
 // MONITOR 节点配置
@@ -355,6 +358,10 @@ export interface MonitorConfig {
   alertOnMatch: boolean;       // 匹配时是否告警
   realtime: boolean;           // 是否实时监控
   intervalSeconds?: number;    // 间隔（秒）
+  duration?: number;           // 监听时长（秒）
+  detectStaff?: boolean;       // 是否检测工作人员（协同分析匹配）
+  detectUserSatisfaction?: boolean; // 是否检测用户满意度（协同分析匹配）
+  detectEscalation?: boolean;  // 是否检测升级信号（协同分析匹配）
 }
 
 // ROBOT_DISPATCH 节点配置（第13种节点）
