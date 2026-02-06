@@ -19,6 +19,7 @@ const worktoolCallbackRoutes = async function (fastify, options) {
   const worktoolService = require('../services/worktool.service');
   const messageProcessingService = require('../services/message-processing.service'); // 新的消息处理服务
   const { flowEngine, TriggerType } = require('../services/flow-engine.service'); // 流程引擎服务
+  const { collaborationService, StaffIdentifier } = require('../services/collaboration.service'); // 协同分析服务
   const { callbackHistory, flowDefinitions } = require('../database/schema');
   const config = require('../lib/config');
 
@@ -587,6 +588,76 @@ const worktoolCallbackRoutes = async function (fastify, options) {
         groupName: message.groupName,
         timestamp: message.timestamp
       });
+
+      // 协同分析：信息检测
+      try {
+        const sessionId = message.groupName ? `session_${message.groupName}` : `session_${message.fromName}`;
+
+        // 1. 检测群组信息
+        if (message.groupName) {
+          const groupInfo = await collaborationService.detectGroupInfo({
+            groupId: message.groupName,
+            groupName: message.groupName,
+            groupRemark: message.groupRemark,
+            robotId: robot.robotId,
+            sessionId
+          });
+
+          console.log('[协同分析] 群组信息检测完成', {
+            groupId: groupInfo.groupId,
+            groupName: groupInfo.groupName,
+            features: groupInfo.features
+          });
+        }
+
+        // 2. 检测工作人员信息
+        const staffDetection = await collaborationService.detectStaffInfo({
+          userId: message.fromName,
+          userName: message.fromName,
+          remarkName: message.groupRemark,
+          company: robot.company,
+          robotId: robot.robotId,
+          sessionId
+        });
+
+        console.log('[协同分析] 工作人员信息检测完成', {
+          userId: staffDetection.userId,
+          isStaff: staffDetection.isStaff,
+          roles: staffDetection.roles
+        });
+      } catch (error) {
+        console.error('[协同分析] 信息检测失败（不影响主流程）:', error);
+        // 不抛出错误，继续执行主流程
+      }
+
+      // 协同分析：检测并记录工作人员消息
+      try {
+        const sessionId = message.groupName ? `session_${message.groupName}` : `session_${message.fromName}`;
+        const staffResult = await collaborationService.handleStaffMessage({
+          sessionId,
+          robotId: robot.robotId,
+          messageId: message.messageId,
+          fromName: message.fromName,
+          groupName: message.groupName,
+          remarkName: message.groupRemark,
+          company: robot.company, // 从机器人配置获取公司信息
+          userId: message.fromName, // 使用 fromName 作为 userId
+          messageContent: message.spoken,
+          messageType: message.textType === 1 ? 'text' : 'unknown',
+          isReply: true // 工作人员发送的消息通常视为回复
+        });
+
+        if (staffResult.isStaff) {
+          console.log('[协同分析] 工作人员消息已记录', {
+            staffUserId: staffResult.staffInfo.staffUserId,
+            staffName: staffResult.staffInfo.staffName,
+            recordResults: staffResult.recordResults
+          });
+        }
+      } catch (error) {
+        console.error('[协同分析] 处理工作人员消息失败（不影响主流程）:', error);
+        // 不抛出错误，继续执行主流程
+      }
 
       // 使用智能流程路由器选择流程
       console.log('[流程引擎] 开始流程路由', {
