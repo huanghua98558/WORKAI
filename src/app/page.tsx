@@ -513,8 +513,8 @@ export default function AdminDashboard() {
     }
   };
 
-  // 自动刷新：每60秒只刷新关键数据（会话列表）
-  // 其他数据在后台刷新，不阻塞UI
+  // 自动刷新：每30秒只刷新关键数据（会话列表）
+  // 避免频繁刷新导致页面闪烁和性能问题
   useEffect(() => {
     // 如果会话详情打开，不进行自动刷新
     if (showSessionDetail) {
@@ -543,9 +543,9 @@ export default function AdminDashboard() {
         }
       });
 
-      // 后台刷新其他数据
-      loadData();
-    }, 60000); // 每 60 秒刷新一次
+      // 不再刷新全部数据，避免页面闪烁
+      // loadData() 已经改为按需加载，不需要自动刷新
+    }, 30000); // 每 30 秒刷新一次会话数据
 
     return () => clearInterval(interval);
   }, [showSessionDetail, activeTab]);

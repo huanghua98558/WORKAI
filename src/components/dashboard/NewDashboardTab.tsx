@@ -402,6 +402,9 @@ export default function NewDashboardTab({
       <div className="grid gap-6 lg:grid-cols-3 items-start">
         {/* 左侧列 - 监控数据 */}
         <div className="space-y-6">
+          {/* Token消耗 */}
+          <TokenStatsCard />
+
           {/* 今日监控摘要 */}
           <Card className="shadow-md hover:shadow-lg transition-shadow flex flex-col h-[420px]">
             <CardHeader className="flex-shrink-0 py-3 px-6">
@@ -479,7 +482,10 @@ export default function NewDashboardTab({
               </div>
             </CardContent>
           </Card>
+        </div>
 
+        {/* 中间列 - 告警分析 */}
+        <div className="space-y-6">
           {/* 机器人状态 */}
           <Card className="shadow-md hover:shadow-lg transition-shadow flex flex-col h-[420px]">
             <CardHeader className="flex-shrink-0 py-3 px-6">
@@ -519,10 +525,7 @@ export default function NewDashboardTab({
               </div>
             </CardContent>
           </Card>
-        </div>
 
-        {/* 中间列 - 告警分析 */}
-        <div className="space-y-6">
           {/* 告警概览 */}
           <Card className="shadow-md hover:shadow-lg transition-shadow flex flex-col h-[420px]">
             <CardHeader className="flex-shrink-0 py-3 px-6">
@@ -616,9 +619,6 @@ export default function NewDashboardTab({
               </div>
             </CardContent>
           </Card>
-
-          {/* Token监控 */}
-          <TokenStatsCard />
         </div>
 
         {/* 右侧列 - 活跃排行 */}
