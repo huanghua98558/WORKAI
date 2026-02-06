@@ -116,6 +116,9 @@ class StaffIdentifier {
 class CollaborationService {
   constructor() {
     this.db = null;
+    // 缓存配置
+    this.cache = new Map();
+    this.cacheTTL = 5 * 60 * 1000; // 5分钟过期
   }
 
   /**
@@ -126,6 +129,60 @@ class CollaborationService {
       this.db = await getDb();
     }
     return this.db;
+  }
+
+  /**
+   * 获取缓存
+   * @param {string} key - 缓存键
+   * @returns {any} 缓存值，如果不存在或已过期返回null
+   */
+  getCache(key) {
+    const cached = this.cache.get(key);
+    if (!cached) return null;
+
+    // 检查是否过期
+    if (Date.now() - cached.timestamp > this.cacheTTL) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    return cached.data;
+  }
+
+  /**
+   * 设置缓存
+   * @param {string} key - 缓存键
+   * @param {any} data - 缓存数据
+   */
+  setCache(key, data) {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now()
+    });
+  }
+
+  /**
+   * 清除缓存
+   * @param {string} key - 缓存键，如果不传则清除所有缓存
+   */
+  clearCache(key) {
+    if (key) {
+      this.cache.delete(key);
+    } else {
+      this.cache.clear();
+    }
+  }
+
+  /**
+   * 清理过期缓存
+   */
+  cleanExpiredCache() {
+    const now = Date.now();
+    for (const [key, cached] of this.cache.entries()) {
+      if (now - cached.timestamp > this.cacheTTL) {
+        this.cache.delete(key);
+      }
+    }
   }
 
   /**
@@ -171,6 +228,191 @@ class CollaborationService {
       });
     } catch (error) {
       console.error('[协同分析] 记录工作人员消息失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取会话协同统计数据（用于导出）
+   * @param {string} timeRange - 时间范围
+   * @returns {Promise<Object>} 统计数据
+   */
+  async getSessionCollabStatsForExport(timeRange = '24h') {
+    try {
+      await this.init();
+
+      // 计算时间范围
+      const now = new Date();
+      let startTime;
+      switch (timeRange) {
+        case '1h':
+          startTime = new Date(now.getTime() - 60 * 60 * 1000);
+          break;
+        case '24h':
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case '7d':
+          startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      }
+
+      // 获取协同决策日志
+      const decisionLogs = await this.db
+        .select()
+        .from(collaborationDecisionLogs)
+        .where(gte(collaborationDecisionLogs.createdAt, startTime));
+
+      // 获取工作人员消息
+      const staffMessages = await this.db
+        .select()
+        .from(staffMessages)
+        .where(gte(staffMessages.createdAt, startTime));
+
+      // 获取工作人员活动
+      const staffActivities = await this.db
+        .select()
+        .from(staffActivities)
+        .where(gte(staffActivities.createdAt, startTime));
+
+      // 获取会话状态
+      const sessionStatuses = await this.db
+        .select()
+        .from(sessionStaffStatus)
+        .where(gte(sessionStaffStatus.joinedAt, startTime));
+
+      // 计算统计数据
+      const decisionCount = decisionLogs.length;
+      const aiReplyCount = decisionLogs.filter(log => log.aiAction === 'reply').length;
+      const staffReplyCount = decisionLogs.filter(log => log.staffAction === 'continue').length;
+      const collaborationRate = decisionCount > 0 ? ((aiReplyCount / decisionCount) * 100).toFixed(2) : '0';
+      const staffMessageCount = staffMessages.length;
+      const staffActivityCount = staffActivities.length;
+      const totalSessions = sessionStatuses.length;
+      const sessionsWithStaff = sessionStatuses.filter(s => s.isHandling).length;
+
+      return {
+        decisionCount,
+        aiReplyCount,
+        staffReplyCount,
+        collaborationRate,
+        staffMessageCount,
+        staffActivityCount,
+        totalSessions,
+        sessionsWithStaff
+      };
+    } catch (error) {
+      console.error('[协同分析] 获取会话协同统计数据失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取工作人员活动数据（用于导出）
+   * @param {string} timeRange - 时间范围
+   * @param {number} limit - 数量限制
+   * @returns {Promise<Array>} 活动列表
+   */
+  async getStaffActivitiesForExport(timeRange = '24h', limit = 1000) {
+    try {
+      await this.init();
+
+      // 计算时间范围
+      const now = new Date();
+      let startTime;
+      switch (timeRange) {
+        case '1h':
+          startTime = new Date(now.getTime() - 60 * 60 * 1000);
+          break;
+        case '24h':
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case '7d':
+          startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      }
+
+      const activities = await this.db
+        .select()
+        .from(staffActivities)
+        .where(gte(staffActivities.createdAt, startTime))
+        .orderBy(desc(staffActivities.createdAt))
+        .limit(limit);
+
+      return activities.map(activity => ({
+        id: activity.id,
+        sessionId: activity.sessionId,
+        robotId: activity.robotId,
+        staffUserId: activity.staffUserId,
+        staffName: activity.staffName,
+        activityType: activity.activityType,
+        createdAt: activity.createdAt
+      }));
+    } catch (error) {
+      console.error('[协同分析] 获取工作人员活动数据失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取决策日志数据（用于导出）
+   * @param {string} timeRange - 时间范围
+   * @param {number} limit - 数量限制
+   * @returns {Promise<Array>} 日志列表
+   */
+  async getDecisionLogsForExport(timeRange = '24h', limit = 1000) {
+    try {
+      await this.init();
+
+      // 计算时间范围
+      const now = new Date();
+      let startTime;
+      switch (timeRange) {
+        case '1h':
+          startTime = new Date(now.getTime() - 60 * 60 * 1000);
+          break;
+        case '24h':
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case '7d':
+          startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      }
+
+      const logs = await this.db
+        .select()
+        .from(collaborationDecisionLogs)
+        .where(gte(collaborationDecisionLogs.createdAt, startTime))
+        .orderBy(desc(collaborationDecisionLogs.createdAt))
+        .limit(limit);
+
+      return logs.map(log => ({
+        id: log.id,
+        sessionId: log.sessionId,
+        robotId: log.robotId,
+        shouldAiReply: log.shouldAiReply,
+        aiAction: log.aiAction,
+        staffAction: log.staffAction,
+        priority: log.priority,
+        reason: log.reason,
+        createdAt: log.createdAt
+      }));
+    } catch (error) {
+      console.error('[协同分析] 获取决策日志数据失败:', error);
       throw error;
     }
   }
@@ -288,6 +530,10 @@ class CollaborationService {
           status
         });
       }
+
+      // 清除缓存
+      this.clearCache(`session_staff_status:${sessionId}`);
+
     } catch (error) {
       console.error('[协同分析] 更新会话工作人员状态失败:', error);
       throw error;
@@ -533,6 +779,13 @@ class CollaborationService {
    */
   async getSessionStaffStatus(sessionId) {
     try {
+      // 检查缓存
+      const cacheKey = `session_staff_status:${sessionId}`;
+      const cached = this.getCache(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
       await this.init();
 
       const result = await this.db
@@ -552,7 +805,7 @@ class CollaborationService {
       const lastActivityAt = new Date(status.lastActivityAt);
       const minutesSinceLastActivity = Math.floor((now - lastActivityAt) / 1000 / 60);
 
-      return {
+      const resultData = {
         sessionId: status.sessionId,
         robotId: status.robotId,
         staffUserId: status.staffUserId,
@@ -565,6 +818,11 @@ class CollaborationService {
         isInactive: minutesSinceLastActivity > 10, // 超过10分钟未活动视为离线
         extraData: JSON.parse(status.extraData || '{}')
       };
+
+      // 设置缓存
+      this.setCache(cacheKey, resultData);
+
+      return resultData;
     } catch (error) {
       console.error('[协同分析] 查询会话工作人员状态失败:', error);
       return null;
@@ -1278,6 +1536,13 @@ class CollaborationService {
    */
   async generateRecommendations() {
     try {
+      // 检查缓存
+      const cacheKey = `recommendations:basic`;
+      const cached = this.getCache(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
       await this.init();
 
       const recommendations = [];
@@ -1413,10 +1678,670 @@ class CollaborationService {
         return priorityOrder[a.priority] - priorityOrder[b.priority];
       });
 
-      return recommendations.slice(0, 10); // 最多返回10条推荐
+      // 5. 设置缓存（P2优化）
+      const result = recommendations.slice(0, 10); // 最多返回10条推荐
+      cacheManager.set(cacheKey, result, RECOMMENDATION_CACHE_TTL);
+
+      return result;
     } catch (error) {
       console.error('[协同分析] 生成智能推荐失败:', error);
       return [];
+    }
+  }
+
+  /**
+   * 生成增强版智能推荐（更多推荐类型）
+   * 基于协同数据分析生成优化建议
+   * @returns {Promise<Array>} 推荐列表
+   */
+  async generateEnhancedRecommendations() {
+    try {
+      await this.init();
+
+      const recommendations = [];
+      const now = new Date();
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+      // ============================================
+      // 1. 工作人员活跃度分析（已有）
+      // ============================================
+      const staffActivityQuery = await this.db
+        .select()
+        .from(staffActivities)
+        .orderBy(desc(staffActivities.createdAt))
+        .limit(200);
+
+      const staffActivityMap = new Map();
+      const staffReplyRateMap = new Map();
+
+      staffActivityQuery.forEach(activity => {
+        const staffId = activity.staffUserId;
+        if (!staffActivityMap.has(staffId)) {
+          staffActivityMap.set(staffId, {
+            staffUserId: staffId,
+            staffName: activity.staffName,
+            totalActivities: 0,
+            messages: 0,
+            interventions: 0,
+            lastActivity: null,
+            recentActivity24h: 0,
+            recentActivity7d: 0
+          });
+        }
+        const staff = staffActivityMap.get(staffId);
+        staff.totalActivities++;
+        if (activity.activityType === 'message') staff.messages++;
+        if (activity.activityType === 'intervention') staff.interventions++;
+        if (!staff.lastActivity || new Date(activity.createdAt) > new Date(staff.lastActivity)) {
+          staff.lastActivity = activity.createdAt;
+        }
+        if (new Date(activity.createdAt) >= oneDayAgo) {
+          staff.recentActivity24h++;
+        }
+        if (new Date(activity.createdAt) >= oneWeekAgo) {
+          staff.recentActivity7d++;
+        }
+      });
+
+      // 检测活跃度低的工作人员
+      staffActivityMap.forEach((staff, staffId) => {
+        if (staff.recentActivity24h < 5 && staff.recentActivity7d < 20) {
+          const priority = staff.recentActivity24h < 2 ? 'high' : 'medium';
+          recommendations.push({
+            id: `rec_staff_low_activity_${staffId}_${Date.now()}`,
+            type: 'staff',
+            category: 'activity',
+            priority,
+            title: `${staff.staffName}活跃度偏低`,
+            description: `${staff.staffName}在过去24小时内仅处理了${staff.recentActivity24h}条消息，7天内处理了${staff.recentActivity7d}条，建议检查工作状态或分配更多会话。`,
+            action: '查看详情',
+            actionUrl: `/collab/staff/${staffId}`,
+            data: {
+              staffUserId: staffId,
+              staffName: staff.staffName,
+              totalActivities: staff.totalActivities,
+              messages: staff.messages,
+              interventions: staff.interventions,
+              recentActivity24h: staff.recentActivity24h,
+              recentActivity7d: staff.recentActivity7d,
+              lastActivity: staff.lastActivity
+            },
+            weight: priority === 'high' ? 0.9 : 0.7,
+            createdAt: now
+          });
+        }
+      });
+
+      // ============================================
+      // 2. 会话协同率分析（新增）
+      // ============================================
+      const sessionStats = await this.db
+        .select({
+          sessionId: sessionStaffStatus.sessionId,
+          staffUserId: sessionStaffStatus.staffUserId,
+          staffName: sessionStaffStatus.staffName,
+          joinedAt: sessionStaffStatus.joinedAt,
+          lastActivityAt: sessionStaffStatus.lastActivityAt,
+          isHandling: sessionStaffStatus.isHandling,
+          staffMessageCount: this.db.select()
+            .from(staffMessages)
+            .where(eq(staffMessages.sessionId, sessionStaffStatus.sessionId))
+        })
+        .from(sessionStaffStatus);
+
+      // 检测长时间未处理的风险会话
+      const riskSessions = [];
+      for (const session of sessionStats) {
+        const minutesSinceLastActivity = Math.floor((now - new Date(session.lastActivityAt).getTime()) / 1000 / 60);
+        if (minutesSinceLastActivity > 30 && session.isHandling) {
+          riskSessions.push({
+            sessionId: session.sessionId,
+            staffUserId: session.staffUserId,
+            staffName: session.staffName,
+            minutesSinceLastActivity
+          });
+        }
+      }
+
+      if (riskSessions.length > 0) {
+        const priority = riskSessions.length > 5 ? 'high' : 'medium';
+        recommendations.push({
+          id: `rec_risk_sessions_${Date.now()}`,
+          type: 'session',
+          category: 'risk',
+          priority,
+          title: `${riskSessions.length}个会话长时间未处理`,
+          description: `有${riskSessions.length}个会话超过30分钟未收到工作人员回复，建议及时处理以免影响用户体验。`,
+          action: '查看会话',
+          actionUrl: '/sessions?filter=risk',
+          data: {
+            sessionCount: riskSessions.length,
+            sessions: riskSessions.slice(0, 5)
+          },
+          weight: priority === 'high' ? 0.95 : 0.8,
+          createdAt: now
+        });
+      }
+
+      // ============================================
+      // 3. 决策分布分析（已有，增强）
+      // ============================================
+      const decisionLogsQuery = await this.db
+        .select()
+        .from(collaborationDecisionLogs)
+        .where(gte(collaborationDecisionLogs.createdAt, oneWeekAgo))
+        .orderBy(desc(collaborationDecisionLogs.createdAt))
+        .limit(500);
+
+      const priorityCount = { staff: 0, ai: 0, both: 0 };
+      const aiActionCount = { reply: 0, wait: 0 };
+      const staffActionCount = { continue: 0, urgent: 0, review: 0 };
+
+      decisionLogsQuery.forEach(log => {
+        if (priorityCount.hasOwnProperty(log.priority)) {
+          priorityCount[log.priority]++;
+        }
+        if (aiActionCount.hasOwnProperty(log.aiAction)) {
+          aiActionCount[log.aiAction]++;
+        }
+        if (staffActionCount.hasOwnProperty(log.staffAction)) {
+          staffActionCount[log.staffAction]++;
+        }
+      });
+
+      const totalDecisions = Object.values(priorityCount).reduce((a, b) => a + b, 0);
+
+      // AI回复率过低
+      if (totalDecisions > 0 && priorityCount.staff / totalDecisions > 0.8) {
+        const aiReplyRate = ((priorityCount.ai + priorityCount.both) / totalDecisions * 100).toFixed(1);
+        recommendations.push({
+          id: `rec_ai_low_reply_${Date.now()}`,
+          type: 'ai',
+          category: 'efficiency',
+          priority: 'medium',
+          title: `AI回复率较低（${aiReplyRate}%）`,
+          description: `最近一周${totalDecisions}次决策中，工作人员优先占比${(priorityCount.staff / totalDecisions * 100).toFixed(1)}%，建议优化AI回复策略或更新知识库。`,
+          action: '查看AI配置',
+          actionUrl: '/ai-module',
+          data: {
+            totalDecisions,
+            staffPriority: priorityCount.staff,
+            aiPriority: priorityCount.ai,
+            bothPriority: priorityCount.both,
+            aiReplyRate
+          },
+          weight: 0.75,
+          createdAt: now
+        });
+      }
+
+      // 工作人员介入过频
+      if (totalDecisions > 0 && priorityCount.staff / totalDecisions > 0.6 && staffActionCount.urgent > 10) {
+        recommendations.push({
+          id: `rec_staff_frequent_intervention_${Date.now()}`,
+          type: 'staff',
+          category: 'intervention',
+          priority: 'medium',
+          title: `工作人员紧急介入过频（${staffActionCount.urgent}次）`,
+          description: `最近一周工作人员紧急介入${staffActionCount.urgent}次，可能说明AI处理能力不足，建议优化AI配置或增加知识库内容。`,
+          action: '查看介入记录',
+          actionUrl: '/collab/interventions',
+          data: {
+            urgentInterventions: staffActionCount.urgent,
+            totalDecisions
+          },
+          weight: 0.7,
+          createdAt: now
+        });
+      }
+
+      // ============================================
+      // 4. 工作人员负载分析（新增）
+      // ============================================
+      const staffLoadMap = new Map();
+      const activeSessions = await this.db
+        .select()
+        .from(sessionStaffStatus)
+        .where(eq(sessionStaffStatus.isHandling, true));
+
+      activeSessions.forEach(session => {
+        const staffId = session.staffUserId;
+        if (!staffLoadMap.has(staffId)) {
+          staffLoadMap.set(staffId, {
+            staffUserId: staffId,
+            staffName: session.staffName,
+            activeSessions: 0,
+            totalSessions: 0
+          });
+        }
+        const load = staffLoadMap.get(staffId);
+        load.activeSessions++;
+        load.totalSessions++;
+      });
+
+      // 检测负载不均
+      if (staffLoadMap.size > 1) {
+        const maxLoad = Math.max(...Array.from(staffLoadMap.values()).map(s => s.activeSessions));
+        const minLoad = Math.min(...Array.from(staffLoadMap.values()).map(s => s.activeSessions));
+
+        if (maxLoad > minLoad * 3) {
+          const overloadedStaff = Array.from(staffLoadMap.values()).find(s => s.activeSessions === maxLoad);
+          recommendations.push({
+            id: `rec_staff_load_imbalance_${Date.now()}`,
+            type: 'staff',
+            category: 'load',
+            priority: 'medium',
+            title: `${overloadedStaff.staffName}负载过重（${maxLoad}个会话）`,
+            description: `${overloadedStaff.staffName}当前正在处理${maxLoad}个会话，负载过重。建议分配部分会话给其他工作人员。`,
+            action: '查看负载',
+            actionUrl: '/collab/staff/load',
+            data: {
+              overloadedStaff: overloadedStaff,
+              maxLoad,
+              minLoad,
+              loadRatio: (maxLoad / minLoad).toFixed(1)
+            },
+            weight: 0.65,
+            createdAt: now
+          });
+        }
+      }
+
+      // ============================================
+      // 5. 协同效率分析（新增）
+      // ============================================
+      const efficiencyStats = await this.db
+        .select({
+          sessionId: staffMessages.sessionId,
+          staffMessageCount: this.db.select()
+            .from(staffMessages)
+            .where(eq(staffMessages.sessionId, staffMessages.sessionId))
+        })
+        .from(staffMessages)
+        .where(gte(staffMessages.createdAt, oneDayAgo))
+        .limit(100);
+
+      // 计算平均响应时间（假设）
+      const avgStaffMessages = efficiencyStats.length > 0 
+        ? efficiencyStats.reduce((sum, s) => sum + (s.staffMessageCount?.length || 0), 0) / efficiencyStats.length
+        : 0;
+
+      if (avgStaffMessages > 10) {
+        recommendations.push({
+          id: `rec_efficiency_low_${Date.now()}`,
+          type: 'collaboration',
+          category: 'efficiency',
+          priority: 'low',
+          title: `协同效率有待提升`,
+          description: `工作人员平均每个会话处理${avgStaffMessages.toFixed(1)}条消息，建议优化协作流程，减少不必要的沟通。`,
+          action: '查看效率分析',
+          actionUrl: '/collab/efficiency',
+          data: {
+            avgStaffMessages: avgStaffMessages.toFixed(1),
+            totalSessions: efficiencyStats.length
+          },
+          weight: 0.5,
+          createdAt: now
+        });
+      }
+
+      // ============================================
+      // 6. 知识库更新建议（新增）
+      // ============================================
+      const frequentInterventions = decisionLogsQuery.filter(log => 
+        log.staffAction === 'urgent' && 
+        log.reason === 'staff_intervened'
+      ).slice(0, 10);
+
+      if (frequentInterventions.length > 5) {
+        recommendations.push({
+          id: `rec_kb_update_${Date.now()}`,
+          type: 'knowledge',
+          category: 'knowledge',
+          priority: 'medium',
+          title: `建议更新知识库`,
+          description: `最近一周有${frequentInterventions.length}次紧急工作人员介入，建议将这些场景添加到知识库，提高AI处理能力。`,
+          action: '查看知识库',
+          actionUrl: '/knowledge',
+          data: {
+            interventionCount: frequentInterventions.length,
+            topInterventions: frequentInterventions.slice(0, 3)
+          },
+          weight: 0.6,
+          createdAt: now
+        });
+      }
+
+      // ============================================
+      // 按权重和优先级排序推荐
+      // ============================================
+      recommendations.sort((a, b) => {
+        // 首先按优先级排序
+        const priorityOrder = { high: 0, medium: 1, low: 2 };
+        const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+        if (priorityDiff !== 0) return priorityDiff;
+
+        // 相同优先级按权重排序
+        const weightDiff = (b.weight || 0) - (a.weight || 0);
+        if (weightDiff !== 0) return weightDiff;
+
+        // 相同权重按时间排序
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+
+      return recommendations.slice(0, 15); // 最多返回15条推荐
+    } catch (error) {
+      console.error('[协同分析] 生成增强智能推荐失败:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 获取推荐分类统计
+   * @returns {Promise<Object>} 分类统计
+   */
+  async getRecommendationStats() {
+    try {
+      const recommendations = await this.generateEnhancedRecommendations();
+
+      const stats = {
+        total: recommendations.length,
+        byPriority: {
+          high: 0,
+          medium: 0,
+          low: 0
+        },
+        byType: {
+          staff: 0,
+          session: 0,
+          ai: 0,
+          collaboration: 0,
+          knowledge: 0
+        },
+        byCategory: {
+          activity: 0,
+          risk: 0,
+          efficiency: 0,
+          intervention: 0,
+          load: 0,
+          knowledge: 0
+        }
+      };
+
+      recommendations.forEach(rec => {
+        // 按优先级统计
+        if (stats.byPriority.hasOwnProperty(rec.priority)) {
+          stats.byPriority[rec.priority]++;
+        }
+
+        // 按类型统计
+        if (stats.byType.hasOwnProperty(rec.type)) {
+          stats.byType[rec.type]++;
+        }
+
+        // 按分类统计
+        if (stats.byCategory.hasOwnProperty(rec.category)) {
+          stats.byCategory[rec.category]++;
+        }
+      });
+
+      return {
+        ...stats,
+        recommendations
+      };
+    } catch (error) {
+      console.error('[协同分析] 获取推荐统计失败:', error);
+      return {
+        total: 0,
+        byPriority: { high: 0, medium: 0, low: 0 },
+        byType: { staff: 0, session: 0, ai: 0, collaboration: 0, knowledge: 0 },
+        byCategory: { activity: 0, risk: 0, efficiency: 0, intervention: 0, load: 0, knowledge: 0 },
+        recommendations: []
+      };
+    }
+  }
+
+  /**
+   * 获取机器人满意度列表
+   * @param {string} timeRange - 时间范围
+   * @param {number} limit - 返回数量限制
+   * @returns {Promise<Array>} 机器人满意度列表
+   */
+  async getRobotSatisfactionList(timeRange = '24h', limit = 20) {
+    try {
+      await this.init();
+
+      // 计算时间范围
+      const now = new Date();
+      let startTime;
+      switch (timeRange) {
+        case '1h':
+          startTime = new Date(now.getTime() - 60 * 60 * 1000);
+          break;
+        case '24h':
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case '7d':
+          startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      }
+
+      // 获取协同决策日志，按robotId分组
+      const decisionLogs = await this.db
+        .select()
+        .from(collaborationDecisionLogs)
+        .where(gte(collaborationDecisionLogs.createdAt, startTime));
+
+      // 按robotId分组统计
+      const robotStats = new Map();
+
+      decisionLogs.forEach(log => {
+        const robotId = log.robotId;
+        if (!robotStats.has(robotId)) {
+          robotStats.set(robotId, {
+            robotId,
+            totalDecisions: 0,
+            aiReply: 0,
+            staffReply: 0,
+            bothReply: 0,
+            collaborationRate: 0,
+            avgResponseTime: 0,
+            satisfactionScore: 75, // 默认满意度
+            lastActivity: log.createdAt
+          });
+        }
+
+        const stats = robotStats.get(robotId);
+        stats.totalDecisions++;
+
+        if (log.aiAction === 'reply') stats.aiReply++;
+        if (log.staffAction === 'continue') stats.staffReply++;
+        if (log.priority === 'both') stats.bothReply++;
+
+        // 更新最新活动时间
+        if (new Date(log.createdAt) > new Date(stats.lastActivity)) {
+          stats.lastActivity = log.createdAt;
+        }
+      });
+
+      // 计算每个机器人的统计指标
+      const robotList = [];
+      robotStats.forEach((stats, robotId) => {
+        // 计算协同率（AI回复的比例）
+        const collaborationRate = stats.totalDecisions > 0
+          ? ((stats.aiReply + stats.bothReply) / stats.totalDecisions * 100).toFixed(2)
+          : '0.00';
+
+        // 根据协同率计算满意度（简化算法）
+        let satisfactionScore = 75; // 基础分
+        if (collaborationRate > 80) satisfactionScore += 15;
+        else if (collaborationRate > 60) satisfactionScore += 10;
+        else if (collaborationRate < 40) satisfactionScore -= 15;
+
+        // 根据工作人员介入调整满意度
+        if (stats.staffReply > stats.totalDecisions * 0.3) {
+          satisfactionScore -= 10; // 工作人员介入过多，说明AI处理能力不足
+        }
+
+        satisfactionScore = Math.max(0, Math.min(100, satisfactionScore));
+
+        robotList.push({
+          ...stats,
+          collaborationRate: parseFloat(collaborationRate),
+          satisfactionScore
+        });
+      });
+
+      // 按满意度降序排序
+      robotList.sort((a, b) => b.satisfactionScore - a.satisfactionScore);
+
+      return robotList.slice(0, limit);
+    } catch (error) {
+      console.error('[协同分析] 获取机器人满意度列表失败:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 获取机器人满意度详情
+   * @param {string} robotId - 机器人ID
+   * @param {string} timeRange - 时间范围
+   * @returns {Promise<Object>} 机器人满意度详情
+   */
+  async getRobotSatisfactionDetail(robotId, timeRange = '24h') {
+    try {
+      await this.init();
+
+      // 计算时间范围
+      const now = new Date();
+      let startTime;
+      switch (timeRange) {
+        case '1h':
+          startTime = new Date(now.getTime() - 60 * 60 * 1000);
+          break;
+        case '24h':
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case '7d':
+          startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      }
+
+      // 获取该机器人的决策日志
+      const decisionLogs = await this.db
+        .select()
+        .from(collaborationDecisionLogs)
+        .where(
+          and(
+            eq(collaborationDecisionLogs.robotId, robotId),
+            gte(collaborationDecisionLogs.createdAt, startTime)
+          )
+        )
+        .orderBy(desc(collaborationDecisionLogs.createdAt))
+        .limit(100);
+
+      if (decisionLogs.length === 0) {
+        return {
+          robotId,
+          error: '未找到该机器人的决策日志'
+        };
+      }
+
+      // 统计决策数据
+      const stats = {
+        totalDecisions: decisionLogs.length,
+        aiReply: 0,
+        staffReply: 0,
+        bothReply: 0,
+        priority: { staff: 0, ai: 0, both: 0, none: 0 },
+        aiAction: { reply: 0, wait: 0 },
+        staffAction: { continue: 0, urgent: 0, review: 0, none: 0 },
+        reasons: {}
+      };
+
+      decisionLogs.forEach(log => {
+        if (log.aiAction === 'reply') stats.aiReply++;
+        if (log.staffAction === 'continue') stats.staffReply++;
+        if (log.priority === 'both') stats.bothReply++;
+
+        if (stats.priority.hasOwnProperty(log.priority)) {
+          stats.priority[log.priority]++;
+        }
+
+        if (stats.aiAction.hasOwnProperty(log.aiAction)) {
+          stats.aiAction[log.aiAction]++;
+        }
+
+        if (stats.staffAction.hasOwnProperty(log.staffAction)) {
+          stats.staffAction[log.staffAction]++;
+        }
+
+        // 统计决策原因
+        if (log.reason) {
+          stats.reasons[log.reason] = (stats.reasons[log.reason] || 0) + 1;
+        }
+      });
+
+      // 计算协同率和满意度
+      const collaborationRate = stats.totalDecisions > 0
+        ? ((stats.aiReply + stats.bothReply) / stats.totalDecisions * 100).toFixed(2)
+        : '0.00';
+
+      let satisfactionScore = 75;
+      if (parseFloat(collaborationRate) > 80) satisfactionScore += 15;
+      else if (parseFloat(collaborationRate) > 60) satisfactionScore += 10;
+      else if (parseFloat(collaborationRate) < 40) satisfactionScore -= 15;
+
+      if (stats.staffReply > stats.totalDecisions * 0.3) {
+        satisfactionScore -= 10;
+      }
+
+      satisfactionScore = Math.max(0, Math.min(100, satisfactionScore));
+
+      // 获取最近的活动日志
+      const recentActivities = decisionLogs.slice(0, 10).map(log => ({
+        id: log.id,
+        sessionId: log.sessionId,
+        priority: log.priority,
+        aiAction: log.aiAction,
+        staffAction: log.staffAction,
+        reason: log.reason,
+        createdAt: log.createdAt
+      }));
+
+      return {
+        robotId,
+        timeRange,
+        stats: {
+          ...stats,
+          collaborationRate: parseFloat(collaborationRate),
+          satisfactionScore
+        },
+        recentActivities,
+        summary: {
+          satisfactionLevel: satisfactionScore >= 80 ? 'excellent' :
+                           satisfactionScore >= 60 ? 'good' :
+                           satisfactionScore >= 40 ? 'fair' : 'poor',
+          needsAttention: satisfactionScore < 60,
+          suggestion: satisfactionScore < 60 
+            ? '建议优化AI配置或增加知识库内容' 
+            : 'AI运行良好，继续保持'
+        }
+      };
+    } catch (error) {
+      console.error('[协同分析] 获取机器人满意度详情失败:', error);
+      throw error;
     }
   }
 

@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, MessageSquare, Activity, TrendingUp, BarChart3, Clock, CheckCircle } from 'lucide-react';
+import { Users, MessageSquare, Activity, TrendingUp, BarChart3, Clock, CheckCircle, Download } from 'lucide-react';
 
 // 协同统计数据接口
 interface CollabStats {
@@ -107,6 +107,45 @@ export default function CollabDashboard() {
     loadStats();
   };
 
+  // 导出CSV文件
+  const handleExportCSV = async (exportType: 'stats' | 'staff-activity' | 'decision-logs') => {
+    try {
+      const url = `/api/collab/export/${exportType}?timeRange=${timeRange}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || '导出失败');
+      }
+
+      // 获取blob数据
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+
+      // 从响应头获取文件名
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `export-${exportType}-${Date.now()}.csv`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1].replace(/['"]/g, '');
+        }
+      }
+
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+
+    } catch (err) {
+      console.error('[CollabDashboard] 导出失败:', err);
+      setError(err instanceof Error ? err.message : '导出失败');
+    }
+  };
+
   // 格式化数字
   const formatNumber = (num: number | string): string => {
     return typeof num === 'number' ? num.toLocaleString() : num;
@@ -198,6 +237,15 @@ export default function CollabDashboard() {
               >
                 <Activity className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                 刷新
+              </Button>
+              <Button
+                variant="default"
+                onClick={() => handleExportCSV('stats')}
+                disabled={loading}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                导出统计
               </Button>
             </div>
           </div>
@@ -381,9 +429,21 @@ export default function CollabDashboard() {
           {/* 工作人员标签页 */}
           <TabsContent value="staff" className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>工作人员活跃度</CardTitle>
-                <CardDescription>工作人员的参与活跃度统计</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>工作人员活跃度</CardTitle>
+                  <CardDescription>工作人员的参与活跃度统计</CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleExportCSV('staff-activity')}
+                  disabled={loading}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  导出数据
+                </Button>
               </CardHeader>
               <CardContent>
                 {loading ? (
@@ -445,9 +505,21 @@ export default function CollabDashboard() {
           {/* 决策日志标签页 */}
           <TabsContent value="decisions" className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>协同决策日志</CardTitle>
-                <CardDescription>AI与工作人员的协同决策记录</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>协同决策日志</CardTitle>
+                  <CardDescription>AI与工作人员的协同决策记录</CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleExportCSV('decision-logs')}
+                  disabled={loading}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  导出数据
+                </Button>
               </CardHeader>
               <CardContent>
                 {loading ? (
