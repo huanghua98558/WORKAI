@@ -8,7 +8,8 @@ import {
   Sparkles,
   RefreshCw,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Calendar
 } from 'lucide-react';
 
 interface TokenStats {
@@ -133,30 +134,54 @@ export function TokenStatsCard() {
           </div>
         </div>
 
-        {/* 消耗统计 */}
-        <div className="grid grid-cols-4 gap-2">
-          <div className="text-center p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700">
-            <div className="text-xs text-slate-600 dark:text-slate-400 mb-1 font-medium">今日</div>
+        {/* 消耗统计 - 2x2卡片堆叠 */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2.5 border border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-1 mb-1">
+              <Calendar className="h-3 w-3 text-orange-500" />
+              <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">今日</span>
+            </div>
             <div className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">
               <AnimatedNumber value={stats?.today.total ?? null} formatFn={formatNumber} />
             </div>
+            <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+              {stats?.today.record_count || 0} 次
+            </div>
           </div>
-          <div className="text-center p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700">
-            <div className="text-xs text-slate-600 dark:text-slate-400 mb-1 font-medium">昨日</div>
+          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2.5 border border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-1 mb-1">
+              <Calendar className="h-3 w-3 text-slate-400" />
+              <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">昨日</span>
+            </div>
             <div className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">
               <AnimatedNumber value={stats?.yesterday.total ?? null} formatFn={formatNumber} />
             </div>
+            <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+              ---
+            </div>
           </div>
-          <div className="text-center p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700">
-            <div className="text-xs text-slate-600 dark:text-slate-400 mb-1 font-medium">本月</div>
+          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2.5 border border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-1 mb-1">
+              <Calendar className="h-3 w-3 text-indigo-500" />
+              <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">本月</span>
+            </div>
             <div className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">
               <AnimatedNumber value={stats?.month.total ?? null} formatFn={formatNumber} />
             </div>
+            <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+              {stats?.month.record_count || 0} 次
+            </div>
           </div>
-          <div className="text-center p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700">
-            <div className="text-xs text-slate-600 dark:text-slate-400 mb-1 font-medium">上月</div>
+          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2.5 border border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-1 mb-1">
+              <Calendar className="h-3 w-3 text-gray-400" />
+              <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">上月</span>
+            </div>
             <div className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">
               <AnimatedNumber value={stats?.lastMonth.total ?? null} formatFn={formatNumber} />
+            </div>
+            <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+              {stats?.lastMonth.record_count || 0} 次
             </div>
           </div>
         </div>
