@@ -1187,7 +1187,7 @@ function SendCommandConfig({ config, onChange }: any) {
                 className="mt-1 font-mono text-xs"
               />
               <p className="text-[10px] text-slate-500 mt-1">
-                支持变量：{{'{userName}'}}, {{'{groupName}'}}
+                支持变量：{'{{userName}}'}, {'{{groupName}}'}
               </p>
             </div>
           )}
