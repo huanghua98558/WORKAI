@@ -1,121 +1,116 @@
 /**
- * AI交互日志数据适配器
- * 用于将后端API返回的AI日志数据转换为前端组件期望的格式
+ * AI日志适配器
+ * 将后端ai_io_logs表的数据转换为前端所需的格式
  */
 
-export interface AILogBackend {
+// 后端数据格式（来自ai_io_logs表）
+export interface BackendAILog {
   id: number;
   sessionId: string;
-  messageId: string;
-  robotId: string;
+  messageId?: string;
+  robotId?: string;
   robotName?: string;
-  operationType?: string;
-  aiInput: string;
-  aiOutput: string;
+  operationType: string;
+  aiInput?: string;
+  aiOutput?: string;
   modelId?: string;
   temperature?: number;
   requestDuration?: number;
-  status: 'success' | 'error' | 'processing';
+  status: string;
   errorMessage?: string;
   createdAt: string;
-  userId?: string;
-  userName?: string;
-  groupId?: string;
-  groupName?: string;
 }
 
+// 前端数据格式
 export interface AILog {
-  id: string;
-  processing_id: string;
-  robot_id: string;
-  robot_name?: string;
+  id: number;
   session_id: string;
-  user_id: string;
-  user_name?: string;
-  group_id?: string;
-  group_name?: string;
-  intent?: string;
+  message_id?: string;
+  robot_id?: string;
+  robot_name?: string;
   prompt: string;
-  response: string;
+  response?: string;
   model?: string;
-  provider?: string;
-  role?: string;
+  temperature?: number;
+  duration?: number;
   status: 'processing' | 'completed' | 'failed';
   error_message?: string;
-  started_at: string;
-  completed_at?: string;
-  duration?: number;
+  created_at: string;
   tokens?: {
-    prompt_tokens?: number;
-    completion_tokens?: number;
+    input_tokens?: number;
+    output_tokens?: number;
     total_tokens?: number;
   };
+  intent?: string;
+  user_name?: string;
+  group_name?: string;
 }
 
 /**
- * 将后端AI日志数据转换为前端组件期望的格式
+ * 适配后端AI日志数据为前端格式
  */
-export function adaptBackendAILogToFrontend(backendLog: AILogBackend): AILog {
-  // 解析AI输入和输出
-  let prompt = backendLog.aiInput || '';
-  let response = backendLog.aiOutput || '';
-  let intent = '';
-
-  // 尝试从operationType提取意图
-  if (backendLog.operationType === 'intent_recognition') {
-    intent = 'intent_recognition';
-  }
-
-  // 尝试从AI输出中提取意图（如果是意图识别的结果）
-  try {
-    if (backendLog.aiOutput) {
-      const outputJson = JSON.parse(backendLog.aiOutput);
-      if (outputJson.intent) {
-        intent = outputJson.intent;
-      }
+export function adaptBackendAILogsToFrontend(backendLogs: BackendAILog[]): AILog[] {
+  return backendLogs.map((log) => {
+    // 提取意图信息（从operationType中提取）
+    let intent = '';
+    if (log.operationType && log.operationType !== 'chat') {
+      intent = log.operationType;
     }
-  } catch (e) {
-    // 如果不是JSON，忽略
-  }
 
-  // 状态映射
-  let status: 'processing' | 'completed' | 'failed';
-  if (backendLog.status === 'success') {
-    status = 'completed';
-  } else if (backendLog.status === 'error') {
-    status = 'failed';
-  } else {
-    status = backendLog.status as any;
-  }
-
-  return {
-    id: backendLog.id.toString(),
-    processing_id: backendLog.messageId || backendLog.id.toString(),
-    robot_id: backendLog.robotId,
-    robot_name: backendLog.robotName,
-    session_id: backendLog.sessionId,
-    user_id: backendLog.userId || '',
-    user_name: backendLog.userName,
-    group_id: backendLog.groupId,
-    group_name: backendLog.groupName,
-    intent: intent,
-    prompt: prompt,
-    response: response,
-    model: backendLog.modelId,
-    provider: 'doubao',
-    role: backendLog.operationType,
-    status: status,
-    error_message: backendLog.errorMessage,
-    started_at: backendLog.createdAt,
-    completed_at: backendLog.createdAt,
-    duration: backendLog.requestDuration,
-    tokens: undefined, // 后端暂未返回token信息
-  };
+    return {
+      id: log.id,
+      session_id: log.sessionId,
+      message_id: log.messageId,
+      robot_id: log.robotId,
+      robot_name: log.robotName,
+      prompt: log.aiInput || '',
+      response: log.aiOutput,
+      model: log.modelId,
+      temperature: log.temperature,
+      duration: log.requestDuration,
+      status: log.status === 'processing' ? 'processing' : 
+             log.status === 'completed' ? 'completed' : 
+             log.status === 'failed' ? 'failed' : 'processing',
+      error_message: log.errorMessage,
+      created_at: log.createdAt,
+      intent: intent || undefined,
+      tokens: {
+        // 注意：ai_io_logs表目前没有存储token信息
+        // 这里可以根据需要从其他表获取或估算
+        total_tokens: log.aiInput ? Math.ceil(log.aiInput.length / 4) : 0
+      }
+    };
+  });
 }
 
 /**
- * 批量转换AI日志数据
+ * 格式化时间
  */
-export function adaptBackendAILogsToFrontend(backendLogs: AILogBackend[]): AILog[] {
-  return backendLogs.map(adaptBackendAILogToFrontend);
+export function formatTime(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+}
+
+/**
+ * 格式化持续时间
+ */
+export function formatDuration(ms?: number): string {
+  if (!ms) return '-';
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(2)}s`;
+}
+
+/**
+ * 格式化Token数
+ */
+export function formatTokens(tokens?: number): string {
+  if (!tokens) return '-';
+  if (tokens < 1000) return tokens.toString();
+  return `${(tokens / 1000).toFixed(1)}k`;
 }
