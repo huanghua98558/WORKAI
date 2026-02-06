@@ -1135,31 +1135,6 @@ exports.infoDetectionHistory = pgTable(
   })
 );
 
-// 协同决策日志表
-exports.collaborationDecisionLogs = pgTable(
-  "collaboration_decision_logs",
-  {
-    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
-    sessionId: varchar("sessionId", { length: 255 }).notNull(),
-    messageId: varchar("messageId", { length: 255 }),
-    robotId: varchar("robotId", { length: 255 }),
-    shouldAiReply: boolean("shouldAiReply"),
-    aiAction: varchar("aiAction", { length: 50 }),
-    staffAction: varchar("staffAction", { length: 50 }),
-    priority: varchar("priority", { length: 20 }),
-    reason: varchar("reason", { length: 255 }),
-    staffContext: text("staffContext"),
-    infoContext: text("infoContext"),
-    strategy: text("strategy"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  },
-  (table) => ({
-    sessionIdIdx: index("collaboration_decision_logs_session_id_idx").on(table.sessionId),
-    createdAtIdx: index("collaboration_decision_logs_created_at_idx").on(table.createdAt),
-  })
-);
-
-
 // 运营日志表
 exports.operationLogs = pgTable(
   "operation_logs",
@@ -2629,30 +2604,6 @@ exports.infoDetectionHistory = pgTable(
     messageIdIdx: index("info_detection_history_message_id_idx").on(table.messageId),
     sessionIdIdx: index("info_detection_history_session_id_idx").on(table.sessionId),
     riskLevelIdx: index("info_detection_history_risk_level_idx").on(table.riskLevel),
-  })
-);
-
-// 协同决策日志表
-exports.collaborationDecisionLogs = pgTable(
-  "collaboration_decision_logs",
-  {
-    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
-    sessionId: varchar("sessionId", { length: 255 }).notNull(),
-    messageId: varchar("messageId", { length: 255 }),
-    robotId: varchar("robotId", { length: 255 }),
-    shouldAiReply: boolean("shouldAiReply"),
-    aiAction: varchar("aiAction", { length: 50 }),
-    staffAction: varchar("staffAction", { length: 50 }),
-    priority: varchar("priority", { length: 20 }),
-    reason: varchar("reason", { length: 255 }),
-    staffContext: text("staffContext"),
-    infoContext: text("infoContext"),
-    strategy: text("strategy"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  },
-  (table) => ({
-    sessionIdIdx: index("collaboration_decision_logs_session_id_idx").on(table.sessionId),
-    createdAtIdx: index("collaboration_decision_logs_created_at_idx").on(table.createdAt),
   })
 );
 

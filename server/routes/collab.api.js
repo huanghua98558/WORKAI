@@ -70,7 +70,7 @@ async function getCollabStats(req, reply) {
       .select({
         total: count(),
         withStaff: sum(sql`CASE WHEN has_staff_participated THEN 1 ELSE 0 END`),
-        avgStaffMessages: avg(sessionStaffStatus.staffMessageCount)
+        avgStaffMessages: avg(sql`staff_message_count`)
       })
       .from(sessionStaffStatus)
       .where(gte(sessionStaffStatus.updatedAt, startTime));
