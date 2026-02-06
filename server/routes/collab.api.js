@@ -13,6 +13,7 @@ const {
   systemLogs
 } = require('../database/schema');
 const { eq, and, gte, lte, sql, desc, count, avg, sum } = require('drizzle-orm');
+const { collaborationService } = require('../services/collaboration.service'); // 协同分析服务
 
 /**
  * 获取协同统计数据
@@ -216,42 +217,8 @@ async function getStaffActivity(req, reply) {
  */
 async function getRecommendations(req, reply) {
   try {
-    const recommendations = [];
-
-    // 推荐1: 活跃度低的工作人员
-    // 推荐2: 需要人工介入的会话
-    // 推荐3: AI回复策略优化建议
-    // 推荐4: 协同模式调整建议
-
-    recommendations.push({
-      id: 'rec-001',
-      type: 'staff',
-      priority: 'high',
-      title: '工作人员A活跃度偏低',
-      description: '工作人员A在过去24小时内仅处理了3个会话，建议检查工作状态或分配更多会话。',
-      action: '查看详情',
-      actionUrl: '/collab/staff/analysis'
-    });
-
-    recommendations.push({
-      id: 'rec-002',
-      type: 'session',
-      priority: 'medium',
-      title: '5个会话需要人工介入',
-      description: '检测到5个会话中用户表达了不满情绪，建议尽快安排工作人员介入处理。',
-      action: '查看会话',
-      actionUrl: '/sessions?filter=need-intervention'
-    });
-
-    recommendations.push({
-      id: 'rec-003',
-      type: 'ai',
-      priority: 'low',
-      title: 'AI回复策略优化建议',
-      description: '当前AI回复频率较高（85%），建议在工作人员在场时降低AI回复频率至60%。',
-      action: '调整策略',
-      actionUrl: '/settings/ai'
-    });
+    // 使用协同分析服务生成真实推荐
+    const recommendations = await collaborationService.generateRecommendations();
 
     return reply.send({
       code: 0,

@@ -10,6 +10,7 @@ const { eq, and, or, desc, lt, gt, inArray } = require('drizzle-orm');
 const { getLogger } = require('../lib/logger');
 const AIServiceFactory = require('./ai/AIServiceFactory'); // AI服务工厂
 const { flowSelector, SelectionStrategy } = require('./flow-selector.service'); // 流程选择器
+const { collaborationService } = require('./collaboration.service'); // 协同分析服务
 
 const logger = getLogger('FLOW_ENGINE');
 
@@ -2055,6 +2056,55 @@ class FlowEngine {
         useContextHistory = true,
         systemPrompt
       } = data || {};
+
+      // 协同分析：检查工作人员状态，决定是否应该由AI回复
+      try {
+        const sessionId = context.sessionId || context.variables?.sessionId;
+        if (sessionId) {
+          const aiDecision = await collaborationService.shouldAIReply(sessionId, {
+            robotId: context.robotId,
+            groupName: context.groupName,
+            userName: context.userName
+          });
+
+          logger.info('协同分析：AI回复决策', {
+            sessionId,
+            shouldReply: aiDecision.shouldReply,
+            reason: aiDecision.reason,
+            strategy: aiDecision.strategy,
+            staffContext: aiDecision.staffContext
+          });
+
+          // 如果不应该AI回复，返回空结果
+          if (!aiDecision.shouldReply) {
+            logger.info('协同分析：AI暂停回复，等待工作人员处理', {
+              sessionId,
+              reason: aiDecision.reason
+            });
+
+            return {
+              success: true,
+              aiReply: null, // 不生成回复
+              skipped: true,
+              skipReason: aiDecision.reason,
+              strategy: aiDecision.strategy,
+              staffContext: aiDecision.staffContext,
+              context: {
+                ...context,
+                aiReply: null,
+                lastNodeType: 'ai_reply',
+                collaborationDecision: aiDecision
+              }
+            };
+          }
+        }
+      } catch (error) {
+        logger.error('协同分析检查失败（继续执行AI回复）', {
+          error: error.message,
+          sessionId: context.sessionId
+        });
+        // 协同分析失败不影响主流程，继续执行AI回复
+      }
 
       // 获取AI服务实例
       const aiService = await AIServiceFactory.createServiceByModelId(modelId);
