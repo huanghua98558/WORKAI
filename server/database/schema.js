@@ -374,40 +374,41 @@ exports.sessionMessages = pgTable(
 exports.session_messages = exports.sessionMessages;
 
 // AI IO 日志表
-exports.aiIoLogs = pgTable(
+// ============================================
+// AI 交互日志表
+// ============================================
+
+exports.ai_io_logs = pgTable(
   "ai_io_logs",
   {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    sessionId: varchar("session_id", { length: 255 }), // 关联的会话ID
-    messageId: varchar("message_id", { length: 255 }), // 关联的消息ID
-    robotId: varchar("robot_id", { length: 64 }), // 机器人ID
-    robotName: varchar("robot_name", { length: 255 }), // 机器人名称
-    operationType: varchar("operation_type", { length: 50 }).notNull(), // 操作类型: intent_recognition, service_reply, chat_reply, report
-    aiInput: text("ai_input").notNull(), // 发送给 AI 的输入（prompt）
-    aiOutput: text("ai_output"), // AI 返回的输出
-    modelId: varchar("model_id", { length: 255 }), // 使用的 AI 模型 ID
-    temperature: varchar("temperature", { length: 10 }), // 温度参数
-    requestDuration: integer("request_duration"), // 请求耗时（毫秒）
-    status: varchar("status", { length: 20 }).notNull(), // 状态: success, error, timeout
-    errorMessage: text("error_message"), // 错误信息
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    sessionId: varchar("session_id", { length: 255 }),
+    messageId: varchar("message_id", { length: 255 }),
+    robotId: varchar("robot_id", { length: 255 }),
+    robotName: varchar("robot_name", { length: 255 }),
+    operationType: varchar("operation_type", { length: 100 }),
+    aiInput: text("ai_input"),
+    aiOutput: text("ai_output"),
+    modelId: varchar("model_id", { length: 255 }),
+    temperature: integer("temperature"),
+    requestDuration: integer("request_duration"),
+    status: varchar("status", { length: 50 }),
+    errorMessage: text("error_message"),
+    inputTokens: integer("input_tokens").default(0),
+    outputTokens: integer("output_tokens").default(0),
+    totalTokens: integer("total_tokens").default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     sessionIdIdx: index("ai_io_logs_session_id_idx").on(table.sessionId),
     messageIdIdx: index("ai_io_logs_message_id_idx").on(table.messageId),
-    robotIdIdx: index("ai_io_logs_robot_id_idx").on(table.robotId),
     operationTypeIdx: index("ai_io_logs_operation_type_idx").on(table.operationType),
-    statusIdx: index("ai_io_logs_status_idx").on(table.status),
     createdAtIdx: index("ai_io_logs_created_at_idx").on(table.createdAt),
   })
 );
 
 // 兼容性导出：确保下划线式和驼峰式命名都可用
-exports.ai_io_logs = exports.aiIoLogs;
+exports.aiIoLogs = exports.ai_io_logs;
 
 // ============================================
 // Prompt 训练相关表
