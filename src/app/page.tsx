@@ -444,7 +444,7 @@ export default function AdminDashboard() {
       setLastUpdateTime(new Date());
 
       // 可选数据在后台加载，不阻塞UI
-      Promise.allSettled(optionalPromises).then(optionalResults => {
+      Promise.allSettled(optionalPromises).then(async (optionalResults) => {
         const [uptimeRes, alertRes] = optionalResults.map(r => 
           r.status === 'fulfilled' ? r.value : { ok: false, json: async () => ({}) } as Response
         );
@@ -2611,9 +2611,9 @@ ${callbacks.robotStatus}
   const DashboardTab = () => (
     <Suspense fallback={<div className="p-8 text-center">加载中...</div>}>
       <NewDashboardTab
-        monitorData={monitorData}
-        alertData={alertData}
-        alertStats={alertStats}
+        monitorData={monitorData as any}
+        alertData={alertData as any}
+        alertStats={alertStats as any}
         robots={robots}
         sessions={sessions}
         lastUpdateTime={lastUpdateTime}
