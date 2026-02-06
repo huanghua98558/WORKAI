@@ -4,7 +4,7 @@
  */
 
 const { getDb } = require('coze-coding-dev-sdk');
-const { eq, and, desc } = require('coze-coding-dev-sdk').operators;
+const { eq, and, desc, gte, sql, count, avg, sum } = require('drizzle-orm');
 const {
   staffMessages,
   staffActivities,
