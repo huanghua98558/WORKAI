@@ -136,25 +136,25 @@ export function TokenStatsCard() {
         {/* 消耗统计 */}
         <div className="grid grid-cols-4 gap-2">
           <div className="text-center p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700">
-            <div className="text-[10px] text-slate-600 dark:text-slate-400 mb-1">今日</div>
+            <div className="text-xs text-slate-600 dark:text-slate-400 mb-1 font-medium">今日</div>
             <div className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">
               <AnimatedNumber value={stats?.today.total ?? null} formatFn={formatNumber} />
             </div>
           </div>
           <div className="text-center p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700">
-            <div className="text-[10px] text-slate-600 dark:text-slate-400 mb-1">昨日</div>
+            <div className="text-xs text-slate-600 dark:text-slate-400 mb-1 font-medium">昨日</div>
             <div className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">
               <AnimatedNumber value={stats?.yesterday.total ?? null} formatFn={formatNumber} />
             </div>
           </div>
           <div className="text-center p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700">
-            <div className="text-[10px] text-slate-600 dark:text-slate-400 mb-1">本月</div>
+            <div className="text-xs text-slate-600 dark:text-slate-400 mb-1 font-medium">本月</div>
             <div className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">
               <AnimatedNumber value={stats?.month.total ?? null} formatFn={formatNumber} />
             </div>
           </div>
           <div className="text-center p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700">
-            <div className="text-[10px] text-slate-600 dark:text-slate-400 mb-1">上月</div>
+            <div className="text-xs text-slate-600 dark:text-slate-400 mb-1 font-medium">上月</div>
             <div className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">
               <AnimatedNumber value={stats?.lastMonth.total ?? null} formatFn={formatNumber} />
             </div>
