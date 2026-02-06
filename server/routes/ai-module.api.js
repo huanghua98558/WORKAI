@@ -1145,6 +1145,8 @@ async function testAI(request, reply) {
   try {
     const { modelId, input } = request.body;
 
+    logger.info('[AI调试] testAI函数被调用', { modelId, input });
+
     // 验证参数
     if (!modelId || !input) {
       return reply.code(400).send({
@@ -1174,10 +1176,17 @@ async function testAI(request, reply) {
     });
     const responseTime = Date.now() - startTime;
 
-    // 记录AI交互日志
+    // 调试：打印token信息
+    logger.info('[AI调试] result.usage:', JSON.stringify(result.usage));
+    logger.info('[AI调试] result.usage.inputTokens:', result.usage?.inputTokens);
+    logger.info('[AI调试] result.usage.outputTokens:', result.usage?.outputTokens);
+    logger.info('[AI调试] result.usage.totalTokens:', result.usage?.totalTokens);
+
+    // 记录AI交互日志（包含token信息）
     try {
       const db = await getDb();
-      await db.insert(ai_io_logs).values({
+
+      const insertData = {
         sessionId: sessionId,
         messageId: messageId,
         robotId: modelId,
@@ -1188,12 +1197,27 @@ async function testAI(request, reply) {
         modelId: aiService.modelId,
         temperature: Math.round((aiService.temperature || 0.7) * 100),
         requestDuration: responseTime,
-        status: 'success'
+        status: 'success',
+        inputTokens: result.usage.inputTokens || 0,
+        outputTokens: result.usage.outputTokens || 0,
+        totalTokens: result.usage.totalTokens || 0
+      };
+
+      logger.info('[AI调试] 准备插入数据:', JSON.stringify(insertData));
+
+      const insertResult = await db.insert(ai_io_logs).values(insertData);
+
+      logger.info('AI调试日志记录成功', {
+        sessionId,
+        messageId,
+        inputTokens: result.usage.inputTokens,
+        outputTokens: result.usage.outputTokens,
+        totalTokens: result.usage.totalTokens,
+        insertResult: insertResult
       });
-      logger.info('AI调试日志记录成功', { sessionId, messageId });
     } catch (logError) {
       // 日志记录失败不影响主流程
-      logger.error('AI调试日志记录失败', { error: logError.message });
+      logger.error('AI调试日志记录失败', { error: logError.message, stack: logError.stack });
     }
 
     // 返回测试结果

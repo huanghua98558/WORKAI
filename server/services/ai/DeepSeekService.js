@@ -6,6 +6,7 @@
 const { LLMClient } = require('coze-coding-dev-sdk');
 const { getLogger } = require('../../lib/logger');
 const AIUsageTracker = require('./AIUsageTracker');
+const tokenCounter = require('../../lib/token-counter');
 
 const logger = getLogger('DEEPSEEK_SERVICE');
 
@@ -91,16 +92,19 @@ class DeepSeekService {
         robotId: context.robotId
       });
 
-      // 记录使用情况
+      // 记录使用情况（使用真实的token计算）
       if (this.modelIdStr && this.providerId) {
+        const inputTokens = tokenCounter.countTokens(input, this.modelId);
+        const outputTokens = tokenCounter.countTokens(JSON.stringify(result), this.modelId);
+
         AIUsageTracker.recordUsage({
           organizationId: this.organizationId,
           modelId: this.modelIdStr,
           providerId: this.providerId,
           operationType: 'intent_recognition',
-          inputTokens: input.length,
-          outputTokens: JSON.stringify(result).length,
-          totalTokens: input.length + JSON.stringify(result).length,
+          inputTokens,
+          outputTokens,
+          totalTokens: inputTokens + outputTokens,
           responseTime: Date.now() - startTime,
           status: 'success',
           sessionId: context.sessionId,
@@ -158,12 +162,28 @@ class DeepSeekService {
       const content = typeof response === 'string' ? response : response.content || response.text || '';
       const usage = response.usage || {};
 
+      // 使用真实的token计算
+      let inputTokens, outputTokens, totalTokens;
+
+      // 尝试从API响应中获取token使用情况
+      if (usage.totalTokens || usage.total_tokens) {
+        // API返回了token信息，直接使用
+        inputTokens = usage.inputTokens || usage.prompt_tokens || 0;
+        outputTokens = usage.outputTokens || usage.completion_tokens || 0;
+        totalTokens = usage.totalTokens || usage.total_tokens || 0;
+      } else {
+        // API未返回token信息，使用token计数工具计算
+        inputTokens = tokenCounter.countMessageTokens(messages, this.modelId);
+        outputTokens = tokenCounter.countTokens(content, this.modelId);
+        totalTokens = inputTokens + outputTokens;
+      }
+
       const result = {
         content,
         usage: {
-          inputTokens: usage.inputTokens || usage.prompt_tokens || 0,
-          outputTokens: usage.outputTokens || usage.completion_tokens || 0,
-          totalTokens: usage.totalTokens || usage.total_tokens || 0
+          inputTokens,
+          outputTokens,
+          totalTokens
         }
       };
 

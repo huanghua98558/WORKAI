@@ -1766,6 +1766,9 @@ exports.ai_io_logs = pgTable(
     requestDuration: integer("request_duration"),
     status: varchar("status", { length: 50 }),
     errorMessage: text("error_message"),
+    inputTokens: integer("input_tokens").default(0),
+    outputTokens: integer("output_tokens").default(0),
+    totalTokens: integer("total_tokens").default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
