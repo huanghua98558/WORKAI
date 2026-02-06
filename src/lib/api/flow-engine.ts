@@ -1,9 +1,17 @@
 // 流程引擎API服务函数
 
+// 节点数据结构 - 兼容后端返回的 React Flow 格式
 export interface FlowNode {
   id: string;
   type: string;
-  name: string;
+  data?: {
+    name?: string;
+    description?: string;
+    config?: Record<string, any>;
+  };
+  // 兼容旧格式：直接在节点对象上的属性
+  name?: string;
+  description?: string;
   config?: Record<string, any>;
   position?: { x: number; y: number };
 }

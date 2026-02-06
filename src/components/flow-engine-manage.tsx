@@ -129,12 +129,18 @@ export default function FlowEngineManage() {
   const convertToEditorNodes = (flowNodes: FlowNode[]) => {
     return flowNodes.map((node, index) => {
       // 处理大小写不匹配问题（如 'END' vs 'end'）
-      const nodeTypeLower = node.type.toLowerCase();
+      const nodeTypeLower = (node.type || '').toLowerCase();
       const nodeTypeKey = Object.keys(NODE_TYPES).find(key =>
         NODE_TYPES[key as keyof typeof NODE_TYPES].toLowerCase() === nodeTypeLower
       ) as keyof typeof NODE_TYPES;
       const nodeType = nodeTypeKey ? NODE_TYPES[nodeTypeKey] : node.type;
       const metadata = nodeTypeKey ? NODE_METADATA[NODE_TYPES[nodeTypeKey]] : undefined;
+
+      // 后端返回的节点结构：{ id, data: { name, config, description }, type, position }
+      // 兼容两种数据结构：直接访问或通过 data 属性访问
+      const nodeName = node.data?.name || node.name || '未命名节点';
+      const nodeConfig = node.data?.config || node.config || {};
+      const nodeDescription = node.data?.description || metadata?.description || '';
 
       return {
         id: node.id,
@@ -145,9 +151,9 @@ export default function FlowEngineManage() {
         },
         data: {
           type: nodeType,  // 使用标准化的节点类型
-          name: node.name,
-          description: metadata?.description || '',
-          config: node.config || {},
+          name: nodeName,
+          description: nodeDescription,
+          config: nodeConfig,
           icon: metadata?.icon || '⚙️',
           color: metadata?.color || 'bg-gray-500',
         },
@@ -595,6 +601,9 @@ export default function FlowEngineManage() {
                       {flow.nodes && flow.nodes.length > 0 ? flow.nodes.map((node, index) => {
                         const config = NODE_TYPE_CONFIG[node.type as NodeTypeValue];
                         const Icon = config?.icon || Box;
+                        // 后端返回的节点数据结构：{ id, data: { name, config, description }, type, position }
+                        // 兼容两种数据结构：直接访问 node.name 或通过 node.data.name
+                        const nodeName = node.data?.name || node.name || node.id || '未命名节点';
                         return (
                           <React.Fragment key={node.id}>
                             {index > 0 && (
@@ -605,7 +614,7 @@ export default function FlowEngineManage() {
                               className={`gap-1 flex-shrink-0 ${config?.color || 'text-gray-500'} border-current`}
                             >
                               <Icon className="h-3 w-3" />
-                              {node.name}
+                              {nodeName}
                             </Badge>
                           </React.Fragment>
                         );
@@ -988,7 +997,9 @@ export default function FlowEngineManage() {
                             </Badge>
                             <Icon className={`h-5 w-5 ${config?.color || 'text-gray-500'}`} />
                             <div className="flex-1">
-                              <div className="font-medium">{node.name}</div>
+                              <div className="font-medium">
+                                {node.data?.name || node.name || node.id || '未命名节点'}
+                              </div>
                               <div className="text-sm text-muted-foreground">
                                 类型: {config?.label || node.type}
                               </div>
