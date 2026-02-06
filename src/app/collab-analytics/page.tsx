@@ -72,6 +72,29 @@ interface CollabStats {
     collaborationRate: number;
     avgStaffMessages: number;
   };
+  // 新增：信息检测数据
+  infoDetection: {
+    total: number;
+    riskLevelDistribution: {
+      critical: number;
+      high: number;
+      medium: number;
+      low: number;
+    };
+    sentimentDistribution: {
+      positive: number;
+      neutral: number;
+      negative: number;
+    };
+    satisfactionDistribution: {
+      high: number;
+      medium: number;
+      low: number;
+      unknown: number;
+    };
+    averageRiskScore: number;
+    averageSatisfactionScore: number;
+  };
 }
 
 interface StaffActivity {
@@ -304,9 +327,10 @@ export default function CollabAnalyticsPage() {
 
       {/* 主要内容区域 */}
       <Tabs defaultValue="efficiency" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
           <TabsTrigger value="efficiency">效率分析</TabsTrigger>
           <TabsTrigger value="staff">工作人员统计</TabsTrigger>
+          <TabsTrigger value="info-detection">信息检测</TabsTrigger>
           <TabsTrigger value="recommendations">智能推荐</TabsTrigger>
           <TabsTrigger value="logs">协同日志</TabsTrigger>
         </TabsList>
@@ -389,6 +413,143 @@ export default function CollabAnalyticsPage() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* 信息检测分析 */}
+        <TabsContent value="info-detection" className="space-y-4">
+          {/* 风险等级分布 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>风险等级分布</CardTitle>
+                <CardDescription>工作人员处理消息的风险等级</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={stats?.infoDetection?.riskLevelDistribution ? [
+                        { name: '严重', value: stats.infoDetection.riskLevelDistribution.critical },
+                        { name: '高', value: stats.infoDetection.riskLevelDistribution.high },
+                        { name: '中', value: stats.infoDetection.riskLevelDistribution.medium },
+                        { name: '低', value: stats.infoDetection.riskLevelDistribution.low }
+                      ] : []}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      <Cell fill="#ef4444" />
+                      <Cell fill="#f97316" />
+                      <Cell fill="#eab308" />
+                      <Cell fill="#22c55e" />
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* 情感分布 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>情感倾向分布</CardTitle>
+                <CardDescription>工作人员消息的情感分析</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={stats?.infoDetection?.sentimentDistribution ? [
+                        { name: '正面', value: stats.infoDetection.sentimentDistribution.positive },
+                        { name: '中性', value: stats.infoDetection.sentimentDistribution.neutral },
+                        { name: '负面', value: stats.infoDetection.sentimentDistribution.negative }
+                      ] : []}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      <Cell fill="#22c55e" />
+                      <Cell fill="#6b7280" />
+                      <Cell fill="#ef4444" />
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 满意度分布 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>满意度分布</CardTitle>
+              <CardDescription>工作人员处理的用户满意度</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={stats?.infoDetection?.satisfactionDistribution ? [
+                  { name: '高满意度', value: stats.infoDetection.satisfactionDistribution.high },
+                  { name: '中等满意度', value: stats.infoDetection.satisfactionDistribution.medium },
+                  { name: '低满意度', value: stats.infoDetection.satisfactionDistribution.low },
+                  { name: '未知', value: stats.infoDetection.satisfactionDistribution.unknown }
+                ] : []}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="value" fill="#3b82f6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* 综合指标 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  平均风险分数
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">
+                  {stats?.infoDetection?.averageRiskScore ? `${stats.infoDetection.averageRiskScore.toFixed(2)}` : '0.00'}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  范围：0-10，分数越高风险越大
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5" />
+                  平均满意度分数
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">
+                  {stats?.infoDetection?.averageSatisfactionScore ? `${stats.infoDetection.averageSatisfactionScore.toFixed(2)}` : '0.00'}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  范围：0-10，分数越高满意度越高
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* 智能推荐 */}

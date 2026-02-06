@@ -267,6 +267,11 @@ export interface AIReplyConfig {
   contextWindowSize?: number;   // 上下文窗口大小
   personaId?: string;          // 人设ID
   enableThinking: boolean;      // 是否启用思考模式
+  // 新增：工作人员联动配置
+  adaptiveReply?: boolean;     // 是否启用自适应回复（工作人员联动）
+  staffPresenceDetection?: boolean; // 是否检测工作人员存在
+  replyModeWhenStaffOnline?: 'normal' | 'low_priority' | 'delay' | 'skip'; // 工作人员在线时的回复模式
+  staffDetectionWindow?: number; // 工作人员检测窗口（分钟）
 }
 
 // MESSAGE_DISPATCH 节点配置
