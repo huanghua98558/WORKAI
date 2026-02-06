@@ -495,13 +495,13 @@ export default function AIInteractionMonitor() {
                                     <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2 text-center">
                                       <div className="text-xs text-muted-foreground">输入Token</div>
                                       <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                                        {log.tokens.prompt_tokens || 0}
+                                        {log.tokens.input_tokens || 0}
                                       </div>
                                     </div>
                                     <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-2 text-center">
                                       <div className="text-xs text-muted-foreground">输出Token</div>
                                       <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                                        {log.tokens.completion_tokens || 0}
+                                        {log.tokens.output_tokens || 0}
                                       </div>
                                     </div>
                                     <div className="bg-purple-50 dark:bg-purple-950/20 rounded-lg p-2 text-center">

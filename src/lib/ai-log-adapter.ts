@@ -18,6 +18,9 @@ export interface BackendAILog {
   requestDuration?: number;
   status: string;
   errorMessage?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
   createdAt: string;
 }
 
@@ -75,9 +78,9 @@ export function adaptBackendAILogsToFrontend(backendLogs: BackendAILog[]): AILog
       created_at: log.createdAt,
       intent: intent || undefined,
       tokens: {
-        // 注意：ai_io_logs表目前没有存储token信息
-        // 这里可以根据需要从其他表获取或估算
-        total_tokens: log.aiInput ? Math.ceil(log.aiInput.length / 4) : 0
+        input_tokens: log.inputTokens || 0,
+        output_tokens: log.outputTokens || 0,
+        total_tokens: log.totalTokens || 0
       }
     };
   });
