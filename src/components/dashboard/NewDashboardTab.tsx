@@ -158,6 +158,9 @@ export default function NewDashboardTab({
   isLoading,
   setActiveTab
 }: NewDashboardTabProps) {
+  // 调试日志：输出加载状态
+  console.log('[NewDashboardTab] isLoading:', isLoading, 'monitorData:', !!monitorData, 'sessions length:', sessions?.length);
+
   // 兼容新旧接口数据结构，转换为 MonitorSummary
   const monitorSummary: MonitorSummary | null = (() => {
     if (!monitorData) return null;
@@ -316,6 +319,18 @@ export default function NewDashboardTab({
         return <Badge variant="outline">未知</Badge>;
     }
   };
+
+  // 显示加载状态
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+          <p className="mt-4 text-muted-foreground">加载仪表盘数据中...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

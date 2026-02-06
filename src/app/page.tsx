@@ -416,8 +416,10 @@ export default function AdminDashboard() {
       if (monitorRes.ok) {
         try {
           const data = await monitorRes.json();
-          if (data.code === 0) {
+          // 兼容两种返回格式：{ code: 0, data: {...} } 或 { success: true, data: {...} }
+          if (data.code === 0 || data.success === true) {
             setMonitorData(data.data);
+            console.log('[数据加载] Monitor 数据加载成功');
           }
         } catch (e) {
           console.error('解析monitor数据失败:', e);
@@ -427,8 +429,10 @@ export default function AdminDashboard() {
       if (callbacksRes.ok) {
         try {
           const data = await callbacksRes.json();
-          if (data.code === 0) {
+          // 兼容两种返回格式：{ code: 0, data: {...} } 或 { success: true, data: {...} }
+          if (data.code === 0 || data.success === true) {
             setCallbacks(data.data);
+            console.log('[数据加载] Callbacks 数据加载成功:', data.data);
           }
         } catch (e) {
           console.error('解析callbacks数据失败:', e);
@@ -449,13 +453,12 @@ export default function AdminDashboard() {
         if (uptimeRes.ok) {
           setConnectionStatus('connected');
           try {
-            const data = uptimeRes.json();
-            data.then(d => {
-              if (d.startTime) {
-                const uptimeMs = Date.now() - d.startTime;
-                setServerUptime(formatUptime(uptimeMs));
-              }
-            });
+            const data = await uptimeRes.json();
+            if (data.startTime) {
+              const uptimeMs = Date.now() - data.startTime;
+              setServerUptime(formatUptime(uptimeMs));
+              console.log('[数据加载] Server uptime 加载成功:', formatUptime(uptimeMs));
+            }
           } catch (e) {
             console.error('解析uptime数据失败:', e);
           }
@@ -466,12 +469,12 @@ export default function AdminDashboard() {
         // 处理告警数据（使用新接口）
         if (alertRes.ok) {
           try {
-            const data = alertRes.json();
-            data.then(d => {
-              if (d.code === 0) {
-                setAlertStats(d.data);
-              }
-            });
+            const data = await alertRes.json();
+            // 兼容两种返回格式：{ code: 0, data: {...} } 或 { success: true, data: {...} }
+            if (data.code === 0 || data.success === true) {
+              setAlertStats(data.data);
+              console.log('[数据加载] Alert Stats 数据加载成功');
+            }
           } catch (e) {
             console.error('解析告警数据失败:', e);
           }
