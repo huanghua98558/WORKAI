@@ -3,15 +3,39 @@
  * 提供详细的告警统计、趋势分析和图表数据
  */
 
-const { getDb } = require('coze-coding-dev-sdk');
-const { alertHistory, alertGroups } = require('../database/schema');
-const { sql } = require('drizzle-orm');
+// 延迟加载数据库功能，避免动态导入问题
+let _getDb = null;
+let _sql = null;
+let _alertHistory = null;
+let _alertGroups = null;
+
+// 延迟获取getDb、sql和schema
+async function getDbAndSql() {
+  if (!_getDb) {
+    try {
+      const module = await import('coze-coding-dev-sdk');
+      _getDb = module.getDb;
+      const drizzleModule = await import('drizzle-orm');
+      _sql = drizzleModule.sql;
+    } catch (error) {
+      console.warn('无法加载数据库模块');
+      throw error;
+    }
+  }
+  if (!_alertHistory) {
+    const schemaModule = await import('../database/schema');
+    _alertHistory = schemaModule.alertHistory;
+    _alertGroups = schemaModule.alertGroups;
+  }
+  return { getDb: _getDb, sql: _sql, alertHistory: _alertHistory, alertGroups: _alertGroups };
+}
 
 class AlertAnalyticsService {
   /**
    * 获取总体统计信息
    */
   async getOverallStats(startDate, endDate) {
+    const { getDb, sql, alertHistory } = await getDbAndSql();
     const db = await getDb();
 
     const stats = await db
@@ -45,6 +69,7 @@ class AlertAnalyticsService {
    * 获取时间趋势数据（按天）
    */
   async getDailyTrends(days = 30) {
+    const { getDb, sql, alertHistory } = await getDbAndSql();
     const db = await getDb();
 
     const trends = await db
@@ -83,6 +108,7 @@ class AlertAnalyticsService {
    * 按分组统计
    */
   async getGroupStats(startDate, endDate) {
+    const { getDb, sql, alertHistory, alertGroups } = await getDbAndSql();
     const db = await getDb();
 
     const stats = await db
@@ -119,6 +145,7 @@ class AlertAnalyticsService {
    * 按意图类型统计
    */
   async getIntentTypeStats(startDate, endDate) {
+    const { getDb, sql, alertHistory } = await getDbAndSql();
     const db = await getDb();
 
     const stats = await db
@@ -147,6 +174,7 @@ class AlertAnalyticsService {
    * 获取告警级别分布
    */
   async getAlertLevelDistribution(startDate, endDate) {
+    const { getDb, sql, alertHistory } = await getDbAndSql();
     const db = await getDb();
 
     const distribution = await db
@@ -180,6 +208,7 @@ class AlertAnalyticsService {
    * 获取用户告警排行（Top 10）
    */
   async getTopUsers(days = 7) {
+    const { getDb, sql, alertHistory } = await getDbAndSql();
     const db = await getDb();
 
     const topUsers = await db

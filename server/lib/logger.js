@@ -3,8 +3,25 @@
  * 提供结构化、可追踪、高性能的日志记录功能
  */
 
-const { getDb } = require('coze-coding-dev-sdk');
-const { sql } = require('drizzle-orm');
+// 延迟加载数据库功能，避免动态导入问题
+let _getDb = null;
+let _sql = null;
+
+// 延迟获取getDb和sql
+async function getDbAndSql() {
+  if (!_getDb) {
+    try {
+      const module = await import('coze-coding-dev-sdk');
+      _getDb = module.getDb;
+      const drizzleModule = await import('drizzle-orm');
+      _sql = drizzleModule.sql;
+    } catch (error) {
+      console.warn('无法加载数据库模块，日志将只输出到控制台');
+      return { getDb: null, sql: null };
+    }
+  }
+  return { getDb: _getDb, sql: _sql };
+}
 
 // 敏感字段列表，自动过滤
 const SENSITIVE_FIELDS = [
@@ -141,6 +158,13 @@ class Logger {
    */
   async saveToDatabase(logEntry) {
     try {
+      const { getDb, sql } = await getDbAndSql();
+      
+      if (!getDb || !sql) {
+        // 数据库模块未加载，跳过保存
+        return;
+      }
+
       const db = await getDb();
 
       // 检查表是否存在
