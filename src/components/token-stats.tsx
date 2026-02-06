@@ -78,8 +78,8 @@ export function TokenStatsCard() {
   const growthRate = getGrowthRate();
 
   return (
-    <Card className="shadow-md hover:shadow-lg transition-all duration-300 h-[420px] border-slate-200 dark:border-slate-800 overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 py-3 px-4">
+    <Card className="shadow-md hover:shadow-lg transition-all duration-300 h-[420px] border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2.5 px-4">
         <CardTitle className="text-sm font-semibold flex items-center gap-2 text-slate-700 dark:text-slate-300">
           <Sparkles className="h-4 w-4 text-purple-500" />
           Token 消耗
@@ -94,10 +94,10 @@ export function TokenStatsCard() {
           <RefreshCw className={`h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} />
         </Button>
       </CardHeader>
-      <CardContent className="px-4 pb-4 space-y-3">
-        {/* 今日总计卡片 */}
-        <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg p-3 text-white shadow-md">
-          <div className="flex items-center justify-between mb-1.5">
+      <CardContent className="px-4 pb-4 flex-1 flex flex-col gap-2.5">
+        {/* 今日累计 + 增长率（紧凑） */}
+        <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg p-2.5 text-white shadow-sm">
+          <div className="flex items-center justify-between">
             <span className="text-[11px] text-purple-100 font-medium">今日累计</span>
             {growthRate !== 0 && (
               <div className={`flex items-center gap-0.5 text-[11px] ${growthRate > 0 ? 'text-white' : 'text-purple-100'}`}>
@@ -110,78 +110,79 @@ export function TokenStatsCard() {
               </div>
             )}
           </div>
-          <div className="text-3xl font-bold leading-tight mb-0.5">
+          <div className="text-2xl font-bold leading-tight mt-0.5">
             <AnimatedNumber value={stats?.today.total ?? null} formatFn={formatNumber} />
           </div>
-          <div className="text-[11px] text-purple-100">
-            {stats?.today.record_count || 0} 次调用
+        </div>
+
+        {/* 输入输出（横向紧凑） */}
+        <div className="flex gap-2">
+          <div className="flex-1 bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2 border border-blue-100 dark:border-blue-900/30">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">输入</span>
+              <span className="text-lg font-bold text-blue-600 dark:text-blue-400 leading-tight">
+                <AnimatedNumber value={stats?.today.input ?? null} formatFn={formatNumber} />
+              </span>
+            </div>
+          </div>
+          <div className="flex-1 bg-green-50 dark:bg-green-950/20 rounded-lg p-2 border border-green-100 dark:border-green-900/30">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">输出</span>
+              <span className="text-lg font-bold text-green-600 dark:text-green-400 leading-tight">
+                <AnimatedNumber value={stats?.today.output ?? null} formatFn={formatNumber} />
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* 输入输出分布 */}
-        <div className="grid grid-cols-2 gap-2.5">
-          <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2.5 border border-blue-100 dark:border-blue-900/30">
-            <div className="text-[11px] text-blue-600 dark:text-blue-400 mb-1 font-medium">输入 Token</div>
-            <div className="text-xl font-bold text-blue-600 dark:text-blue-400 leading-tight">
-              <AnimatedNumber value={stats?.today.input ?? null} formatFn={formatNumber} />
-            </div>
-          </div>
-          <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-2.5 border border-green-100 dark:border-green-900/30">
-            <div className="text-[11px] text-green-600 dark:text-green-400 mb-1 font-medium">输出 Token</div>
-            <div className="text-xl font-bold text-green-600 dark:text-green-400 leading-tight">
-              <AnimatedNumber value={stats?.today.output ?? null} formatFn={formatNumber} />
-            </div>
-          </div>
-        </div>
-
-        {/* 消耗统计 - 2x2卡片堆叠 */}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2.5 border border-slate-100 dark:border-slate-700">
+        {/* 消耗统计 - 2x2卡片 */}
+        <div className="flex-1 grid grid-cols-2 gap-2">
+          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 border border-slate-100 dark:border-slate-700 flex flex-col">
             <div className="flex items-center gap-1 mb-1">
-              <Calendar className="h-3 w-3 text-orange-500" />
-              <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">今日</span>
+              <Calendar className="h-3.5 w-3.5 text-orange-500" />
+              <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">今日</span>
             </div>
-            <div className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">
+            <div className="text-xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
               <AnimatedNumber value={stats?.today.total ?? null} formatFn={formatNumber} />
             </div>
-            <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-              {stats?.today.record_count || 0} 次
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              {stats?.today.record_count || 0} 次调用
             </div>
           </div>
-          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2.5 border border-slate-100 dark:border-slate-700">
+          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 border border-slate-100 dark:border-slate-700 flex flex-col">
             <div className="flex items-center gap-1 mb-1">
-              <Calendar className="h-3 w-3 text-slate-400" />
-              <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">昨日</span>
+              <Calendar className="h-3.5 w-3.5 text-slate-400" />
+              <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">昨日</span>
             </div>
-            <div className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">
+            <div className="text-xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
               <AnimatedNumber value={stats?.yesterday.total ?? null} formatFn={formatNumber} />
             </div>
-            <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               ---
             </div>
           </div>
-          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2.5 border border-slate-100 dark:border-slate-700">
+          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 border border-slate-100 dark:border-slate-700 flex flex-col">
             <div className="flex items-center gap-1 mb-1">
-              <Calendar className="h-3 w-3 text-indigo-500" />
-              <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">本月</span>
+              <Calendar className="h-3.5 w-3.5 text-indigo-500" />
+              <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">本月</span>
             </div>
-            <div className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">
+            <div className="text-xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
               <AnimatedNumber value={stats?.month.total ?? null} formatFn={formatNumber} />
             </div>
-            <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-              {stats?.month.record_count || 0} 次
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              {stats?.month.record_count || 0} 次调用
             </div>
           </div>
-          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2.5 border border-slate-100 dark:border-slate-700">
+          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 border border-slate-100 dark:border-slate-700 flex flex-col">
             <div className="flex items-center gap-1 mb-1">
-              <Calendar className="h-3 w-3 text-gray-400" />
-              <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">上月</span>
+              <Calendar className="h-3.5 w-3.5 text-gray-400" />
+              <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">上月</span>
             </div>
-            <div className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">
+            <div className="text-xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
               <AnimatedNumber value={stats?.lastMonth.total ?? null} formatFn={formatNumber} />
             </div>
-            <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-              {stats?.lastMonth.record_count || 0} 次
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              {stats?.lastMonth.record_count || 0} 次调用
             </div>
           </div>
         </div>
