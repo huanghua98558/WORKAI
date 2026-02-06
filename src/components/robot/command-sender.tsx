@@ -1368,10 +1368,6 @@ export default function CommandSender() {
                       : '-'}
                   </div>
                 </div>
-                <div>
-                  <Label>消息ID</Label>
-                  <div className="text-sm">{selectedCommandDetail.messageId || '-'}</div>
-                </div>
               </div>
 
               <div>

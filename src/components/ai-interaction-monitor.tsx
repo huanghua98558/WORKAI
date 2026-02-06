@@ -46,7 +46,7 @@ export default function AIInteractionMonitor() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'processing' | 'completed' | 'failed'>('all');
   const [intentFilter, setIntentFilter] = useState<string>('all');
-  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  const [expandedLogId, setExpandedLogId] = useState<number | null>(null);
   const [limit, setLimit] = useState(50);
 
   const loadAILogs = async () => {
@@ -419,11 +419,6 @@ export default function AIInteractionMonitor() {
                                     {log.model}
                                   </Badge>
                                 )}
-                                {log.role && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    角色: {log.role}
-                                  </Badge>
-                                )}
                               </div>
                             </div>
                           </div>
@@ -434,7 +429,7 @@ export default function AIInteractionMonitor() {
                             <div className="text-right text-sm text-muted-foreground">
                               <div className="flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
-                                {formatTime(log.started_at)}
+                                {formatTime(log.created_at)}
                               </div>
                               {log.duration && (
                                 <div className="text-xs mt-0.5">
@@ -471,7 +466,7 @@ export default function AIInteractionMonitor() {
                         </div>
 
                         {/* 可展开的详细信息 */}
-                        {(log.tokens?.total_tokens || log.error_message || log.provider) && (
+                        {(log.tokens?.total_tokens || log.error_message) && (
                           <div className="pl-10">
                             <button
                               onClick={() => setExpandedLogId(
@@ -511,13 +506,6 @@ export default function AIInteractionMonitor() {
                                       </div>
                                     </div>
                                   </div>
-                                )}
-
-                                {/* 提供商 */}
-                                {log.provider && (
-                                  <Badge variant="outline" className="text-xs">
-                                    提供商: {log.provider}
-                                  </Badge>
                                 )}
 
                                 {/* 错误信息 */}

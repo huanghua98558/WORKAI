@@ -22,6 +22,14 @@ export const db = drizzle(client, {
   },
 });
 
-// 导出所有schema
+// 导出shared schema
 export * from '@/storage/database/shared/schema';
-export * from '@/storage/database/new-schemas';
+// 导出new-schemas，但排除冲突的表
+export {
+  staff,
+  sessions,
+  userSessions,
+  messages,
+  robots,
+  interventions
+} from '@/storage/database/new-schemas';

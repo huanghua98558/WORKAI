@@ -110,18 +110,18 @@ export class InterventionService {
       let query = db.select().from(interventions);
 
       if (conditions.length > 0) {
-        query = query.where(and(...conditions));
+        query = query.where(and(...conditions)) as any;
       }
 
       // 按创建时间倒序
-      query = query.orderBy(desc(interventions.createdAt));
+      query = query.orderBy(desc(interventions.createdAt)) as any;
 
       // 分页
       if (params.limit) {
-        query = query.limit(params.limit);
+        query = query.limit(params.limit) as any;
       }
       if (params.offset) {
-        query = query.offset(params.offset);
+        query = query.offset(params.offset) as any;
       }
 
       const results = await query;
@@ -272,7 +272,7 @@ export class InterventionService {
       } else {
         // 如果没有提供时长，自动计算
         const intervention = await this.getInterventionById(id);
-        if (intervention.success && intervention.intervention) {
+        if (intervention.success && intervention.intervention && intervention.intervention.createdAt) {
           const createdAt = new Date(intervention.intervention.createdAt);
           const now = new Date();
           updateData.durationSeconds = Math.floor((now.getTime() - createdAt.getTime()) / 1000);

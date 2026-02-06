@@ -44,7 +44,7 @@ export async function monitorAlertHandling(
     // 检查是否有工作人员回复
     const staffReply = await checkStaffReply(sessionId);
 
-    if (staffReply.hasReply) {
+    if (staffReply.hasReply && staffReply.staffUserId) {
       const responseTime = (Date.now() - startTime) / 1000;
 
       // 工作人员已回复，关闭告警

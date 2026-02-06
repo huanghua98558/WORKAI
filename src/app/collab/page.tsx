@@ -23,7 +23,8 @@ import {
   Star,
   Zap,
   Target,
-  RefreshCw
+  RefreshCw,
+  Book
 } from 'lucide-react';
 
 // 协同统计数据接口

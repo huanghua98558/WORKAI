@@ -36,8 +36,6 @@ export async function GET(request: NextRequest) {
       messageStats,
       sessionStats,
       aiResponseStats,
-      humanInterventionStats,
-      satisfactionStats,
       dailyStats,
     ] = await Promise.all([
       // 消息总数
@@ -56,42 +54,12 @@ export async function GET(request: NextRequest) {
       db
         .select({
           total: count(),
-          avgResponseTime: sql<number>`avg(EXTRACT(EPOCH FROM (ai_response_time - created_at)))`,
         })
         .from(messages)
         .where(
           and(
             where,
-            eq(messages.aiResponseTime, messages.aiResponseTime)
-          )
-        ),
-
-      // 人工介入统计
-      db
-        .select({
-          total: count(),
-          rate: sql<number>`(count(*) * 100.0 / (select count(*) from ${messages} where ${where || sql`1=1`}))`,
-        })
-        .from(messages)
-        .where(
-          and(
-            where,
-            eq(messages.humanIntervened, true)
-          )
-        ),
-
-      // 满意度统计
-      db
-        .select({
-          avg: sql<number>`avg(satisfaction_score)`,
-          highSatisfaction: count(sql`${messages.satisfactionScore} >= 4`),
-          lowSatisfaction: count(sql`${messages.satisfactionScore} <= 2`),
-        })
-        .from(messages)
-        .where(
-          and(
-            where,
-            eq(messages.satisfactionScore, messages.satisfactionScore)
+            eq(messages.senderType, 'ai')
           )
         ),
 
@@ -119,16 +87,6 @@ export async function GET(request: NextRequest) {
         },
         aiResponses: {
           total: aiResponseStats[0]?.total || 0,
-          avgResponseTime: aiResponseStats[0]?.avgResponseTime || 0,
-        },
-        humanIntervention: {
-          total: humanInterventionStats[0]?.total || 0,
-          rate: parseFloat((humanInterventionStats[0]?.rate || 0).toFixed(2)),
-        },
-        satisfaction: {
-          avgScore: parseFloat((satisfactionStats[0]?.avg || 0).toFixed(2)),
-          highSatisfaction: satisfactionStats[0]?.highSatisfaction || 0,
-          lowSatisfaction: satisfactionStats[0]?.lowSatisfaction || 0,
         },
         dailyTrends: dailyStats,
       },

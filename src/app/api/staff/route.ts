@@ -12,15 +12,10 @@ export async function GET(request: NextRequest) {
 
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = parseInt(searchParams.get('pageSize') || '50');
-    const platform = searchParams.get('platform') || undefined;
     const search = searchParams.get('search') || undefined;
     const status = searchParams.get('status') || undefined;
 
     const conditions = [];
-
-    if (platform) {
-      conditions.push(eq(staff.platform, platform));
-    }
 
     if (status) {
       conditions.push(eq(staff.status, status as 'active' | 'inactive'));
@@ -74,13 +69,11 @@ export async function POST(request: NextRequest) {
 
     const newStaff = {
       id: body.id || crypto.randomUUID(),
-      platform: body.platform,
-      platformUserId: body.platformUserId,
       name: body.name,
-      status: body.status || 'active',
-      roles: body.roles || ['staff'],
-      tags: body.tags || [],
-      metadata: body.metadata || {},
+      email: body.email,
+      role: body.role || 'staff',
+      status: body.status || 'offline',
+      permissions: body.permissions || [],
       createdAt: new Date(),
       updatedAt: new Date(),
     };

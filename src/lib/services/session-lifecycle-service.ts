@@ -2,7 +2,7 @@ import { sessions, NewSession } from '@/storage/database/new-schemas';
 import { userSessions } from '@/storage/database/new-schemas/user-sessions';
 import { staff } from '@/storage/database/new-schemas/staff';
 import { db } from '@/lib/db';
-import { eq, sql } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 
 export interface EndSessionInput {
   sessionId: string;
@@ -55,7 +55,7 @@ export class SessionLifecycleService {
       }
 
       // 3. 计算会话时长
-      const startTime = session.startedAt ? new Date(session.startedAt) : new Date(session.createdAt);
+      const startTime = session.startedAt ? new Date(session.startedAt) : new Date();
       const endTime = new Date();
       const durationSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
 
@@ -115,17 +115,6 @@ export class SessionLifecycleService {
         }
       }
 
-      // 7. 更新用户会话统计
-      if (session.userSessionId) {
-        await db
-          .update(userSessions)
-          .set({
-            totalServiceCount: sql`${userSessions.totalServiceCount} + 1`,
-            lastServiceSessionId: input.sessionId,
-          })
-          .where(eq(userSessions.id, session.userSessionId));
-      }
-
       return {
         success: true,
         session: result[0],
@@ -144,20 +133,20 @@ export class SessionLifecycleService {
    */
   async getSessionStats(sessionId: string) {
     try {
-      const sessions = await db
+      const sessionList = await db
         .select()
         .from(sessions)
         .where(eq(sessions.id, sessionId))
         .limit(1);
 
-      if (sessions.length === 0) {
+      if (sessionList.length === 0) {
         return {
           success: false,
           error: 'Session not found',
         };
       }
 
-      const session = sessions[0];
+      const session = sessionList[0];
 
       // 计算会话时长（如果已结束）
       let durationSeconds = session.durationSeconds;
@@ -202,8 +191,12 @@ export class SessionLifecycleService {
       const inactiveSessions = await db
         .select()
         .from(sessions)
-        .where(eq(sessions.status, 'active'))
-        .where(sql`${sessions.lastMessageAt} < ${timeoutDate}`);
+        .where(
+          and(
+            eq(sessions.status, 'active'),
+            sql`${sessions.lastMessageAt} < ${timeoutDate}`
+          )
+        ) as any;
 
       const results = [];
 

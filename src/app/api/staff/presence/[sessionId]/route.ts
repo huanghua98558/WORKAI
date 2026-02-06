@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:9000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 /**
  * 检查会话中是否有工作人员存在
@@ -8,10 +8,10 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:9000';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   try {
-    const { sessionId } = params;
+    const { sessionId } = await params;
 
     // 检查最近N分钟内是否有工作人员消息
     const response = await fetch(
