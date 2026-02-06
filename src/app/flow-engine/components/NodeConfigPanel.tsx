@@ -146,6 +146,15 @@ export default function NodeConfigPanel({ node, onUpdate }: NodeConfigPanelProps
       {node.data.type === 'risk_handler' && <RiskHandlerConfig config={config} onChange={handleConfigChange} />}
 
       {node.data.type === 'monitor' && <MonitorConfig config={config} onChange={handleConfigChange} />}
+
+      {/* 默认情况：未识别的节点类型 */}
+      {!['message_receive', 'intent', 'decision', 'ai_reply', 'message_dispatch', 'send_command', 'command_status', 'end', 'alert_save', 'alert_rule', 'execute_notification', 'risk_handler', 'monitor'].includes(node.data.type || '') && (
+        <div className="text-sm text-red-500 text-center py-4">
+          <p className="font-medium">未知的节点类型</p>
+          <p className="text-xs mt-1">类型: {node.data.type || 'undefined'}</p>
+          <p className="text-xs mt-2">请联系管理员添加此节点类型的配置</p>
+        </div>
+      )}
     </Card>
   );
 }
