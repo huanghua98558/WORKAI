@@ -268,13 +268,13 @@ class CollaborationService {
         .where(gte(collaborationDecisionLogs.createdAt, startTime));
 
       // 获取工作人员消息
-      const staffMessages = await this.db
+      const staffMessageData = await this.db
         .select()
         .from(staffMessages)
         .where(gte(staffMessages.createdAt, startTime));
 
       // 获取工作人员活动
-      const staffActivities = await this.db
+      const staffActivityData = await this.db
         .select()
         .from(staffActivities)
         .where(gte(staffActivities.createdAt, startTime));
@@ -283,15 +283,15 @@ class CollaborationService {
       const sessionStatuses = await this.db
         .select()
         .from(sessionStaffStatus)
-        .where(gte(sessionStaffStatus.joinedAt, startTime));
+        .where(gte(sessionStaffStatus.updatedAt, startTime));
 
       // 计算统计数据
       const decisionCount = decisionLogs.length;
       const aiReplyCount = decisionLogs.filter(log => log.aiAction === 'reply').length;
       const staffReplyCount = decisionLogs.filter(log => log.staffAction === 'continue').length;
       const collaborationRate = decisionCount > 0 ? ((aiReplyCount / decisionCount) * 100).toFixed(2) : '0';
-      const staffMessageCount = staffMessages.length;
-      const staffActivityCount = staffActivities.length;
+      const staffMessageCount = staffMessageData.length;
+      const staffActivityCount = staffActivityData.length;
       const totalSessions = sessionStatuses.length;
       const sessionsWithStaff = sessionStatuses.filter(s => s.isHandling).length;
 
