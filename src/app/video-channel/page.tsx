@@ -30,6 +30,7 @@ export default function VideoChannelConversionPage() {
   }>({});
   const [error, setError] = useState<string | null>(null);
   const [userId] = useState('user_' + Date.now());
+  const [refreshKey, setRefreshKey] = useState(0); // 用于强制刷新定时器
 
   // WorkTool发送相关状态
   const [sendToWorkTool, setSendToWorkTool] = useState(false);
@@ -47,7 +48,8 @@ export default function VideoChannelConversionPage() {
     console.log('[倒计时] useEffect触发，当前状态:', {
       remainingTime,
       step,
-      loginStatus
+      loginStatus,
+      refreshKey
     });
 
     if (remainingTime > 0 && step === 2 && loginStatus === 'checking') {
@@ -73,7 +75,7 @@ export default function VideoChannelConversionPage() {
         clearInterval(timer);
       }
     };
-  }, [step, loginStatus]); // 移除 remainingTime 依赖，避免定时器重置
+  }, [step, loginStatus, refreshKey]); // 添加 refreshKey 依赖
 
   // 格式化剩余时间
   const formatTime = (seconds: number) => {
@@ -133,6 +135,7 @@ export default function VideoChannelConversionPage() {
         setRemainingTime(data.remainingTime);
         setLoginStatus('checking');
         setStep(2);
+        setRefreshKey(prev => prev + 1); // 触发定时器启动
         // 自动开始检测登录状态
         setTimeout(() => {
           handleCheckLogin();
@@ -169,6 +172,7 @@ export default function VideoChannelConversionPage() {
         console.log('[刷新二维码] 设置剩余时间:', data.remainingTime, '秒');
         setRemainingTime(data.remainingTime);
         setLoginStatus('checking');
+        setRefreshKey(prev => prev + 1); // 触发定时器重启
         // 重新开始检测登录状态
         setTimeout(() => {
           handleCheckLogin();
