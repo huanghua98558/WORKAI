@@ -4,6 +4,7 @@ import { sessionService } from '@/lib/services/session-service';
 import { senderIdentificationService } from '@/lib/services/sender-identification';
 import { collaborationDecisionService } from '@/lib/services/collaboration-decision-service';
 import { staffTypeService } from '@/services/staff-type-service';
+import { robotBusinessRoleService } from '@/services/robot-business-role-service';
 import { afterSalesTaskService } from '@/services/after-sales-task-service';
 import { staffMessageContextService } from '@/services/staff-message-context-service';
 import { getKeywordsByScenario } from '@/config/keywords';
@@ -119,22 +120,49 @@ export async function POST(request: NextRequest) {
       await sessionService.recordStaffIntervention(sessionId, senderInfo.staffId);
     }
 
+    // 获取业务角色配置（核心联动）
+    let businessRoleCode: string | null = null;
+    let businessRoleName: string | null = null;
+    let shouldAiReply = body.aiEnabled !== false;  // 默认AI回复
+
+    try {
+      const businessConfigResult = await robotBusinessRoleService.getBusinessConfigByRobotId(body.robotId);
+      if (businessConfigResult.success) {
+        businessRoleCode = businessConfigResult.businessConfig.businessRole;
+        businessRoleName = businessConfigResult.businessRole?.name || null;
+
+        // 判断AI是否应该回复
+        const shouldReplyResult = await robotBusinessRoleService.shouldAiReply(
+          body.robotId,
+          body.senderType as 'user' | 'staff'
+        );
+        if (shouldReplyResult.success) {
+          shouldAiReply = shouldReplyResult.shouldReply;
+        }
+      }
+    } catch (error) {
+      console.error('[POST /api/messages] 获取业务角色配置失败:', error);
+      // 业务角色配置失败不影响主流程，使用默认行为
+    }
+
     // 记录决策日志（方案3：决策日志，增强版）
     try {
       const savedMessage = messageResult.message!;
-      
+
       // 如果是用户消息，记录初始决策
       if (body.senderType === 'user') {
         await collaborationDecisionService.recordDecision({
           sessionId,
           messageId: savedMessage.id || '',
           robotId: body.robotId,
-          shouldAiReply: body.aiEnabled !== false,  // 默认AI回复，除非明确禁用
-          aiAction: 'none',  // 初始状态，等待AI回复
+          shouldAiReply: shouldAiReply,  // 根据业务角色判断
+          aiAction: shouldAiReply ? 'processing' : 'none',  // 初始状态
           staffAction: 'none',
           priority: 'medium',
-          reason: '用户消息已接收',
-          strategy: body.aiEnabled !== false ? 'AI优先' : '等待人工',
+          reason: businessRoleName
+            ? `${businessRoleName}：${shouldAiReply ? 'AI回复' : 'AI不回复'}用户消息`
+            : '用户消息已接收',
+          strategy: businessRoleName ? `${businessRoleName}策略` : (shouldAiReply ? 'AI优先' : '等待人工'),
           staffType: null,  // 用户消息无工作人员类型
           messageType: 'user_message',
         });
@@ -150,55 +178,87 @@ export async function POST(request: NextRequest) {
       }
       // 如果是工作人员回复，更新决策
       else if (senderInfo?.senderType === 'staff' && body.parentMessageId) {
-        await collaborationDecisionService.updateDecision(body.parentMessageId, {
-          staffAction: 'replied',
-          priority: 'low',
-          reason: `员工 ${senderInfo.staffName} (${staffType}) 已回复`,
-          staffType: staffType || 'unknown',
-          messageType: 'staff_reply',
-        });
+        // 判断是否识别工作人员（核心联动）
+        let shouldIdentify = true;
+        let identifyReason = '';
 
-        // 记录工作人员消息上下文
         try {
-          await staffMessageContextService.recordStaffMessage({
-            messageId: savedMessage.id || '',
-            sessionId,
-            staffUserId: senderInfo.staffId,
-            staffName: senderInfo.staffName || '',
-            staffType: staffType || 'unknown',
-            content: body.content,
-            relatedUserId: body.relatedUserId,  // 如果有 @用户
-            isMention: body.isMention || false,
-            metadata: body.metadata,
-          });
-        } catch (contextError) {
-          console.error('[POST /api/messages] 记录工作人员消息上下文失败:', contextError);
+          const identifyResult = await robotBusinessRoleService.shouldIdentifyStaff(
+            body.robotId,
+            staffType || 'unknown'
+          );
+          if (identifyResult.success) {
+            shouldIdentify = identifyResult.shouldIdentify;
+            identifyReason = identifyResult.reason || '';
+          }
+        } catch (error) {
+          console.error('[POST /api/messages] 判断工作人员识别失败:', error);
+          // 默认识别工作人员
         }
 
-        // 检查是否需要创建售后任务（仅限售后人员）
-        if (staffType === 'after_sales' && body.isMention) {
-          const keywords = getKeywordsByScenario('after_sales');
-          const hasKeyword = keywords.some(keyword => 
-            body.content.toLowerCase().includes(keyword.toLowerCase())
-          );
+        await collaborationDecisionService.updateDecision(body.parentMessageId, {
+          staffAction: shouldIdentify ? 'replied' : 'ignored',
+          priority: 'low',
+          reason: identifyReason || `员工 ${senderInfo.staffName} (${staffType}) 已回复`,
+          staffType: staffType || 'unknown',
+          messageType: shouldIdentify ? 'staff_reply' : 'staff_message_ignored',
+        });
 
-          if (hasKeyword) {
+        // 如果识别为工作人员，记录上下文
+        if (shouldIdentify) {
+          try {
+            await staffMessageContextService.recordStaffMessage({
+              messageId: savedMessage.id || '',
+              sessionId,
+              staffUserId: senderInfo.staffId,
+              staffName: senderInfo.staffName || '',
+              staffType: staffType || 'unknown',
+              content: body.content,
+              relatedUserId: body.relatedUserId,  // 如果有 @用户
+              isMention: body.isMention || false,
+              metadata: body.metadata,
+            });
+          } catch (contextError) {
+            console.error('[POST /api/messages] 记录工作人员消息上下文失败:', contextError);
+          }
+
+          // 检查是否需要创建售后任务（基于业务角色配置）
+          if (businessRoleCode === 'after_sales' && staffType === 'after_sales' && body.isMention) {
             try {
-              await afterSalesTaskService.createTask({
-                sessionId,
-                staffUserId: senderInfo.staffId,
-                staffName: senderInfo.staffName || '',
-                userId: body.relatedUserId || body.senderId,
-                userName: body.relatedUserName || body.senderName,
-                taskType: 'general',
-                priority: 'normal',
-                status: 'pending',
-                title: `售后任务 - ${body.content.substring(0, 50)}`,
-                description: body.content,
-                messageId: savedMessage.id,
-                keyword: keywords.find(k => body.content.toLowerCase().includes(k.toLowerCase())),
-              });
-              console.log('[POST /api/messages] 售后任务已创建');
+              // 从业务角色配置获取关键词
+              const businessConfig = await robotBusinessRoleService.getBusinessConfigByRobotId(body.robotId);
+              const keywords = businessConfig.success && businessConfig.businessConfig.businessConfig.keywords
+                ? businessConfig.businessConfig.businessConfig.keywords
+                : getKeywordsByScenario('after_sales');
+
+              const hasKeyword = keywords.some(keyword =>
+                body.content.toLowerCase().includes(keyword.toLowerCase())
+              );
+
+              if (hasKeyword) {
+                const matchedKeyword = keywords.find(k =>
+                  body.content.toLowerCase().includes(k.toLowerCase())
+                );
+
+                await afterSalesTaskService.createTask({
+                  sessionId,
+                  staffUserId: senderInfo.staffId,
+                  staffName: senderInfo.staffName || '',
+                  userId: body.relatedUserId || body.senderId,
+                  userName: body.relatedUserName || body.senderName,
+                  taskType: 'general',
+                  priority: businessConfig.success && businessConfig.businessConfig.businessConfig.defaultTaskPriority
+                    ? businessConfig.businessConfig.businessConfig.defaultTaskPriority as any
+                    : 'normal',
+                  status: 'pending',
+                  title: `售后任务 - ${body.content.substring(0, 50)}`,
+                  description: body.content,
+                  messageId: savedMessage.id,
+                  keyword: matchedKeyword,
+                  businessRole: businessRoleCode,  // 记录业务角色
+                });
+                console.log('[POST /api/messages] 售后任务已创建');
+              }
             } catch (taskError) {
               console.error('[POST /api/messages] 创建售后任务失败:', taskError);
             }
@@ -225,6 +285,9 @@ export async function POST(request: NextRequest) {
       data: {
         message: messageResult.message,
         sessionId,
+        businessRole: businessRoleCode,  // 返回业务角色信息
+        businessRoleName: businessRoleName,  // 返回业务角色名称
+        shouldAiReply: shouldAiReply,  // 返回是否应该AI回复
       },
     });
   } catch (error) {

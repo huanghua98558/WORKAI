@@ -4,16 +4,16 @@ import { staffTypeService, StaffType } from '@/services/staff-type-service';
 // API StaffType 到数据库 StaffType 的映射
 const API_TO_DB_STAFF_TYPE: Record<string, StaffType> = {
   'management': StaffType.MANAGEMENT,
-  'community': StaffType.COMMUNITY,
-  'conversion': StaffType.CONVERSION,
+  'community_ops': StaffType.COMMUNITY,
+  'conversion_staff': StaffType.CONVERSION,
   'after_sales': StaffType.AFTER_SALES,
 };
 
 // 数据库 StaffType 到 API StaffType 的映射
 const DB_TO_API_STAFF_TYPE: Record<StaffType, string> = {
   [StaffType.MANAGEMENT]: 'management',
-  [StaffType.COMMUNITY]: 'community',
-  [StaffType.CONVERSION]: 'conversion',
+  [StaffType.COMMUNITY]: 'community_ops',
+  [StaffType.CONVERSION]: 'conversion_staff',
   [StaffType.AFTER_SALES]: 'after_sales',
 };
 

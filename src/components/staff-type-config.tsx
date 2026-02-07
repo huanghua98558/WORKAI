@@ -42,7 +42,7 @@ import {
 } from 'lucide-react';
 
 // 工作人员类型
-export type StaffType = 'management' | 'community' | 'conversion' | 'after_sales' | 'sales' | 'notification';
+export type StaffType = 'management' | 'community_ops' | 'conversion_staff' | 'after_sales' | 'sales' | 'notification';
 
 // 工作人员类型配置
 export interface StaffTypeConfig {
@@ -62,15 +62,15 @@ const STAFF_TYPE_CONFIGS: Record<StaffType, StaffTypeConfig> = {
     icon: Shield,
     color: 'text-purple-500',
   },
-  community: {
-    type: 'community',
+  community_ops: {
+    type: 'community_ops',
     name: '社群运维',
     description: '负责社群运营和用户互动',
     icon: Users,
     color: 'text-blue-500',
   },
-  conversion: {
-    type: 'conversion',
+  conversion_staff: {
+    type: 'conversion_staff',
     name: '转化客服',
     description: '负责用户转化和订单处理',
     icon: Bot,
@@ -148,7 +148,7 @@ export default function StaffTypeConfig() {
   const [loading, setLoading] = useState(false);
   const [editingStaff, setEditingStaff] = useState<{ staffUserId: string; staffType: StaffType } | null>(null);
   const [newStaffUserId, setNewStaffUserId] = useState('');
-  const [newStaffType, setNewStaffType] = useState<StaffType>('community');
+  const [newStaffType, setNewStaffType] = useState<StaffType>('community_ops');
   const [batchInput, setBatchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<StaffType | 'all'>('all');
@@ -185,7 +185,7 @@ export default function StaffTypeConfig() {
     if (result.success) {
       alert('设置成功');
       setNewStaffUserId('');
-      setNewStaffType('community');
+      setNewStaffType('community_ops');
       loadStaffRecords();
     } else {
       alert('设置失败: ' + result.error);
@@ -238,8 +238,8 @@ export default function StaffTypeConfig() {
   const stats = {
     total: staffRecords.length,
     management: staffRecords.filter(r => r.staffType === 'management').length,
-    community: staffRecords.filter(r => r.staffType === 'community').length,
-    conversion: staffRecords.filter(r => r.staffType === 'conversion').length,
+    community_ops: staffRecords.filter(r => r.staffType === 'community_ops').length,
+    conversion_staff: staffRecords.filter(r => r.staffType === 'conversion_staff').length,
     after_sales: staffRecords.filter(r => r.staffType === 'after_sales').length,
     sales: staffRecords.filter(r => r.staffType === 'sales').length,
     notification: staffRecords.filter(r => r.staffType === 'notification').length,
