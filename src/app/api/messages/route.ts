@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { messageService } from '@/lib/services/message-service';
 import { sessionService } from '@/lib/services/session-service';
 import { senderIdentificationService } from '@/lib/services/sender-identification';
+import { collaborationDecisionService } from '@/lib/services/collaboration-decision-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -101,6 +102,45 @@ export async function POST(request: NextRequest) {
     // 记录工作人员介入
     if (senderInfo?.senderType === 'staff' && senderInfo?.staffId) {
       await sessionService.recordStaffIntervention(sessionId, senderInfo.staffId);
+    }
+
+    // 记录决策日志（方案3：决策日志）
+    try {
+      const savedMessage = messageResult.message!;
+      
+      // 如果是用户消息，记录初始决策
+      if (body.senderType === 'user') {
+        await collaborationDecisionService.recordDecision({
+          sessionId,
+          messageId: savedMessage.id || '',
+          robotId: body.robotId,
+          shouldAiReply: body.aiEnabled !== false,  // 默认AI回复，除非明确禁用
+          aiAction: 'none',  // 初始状态，等待AI回复
+          staffAction: 'none',
+          priority: 'medium',
+          reason: '用户消息已接收',
+          strategy: body.aiEnabled !== false ? 'AI优先' : '等待人工',
+        });
+      } 
+      // 如果是AI回复，更新决策
+      else if (body.senderType === 'ai' && body.parentMessageId) {
+        await collaborationDecisionService.updateDecision(body.parentMessageId, {
+          aiAction: 'replied',
+          priority: 'low',
+          reason: 'AI已回复',
+        });
+      }
+      // 如果是人工回复，更新决策
+      else if (senderInfo?.senderType === 'staff' && body.parentMessageId) {
+        await collaborationDecisionService.updateDecision(body.parentMessageId, {
+          staffAction: 'replied',
+          priority: 'low',
+          reason: `员工 ${senderInfo.staffName} 已回复`,
+        });
+      }
+    } catch (decisionError) {
+      // 决策记录失败不影响主流程，只记录错误
+      console.error('[POST /api/messages] 记录决策失败:', decisionError);
     }
 
     // TODO: 触发AI回复（如果是用户消息）

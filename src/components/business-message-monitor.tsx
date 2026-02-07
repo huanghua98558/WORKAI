@@ -98,6 +98,7 @@ export default function BusinessMessageMonitor({
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [allMessages, setAllMessages] = useState<any[]>([]);  // 所有会话的消息
+  const [replyStatusMap, setReplyStatusMap] = useState<Record<string, any>>({});  // 回复状态映射
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'processing' | 'ai_generated' | 'sent' | 'completed' | 'failed'>('all');
   const [expandedExecutionId, setExpandedExecutionId] = useState<string | null>(null);
@@ -148,10 +149,44 @@ export default function BusinessMessageMonitor({
       console.log(`[BusinessMessageMonitor] 加载完成，共加载 ${messages.length} 条消息`);
       setAllMessages(messages);
       setIsLoadingMessages(false);
+      
+      // 加载回复状态（基于决策日志）
+      loadReplyStatus(sessionsToLoad);
     };
     
     loadAllMessages();
   }, [sessions]);
+
+  // 加载回复状态
+  const loadReplyStatus = async (sessions: Session[]) => {
+    const statusMap: Record<string, any> = {};
+    
+    // 并行加载所有会话的回复状态
+    const promises = sessions.map(async (session) => {
+      try {
+        const res = await fetch(`/api/sessions/${session.sessionId}/reply-status`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.data) {
+            return { sessionId: session.sessionId, status: data.data };
+          }
+        }
+      } catch (error) {
+        console.error(`[BusinessMessageMonitor] 加载回复状态失败: ${session.sessionId}`, error);
+      }
+      return null;
+    });
+    
+    const results = await Promise.all(promises);
+    results.forEach(result => {
+      if (result) {
+        statusMap[result.sessionId] = result.status;
+      }
+    });
+    
+    console.log(`[BusinessMessageMonitor] 回复状态加载完成`, statusMap);
+    setReplyStatusMap(statusMap);
+  };
 
   // 判断消息状态
   const determineStatus = (msg: any): 'processing' | 'ai_generated' | 'sent' | 'completed' | 'failed' => {
@@ -396,6 +431,54 @@ export default function BusinessMessageMonitor({
     }
   };
 
+  // 获取回复状态徽章（基于决策日志）
+  const getReplyStatusBadge = (execution: any) => {
+    if (!execution.sessionId || !replyStatusMap[execution.sessionId]) {
+      return null;
+    }
+    
+    const sessionReplyStatus = replyStatusMap[execution.sessionId];
+    const messageId = execution.id || execution.messageId;
+    const replyStatus = sessionReplyStatus[messageId];
+    
+    if (!replyStatus) {
+      // 没有决策记录，可能是历史消息，显示"未记录"
+      return (
+        <Badge variant="outline" className="gap-1 border-gray-400 text-gray-400 text-xs">
+          <Clock className="h-3 w-3" />
+          未记录
+        </Badge>
+      );
+    }
+    
+    if (replyStatus.isReplied) {
+      // 已回复
+      if (replyStatus.replyType === 'ai') {
+        return (
+          <Badge variant="outline" className="gap-1 border-purple-500 text-purple-500 text-xs">
+            <Bot className="h-3 w-3" />
+            AI已回复
+          </Badge>
+        );
+      } else if (replyStatus.replyType === 'human') {
+        return (
+          <Badge variant="outline" className="gap-1 border-orange-500 text-orange-500 text-xs">
+            <User className="h-3 w-3" />
+            人工已回复
+          </Badge>
+        );
+      }
+    }
+    
+    // 未回复
+    return (
+      <Badge variant="outline" className="gap-1 border-yellow-500 text-yellow-500 text-xs">
+        <Clock className="h-3 w-3" />
+        待回复
+      </Badge>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* 页面头部 */}
@@ -607,6 +690,8 @@ export default function BusinessMessageMonitor({
                               )}
                               {getSenderDisplay(execution.senderType)}
                               {getStatusBadge(execution.status)}
+                              {/* 回复状态（仅对用户消息显示） */}
+                              {execution.senderType === 'user' && getReplyStatusBadge(execution)}
                             </div>
 
                             {/* 消息内容 */}
