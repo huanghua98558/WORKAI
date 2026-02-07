@@ -65,6 +65,12 @@ interface Robot {
   activatedAt?: string;
   expiresAt?: string;
   messageCallbackEnabled?: boolean;
+  // 业务角色信息
+  businessRoles?: Array<{
+    id: string;
+    name: string;
+    code: string;
+  }>;
   // 回调地址（5个）
   messageCallbackUrl?: string;
   resultCallbackUrl?: string;
@@ -164,7 +170,37 @@ export default function RobotManagement() {
       if (res.ok) {
         const data = await res.json();
         if (data.code === 0) {
-          setRobots(data.data || []);
+          // 加载业务角色信息
+          const businessRolesRes = await fetch('/api/robots/business-roles');
+          let businessRolesMap: Record<string, any[]> = {};
+          
+          if (businessRolesRes.ok) {
+            const businessRolesData = await businessRolesRes.json();
+            if (businessRolesData.success) {
+              // 按 robotId 分组业务角色
+              businessRolesMap = businessRolesData.data.reduce((acc: Record<string, any[]>, role: any) => {
+                if (role.robotId) {
+                  if (!acc[role.robotId]) {
+                    acc[role.robotId] = [];
+                  }
+                  acc[role.robotId].push({
+                    id: role.id,
+                    name: role.name,
+                    code: role.code,
+                  });
+                }
+                return acc;
+              }, {});
+            }
+          }
+
+          // 将业务角色信息附加到机器人数据
+          const robotsWithRoles = (data.data || []).map((robot: Robot) => ({
+            ...robot,
+            businessRoles: businessRolesMap[robot.id] || [],
+          }));
+
+          setRobots(robotsWithRoles);
         }
       }
     } catch (error) {
@@ -929,16 +965,18 @@ export default function RobotManagement() {
                       )}
 
                       {/* 业务角色 */}
-                      {(robot.config as any)?.businessRole && (
-                        <div>
+                      {robot.businessRoles && robot.businessRoles.length > 0 && (
+                        <div className="col-span-2 md:col-span-3">
                           <div className="text-muted-foreground mb-1 flex items-center gap-2">
-                            <ShieldCheck className="h-3 w-3" />
+                            <Activity className="h-3 w-3" />
                             业务角色
                           </div>
-                          <div className="font-medium">
-                            <Badge variant="outline">
-                              {(robot.config as any).businessRole}
-                            </Badge>
+                          <div className="font-medium flex flex-wrap gap-1">
+                            {robot.businessRoles.map((role) => (
+                              <Badge key={role.id} variant="outline">
+                                {role.name}
+                              </Badge>
+                            ))}
                           </div>
                         </div>
                       )}
