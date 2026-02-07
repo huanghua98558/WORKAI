@@ -114,6 +114,7 @@ export default function FlowEngineManage() {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
 
   // 编辑器对话框状态（统一用于创建和编辑）
+  // 安全初始化对话框状态，避免服务端渲染时访问 window 对象
   const [editorDialog, setEditorDialog] = useState<{
     isOpen: boolean;
     mode: 'create' | 'edit';
@@ -124,9 +125,17 @@ export default function FlowEngineManage() {
     isOpen: false,
     mode: 'create',
     width: 1400,
-    height: window.innerHeight * 0.85,
+    height: 600, // 默认值，避免服务端渲染时访问 window.innerHeight
     isMaximized: false,
   });
+
+  // 客户端挂载后更新高度
+  React.useEffect(() => {
+    setEditorDialog(prev => ({
+      ...prev,
+      height: window.innerHeight * 0.85,
+    }));
+  }, []);
 
   // 辅助函数：转换后端FlowNode到FlowEditor的NodeData
   const convertToEditorNodes = (flowNodes: FlowNode[]) => {
