@@ -83,6 +83,8 @@ export default function RobotBusinessRoleManager() {
             ...robot,
             id: String(robot.id),
           }));
+          console.log('[RobotBusinessRoleManager] 机器人列表加载成功:', formattedRobots.length, '个');
+          console.log('[RobotBusinessRoleManager] 机器人详情:', formattedRobots);
           setRobots(formattedRobots);
         }
       } catch (error) {
@@ -90,8 +92,14 @@ export default function RobotBusinessRoleManager() {
       }
     };
 
+    console.log('[RobotBusinessRoleManager] 开始加载机器人列表...');
     fetchRobots();
-  }, []);
+  }, []); // 空依赖数组，只在挂载时执行一次
+
+  // 监控 robots 状态变化（调试用）
+  useEffect(() => {
+    console.log('[RobotBusinessRoleManager] robots 状态变化:', robots.length, '个机器人');
+  }, [robots]);
 
   // 加载业务角色列表
   const loadBusinessRoles = async () => {
