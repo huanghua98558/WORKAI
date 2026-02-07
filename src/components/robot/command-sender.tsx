@@ -617,8 +617,8 @@ export default function CommandSender() {
                           <span className="text-sm text-muted-foreground">暂无可用的机器人</span>
                         </div>
                       ) : (
-                        robots.filter(r => r.isActive).map(robot => (
-                          <SelectItem key={robot.robotId} value={robot.robotId} className="py-3">
+                        robots.filter(r => r.isActive).map((robot, idx) => (
+                          <SelectItem key={`robot-select-${robot.id || robot.robotId || idx}`} value={robot.robotId} className="py-3">
                             <div className="flex items-center gap-3">
                               <div className="flex-1">
                                 <div className="font-semibold text-sm">
@@ -792,7 +792,7 @@ export default function CommandSender() {
                       {commandType === 'batch_send_message' && (
                         <>
                           {formData.batchMessages.map((msg, index) => (
-                            <div key={index} className="space-y-3 p-3 bg-white rounded border">
+                            <div key={`batch-msg-${index}-${msg.recipient || ''}`} className="space-y-3 p-3 bg-white rounded border">
                               <div className="flex items-center justify-between">
                                 <span className="text-sm font-medium">消息 {index + 1}</span>
                                 {formData.batchMessages.length > 1 && (
@@ -1043,7 +1043,7 @@ export default function CommandSender() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    commands.map(command => {
+                    commands.map((command, idx) => {
                       const robot = robots.find(r => r.robotId === command.robotId);
                       const cmdType = COMMAND_TYPES.find(c => c.value === command.commandType);
 
@@ -1083,7 +1083,7 @@ export default function CommandSender() {
                       }
 
                       return (
-                        <TableRow key={command.commandId} className="hover:bg-slate-50">
+                        <TableRow key={command.commandId || idx} className="hover:bg-slate-50">
                           <TableCell className="max-w-xs truncate">
                             <div className="flex items-center gap-2">
                               {cmdType?.icon && <cmdType.icon className="h-4 w-4 text-slate-500" />}
@@ -1154,8 +1154,8 @@ export default function CommandSender() {
                       <SelectValue placeholder="全部机器人" />
                     </SelectTrigger>
                     <SelectContent>
-                      {robots.filter(r => r.isActive).map(robot => (
-                        <SelectItem key={robot.robotId} value={robot.robotId}>
+                      {robots.filter(r => r.isActive).map((robot, idx) => (
+                        <SelectItem key={`history-robot-${robot.id || robot.robotId || idx}`} value={robot.robotId}>
                           {robot.name || robot.nickname || robot.robotId}
                         </SelectItem>
                       ))}
@@ -1256,7 +1256,7 @@ export default function CommandSender() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    messageHistory.map((msg) => {
+                    messageHistory.map((msg, idx) => {
                       const cmdType = COMMAND_TYPES.find(c => c.value === msg.commandType);
                       let content = '';
                       if (msg.messageContent) {
@@ -1269,7 +1269,7 @@ export default function CommandSender() {
                         }
                       }
                       return (
-                        <TableRow key={msg.id}>
+                        <TableRow key={msg.id || idx}>
                           <TableCell className="text-sm">
                             {new Date(msg.createdAt).toLocaleString('zh-CN')}
                           </TableCell>
