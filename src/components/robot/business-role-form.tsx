@@ -182,14 +182,14 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
         <div className="space-y-2">
           <Label htmlFor="robot">绑定机器人（可选）</Label>
           <Select
-            value={formData.robotId}
-            onValueChange={(value) => setFormData({ ...formData, robotId: value })}
+            value={formData.robotId || 'none'}
+            onValueChange={(value) => setFormData({ ...formData, robotId: value === 'none' ? '' : value })}
           >
             <SelectTrigger>
               <SelectValue placeholder="选择要绑定的机器人" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">不绑定（通用角色）</SelectItem>
+              <SelectItem value="none">不绑定（通用角色）</SelectItem>
               {robots.map((robot) => (
                 <SelectItem key={robot.id} value={robot.id}>
                   {robot.name} - {robot.id}
