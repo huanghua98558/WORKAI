@@ -9,8 +9,10 @@ import path from 'path';
 
 interface QrcodeResult {
   success: boolean;
+  qrcodeId?: string;
   qrcodePath?: string;
   qrcodeUrl?: string;
+  qrcodeBase64?: string;
   expiresAt?: Date;
   error?: string;
 }
@@ -19,6 +21,7 @@ interface LoginStatusResult {
   success: boolean;
   isLoggedIn: boolean;
   cookies?: any[];
+  qrcodeExpired?: boolean;
   error?: string;
 }
 
@@ -46,12 +49,36 @@ class VideoChannelAutomationService {
   private auditDir: string;
   private shopUrl = 'https://channels.weixin.qq.com/shop';
   private assistantUrl = 'https://channels.weixin.qq.com/assistant';
+  private currentQrcodeId: string | null = null;
+  private currentQrcodeExpiresAt: Date | null = null;
+  private qrcodeLifetime = 5 * 60 * 1000; // 5分钟有效期
 
   constructor() {
     // 确保 /tmp 目录存在
     this.qrcodeDir = path.join('/tmp', 'qrcodes');
     this.auditDir = path.join('/tmp', 'audit');
     this.ensureDirectories();
+  }
+
+  /**
+   * 检测二维码是否过期
+   */
+  isQrcodeExpired(): boolean {
+    if (!this.currentQrcodeExpiresAt) {
+      return true;
+    }
+    return new Date() > this.currentQrcodeExpiresAt;
+  }
+
+  /**
+   * 获取二维码剩余有效时间（秒）
+   */
+  getQrcodeRemainingTime(): number {
+    if (!this.currentQrcodeExpiresAt) {
+      return 0;
+    }
+    const remaining = this.currentQrcodeExpiresAt.getTime() - Date.now();
+    return Math.max(0, Math.floor(remaining / 1000));
   }
 
   private async ensureDirectories() {
@@ -168,14 +195,21 @@ class VideoChannelAutomationService {
         console.log('未找到二维码元素，截取整个页面');
         const fullPageScreenshot = await page.screenshot();
         const timestamp = Date.now();
-        const qrcodePath = path.join(this.qrcodeDir, `${timestamp}_full.png`);
+        const qrcodeId = `${timestamp}_full`;
+        const qrcodePath = path.join(this.qrcodeDir, `${qrcodeId}.png`);
+
         await fs.writeFile(qrcodePath, fullPageScreenshot);
+
+        // 更新当前二维码状态
+        this.currentQrcodeId = qrcodeId;
+        this.currentQrcodeExpiresAt = new Date(Date.now() + this.qrcodeLifetime);
 
         return {
           success: true,
+          qrcodeId,
           qrcodePath,
-          qrcodeUrl: `/api/video-channel/qrcode/${timestamp}_full.png`,
-          expiresAt: new Date(Date.now() + 5 * 60 * 1000)
+          qrcodeUrl: `/api/video-channel/qrcode/${qrcodeId}.png`,
+          expiresAt: this.currentQrcodeExpiresAt
         };
       }
 
@@ -184,17 +218,23 @@ class VideoChannelAutomationService {
 
       // 保存二维码
       const timestamp = Date.now();
-      const qrcodePath = path.join(this.qrcodeDir, `${timestamp}.png`);
+      const qrcodeId = `${timestamp}`;
+      const qrcodePath = path.join(this.qrcodeDir, `${qrcodeId}.png`);
       await fs.writeFile(qrcodePath, qrcodeScreenshot);
 
+      // 更新当前二维码状态
+      this.currentQrcodeId = qrcodeId;
+      this.currentQrcodeExpiresAt = new Date(Date.now() + this.qrcodeLifetime);
+
       // 生成访问URL（实际应用中应该通过API路由提供）
-      const qrcodeUrl = `/api/video-channel/qrcode/${timestamp}.png`;
+      const qrcodeUrl = `/api/video-channel/qrcode/${qrcodeId}.png`;
 
       return {
         success: true,
+        qrcodeId,
         qrcodePath,
         qrcodeUrl,
-        expiresAt: new Date(Date.now() + 5 * 60 * 1000) // 5分钟后过期
+        expiresAt: this.currentQrcodeExpiresAt
       };
     } catch (error: any) {
       console.error('获取二维码失败:', error);
@@ -244,18 +284,25 @@ class VideoChannelAutomationService {
         return {
           success: true,
           isLoggedIn: true,
-          cookies
+          cookies,
+          qrcodeExpired: false
         };
       } else {
+        // 检测二维码是否过期
+        const qrcodeExpired = this.isQrcodeExpired();
+
         return {
           success: true,
-          isLoggedIn: false
+          isLoggedIn: false,
+          qrcodeExpired
         };
       }
     } catch (error: any) {
       console.error('检测登录状态失败:', error);
       return {
         success: false,
+        isLoggedIn: false,
+        qrcodeExpired: this.isQrcodeExpired(),
         error: error.message || '检测登录状态失败'
       };
     } finally {

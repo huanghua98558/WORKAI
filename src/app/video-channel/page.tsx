@@ -1,18 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Scan, CheckCircle, Cookie, Eye, AlertCircle, Loader2 } from 'lucide-react';
+import { Scan, CheckCircle, Cookie, Eye, AlertCircle, Loader2, RefreshCw, Clock } from 'lucide-react';
 
 export default function VideoChannelConversionPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [qrcode, setQrcode] = useState<string | null>(null);
-  const [loginStatus, setLoginStatus] = useState<'checking' | 'logged_in' | 'not_logged'>('not_logged');
+  const [qrcodeId, setQrcodeId] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<Date | null>(null);
+  const [remainingTime, setRemainingTime] = useState<number>(0);
+  const [loginStatus, setLoginStatus] = useState<'checking' | 'logged_in' | 'not_logged' | 'expired'>('not_logged');
   const [cookies, setCookies] = useState<any[]>([]);
   const [screenshots, setScreenshots] = useState<{
     shop?: string;
@@ -20,6 +23,30 @@ export default function VideoChannelConversionPage() {
   }>({});
   const [error, setError] = useState<string | null>(null);
   const [userId] = useState('user_' + Date.now());
+
+  // 倒计时效果
+  useEffect(() => {
+    if (remainingTime > 0 && step === 2 && loginStatus === 'checking') {
+      const timer = setInterval(() => {
+        setRemainingTime(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [remainingTime, step, loginStatus]);
+
+  // 格式化剩余时间
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // 1. 获取二维码
   const handleGetQrcode = async () => {
@@ -33,6 +60,10 @@ export default function VideoChannelConversionPage() {
 
       if (data.success) {
         setQrcode(data.qrcodeBase64);
+        setQrcodeId(data.qrcodeId);
+        setExpiresAt(new Date(data.expiresAt));
+        setRemainingTime(data.remainingTime);
+        setLoginStatus('checking');
         setStep(2);
         // 自动开始检测登录状态
         setTimeout(() => {
@@ -40,6 +71,36 @@ export default function VideoChannelConversionPage() {
         }, 3000);
       } else {
         setError(data.error || '获取二维码失败');
+      }
+    } catch (err: any) {
+      setError(err.message || '请求失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 刷新二维码
+  const handleRefreshQrcode = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/video-channel/refresh-qrcode', {
+        method: 'POST'
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setQrcode(data.qrcodeBase64);
+        setQrcodeId(data.qrcodeId);
+        setExpiresAt(new Date(data.expiresAt));
+        setRemainingTime(data.remainingTime);
+        setLoginStatus('checking');
+        // 重新开始检测登录状态
+        setTimeout(() => {
+          handleCheckLogin();
+        }, 3000);
+      } else {
+        setError(data.error || '刷新二维码失败');
       }
     } catch (err: any) {
       setError(err.message || '请求失败');
@@ -63,6 +124,9 @@ export default function VideoChannelConversionPage() {
           setLoginStatus('logged_in');
           setCookies(data.cookies || []);
           setStep(3);
+        } else if (data.qrcodeExpired) {
+          setLoginStatus('expired');
+          setError('二维码已过期，请点击刷新按钮重新获取二维码');
         } else {
           setLoginStatus('not_logged');
           setError('检测超时，请重新扫描二维码');
@@ -143,6 +207,9 @@ export default function VideoChannelConversionPage() {
   const resetProcess = () => {
     setStep(1);
     setQrcode(null);
+    setQrcodeId(null);
+    setExpiresAt(null);
+    setRemainingTime(0);
     setLoginStatus('not_logged');
     setCookies([]);
     setScreenshots({});
@@ -231,23 +298,41 @@ export default function VideoChannelConversionPage() {
           {step === 2 && (
             <Card>
               <CardHeader>
-                <CardTitle>步骤2：扫描二维码登录</CardTitle>
-                <CardDescription>请使用微信扫描下方二维码登录视频号小店</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>步骤2：扫描二维码登录</CardTitle>
+                    <CardDescription>请使用微信扫描下方二维码登录视频号小店</CardDescription>
+                  </div>
+                  {remainingTime > 0 && loginStatus === 'checking' && (
+                    <Badge variant="outline" className="gap-1">
+                      <Clock className="h-3 w-3" />
+                      有效期: {formatTime(remainingTime)}
+                    </Badge>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex justify-center">
                   {qrcode && (
-                    <div className="p-4 bg-white rounded-lg border">
+                    <div className="relative p-4 bg-white rounded-lg border">
                       <img
                         src={qrcode}
                         alt="登录二维码"
                         className="w-64 h-64"
                       />
+                      {remainingTime === 0 && loginStatus !== 'logged_in' && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
+                          <div className="text-white text-center">
+                            <AlertCircle className="h-12 w-12 mx-auto mb-2" />
+                            <p className="font-medium">二维码已过期</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
 
-                {loading && (
+                {remainingTime > 0 && loginStatus === 'checking' && (
                   <div className="flex items-center justify-center gap-2 text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     正在检测登录状态...
@@ -262,12 +347,33 @@ export default function VideoChannelConversionPage() {
                   </Alert>
                 )}
 
+                {loginStatus === 'expired' && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>二维码已过期</AlertTitle>
+                    <AlertDescription>请点击下方刷新按钮重新获取二维码</AlertDescription>
+                  </Alert>
+                )}
+
                 {loginStatus === 'not_logged' && (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>登录失败</AlertTitle>
                     <AlertDescription>请重新扫描二维码</AlertDescription>
                   </Alert>
+                )}
+
+                {loginStatus !== 'logged_in' && (
+                  <Button
+                    onClick={handleRefreshQrcode}
+                    disabled={loading}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    刷新二维码
+                  </Button>
                 )}
               </CardContent>
             </Card>
@@ -386,6 +492,8 @@ export default function VideoChannelConversionPage() {
                       <Badge variant="default" className="bg-green-600">已登录</Badge>
                     ) : loginStatus === 'checking' ? (
                       <Badge variant="secondary">检测中</Badge>
+                    ) : loginStatus === 'expired' ? (
+                      <Badge variant="destructive">二维码过期</Badge>
                     ) : (
                       <Badge variant="outline">未登录</Badge>
                     )}
@@ -400,6 +508,28 @@ export default function VideoChannelConversionPage() {
                   <div className="font-medium font-mono text-xs">{userId}</div>
                 </div>
               </div>
+
+              {qrcodeId && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="text-sm text-muted-foreground">二维码ID</div>
+                    <div className="font-medium font-mono text-xs">{qrcodeId}</div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-sm text-muted-foreground">二维码状态</div>
+                    <div className="font-medium">
+                      {remainingTime > 0 ? (
+                        <Badge variant="outline" className="gap-1">
+                          <Clock className="h-3 w-3" />
+                          有效期: {formatTime(remainingTime)}
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive">已过期</Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {cookies.length > 0 && (
                 <div className="space-y-2">
@@ -433,22 +563,42 @@ export default function VideoChannelConversionPage() {
                   <div className="text-muted-foreground">POST /api/video-channel/qrcode</div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  返回视频号小店登录二维码的base64编码图片
+                  返回视频号小店登录二维码的base64编码图片，包含qrcodeId、expiresAt和remainingTime
                 </p>
               </div>
 
               <div className="space-y-3">
-                <h3 className="font-semibold">2. 检测登录状态</h3>
+                <h3 className="font-semibold">2. 刷新二维码</h3>
+                <div className="p-4 bg-muted rounded-lg font-mono text-sm">
+                  <div className="text-muted-foreground">POST /api/video-channel/refresh-qrcode</div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  重新生成二维码，用于二维码过期后刷新
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="font-semibold">3. 检测登录状态</h3>
                 <div className="p-4 bg-muted rounded-lg font-mono text-sm">
                   <div className="text-muted-foreground">GET /api/video-channel/check-login?maxAttempts=20&interval=3000</div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  轮询检测登录状态，maxAttempts为最大检测次数，interval为检测间隔（毫秒）
+                  轮询检测登录状态，maxAttempts为最大检测次数，interval为检测间隔（毫秒）。返回qrcodeExpired字段标识二维码是否过期
                 </p>
               </div>
 
               <div className="space-y-3">
-                <h3 className="font-semibold">3. 提取Cookie</h3>
+                <h3 className="font-semibold">4. 检查二维码状态</h3>
+                <div className="p-4 bg-muted rounded-lg font-mono text-sm">
+                  <div className="text-muted-foreground">GET /api/video-channel/qrcode-status</div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  检查当前二维码是否过期，返回expired和remainingTime
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="font-semibold">5. 提取Cookie</h3>
                 <div className="p-4 bg-muted rounded-lg font-mono text-sm">
                   <div className="text-muted-foreground">POST /api/video-channel/extract-cookies</div>
                   <div className="text-muted-foreground mt-2">Body: {`{ "userId": "...", "cookies": [...] }`}</div>
@@ -459,7 +609,7 @@ export default function VideoChannelConversionPage() {
               </div>
 
               <div className="space-y-3">
-                <h3 className="font-semibold">4. 人工审核</h3>
+                <h3 className="font-semibold">6. 人工审核</h3>
                 <div className="p-4 bg-muted rounded-lg font-mono text-sm">
                   <div className="text-muted-foreground">POST /api/video-channel/manual-audit</div>
                   <div className="text-muted-foreground mt-2">Body: {`{ "cookies": [...] }`}</div>

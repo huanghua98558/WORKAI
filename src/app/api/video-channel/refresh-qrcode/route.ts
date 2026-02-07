@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { videoChannelAutomationService } from '@/lib/services/video-channel-automation.service';
 
 /**
- * 获取视频号小店登录二维码
- * POST /api/video-channel/qrcode
+ * 重新生成二维码（刷新二维码）
+ * POST /api/video-channel/refresh-qrcode
  */
 export async function POST() {
   try {
+    // 生成新的二维码
     const result = await videoChannelAutomationService.getQrcode();
 
     if (result.success && result.qrcodePath) {
@@ -25,16 +26,16 @@ export async function POST() {
         qrcodeBase64: base64Qrcode,
         expiresAt: result.expiresAt,
         remainingTime,
-        message: '二维码生成成功，请使用微信扫描登录'
+        message: '二维码已刷新，请重新扫描'
       });
     } else {
       return NextResponse.json({
         success: false,
-        error: result.error || '获取二维码失败'
+        error: result.error || '刷新二维码失败'
       }, { status: 500 });
     }
   } catch (error: any) {
-    console.error('获取二维码API错误:', error);
+    console.error('刷新二维码API错误:', error);
     return NextResponse.json({
       success: false,
       error: error.message || '服务器内部错误'

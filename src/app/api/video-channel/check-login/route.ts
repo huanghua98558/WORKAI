@@ -13,7 +13,9 @@ export async function POST() {
       success: result.success,
       isLoggedIn: result.isLoggedIn,
       cookies: result.cookies,
-      message: result.isLoggedIn ? '已登录' : '未登录',
+      qrcodeExpired: result.qrcodeExpired,
+      remainingTime: videoChannelAutomationService.getQrcodeRemainingTime(),
+      message: result.isLoggedIn ? '已登录' : (result.qrcodeExpired ? '二维码已过期' : '未登录'),
       error: result.error
     });
   } catch (error: any) {
@@ -40,6 +42,7 @@ export async function GET(request: NextRequest) {
     let attempt = 0;
     let isLoggedIn = false;
     let cookies: any[] = [];
+    let qrcodeExpired = false;
 
     while (attempt < maxAttempts && !isLoggedIn) {
       const result = await videoChannelAutomationService.checkLoginStatus();
@@ -47,6 +50,19 @@ export async function GET(request: NextRequest) {
       if (result.success) {
         isLoggedIn = result.isLoggedIn;
         cookies = result.cookies || [];
+        qrcodeExpired = result.qrcodeExpired || false;
+
+        // 如果二维码过期，提前结束轮询
+        if (qrcodeExpired && !isLoggedIn) {
+          return NextResponse.json({
+            success: true,
+            isLoggedIn: false,
+            qrcodeExpired: true,
+            cookies: [],
+            attempts: attempt,
+            message: '二维码已过期，请重新扫描'
+          });
+        }
       }
 
       attempt++;
@@ -60,11 +76,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       isLoggedIn,
+      qrcodeExpired,
       cookies: isLoggedIn ? cookies : [],
       attempts: attempt,
       message: isLoggedIn
         ? `登录成功，共检测 ${attempt} 次`
-        : `未登录，已达到最大检测次数 ${maxAttempts}`
+        : (qrcodeExpired ? '二维码已过期，请重新扫描' : `未登录，已达到最大检测次数 ${maxAttempts}`)
     });
   } catch (error: any) {
     console.error('轮询检测登录状态API错误:', error);
