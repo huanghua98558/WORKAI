@@ -246,6 +246,28 @@ class AuditLogger {
   }
 }
 
+/**
+ * 成功响应
+ */
+function successResponse(data = {}, message = 'success') {
+  return {
+    success: true,
+    message,
+    data
+  };
+}
+
+/**
+ * 错误响应
+ */
+function errorResponse(code = 400, message = 'error') {
+  return {
+    success: false,
+    message,
+    code
+  };
+}
+
 module.exports = {
   logger,
   verifySignature,
@@ -256,5 +278,7 @@ module.exports = {
   formatTime,
   IdempotencyChecker,
   CircuitBreaker,
-  AuditLogger
+  AuditLogger,
+  successResponse,
+  errorResponse
 };

@@ -114,7 +114,7 @@ const videoChannelRoutes = async function (fastify, options) {
         return reply.status(400).send(errorResponse('缺少必要参数：userId, status'));
       }
 
-      const updateData: any = {
+      const updateData = {
         status,
         updatedAt: new Date()
       };

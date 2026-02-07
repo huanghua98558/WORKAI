@@ -3,7 +3,7 @@
  */
 
 const { getDb } = require('coze-coding-dev-sdk');
-const { robots } = require('../../database/schema');
+const { robots } = require('../database/schema');
 const { eq, and } = require('drizzle-orm');
 const { successResponse, errorResponse } = require('../lib/utils');
 const logger = require('../services/system-logger.service');
@@ -12,7 +12,7 @@ const logger = require('../services/system-logger.service');
  * 获取转化客服机器人（用于发送视频号二维码）
  */
 async function getConversionRobotRoute(fastify) {
-  fastify.get('/api/worktool/conversion-robot', async (request, reply) => {
+  fastify.get('/conversion-robot', async (request, reply) => {
     const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     try {

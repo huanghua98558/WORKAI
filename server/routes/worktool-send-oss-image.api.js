@@ -11,7 +11,7 @@ const logger = require('../services/system-logger.service');
  * 上传Base64图片到OSS并发送到WorkTool
  */
 async function sendOssImageRoute(fastify) {
-  fastify.post('/api/worktool/send-oss-image', async (request, reply) => {
+  fastify.post('/send-oss-image', async (request, reply) => {
     const startTime = Date.now();
     const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
