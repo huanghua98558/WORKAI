@@ -202,7 +202,7 @@ export default function NewDashboard() {
     try {
       const [overviewRes, sessionsRes] = await Promise.all([
         fetch('/api/alerts/analytics/overview'),
-        fetch('/api/proxy/admin/sessions/active?limit=5')
+        fetch('/api/sessions/active?limit=5')
       ]);
 
       if (overviewRes.ok) {
@@ -214,7 +214,7 @@ export default function NewDashboard() {
 
       if (sessionsRes.ok) {
         const data = await sessionsRes.json();
-        if (data.code === 0) {
+        if (data.success) {
           setRecentSessions(data.data || []);
         }
       }
