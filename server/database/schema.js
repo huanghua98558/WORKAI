@@ -629,6 +629,63 @@ exports.flowExecutionLogs = pgTable(
 exports.flow_execution_logs = exports.flowExecutionLogs;
 
 // ============================================
+// 机器人指令相关表
+// ============================================
+
+// 机器人指令表
+exports.robotCommands = pgTable(
+  "robot_commands",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    robotId: varchar("robot_id", { length: 255 }).notNull(),
+    commandType: varchar("command_type", { length: 50 }).notNull(),
+    commandData: jsonb("command_data").notNull(),
+    priority: integer().default(10),
+    status: varchar("status", { length: 20 }).default('pending').notNull(),
+    retryCount: integer("retry_count").default(0),
+    maxRetries: integer("max_retries").default(3),
+    errorMessage: text("error_message"),
+    sentAt: timestamp("sent_at"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    result: jsonb(),
+    executedAt: timestamp("executed_at"),
+    messageId: varchar("message_id", { length: 100 }),
+  },
+  (table) => ({
+    robotIdIdx: index("idx_robot_commands_robot_id").on(table.robotId),
+    statusIdx: index("idx_robot_commands_status").on(table.status),
+    messageIdIdx: index("robot_commands_message_id_idx").on(table.messageId),
+  })
+);
+
+// 机器人指令队列表
+exports.robotCommandQueue = pgTable(
+  "robot_command_queue",
+  {
+    id: varchar("id", { length: 255 }).primaryKey().notNull(),
+    commandId: varchar("command_id", { length: 255 }).notNull(),
+    robotId: varchar("robot_id", { length: 255 }).notNull(),
+    priority: integer().default(5).notNull(),
+    status: varchar("status", { length: 50 }).default('pending').notNull(),
+    scheduledFor: timestamp("scheduled_for", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lockedAt: timestamp("locked_at", { withTimezone: true }),
+    lockedBy: varchar("locked_by", { length: 255 }),
+    retryCount: integer("retry_count").default(0).notNull(),
+  }
+);
+
+// ============================================
 // AI 核心能力相关表 (AI Core 2.1)
 // ============================================
 

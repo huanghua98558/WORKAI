@@ -11,6 +11,10 @@ const robotService = require('./robot.service');
 const logger = require('./system-logger.service');
 const { v4: uuidv4 } = require('uuid');
 
+// Debug: 打印导入的模块
+console.log('[robot-command.service.js] robotCommandQueue type:', typeof robotCommandQueue);
+console.log('[robot-command.service.js] robotCommandQueue exists:', !!robotCommandQueue);
+
 class RobotCommandService {
   constructor() {
     this.isProcessing = false;
@@ -235,15 +239,23 @@ class RobotCommandService {
 
     try {
       const db = await getDb();
+      const { robotCommandQueue: queue } = require('../database/schema');
+
+      if (!queue) {
+        logger.error('RobotCommand', '队列查询失败 - robotCommandQueue is undefined', {
+          workerId
+        });
+        return null;
+      }
 
       // 查找待处理的指令（按优先级和时间排序）
       const queueItems = await db.select()
-        .from(robotCommandQueue)
+        .from(queue)
         .where(and(
-          eq(robotCommandQueue.status, 'pending'),
-          lte(robotCommandQueue.scheduledFor, now)
+          eq(queue.status, 'pending'),
+          lte(queue.scheduledFor, now)
         ))
-        .orderBy(asc(robotCommandQueue.priority), asc(robotCommandQueue.scheduledFor))
+        .orderBy(asc(queue.priority), asc(queue.scheduledFor))
         .limit(1);
 
       const queryDuration = Date.now() - queryStartTime;
