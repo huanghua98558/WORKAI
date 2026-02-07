@@ -115,9 +115,10 @@ export async function PUT(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const body = await request.json();
 
     if (!body.assignedTo) {
@@ -168,9 +169,10 @@ export async function POST(
  */
 export async function COMPLETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const body = await request.json();
 
     const result = await afterSalesTaskService.completeTask(
@@ -212,9 +214,10 @@ export async function COMPLETE(
  */
 export async function CANCEL(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const body = await request.json();
 
     const result = await afterSalesTaskService.cancelTask(
@@ -255,9 +258,10 @@ export async function CANCEL(
  */
 export async function ESCALATE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const body = await request.json();
 
     if (!body.priority) {
@@ -320,9 +324,10 @@ export async function ESCALATE(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const result = await afterSalesTaskService.deleteTask(params.id);
 
     if (!result.success) {

@@ -46,6 +46,16 @@ export enum TimeoutReminderLevel {
 }
 
 /**
+ * 售后任务状态类型（用于API）
+ */
+export type TaskStatus = 'pending' | 'waiting_staff' | 'waiting_user' | 'processing' | 'completed' | 'cancelled';
+
+/**
+ * 售后任务优先级类型（用于API）
+ */
+export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
+
+/**
  * 售后任务服务
  */
 export class AfterSalesTaskService {
