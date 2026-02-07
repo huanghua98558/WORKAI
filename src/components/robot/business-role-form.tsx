@@ -207,7 +207,10 @@ export default function BusinessRoleForm({ robots = [], initialData, onSave, onC
             value={String(formData.robotId || 'none')}
             onValueChange={(value) => {
               console.log('[BusinessRoleForm] 选择机器人:', value);
-              setFormData({ ...formData, robotId: value === 'none' ? '' : String(value) });
+              // 只处理非空值（避免 Select 组件打开时触发空值）
+              if (value && value.trim() !== '') {
+                setFormData({ ...formData, robotId: value === 'none' ? '' : String(value) });
+              }
             }}
           >
             <SelectTrigger>
