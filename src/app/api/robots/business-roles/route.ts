@@ -138,9 +138,9 @@ export async function POST(request: NextRequest) {
         staffEnabled: staffEnabled ?? true,
         staffTypeFilter: staffTypeFilter || [],
         keywords: keywords || [],
-        enableTaskCreation: enableTaskCreation ?? false,
+        enableTaskCreation: enableTaskCreation ?? true, // 修改默认值为 true
         defaultTaskPriority: defaultTaskPriority || 'normal',
-        robotId,
+        robotId: robotId || null,
         updatedAt: new Date(),
       })
       .returning();
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('创建业务角色失败:', error);
     return NextResponse.json(
-      { success: false, error: '创建业务角色失败' },
+      { success: false, error: '创建业务角色失败: ' + (error instanceof Error ? error.message : 'Unknown error') },
       { status: 500 }
     );
   }
