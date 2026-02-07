@@ -44,7 +44,7 @@ export const alertRules = pgTable("alert_rules", {
 	cooldownPeriod: integer("cooldown_period").default(300),
 	messageTemplate: text("message_template"),
 	keywords: text(),
-	groupRef: varchar("group_ref", { length: 36 }),
+	groupId: varchar("group_id", { length: 36 }),
 	enableEscalation: boolean("enable_escalation").default(false),
 	escalationLevel: integer("escalation_level").default(0),
 	escalationThreshold: integer("escalation_threshold").default(3),
@@ -87,7 +87,7 @@ export const alertGroups = pgTable("alert_groups", {
 
 export const notificationMethods = pgTable("notification_methods", {
 	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
-	ruleRef: varchar("rule_ref", { length: 36 }).notNull(),
+	alertRuleId: varchar("alert_rule_id", { length: 36 }).notNull(),
 	methodType: varchar("method_type", { length: 50 }).notNull(),
 	isEnabled: boolean("is_enabled").default(true).notNull(),
 	recipientConfig: jsonb("recipient_config"),
@@ -96,7 +96,7 @@ export const notificationMethods = pgTable("notification_methods", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("idx_notification_methods_rule_ref").using("btree", table.ruleRef.asc().nullsLast().op("text_ops")),
+	index("idx_notification_methods_alert_rule_id").using("btree", table.alertRuleId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const alertHistory = pgTable("alert_history", {
