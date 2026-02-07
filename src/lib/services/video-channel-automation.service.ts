@@ -517,6 +517,69 @@ class VideoChannelAutomationService {
   }
 
   /**
+   * 发送二维码到WorkTool机器人
+   * @param {string} qrcodePath - 二维码文件本地路径
+   * @param {string} robotId - WorkTool机器人ID
+   * @param {string} toName - 接收者名称（好友昵称或群名）
+   * @param {string} extraText - 附加留言（可选）
+   */
+  async sendQrcodeToWorkTool(
+    qrcodePath: string,
+    robotId: string,
+    toName: string,
+    extraText: string = ''
+  ): Promise<{ success: boolean; url?: string; error?: string }> {
+    try {
+      console.log('开始上传二维码到OSS:', {
+        qrcodePath,
+        robotId,
+        toName
+      });
+
+      // 生成唯一的文件名
+      const timestamp = Date.now();
+      const objectName = `qrcode_${timestamp}.png`;
+
+      // 调用后端API上传到OSS并发送
+      const response = await fetch('/api/video-channel/send-qrcode', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          qrcodePath,
+          robotId,
+          toName,
+          objectName,
+          extraText
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log('二维码发送成功:', result);
+        return {
+          success: true,
+          url: result.url
+        };
+      } else {
+        console.error('二维码发送失败:', result.error);
+        return {
+          success: false,
+          error: result.error || '发送失败'
+        };
+      }
+    } catch (error: any) {
+      console.error('发送二维码到WorkTool失败:', error);
+      return {
+        success: false,
+        error: error.message || '发送失败'
+      };
+    }
+  }
+
+  /**
    * 关闭浏览器
    */
   async close(): Promise<void> {

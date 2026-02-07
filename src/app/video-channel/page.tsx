@@ -31,6 +31,15 @@ export default function VideoChannelConversionPage() {
   const [error, setError] = useState<string | null>(null);
   const [userId] = useState('user_' + Date.now());
 
+  // WorkTool发送相关状态
+  const [sendToWorkTool, setSendToWorkTool] = useState(false);
+  const [conversionRobot, setConversionRobot] = useState<{ id: string; name: string } | null>(null);
+  const [toName, setToName] = useState('');
+  const [extraText, setExtraText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendSuccess, setSendSuccess] = useState(false);
+  const [loadingRobot, setLoadingRobot] = useState(false);
+
   // 倒计时效果
   useEffect(() => {
     if (remainingTime > 0 && step === 2 && loginStatus === 'checking') {
@@ -54,6 +63,36 @@ export default function VideoChannelConversionPage() {
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // 加载转化客服机器人
+  useEffect(() => {
+    const loadConversionRobot = async () => {
+      setLoadingRobot(true);
+      try {
+        const response = await fetch('/api/video-channel/conversion-robot');
+        const data = await response.json();
+
+        if (data.success && data.robot) {
+          setConversionRobot({
+            id: data.robot.id,
+            name: data.robot.name
+          });
+          // 自动填充默认群名（如果有）
+          if (data.robot.defaultGroupName) {
+            setToName(data.robot.defaultGroupName);
+          }
+        } else {
+          console.warn('获取转化客服机器人失败:', data.error);
+        }
+      } catch (error) {
+        console.error('加载转化客服机器人失败:', error);
+      } finally {
+        setLoadingRobot(false);
+      }
+    };
+
+    loadConversionRobot();
+  }, []);
 
   // 1. 获取二维码
   const handleGetQrcode = async () => {
@@ -176,6 +215,60 @@ export default function VideoChannelConversionPage() {
       setError(err.message || '请求失败');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 发送二维码到WorkTool
+  const handleSendToWorkTool = async () => {
+    if (!conversionRobot) {
+      setError('未找到转化客服机器人，请先在系统中配置');
+      return;
+    }
+
+    if (!toName) {
+      setError('请填写接收者名称（群名或好友昵称）');
+      return;
+    }
+
+    setSending(true);
+    setError(null);
+    try {
+      // 获取转化客服机器人的详细配置
+      const robotResponse = await fetch('/api/video-channel/conversion-robot');
+      const robotData = await robotResponse.json();
+
+      if (!robotData.success || !robotData.robot) {
+        setError('获取转化客服机器人配置失败');
+        return;
+      }
+
+      const response = await fetch('/api/video-channel/send-qrcode', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          qrcodePath: `/tmp/qrcodes/qrcode_${qrcodeId}.png`,
+          robotId: robotData.robot.worktoolRobotId,
+          toName,
+          objectName: `qrcode_${qrcodeId}.png`,
+          extraText
+        })
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setSendSuccess(true);
+        setError(null);
+      } else {
+        setError(data.error || '发送失败');
+        setSendSuccess(false);
+      }
+    } catch (err: any) {
+      setError(err.message || '发送失败');
+      setSendSuccess(false);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -379,16 +472,103 @@ export default function VideoChannelConversionPage() {
                 )}
 
                 {loginStatus !== 'logged_in' && (
-                  <Button
-                    onClick={handleRefreshQrcode}
-                    disabled={loading}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    刷新二维码
-                  </Button>
+                  <div className="space-y-3">
+                    <Button
+                      onClick={handleRefreshQrcode}
+                      disabled={loading}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      刷新二维码
+                    </Button>
+
+                    {/* 发送到WorkTool */}
+                    <div className="pt-3 border-t">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">发送到企业微信</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSendToWorkTool(!sendToWorkTool)}
+                          disabled={loadingRobot}
+                        >
+                          {loadingRobot && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          {sendToWorkTool ? '收起' : '展开'}
+                        </Button>
+                      </div>
+
+                      {sendToWorkTool && (
+                        <div className="space-y-3">
+                          {/* 转化客服机器人信息 */}
+                          <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <div className="flex items-center gap-2 mb-1">
+                              <CheckCircle className="h-4 w-4 text-blue-600" />
+                              <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                                使用转化客服机器人
+                              </span>
+                            </div>
+                            {conversionRobot ? (
+                              <p className="text-xs text-blue-700 dark:text-blue-300">
+                                机器人：{conversionRobot.name}
+                              </p>
+                            ) : (
+                              <p className="text-xs text-blue-700 dark:text-blue-300">
+                                加载中...
+                              </p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="text-sm text-muted-foreground mb-1 block">接收者（群名或好友昵称）</label>
+                            <input
+                              type="text"
+                              value={toName}
+                              onChange={(e) => setToName(e.target.value)}
+                              placeholder="请输入群名或好友昵称"
+                              className="w-full px-3 py-2 border rounded-md text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm text-muted-foreground mb-1 block">附加留言（可选）</label>
+                            <input
+                              type="text"
+                              value={extraText}
+                              onChange={(e) => setExtraText(e.target.value)}
+                              placeholder="请输入附加留言"
+                              className="w-full px-3 py-2 border rounded-md text-sm"
+                            />
+                          </div>
+                          <Button
+                            onClick={handleSendToWorkTool}
+                            disabled={sending || !conversionRobot || !toName}
+                            className="w-full"
+                          >
+                            {sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {sendSuccess ? '已发送 ✓' : '发送二维码'}
+                          </Button>
+
+                          {sendSuccess && (
+                            <Alert>
+                              <CheckCircle className="h-4 w-4" />
+                              <AlertDescription>二维码已通过转化客服机器人发送到企业微信</AlertDescription>
+                            </Alert>
+                          )}
+
+                          {!conversionRobot && (
+                            <Alert variant="destructive">
+                              <AlertCircle className="h-4 w-4" />
+                              <AlertDescription>
+                                未找到转化客服机器人，请在系统中配置role为'conversion'的机器人
+                              </AlertDescription>
+                            </Alert>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
               </CardContent>
             </Card>
