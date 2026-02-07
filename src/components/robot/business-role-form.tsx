@@ -55,6 +55,9 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
   // 初始化表单数据
   useEffect(() => {
     if (initialData) {
+      // 使用 robotId 或 robotRobotId 作为 robotId（兼容不同数据源）
+      const finalRobotId = initialData.robotId || initialData.robotRobotId || '';
+
       setFormData({
         name: initialData.name,
         code: initialData.code,
@@ -65,7 +68,7 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
         keywords: initialData.keywords || [],
         defaultTaskPriority: initialData.defaultTaskPriority || 'normal',
         enableTaskCreation: initialData.enableTaskCreation ?? true,
-        robotId: initialData.robotId || '',
+        robotId: finalRobotId,
       });
     }
   }, [initialData]);
@@ -192,7 +195,7 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
               <SelectItem value="none">不绑定（通用角色）</SelectItem>
               {robots.map((robot) => (
                 <SelectItem key={robot.id} value={robot.id}>
-                  {robot.name || robot.nickname || '未命名机器人'} - {robot.robotId || robot.id}
+                  {robot.name || robot.nickname || '未命名机器人'} - {robot.id}
                 </SelectItem>
               ))}
             </SelectContent>
