@@ -132,6 +132,7 @@ import {
 } from 'lucide-react';
 
 import { MessageBubble } from '@/components/ui/message-bubble';
+import { adaptExecutionsToSessions, filterSessions, getSessionStats } from '@/lib/session-adapter';
 
 // 类型定义
 interface CallbackUrl {
@@ -513,15 +514,11 @@ export default function AdminDashboard() {
     const interval = setInterval(() => {
       console.log('[自动刷新] 刷新关键数据...');
       // 只刷新会话数据，快速响应
-      fetchWithTimeout('/api/proxy/admin/sessions/active?limit=20', 2000).then(res => {
+      fetchWithTimeout('/api/monitoring/executions?limit=200', 2000).then(res => {
         if (res.ok) {
           res.json().then(data => {
-            const uniqueSessions = (data.data || []).reduce((acc: Session[], session: Session) => {
-              if (!acc.find(s => s.sessionId === session.sessionId)) {
-                acc.push(session);
-              }
-              return acc;
-            }, []);
+            const executions = data.data || [];
+            const uniqueSessions = adaptExecutionsToSessions(executions);
             setSessions(uniqueSessions);
           });
         }
@@ -840,17 +837,12 @@ export default function AdminDashboard() {
       // 重置为原始会话列表
       setIsSearchingSessions(true);
       try {
-        const res = await fetch('/api/sessions/from-executions?limit=50');
+        const res = await fetch('/api/monitoring/executions?limit=200');
         if (res.ok) {
           const data = await res.json();
-          // 去重：确保sessionId唯一
-          const uniqueSessions = (data.data || []).reduce((acc: Session[], session: Session) => {
-            if (!acc.find(s => s.sessionId === session.sessionId)) {
-              acc.push(session);
-            }
-            return acc;
-          }, []);
-          setSessions(uniqueSessions);
+          const executions = data.data || [];
+          const sessions = adaptExecutionsToSessions(executions);
+          setSessions(sessions);
         }
       } catch (error) {
         console.error('搜索会话失败:', error);
@@ -862,38 +854,16 @@ export default function AdminDashboard() {
 
     setIsSearchingSessions(true);
     try {
-      // 如果有搜索关键词，搜索消息
-      if (sessionSearchQuery.trim()) {
-        const res = await fetch(`/api/admin/sessions/search?q=${encodeURIComponent(sessionSearchQuery)}&limit=50`);
-        if (res.ok) {
-          const data = await res.json();
-          // 从消息中提取唯一会话
-          const uniqueSessions = new Map();
-          data.data?.forEach((msg: any) => {
-            if (!uniqueSessions.has(msg.sessionId)) {
-              uniqueSessions.set(msg.sessionId, {
-                sessionId: msg.sessionId,
-                userName: msg.userName,
-                groupName: msg.groupName,
-                messageCount: 1,
-                lastActiveTime: msg.timestamp,
-                status: 'auto', // 默认为 auto，需要从会话信息中获取
-              });
-            }
-          });
-          setSessions(Array.from(uniqueSessions.values()));
-        }
-      } else {
-        // 只有筛选条件
-        const res = await fetch('/api/sessions/from-executions?limit=50');
-        if (res.ok) {
-          const data = await res.json();
-          const filtered = (data.data || []).filter((s: Session) => {
-            if (sessionStatusFilter === 'all') return true;
-            return s.status === sessionStatusFilter;
-          });
-          setSessions(filtered);
-        }
+      // 获取所有执行记录
+      const res = await fetch('/api/monitoring/executions?limit=200');
+      if (res.ok) {
+        const data = await res.json();
+        const executions = data.data || [];
+        // 使用适配器转换为会话
+        const allSessions = adaptExecutionsToSessions(executions);
+        // 使用过滤器进行搜索和状态筛选
+        const filtered = filterSessions(allSessions, sessionSearchQuery, sessionStatusFilter);
+        setSessions(filtered);
       }
     } catch (error) {
       console.error('搜索会话失败:', error);
@@ -964,7 +934,7 @@ export default function AdminDashboard() {
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 增加到10秒
 
         console.log('[初始化] 发起会话 API 请求...');
-        const sessionsRes = await fetch('/api/sessions/from-executions?limit=50', {
+        const sessionsRes = await fetch('/api/monitoring/executions?limit=200', {
           signal: controller.signal
         });
         
@@ -974,17 +944,13 @@ export default function AdminDashboard() {
         if (sessionsRes.ok) {
           const data = await sessionsRes.json();
           console.log('[初始化] API 返回数据:', data);
-          // 兼容两种格式：{success: true, data: [...]} 或 {data: [...]}
-          const sessionsData = data.data || [];
-          console.log('[初始化] 会话数据:', sessionsData);
-          const uniqueSessions = sessionsData.reduce((acc: Session[], session: Session) => {
-            if (!acc.find(s => s.sessionId === session.sessionId)) {
-              acc.push(session);
-            }
-            return acc;
-          }, []);
-          console.log('[初始化] 去重后的会话数量:', uniqueSessions.length, uniqueSessions);
-          setSessions(uniqueSessions);
+          // 使用适配器将执行记录转换为会话格式
+          const executions = data.data || [];
+          console.log('[初始化] 执行记录数量:', executions.length);
+          const sessions = adaptExecutionsToSessions(executions);
+          console.log('[初始化] 转换后的会话数量:', sessions.length);
+          console.log('[初始化] 会话数据:', sessions);
+          setSessions(sessions);
           console.log(`[初始化] 关键数据加载完成，耗时: ${Date.now() - startTime}ms`);
         } else {
           console.error('[初始化] 会话 API 请求失败，状态码:', sessionsRes.status);
@@ -3031,16 +2997,11 @@ ${callbacks.robotStatus}
                               alert('✅ 已切换为人工接管');
                               setShowSessionDetail(false);
                               // 重新加载会话列表
-                              const sessionsRes = await fetch('/api/admin/sessions/active?limit=20');
+                              const sessionsRes = await fetch('/api/monitoring/executions?limit=200');
                               if (sessionsRes.ok) {
                                 const data = await sessionsRes.json();
-                                // 去重：确保sessionId唯一
-                                const uniqueSessions = (data.data || []).reduce((acc: Session[], session: Session) => {
-                                  if (!acc.find(s => s.sessionId === session.sessionId)) {
-                                    acc.push(session);
-                                  }
-                                  return acc;
-                                }, []);
+                                const executions = data.data || [];
+                                const uniqueSessions = adaptExecutionsToSessions(executions);
                                 setSessions(uniqueSessions);
                               }
                             } else {
@@ -3077,16 +3038,11 @@ ${callbacks.robotStatus}
                                 }
                               }
                               // 重新加载会话列表
-                              const sessionsRes = await fetch('/api/admin/sessions/active?limit=20');
+                              const sessionsRes = await fetch('/api/monitoring/executions?limit=200');
                               if (sessionsRes.ok) {
                                 const data = await sessionsRes.json();
-                                // 去重：确保sessionId唯一
-                                const uniqueSessions = (data.data || []).reduce((acc: Session[], session: Session) => {
-                                  if (!acc.find(s => s.sessionId === session.sessionId)) {
-                                    acc.push(session);
-                                  }
-                                  return acc;
-                                }, []);
+                                const executions = data.data || [];
+                                const uniqueSessions = adaptExecutionsToSessions(executions);
                                 setSessions(uniqueSessions);
                               }
                             } else {
