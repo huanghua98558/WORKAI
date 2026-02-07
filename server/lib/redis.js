@@ -48,12 +48,52 @@ class RedisClient {
         }
       }
 
-      this.client = new Redis(config);
-      this.publisher = new Redis(config);
-      this.subscriber = new Redis(config);
+      // 配置 Redis 连接选项（支持自动重连）
+      const options = typeof config === 'string' ? {
+        connectTimeout: 15000, // 增加连接超时时间到 15 秒
+        maxRetriesPerRequest: 5, // 增加重试次数到 5 次
+        retryStrategy: (times) => Math.min(times * 200, 5000), // 优化重试策略
+        lazyConnect: false, // 立即连接
+        keepAlive: 30000, // 保持连接
+        enableReadyCheck: true, // 启用就绪检查
+      } : {
+        ...config,
+        connectTimeout: 15000,
+        maxRetriesPerRequest: 5,
+        retryStrategy: (times) => Math.min(times * 200, 5000),
+        lazyConnect: false,
+        keepAlive: 30000,
+        enableReadyCheck: true,
+      };
 
-      // 简化的错误处理
-      this.client.on('error', () => {}); // 静默错误
+      this.client = new Redis(typeof config === 'string' ? config : '', options);
+      this.publisher = new Redis(typeof config === 'string' ? config : '', options);
+      this.subscriber = new Redis(typeof config === 'string' ? config : '', options);
+
+      // 正确的错误处理
+      this.client.on('error', (err) => {
+        this.logger.error('Redis 客户端错误', { error: err.message });
+      });
+      this.publisher.on('error', (err) => {
+        this.logger.error('Redis 发布者错误', { error: err.message });
+      });
+      this.subscriber.on('error', (err) => {
+        this.logger.error('Redis 订阅者错误', { error: err.message });
+      });
+
+      // 监听连接状态
+      this.client.on('connect', () => {
+        this.logger.info('Redis 客户端已连接');
+      });
+      this.client.on('close', () => {
+        this.logger.warn('Redis 客户端连接已关闭');
+      });
+      this.client.on('reconnecting', () => {
+        this.logger.info('Redis 客户端正在重连...');
+      });
+
+      // 启动健康检查
+      this.startHealthCheck();
 
       // ioredis 默认是懒连接，不需要手动调用 connect()
       // 直接进行 ping 测试
@@ -217,6 +257,38 @@ class RedisClient {
 
   isMemoryMode() {
     return this.useMemoryMode;
+  }
+
+  /**
+   * 启动健康检查
+   * 每 30 秒检查一次 Redis 连接状态
+   */
+  startHealthCheck() {
+    if (this.useMemoryMode) {
+      return;
+    }
+
+    let healthCheckTimer;
+
+    const checkHealth = async () => {
+      try {
+        if (this.client && !this.useMemoryMode) {
+          await this.client.ping();
+        }
+      } catch (error) {
+        this.logger.error('Redis 健康检查失败，切换到内存模式', { error: error.message });
+        this.useMemoryMode = true;
+        if (healthCheckTimer) {
+          clearInterval(healthCheckTimer);
+        }
+      }
+    };
+
+    // 每 30 秒检查一次
+    healthCheckTimer = setInterval(checkHealth, 30000);
+
+    // 首次延迟 10 秒执行
+    setTimeout(checkHealth, 10000);
   }
 }
 
