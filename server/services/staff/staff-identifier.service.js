@@ -12,11 +12,18 @@ class StaffIdentifierService {
   constructor(config = {}) {
     this.config = {
       enabled: true,
-      userIds: [], // 工作人员ID白名单
-      userRemarks: ['客服', '运营', '技术', '管理员'], // 备注名关键词
-      nicknames: ['客服', '运营', '技术', '管理员'], // 昵称关键词
-      enterpriseNames: [], // 企业名称
-      specialPatterns: ['@staff', 'STAFF', '管理员'], // 特殊标识
+      userIds: [], // 工作人员ID白名单 {userId: string, staffType: string}
+      userRemarks: [], // 备注名关键词 [{keyword: string, staffType: string}]
+      nicknames: [], // 昵称关键词 [{keyword: string, staffType: string}]
+      enterpriseNames: [], // 企业名称 [{name: string, staffType: string}]
+      specialPatterns: [], // 特殊标识 [{pattern: string, staffType: string}]
+      defaultStaffType: 'management', // 默认工作人员类型
+      staffTypeMapping: {
+        'management': ['管理员', '管理', 'admin', 'Manager'],
+        'community': ['社群', '运营', '运营专员', '客服'],
+        'after_sales': ['售后', '客服', '技术支持', 'Technical'],
+        'conversion': ['销售', '转化', '顾问', 'Sales']
+      },
       ...config
     };
 
@@ -60,6 +67,7 @@ class StaffIdentifierService {
         confidence: 0,
         matchMethod: null,
         staffUserId: null,
+        staffType: null,
         nickname: message.nickname || message.receivedName || null
       };
     }
@@ -82,12 +90,19 @@ class StaffIdentifierService {
 
     // 1. userId白名单匹配（最准确，优先级最高）
     if (effectiveConfig.userIds && effectiveConfig.userIds.length > 0) {
-      if (effectiveConfig.userIds.includes(userId)) {
+      const matchedUser = effectiveConfig.userIds.find(u => 
+        typeof u === 'string' ? u === userId : u.userId === userId
+      );
+      if (matchedUser) {
+        const staffType = typeof matchedUser === 'string' 
+          ? this.config.defaultStaffType 
+          : (matchedUser.staffType || this.config.defaultStaffType);
         return {
           isStaff: true,
           confidence: 1.0,
           matchMethod: 'userId',
           staffUserId: userId,
+          staffType,
           nickname: displayName
         };
       }
@@ -96,13 +111,19 @@ class StaffIdentifierService {
     // 2. 企业微信特征检测
     if (platform === 'enterprise') {
       if (effectiveConfig.enterpriseNames && effectiveConfig.enterpriseNames.length > 0) {
-        for (const enterpriseName of effectiveConfig.enterpriseNames) {
-          if (displayName && displayName.includes(enterpriseName)) {
+        for (const enterprise of effectiveConfig.enterpriseNames) {
+          const name = typeof enterprise === 'string' ? enterprise : enterprise.name;
+          const staffType = typeof enterprise === 'string' 
+            ? this.config.defaultStaffType 
+            : (enterprise.staffType || this.config.defaultStaffType);
+          
+          if (displayName && displayName.includes(name)) {
             return {
               isStaff: true,
               confidence: 0.85,
               matchMethod: 'enterpriseName',
               staffUserId: userId,
+              staffType,
               nickname: displayName
             };
           }
@@ -113,12 +134,18 @@ class StaffIdentifierService {
     // 3. 备注名匹配
     if (userRemark && effectiveConfig.userRemarks && effectiveConfig.userRemarks.length > 0) {
       for (const remark of effectiveConfig.userRemarks) {
-        if (userRemark.includes(remark)) {
+        const keyword = typeof remark === 'string' ? remark : remark.keyword;
+        const staffType = typeof remark === 'string' 
+          ? this.inferStaffType(keyword)
+          : (remark.staffType || this.inferStaffType(keyword));
+          
+        if (userRemark.includes(keyword)) {
           return {
             isStaff: true,
             confidence: 0.75,
             matchMethod: 'remark',
             staffUserId: userId,
+            staffType,
             nickname: displayName
           };
         }
@@ -128,12 +155,18 @@ class StaffIdentifierService {
     // 4. 昵称匹配
     if (displayName && effectiveConfig.nicknames && effectiveConfig.nicknames.length > 0) {
       for (const nicknameKey of effectiveConfig.nicknames) {
-        if (displayName.includes(nicknameKey)) {
+        const keyword = typeof nicknameKey === 'string' ? nicknameKey : nicknameKey.keyword;
+        const staffType = typeof nicknameKey === 'string' 
+          ? this.inferStaffType(keyword)
+          : (nicknameKey.staffType || this.inferStaffType(keyword));
+          
+        if (displayName.includes(keyword)) {
           return {
             isStaff: true,
             confidence: 0.7,
             matchMethod: 'nickname',
             staffUserId: userId,
+            staffType,
             nickname: displayName
           };
         }
@@ -143,13 +176,19 @@ class StaffIdentifierService {
     // 5. 特殊标识匹配
     if (effectiveConfig.specialPatterns && effectiveConfig.specialPatterns.length > 0) {
       for (const pattern of effectiveConfig.specialPatterns) {
-        if ((displayName && displayName.includes(pattern)) ||
-            (userRemark && userRemark.includes(pattern))) {
+        const patternText = typeof pattern === 'string' ? pattern : pattern.pattern;
+        const staffType = typeof pattern === 'string' 
+          ? this.inferStaffType(patternText)
+          : (pattern.staffType || this.inferStaffType(patternText));
+          
+        if ((displayName && displayName.includes(patternText)) ||
+            (userRemark && userRemark.includes(patternText))) {
           return {
             isStaff: true,
             confidence: 0.65,
             matchMethod: 'specialPattern',
             staffUserId: userId,
+            staffType,
             nickname: displayName
           };
         }
@@ -162,8 +201,28 @@ class StaffIdentifierService {
       confidence: 0,
       matchMethod: null,
       staffUserId: null,
+      staffType: null,
       nickname: displayName
     };
+  }
+
+  /**
+   * 根据关键词推断工作人员类型
+   * @param {string} keyword - 关键词
+   * @returns {string} 工作人员类型
+   */
+  inferStaffType(keyword) {
+    if (!keyword) return this.config.defaultStaffType;
+    
+    const lowerKeyword = keyword.toLowerCase();
+    
+    for (const [staffType, keywords] of Object.entries(this.config.staffTypeMapping)) {
+      if (keywords.some(k => lowerKeyword.includes(k.toLowerCase()))) {
+        return staffType;
+      }
+    }
+    
+    return this.config.defaultStaffType;
   }
 
   /**

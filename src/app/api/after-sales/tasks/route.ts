@@ -1,100 +1,145 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  afterSalesTaskService,
-  AfterSalesTaskStatus,
-  AfterSalesTaskPriority,
-} from '@/services/after-sales-task-service';
+import { afterSalesTaskService } from '@/services/after-sales-task-service';
+import { TaskPriority, TaskStatus } from '@/services/after-sales-task-service';
 
 /**
- * GET /api/after-sales/tasks - 获取售后任务列表
+ * GET /api/after-sales/tasks
+ * 获取售后任务列表
  */
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const sessionId = searchParams.get('sessionId');
-    const staffUserId = searchParams.get('staffUserId');
-    const status = searchParams.get('status');
-    const priority = searchParams.get('priority');
+    const searchParams = request.nextUrl.searchParams;
 
-    let tasks = [];
+    const params = {
+      sessionId: searchParams.get('sessionId') || undefined,
+      staffUserId: searchParams.get('staffUserId') || undefined,
+      userId: searchParams.get('userId') || undefined,
+      status: (searchParams.get('status') as TaskStatus) || undefined,
+      priority: (searchParams.get('priority') as TaskPriority) || undefined,
+      taskType: searchParams.get('taskType') || undefined,
+      assignedTo: searchParams.get('assignedTo') || undefined,
+      limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined,
+      offset: searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : undefined,
+    };
 
-    if (sessionId) {
-      tasks = await afterSalesTaskService.getTasksBySessionId(sessionId);
-    } else if (staffUserId) {
-      tasks = await afterSalesTaskService.getTasksByStaffId(staffUserId);
-    } else {
+    // 验证状态
+    if (params.status) {
+      const validStatuses: TaskStatus[] = ['pending', 'in_progress', 'waiting_response', 'completed', 'cancelled'];
+      if (!validStatuses.includes(params.status)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 验证优先级
+    if (params.priority) {
+      const validPriorities: TaskPriority[] = ['low', 'normal', 'high', 'urgent'];
+      if (!validPriorities.includes(params.priority)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Invalid priority. Must be one of: ${validPriorities.join(', ')}`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    const result = await afterSalesTaskService.getTasks(params);
+
+    if (!result.success) {
       return NextResponse.json(
-        { success: false, error: 'Missing required parameter: sessionId or staffUserId' },
-        { status: 400 }
+        {
+          success: false,
+          error: result.error,
+        },
+        { status: 500 }
       );
-    }
-
-    // 过滤
-    if (status) {
-      tasks = tasks.filter(t => t.status === status);
-    }
-    if (priority) {
-      tasks = tasks.filter(t => t.priority === priority);
     }
 
     return NextResponse.json({
       success: true,
-      data: tasks,
+      data: result.tasks,
+      pagination: {
+        limit: params.limit || 100,
+        offset: params.offset || 0,
+        count: result.tasks.length,
+      },
     });
   } catch (error) {
-    console.error('[API] 获取售后任务失败:', error);
+    console.error('Error in GET /api/after-sales/tasks:', error);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+      },
       { status: 500 }
     );
   }
 }
 
 /**
- * POST /api/after-sales/tasks - 创建售后任务
+ * POST /api/after-sales/tasks
+ * 创建售后任务
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { sessionId, staffUserId, staffName, userId, userName, taskType, title, description, messageId } = body;
 
-    if (!sessionId || !userId || !userName) {
+    // 验证必填字段
+    if (!body.sessionId || !body.userId || !body.userName) {
       return NextResponse.json(
-        { success: false, error: 'Missing required parameters: sessionId, userId, userName' },
+        {
+          success: false,
+          error: 'Missing required fields: sessionId, userId, userName',
+        },
         { status: 400 }
       );
     }
 
-    const taskId = await afterSalesTaskService.createTask({
-      sessionId,
-      staffUserId,
-      staffName,
-      userId,
-      userName,
-      taskType,
-      priority: AfterSalesTaskPriority.NORMAL,
-      status: AfterSalesTaskStatus.PENDING,
-      title,
-      description,
-      messageId,
-      expectedResponseTime: new Date(Date.now() + 6 * 60 * 60 * 1000), // 6小时后
-    });
+    // 验证优先级
+    if (body.priority) {
+      const validPriorities: TaskPriority[] = ['low', 'normal', 'high', 'urgent'];
+      if (!validPriorities.includes(body.priority)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Invalid priority. Must be one of: ${validPriorities.join(', ')}`,
+          },
+          { status: 400 }
+        );
+      }
+    }
 
-    if (taskId) {
-      return NextResponse.json({
-        success: true,
-        data: { taskId },
-      });
-    } else {
+    const result = await afterSalesTaskService.createTask(body);
+
+    if (!result.success) {
       return NextResponse.json(
-        { success: false, error: 'Failed to create task' },
+        {
+          success: false,
+          error: result.error,
+        },
         { status: 500 }
       );
     }
+
+    return NextResponse.json({
+      success: true,
+      data: result.task,
+      message: '售后任务创建成功',
+    });
   } catch (error) {
-    console.error('[API] 创建售后任务失败:', error);
+    console.error('Error in POST /api/after-sales/tasks:', error);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error',
+      },
       { status: 500 }
     );
   }

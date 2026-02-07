@@ -3,6 +3,11 @@ import { messageService } from '@/lib/services/message-service';
 import { sessionService } from '@/lib/services/session-service';
 import { senderIdentificationService } from '@/lib/services/sender-identification';
 import { collaborationDecisionService } from '@/lib/services/collaboration-decision-service';
+import { staffTypeService } from '@/services/staff-type-service';
+import { afterSalesTaskService } from '@/services/after-sales-task-service';
+import { staffMessageContextService } from '@/services/staff-message-context-service';
+import { getKeywordsByScenario } from '@/config/keywords';
+import { StaffType } from '@/services/staff-type-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +26,8 @@ export async function POST(request: NextRequest) {
 
     // 识别发送者（如果未提供）
     let senderInfo = body.senderInfo;
+    let staffType: StaffType | null = null;
+
     if (!senderInfo) {
       const identificationResult = await senderIdentificationService.identifySender(
         body.senderId,
@@ -38,6 +45,14 @@ export async function POST(request: NextRequest) {
       }
       
       senderInfo = identificationResult.senderInfo;
+
+      // 如果是工作人员，获取工作人员类型
+      if (senderInfo?.senderType === 'staff' && senderInfo?.staffId) {
+        const staffTypeResult = await staffTypeService.getStaffTypeByIdentifier(senderInfo.staffId);
+        if (staffTypeResult.success && staffTypeResult.staffType) {
+          staffType = staffTypeResult.staffType;
+        }
+      }
     }
 
     // 获取或创建会话
@@ -104,7 +119,7 @@ export async function POST(request: NextRequest) {
       await sessionService.recordStaffIntervention(sessionId, senderInfo.staffId);
     }
 
-    // 记录决策日志（方案3：决策日志）
+    // 记录决策日志（方案3：决策日志，增强版）
     try {
       const savedMessage = messageResult.message!;
       
@@ -120,6 +135,8 @@ export async function POST(request: NextRequest) {
           priority: 'medium',
           reason: '用户消息已接收',
           strategy: body.aiEnabled !== false ? 'AI优先' : '等待人工',
+          staffType: null,  // 用户消息无工作人员类型
+          messageType: 'user_message',
         });
       } 
       // 如果是AI回复，更新决策
@@ -128,15 +145,65 @@ export async function POST(request: NextRequest) {
           aiAction: 'replied',
           priority: 'low',
           reason: 'AI已回复',
+          messageType: 'ai_reply',
         });
       }
-      // 如果是人工回复，更新决策
+      // 如果是工作人员回复，更新决策
       else if (senderInfo?.senderType === 'staff' && body.parentMessageId) {
         await collaborationDecisionService.updateDecision(body.parentMessageId, {
           staffAction: 'replied',
           priority: 'low',
-          reason: `员工 ${senderInfo.staffName} 已回复`,
+          reason: `员工 ${senderInfo.staffName} (${staffType}) 已回复`,
+          staffType: staffType || 'unknown',
+          messageType: 'staff_reply',
         });
+
+        // 记录工作人员消息上下文
+        try {
+          await staffMessageContextService.recordStaffMessage({
+            messageId: savedMessage.id || '',
+            sessionId,
+            staffUserId: senderInfo.staffId,
+            staffName: senderInfo.staffName || '',
+            staffType: staffType || 'unknown',
+            content: body.content,
+            relatedUserId: body.relatedUserId,  // 如果有 @用户
+            isMention: body.isMention || false,
+            metadata: body.metadata,
+          });
+        } catch (contextError) {
+          console.error('[POST /api/messages] 记录工作人员消息上下文失败:', contextError);
+        }
+
+        // 检查是否需要创建售后任务（仅限售后人员）
+        if (staffType === 'after_sales' && body.isMention) {
+          const keywords = getKeywordsByScenario('after_sales');
+          const hasKeyword = keywords.some(keyword => 
+            body.content.toLowerCase().includes(keyword.toLowerCase())
+          );
+
+          if (hasKeyword) {
+            try {
+              await afterSalesTaskService.createTask({
+                sessionId,
+                staffUserId: senderInfo.staffId,
+                staffName: senderInfo.staffName || '',
+                userId: body.relatedUserId || body.senderId,
+                userName: body.relatedUserName || body.senderName,
+                taskType: 'general',
+                priority: 'normal',
+                status: 'pending',
+                title: `售后任务 - ${body.content.substring(0, 50)}`,
+                description: body.content,
+                messageId: savedMessage.id,
+                keyword: keywords.find(k => body.content.toLowerCase().includes(k.toLowerCase())),
+              });
+              console.log('[POST /api/messages] 售后任务已创建');
+            } catch (taskError) {
+              console.error('[POST /api/messages] 创建售后任务失败:', taskError);
+            }
+          }
+        }
       }
     } catch (decisionError) {
       // 决策记录失败不影响主流程，只记录错误
