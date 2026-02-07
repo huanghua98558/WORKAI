@@ -247,7 +247,7 @@ class VideoChannelAutomationService {
         }
       });
 
-      // 访问视频号小店页面（检测到未登录时，获取登录链接）
+      // 访问微信带货助手页面（检测到未登录时，获取登录链接）
       await page.goto(this.shopUrl, {
         waitUntil: 'domcontentloaded',
         timeout: 30000
@@ -295,11 +295,11 @@ class VideoChannelAutomationService {
         await page.setRequestInterception(false);
 
         if (loginLinkInfo && loginLinkInfo.href) {
-          console.log('[获取二维码] 登录链接是JavaScript链接，尝试访问登录页面');
+          console.log('[获取二维码] 登录链接是JavaScript链接，尝试访问微信带货助手登录页面');
 
-          // 尝试直接访问视频号小店登录页面
-          const loginPageUrl = 'https://store.weixin.qq.com/';
-          console.log('[获取二维码] 访问登录页面:', loginPageUrl);
+          // 访问微信带货助手页面（不是微信小店首页）
+          const loginPageUrl = 'https://store.weixin.qq.com/talent/';
+          console.log('[获取二维码] 访问微信带货助手登录页面:', loginPageUrl);
           await page.goto(loginPageUrl, {
             waitUntil: 'domcontentloaded',
             timeout: 30000
