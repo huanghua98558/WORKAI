@@ -202,7 +202,7 @@ export default function NewDashboard() {
     try {
       const [overviewRes, sessionsRes] = await Promise.all([
         fetch('/api/alerts/analytics/overview'),
-        fetch('/api/sessions/active?limit=5')
+        fetch('/api/monitoring/executions?limit=5')
       ]);
 
       if (overviewRes.ok) {
@@ -214,8 +214,20 @@ export default function NewDashboard() {
 
       if (sessionsRes.ok) {
         const data = await sessionsRes.json();
-        if (data.success) {
-          setRecentSessions(data.data || []);
+        if (data.code === 0 && Array.isArray(data.data)) {
+          // 转换执行记录为会话格式
+          const sessions = data.data.slice(0, 5).map((execution: any) => ({
+            sessionId: execution.sessionId,
+            userId: execution.userId,
+            groupId: execution.groupId,
+            userName: execution.userName || execution.userId,
+            groupName: execution.groupName || execution.groupId,
+            status: execution.status === 'success' ? 'auto' : 'human',
+            lastActiveTime: execution.createdAt,
+            messageCount: 1,
+            lastMessage: execution.messageContent || execution.steps?.user_message?.content || '暂无消息',
+          }));
+          setRecentSessions(sessions);
         }
       }
     } catch (error) {

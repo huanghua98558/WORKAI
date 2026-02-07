@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, sharedSessions, messages } from '@/lib/db';
-import { desc, eq, sql } from 'drizzle-orm';
+import { db, messages } from '@/lib/db';
 
 /**
  * 获取活跃会话列表
@@ -11,28 +10,29 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const limit = parseInt(searchParams.get('limit') || '10');
 
-    // 获取最近的会话
-    const activeSessions = await db
-      .select({
-        sessionId: sharedSessions.sessionId,
-        userId: sharedSessions.userId,
-        groupId: sharedSessions.groupId,
-        userName: sharedSessions.userName,
-        groupName: sharedSessions.groupName,
-        status: sharedSessions.status,
-        lastActiveTime: sharedSessions.lastMessageAt,
-        messageCount: sharedSessions.messageCount,
-        robotId: sharedSessions.robotId,
-        robotName: sharedSessions.robotName,
-      })
-      .from(sharedSessions)
-      .where(sql`${sharedSessions.lastMessageAt} IS NOT NULL AND ${sharedSessions.lastMessageAt} > NOW() - INTERVAL '7 days'`)
-      .orderBy(desc(sharedSessions.lastMessageAt))
-      .limit(limit);
+    // 使用原始SQL查询
+    const sessionsResult = await db.execute(`
+      SELECT 
+        session_id as "sessionId",
+        user_id as "userId",
+        group_id as "groupId",
+        user_name as "userName",
+        group_name as "groupName",
+        status,
+        last_message_at as "lastActiveTime",
+        message_count as "messageCount",
+        robot_id as "robotId",
+        robot_name as "robotName"
+      FROM sessions
+      ORDER BY last_message_at DESC NULLS LAST
+      LIMIT $1
+    `, [limit]);
+
+    const sessions = sessionsResult.rows;
 
     // 获取每个会话的最新消息
     const sessionsWithMessages = await Promise.all(
-      activeSessions.map(async (session) => {
+      sessions.map(async (session: any) => {
         const lastMessage = await db
           .select({ content: messages.content })
           .from(messages)

@@ -86,9 +86,9 @@ export default function MonitoringPage() {
   // 获取系统健康状态
   const fetchHealth = async () => {
     try {
-      const res = await fetch('/api/monitoring/health-direct');
+      const res = await fetch('/api/monitoring/health');
       const data = await res.json();
-      if (data.success) {
+      if (data.code === 0) {
         // 获取告警统计
         try {
           const alertRes = await fetch('/api/alerts/stats');
@@ -122,10 +122,10 @@ export default function MonitoringPage() {
   // 获取执行列表
   const fetchExecutions = async () => {
     try {
-      const res = await fetch('/api/monitoring/executions-direct?limit=50');
+      const res = await fetch('/api/monitoring/executions?limit=50');
       const data = await res.json();
-      if (data.success) {
-        setExecutions(data.data);
+      if (data.code === 0) {
+        setExecutions(data.data || []);
       }
     } catch (error) {
       console.error('获取执行列表失败:', error);
@@ -136,10 +136,10 @@ export default function MonitoringPage() {
   const fetchAiLogs = async () => {
     console.log('[监控] 开始获取AI日志');
     try {
-      const res = await fetch('/api/monitoring/ai-logs-direct?limit=50');
+      const res = await fetch('/api/monitoring/ai-logs?limit=50');
       const data = await res.json();
       console.log('[监控] AI日志响应:', {
-        success: data.success,
+        success: data.code === 0,
         dataLength: data.data?.length,
         firstItem: data.data?.[0] ? {
           id: data.data[0].id,
@@ -149,8 +149,8 @@ export default function MonitoringPage() {
           aiOutputLength: data.data[0].aiOutput?.length
         } : null
       });
-      if (data.success) {
-        setAiLogs(data.data);
+      if (data.code === 0) {
+        setAiLogs(data.data || []);
       }
     } catch (error) {
       console.error('[监控] 获取AI日志失败:', error);
