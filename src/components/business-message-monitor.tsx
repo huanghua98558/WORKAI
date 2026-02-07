@@ -49,6 +49,7 @@ interface Session {
 }
 
 // 统一消息格式（兼容原接口）
+// 统一消息格式
 interface UnifiedMessage {
   id: string;
   sessionId: string;
@@ -56,17 +57,27 @@ interface UnifiedMessage {
   userName?: string;
   groupName?: string;
   robotName?: string;
-  status: 'processing' | 'completed' | 'failed';
+  // 状态定义：
+  // - processing: 处理中（AI正在生成回复）
+  // - ai_generated: AI已生成回复（但可能还未发送到机器人）
+  // - sent: 已发送到机器人
+  // - completed: 完成（用户消息或已知的成功消息）
+  // - failed: 失败
+  status: 'processing' | 'ai_generated' | 'sent' | 'completed' | 'failed';
   intent?: string;
   startedAt: string;
   createdAt: string;
   completedAt?: string;
   duration?: number;
   senderType: 'user' | 'bot' | 'human';
-  aiResponse?: string;
-  errorMessage?: string;
-  nodeType?: string;
+  aiResponse?: string;  // AI回复内容
+  errorMessage?: string;  // 错误信息
+  nodeType?: string;  // 节点类型
   extraData?: any;
+  // 消息属性
+  isFromUser?: boolean;
+  isFromBot?: boolean;
+  isHuman?: boolean;
 }
 
 // 统计数据类型
