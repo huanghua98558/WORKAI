@@ -7,8 +7,16 @@ import { videoChannelAutomationService } from '@/lib/services/video-channel-auto
  */
 export async function POST() {
   try {
+    console.log('[刷新二维码] 开始刷新二维码...');
+
     // 生成新的二维码
     const result = await videoChannelAutomationService.getQrcode();
+
+    console.log('[刷新二维码] 二维码生成结果:', {
+      success: result.success,
+      qrcodeId: result.qrcodeId,
+      expiresAt: result.expiresAt
+    });
 
     if (result.success && result.qrcodePath) {
       // 读取二维码文件并转换为base64
@@ -18,6 +26,8 @@ export async function POST() {
 
       // 计算剩余有效时间（秒）
       const remainingTime = videoChannelAutomationService.getQrcodeRemainingTime();
+
+      console.log('[刷新二维码] 剩余时间:', remainingTime, '秒');
 
       return NextResponse.json({
         success: true,
@@ -29,6 +39,7 @@ export async function POST() {
         message: '二维码已刷新，请重新扫描'
       });
     } else {
+      console.error('[刷新二维码] 二维码生成失败:', result.error);
       return NextResponse.json({
         success: false,
         error: result.error || '刷新二维码失败'

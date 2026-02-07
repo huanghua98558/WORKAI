@@ -44,23 +44,36 @@ export default function VideoChannelConversionPage() {
   useEffect(() => {
     let timer: NodeJS.Timeout;
 
+    console.log('[倒计时] useEffect触发，当前状态:', {
+      remainingTime,
+      step,
+      loginStatus
+    });
+
     if (remainingTime > 0 && step === 2 && loginStatus === 'checking') {
+      console.log('[倒计时] 启动定时器，当前剩余时间:', remainingTime);
       timer = setInterval(() => {
         setRemainingTime(prev => {
-          if (prev <= 1) {
+          const newTime = prev - 1;
+          console.log('[倒计时] 倒计时更新:', prev, '->', newTime);
+          if (newTime <= 0) {
+            console.log('[倒计时] 倒计时结束');
             return 0;
           }
-          return prev - 1;
+          return newTime;
         });
       }, 1000);
+    } else {
+      console.log('[倒计时] 不启动定时器，条件不满足');
     }
 
     return () => {
       if (timer) {
+        console.log('[倒计时] 清除定时器');
         clearInterval(timer);
       }
     };
-  }, [remainingTime, step, loginStatus]); // 恢复原来的依赖数组
+  }, [step, loginStatus]); // 移除 remainingTime 依赖，避免定时器重置
 
   // 格式化剩余时间
   const formatTime = (seconds: number) => {
@@ -104,15 +117,19 @@ export default function VideoChannelConversionPage() {
     setLoading(true);
     setError(null);
     try {
+      console.log('[获取二维码] 开始获取...');
       const response = await fetch('/api/video-channel/qrcode', {
         method: 'POST'
       });
       const data = await response.json();
 
+      console.log('[获取二维码] 响应数据:', data);
+
       if (data.success) {
         setQrcode(data.qrcodeBase64);
         setQrcodeId(data.qrcodeId);
         setExpiresAt(new Date(data.expiresAt));
+        console.log('[获取二维码] 设置剩余时间:', data.remainingTime, '秒');
         setRemainingTime(data.remainingTime);
         setLoginStatus('checking');
         setStep(2);
@@ -121,9 +138,11 @@ export default function VideoChannelConversionPage() {
           handleCheckLogin();
         }, 3000);
       } else {
+        console.error('[获取二维码] 失败:', data.error);
         setError(data.error || '获取二维码失败');
       }
     } catch (err: any) {
+      console.error('[获取二维码] 请求失败:', err);
       setError(err.message || '请求失败');
     } finally {
       setLoading(false);
@@ -135,15 +154,19 @@ export default function VideoChannelConversionPage() {
     setLoading(true);
     setError(null);
     try {
+      console.log('[刷新二维码] 开始刷新...');
       const response = await fetch('/api/video-channel/refresh-qrcode', {
         method: 'POST'
       });
       const data = await response.json();
 
+      console.log('[刷新二维码] 响应数据:', data);
+
       if (data.success) {
         setQrcode(data.qrcodeBase64);
         setQrcodeId(data.qrcodeId);
         setExpiresAt(new Date(data.expiresAt));
+        console.log('[刷新二维码] 设置剩余时间:', data.remainingTime, '秒');
         setRemainingTime(data.remainingTime);
         setLoginStatus('checking');
         // 重新开始检测登录状态
@@ -151,9 +174,11 @@ export default function VideoChannelConversionPage() {
           handleCheckLogin();
         }, 3000);
       } else {
+        console.error('[刷新二维码] 失败:', data.error);
         setError(data.error || '刷新二维码失败');
       }
     } catch (err: any) {
+      console.error('[刷新二维码] 请求失败:', err);
       setError(err.message || '请求失败');
     } finally {
       setLoading(false);
