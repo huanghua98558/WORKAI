@@ -40,7 +40,7 @@ export default function VideoChannelConversionPage() {
   const [sendSuccess, setSendSuccess] = useState(false);
   const [loadingRobot, setLoadingRobot] = useState(false);
 
-  // 倒计时效果（修复版：避免定时器重置）
+  // 倒计时效果
   useEffect(() => {
     let timer: NodeJS.Timeout;
 
@@ -60,7 +60,7 @@ export default function VideoChannelConversionPage() {
         clearInterval(timer);
       }
     };
-  }, [step, loginStatus]); // 移除remainingTime依赖，避免定时器重置
+  }, [remainingTime, step, loginStatus]); // 恢复原来的依赖数组
 
   // 格式化剩余时间
   const formatTime = (seconds: number) => {
