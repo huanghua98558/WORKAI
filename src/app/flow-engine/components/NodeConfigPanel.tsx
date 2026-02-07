@@ -246,6 +246,118 @@ function MessageReceiveConfig({ config, onChange }: any) {
           </div>
         </div>
       </div>
+
+      {/* ========== 阶段二新增：业务角色提取配置 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>👥</span>
+          业务角色提取
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="extractBusinessRole"
+              checked={config.extractBusinessRole ?? false}
+              onCheckedChange={(checked) => onChange('extractBusinessRole', checked)}
+            />
+            <Label htmlFor="extractBusinessRole" className="text-sm">
+              启用业务角色提取
+            </Label>
+          </div>
+          <p className="text-[10px] text-slate-500 ml-6">
+            根据群组名称或用户信息自动提取业务角色
+          </p>
+          {config.extractBusinessRole && (
+            <div>
+              <Label htmlFor="roleMapping" className="text-xs">角色映射规则</Label>
+              <Textarea
+                id="roleMapping"
+                value={config.roleMapping || ''}
+                onChange={(e) => onChange('roleMapping', e.target.value)}
+                placeholder="售后:包含'售后','客服'字样&#10;营销:包含'营销','推广'字样&#10;技术:包含'技术','开发'字样"
+                className="mt-1 resize-none font-mono text-xs"
+                rows={3}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：优先级智能检测 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🎯</span>
+          优先级智能检测
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enableSmartPriorityDetection"
+              checked={config.enableSmartPriorityDetection ?? false}
+              onCheckedChange={(checked) => onChange('enableSmartPriorityDetection', checked)}
+            />
+            <Label htmlFor="enableSmartPriorityDetection" className="text-sm">
+              启用智能优先级检测
+            </Label>
+          </div>
+          <p className="text-[10px] text-slate-500 ml-6">
+            根据消息内容和业务角色自动判断消息优先级
+          </p>
+          {config.enableSmartPriorityDetection && (
+            <div className="space-y-2">
+              <div>
+                <Label htmlFor="highPriorityKeywords" className="text-xs">高优先级关键词</Label>
+                <Input
+                  id="highPriorityKeywords"
+                  value={config.priorityKeywords?.high || ''}
+                  onChange={(e) => onChange('priorityKeywords', {
+                    ...(config.priorityKeywords || {}),
+                    high: e.target.value
+                  })}
+                  placeholder="紧急,投诉,问题"
+                  className="mt-1 h-7 text-xs"
+                />
+              </div>
+              <div>
+                <Label htmlFor="lowPriorityKeywords" className="text-xs">低优先级关键词</Label>
+                <Input
+                  id="lowPriorityKeywords"
+                  value={config.priorityKeywords?.low || ''}
+                  onChange={(e) => onChange('priorityKeywords', {
+                    ...(config.priorityKeywords || {}),
+                    low: e.target.value
+                  })}
+                  placeholder="闲聊,问候,谢谢"
+                  className="mt-1 h-7 text-xs"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：工作人员状态记录 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>👨‍💼</span>
+          工作人员状态记录
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="trackStaffActivity"
+              checked={config.trackStaffActivity ?? false}
+              onCheckedChange={(checked) => onChange('trackStaffActivity', checked)}
+            />
+            <Label htmlFor="trackStaffActivity" className="text-sm">
+              记录工作人员活动状态
+            </Label>
+          </div>
+          <p className="text-[10px] text-slate-500 ml-6">
+            检测工作人员的在线状态和活跃度
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -449,6 +561,193 @@ function IntentConfig({ config, onChange }: any) {
               </SelectContent>
             </Select>
           </div>
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：业务角色优先级配置 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🎯</span>
+          业务角色优先级
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label htmlFor="rolePriorityMode" className="text-xs">优先级模式</Label>
+            <Select
+              value={config.businessRolePriority?.mode || 'global'}
+              onValueChange={(value) => onChange('businessRolePriority', {
+                ...(config.businessRolePriority || {}),
+                mode: value
+              })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择优先级模式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="global">全局优先级</SelectItem>
+                <SelectItem value="per_role">按角色优先级</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {config.businessRolePriority?.mode === 'per_role' && (
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+              <Label className="text-xs font-medium text-slate-700">角色优先级规则</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="highPriorityRoles" className="text-xs">高优先级角色</Label>
+                  <Input
+                    id="highPriorityRoles"
+                    value={config.businessRolePriority?.roles?.high || ''}
+                    onChange={(e) => onChange('businessRolePriority', {
+                      ...(config.businessRolePriority || {}),
+                      roles: { ...(config.businessRolePriority?.roles || {}), high: e.target.value }
+                    })}
+                    placeholder="用逗号分隔"
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="mediumPriorityRoles" className="text-xs">中优先级角色</Label>
+                  <Input
+                    id="mediumPriorityRoles"
+                    value={config.businessRolePriority?.roles?.medium || ''}
+                    onChange={(e) => onChange('businessRolePriority', {
+                      ...(config.businessRolePriority || {}),
+                      roles: { ...(config.businessRolePriority?.roles || {}), medium: e.target.value }
+                    })}
+                    placeholder="用逗号分隔"
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：工作人员重试策略 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🔄</span>
+          工作人员重试策略
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label htmlFor="staffRetryMode" className="text-xs">重试模式</Label>
+            <Select
+              value={config.staffRetryStrategy?.mode || 'standard'}
+              onValueChange={(value) => onChange('staffRetryStrategy', {
+                ...(config.staffRetryStrategy || {}),
+                mode: value
+              })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择重试模式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="standard">标准重试</SelectItem>
+                <SelectItem value="staff_aware">工作人员感知重试</SelectItem>
+                <SelectItem value="smart">智能重试</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {config.staffRetryStrategy?.mode === 'staff_aware' && (
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="skipIfStaffOnline"
+                  checked={config.staffRetryStrategy?.skipIfStaffOnline ?? false}
+                  onCheckedChange={(checked) => onChange('staffRetryStrategy', {
+                    ...(config.staffRetryStrategy || {}),
+                    skipIfStaffOnline: checked
+                  })}
+                />
+                <Label htmlFor="skipIfStaffOnline" className="text-xs">工作人员在线时跳过重试</Label>
+              </div>
+              <div>
+                <Label htmlFor="staffOnlineCheckTimeout" className="text-xs">在线检测超时（秒）</Label>
+                <Input
+                  id="staffOnlineCheckTimeout"
+                  type="number"
+                  min="1"
+                  max="60"
+                  value={config.staffRetryStrategy?.staffOnlineCheckTimeout ?? 5}
+                  onChange={(e) => onChange('staffRetryStrategy', {
+                    ...(config.staffRetryStrategy || {}),
+                    staffOnlineCheckTimeout: parseInt(e.target.value)
+                  })}
+                  className="mt-1 h-7 text-xs"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：AI行为执行策略 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🤖</span>
+          AI行为执行策略
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label htmlFor="aiExecutionMode" className="text-xs">执行模式</Label>
+            <Select
+              value={config.aiBehaviorExecution?.mode || 'auto'}
+              onValueChange={(value) => onChange('aiBehaviorExecution', {
+                ...(config.aiBehaviorExecution || {}),
+                mode: value
+              })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择执行模式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">自动执行</SelectItem>
+                <SelectItem value="conditional">条件执行</SelectItem>
+                <SelectItem value="manual">手动触发</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {config.aiBehaviorExecution?.mode === 'conditional' && (
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+              <Label className="text-xs font-medium text-slate-700">执行条件</Label>
+              <div>
+                <Label htmlFor="executeOnHighConfidence" className="text-xs">高置信度阈值</Label>
+                <Input
+                  id="executeOnHighConfidence"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="1"
+                  value={config.aiBehaviorExecution?.executeOnHighConfidence ?? 0.8}
+                  onChange={(e) => onChange('aiBehaviorExecution', {
+                    ...(config.aiBehaviorExecution || {}),
+                    executeOnHighConfidence: parseFloat(e.target.value)
+                  })}
+                  className="mt-1 h-7 text-xs"
+                  placeholder="0-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="executeOnIntention" className="text-xs">仅对特定意图执行</Label>
+                <Input
+                  id="executeOnIntention"
+                  value={config.aiBehaviorExecution?.executeOnIntention || ''}
+                  onChange={(e) => onChange('aiBehaviorExecution', {
+                    ...(config.aiBehaviorExecution || {}),
+                    executeOnIntention: e.target.value
+                  })}
+                  placeholder="用逗号分隔，如：service,help"
+                  className="mt-1 h-7 text-xs"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1101,6 +1400,193 @@ function AiReplyConfig({ config, onChange }: any) {
         </div>
       </div>
 
+      {/* ========== 阶段二新增：业务角色优先级配置 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🎯</span>
+          业务角色优先级
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label htmlFor="rolePriorityMode" className="text-xs">优先级模式</Label>
+            <Select
+              value={config.businessRolePriority?.mode || 'global'}
+              onValueChange={(value) => onChange('businessRolePriority', {
+                ...(config.businessRolePriority || {}),
+                mode: value
+              })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择优先级模式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="global">全局优先级</SelectItem>
+                <SelectItem value="per_role">按角色优先级</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {config.businessRolePriority?.mode === 'per_role' && (
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+              <Label className="text-xs font-medium text-slate-700">角色优先级规则</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="highPriorityRoles" className="text-xs">高优先级角色</Label>
+                  <Input
+                    id="highPriorityRoles"
+                    value={config.businessRolePriority?.roles?.high || ''}
+                    onChange={(e) => onChange('businessRolePriority', {
+                      ...(config.businessRolePriority || {}),
+                      roles: { ...(config.businessRolePriority?.roles || {}), high: e.target.value }
+                    })}
+                    placeholder="用逗号分隔"
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="mediumPriorityRoles" className="text-xs">中优先级角色</Label>
+                  <Input
+                    id="mediumPriorityRoles"
+                    value={config.businessRolePriority?.roles?.medium || ''}
+                    onChange={(e) => onChange('businessRolePriority', {
+                      ...(config.businessRolePriority || {}),
+                      roles: { ...(config.businessRolePriority?.roles || {}), medium: e.target.value }
+                    })}
+                    placeholder="用逗号分隔"
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：工作人员重试策略 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🔄</span>
+          工作人员重试策略
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label htmlFor="staffRetryMode" className="text-xs">重试模式</Label>
+            <Select
+              value={config.staffRetryStrategy?.mode || 'standard'}
+              onValueChange={(value) => onChange('staffRetryStrategy', {
+                ...(config.staffRetryStrategy || {}),
+                mode: value
+              })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择重试模式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="standard">标准重试</SelectItem>
+                <SelectItem value="staff_aware">工作人员感知重试</SelectItem>
+                <SelectItem value="smart">智能重试</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {config.staffRetryStrategy?.mode === 'staff_aware' && (
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="skipIfStaffOnline"
+                  checked={config.staffRetryStrategy?.skipIfStaffOnline ?? false}
+                  onCheckedChange={(checked) => onChange('staffRetryStrategy', {
+                    ...(config.staffRetryStrategy || {}),
+                    skipIfStaffOnline: checked
+                  })}
+                />
+                <Label htmlFor="skipIfStaffOnline" className="text-xs">工作人员在线时跳过重试</Label>
+              </div>
+              <div>
+                <Label htmlFor="staffOnlineCheckTimeout" className="text-xs">在线检测超时（秒）</Label>
+                <Input
+                  id="staffOnlineCheckTimeout"
+                  type="number"
+                  min="1"
+                  max="60"
+                  value={config.staffRetryStrategy?.staffOnlineCheckTimeout ?? 5}
+                  onChange={(e) => onChange('staffRetryStrategy', {
+                    ...(config.staffRetryStrategy || {}),
+                    staffOnlineCheckTimeout: parseInt(e.target.value)
+                  })}
+                  className="mt-1 h-7 text-xs"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：AI行为执行策略 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🤖</span>
+          AI行为执行策略
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label htmlFor="aiExecutionMode" className="text-xs">执行模式</Label>
+            <Select
+              value={config.aiBehaviorExecution?.mode || 'auto'}
+              onValueChange={(value) => onChange('aiBehaviorExecution', {
+                ...(config.aiBehaviorExecution || {}),
+                mode: value
+              })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择执行模式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">自动执行</SelectItem>
+                <SelectItem value="conditional">条件执行</SelectItem>
+                <SelectItem value="manual">手动触发</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {config.aiBehaviorExecution?.mode === 'conditional' && (
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+              <Label className="text-xs font-medium text-slate-700">执行条件</Label>
+              <div>
+                <Label htmlFor="executeOnHighConfidence" className="text-xs">高置信度阈值</Label>
+                <Input
+                  id="executeOnHighConfidence"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="1"
+                  value={config.aiBehaviorExecution?.executeOnHighConfidence ?? 0.8}
+                  onChange={(e) => onChange('aiBehaviorExecution', {
+                    ...(config.aiBehaviorExecution || {}),
+                    executeOnHighConfidence: parseFloat(e.target.value)
+                  })}
+                  className="mt-1 h-7 text-xs"
+                  placeholder="0-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="executeOnIntention" className="text-xs">仅对特定意图执行</Label>
+                <Input
+                  id="executeOnIntention"
+                  value={config.aiBehaviorExecution?.executeOnIntention || ''}
+                  onChange={(e) => onChange('aiBehaviorExecution', {
+                    ...(config.aiBehaviorExecution || {}),
+                    executeOnIntention: e.target.value
+                  })}
+                  placeholder="用逗号分隔，如：service,help"
+                  className="mt-1 h-7 text-xs"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* 配置预览 */}
       <details className="pt-2 border-t border-slate-200">
         <summary className="text-xs text-slate-600 cursor-pointer hover:text-slate-800">
@@ -1260,6 +1746,118 @@ function MessageDispatchConfig({ config, onChange }: any) {
               </SelectContent>
             </Select>
           </div>
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：业务角色提取配置 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>👥</span>
+          业务角色提取
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="extractBusinessRole"
+              checked={config.extractBusinessRole ?? false}
+              onCheckedChange={(checked) => onChange('extractBusinessRole', checked)}
+            />
+            <Label htmlFor="extractBusinessRole" className="text-sm">
+              启用业务角色提取
+            </Label>
+          </div>
+          <p className="text-[10px] text-slate-500 ml-6">
+            根据群组名称或用户信息自动提取业务角色
+          </p>
+          {config.extractBusinessRole && (
+            <div>
+              <Label htmlFor="roleMapping" className="text-xs">角色映射规则</Label>
+              <Textarea
+                id="roleMapping"
+                value={config.roleMapping || ''}
+                onChange={(e) => onChange('roleMapping', e.target.value)}
+                placeholder="售后:包含'售后','客服'字样&#10;营销:包含'营销','推广'字样&#10;技术:包含'技术','开发'字样"
+                className="mt-1 resize-none font-mono text-xs"
+                rows={3}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：优先级智能检测 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🎯</span>
+          优先级智能检测
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enableSmartPriorityDetection"
+              checked={config.enableSmartPriorityDetection ?? false}
+              onCheckedChange={(checked) => onChange('enableSmartPriorityDetection', checked)}
+            />
+            <Label htmlFor="enableSmartPriorityDetection" className="text-sm">
+              启用智能优先级检测
+            </Label>
+          </div>
+          <p className="text-[10px] text-slate-500 ml-6">
+            根据消息内容和业务角色自动判断消息优先级
+          </p>
+          {config.enableSmartPriorityDetection && (
+            <div className="space-y-2">
+              <div>
+                <Label htmlFor="highPriorityKeywords" className="text-xs">高优先级关键词</Label>
+                <Input
+                  id="highPriorityKeywords"
+                  value={config.priorityKeywords?.high || ''}
+                  onChange={(e) => onChange('priorityKeywords', {
+                    ...(config.priorityKeywords || {}),
+                    high: e.target.value
+                  })}
+                  placeholder="紧急,投诉,问题"
+                  className="mt-1 h-7 text-xs"
+                />
+              </div>
+              <div>
+                <Label htmlFor="lowPriorityKeywords" className="text-xs">低优先级关键词</Label>
+                <Input
+                  id="lowPriorityKeywords"
+                  value={config.priorityKeywords?.low || ''}
+                  onChange={(e) => onChange('priorityKeywords', {
+                    ...(config.priorityKeywords || {}),
+                    low: e.target.value
+                  })}
+                  placeholder="闲聊,问候,谢谢"
+                  className="mt-1 h-7 text-xs"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：工作人员状态记录 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>👨‍💼</span>
+          工作人员状态记录
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="trackStaffActivity"
+              checked={config.trackStaffActivity ?? false}
+              onCheckedChange={(checked) => onChange('trackStaffActivity', checked)}
+            />
+            <Label htmlFor="trackStaffActivity" className="text-sm">
+              记录工作人员活动状态
+            </Label>
+          </div>
+          <p className="text-[10px] text-slate-500 ml-6">
+            检测工作人员的在线状态和活跃度
+          </p>
         </div>
       </div>
     </div>
@@ -1519,6 +2117,193 @@ function SendCommandConfig({ config, onChange }: any) {
         </div>
       </div>
 
+      {/* ========== 阶段二新增：业务角色优先级配置 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🎯</span>
+          业务角色优先级
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label htmlFor="rolePriorityMode" className="text-xs">优先级模式</Label>
+            <Select
+              value={config.businessRolePriority?.mode || 'global'}
+              onValueChange={(value) => onChange('businessRolePriority', {
+                ...(config.businessRolePriority || {}),
+                mode: value
+              })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择优先级模式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="global">全局优先级</SelectItem>
+                <SelectItem value="per_role">按角色优先级</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {config.businessRolePriority?.mode === 'per_role' && (
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+              <Label className="text-xs font-medium text-slate-700">角色优先级规则</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="highPriorityRoles" className="text-xs">高优先级角色</Label>
+                  <Input
+                    id="highPriorityRoles"
+                    value={config.businessRolePriority?.roles?.high || ''}
+                    onChange={(e) => onChange('businessRolePriority', {
+                      ...(config.businessRolePriority || {}),
+                      roles: { ...(config.businessRolePriority?.roles || {}), high: e.target.value }
+                    })}
+                    placeholder="用逗号分隔"
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="mediumPriorityRoles" className="text-xs">中优先级角色</Label>
+                  <Input
+                    id="mediumPriorityRoles"
+                    value={config.businessRolePriority?.roles?.medium || ''}
+                    onChange={(e) => onChange('businessRolePriority', {
+                      ...(config.businessRolePriority || {}),
+                      roles: { ...(config.businessRolePriority?.roles || {}), medium: e.target.value }
+                    })}
+                    placeholder="用逗号分隔"
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：工作人员重试策略 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🔄</span>
+          工作人员重试策略
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label htmlFor="staffRetryMode" className="text-xs">重试模式</Label>
+            <Select
+              value={config.staffRetryStrategy?.mode || 'standard'}
+              onValueChange={(value) => onChange('staffRetryStrategy', {
+                ...(config.staffRetryStrategy || {}),
+                mode: value
+              })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择重试模式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="standard">标准重试</SelectItem>
+                <SelectItem value="staff_aware">工作人员感知重试</SelectItem>
+                <SelectItem value="smart">智能重试</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {config.staffRetryStrategy?.mode === 'staff_aware' && (
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="skipIfStaffOnline"
+                  checked={config.staffRetryStrategy?.skipIfStaffOnline ?? false}
+                  onCheckedChange={(checked) => onChange('staffRetryStrategy', {
+                    ...(config.staffRetryStrategy || {}),
+                    skipIfStaffOnline: checked
+                  })}
+                />
+                <Label htmlFor="skipIfStaffOnline" className="text-xs">工作人员在线时跳过重试</Label>
+              </div>
+              <div>
+                <Label htmlFor="staffOnlineCheckTimeout" className="text-xs">在线检测超时（秒）</Label>
+                <Input
+                  id="staffOnlineCheckTimeout"
+                  type="number"
+                  min="1"
+                  max="60"
+                  value={config.staffRetryStrategy?.staffOnlineCheckTimeout ?? 5}
+                  onChange={(e) => onChange('staffRetryStrategy', {
+                    ...(config.staffRetryStrategy || {}),
+                    staffOnlineCheckTimeout: parseInt(e.target.value)
+                  })}
+                  className="mt-1 h-7 text-xs"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：AI行为执行策略 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🤖</span>
+          AI行为执行策略
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label htmlFor="aiExecutionMode" className="text-xs">执行模式</Label>
+            <Select
+              value={config.aiBehaviorExecution?.mode || 'auto'}
+              onValueChange={(value) => onChange('aiBehaviorExecution', {
+                ...(config.aiBehaviorExecution || {}),
+                mode: value
+              })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择执行模式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">自动执行</SelectItem>
+                <SelectItem value="conditional">条件执行</SelectItem>
+                <SelectItem value="manual">手动触发</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {config.aiBehaviorExecution?.mode === 'conditional' && (
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+              <Label className="text-xs font-medium text-slate-700">执行条件</Label>
+              <div>
+                <Label htmlFor="executeOnHighConfidence" className="text-xs">高置信度阈值</Label>
+                <Input
+                  id="executeOnHighConfidence"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="1"
+                  value={config.aiBehaviorExecution?.executeOnHighConfidence ?? 0.8}
+                  onChange={(e) => onChange('aiBehaviorExecution', {
+                    ...(config.aiBehaviorExecution || {}),
+                    executeOnHighConfidence: parseFloat(e.target.value)
+                  })}
+                  className="mt-1 h-7 text-xs"
+                  placeholder="0-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="executeOnIntention" className="text-xs">仅对特定意图执行</Label>
+                <Input
+                  id="executeOnIntention"
+                  value={config.aiBehaviorExecution?.executeOnIntention || ''}
+                  onChange={(e) => onChange('aiBehaviorExecution', {
+                    ...(config.aiBehaviorExecution || {}),
+                    executeOnIntention: e.target.value
+                  })}
+                  placeholder="用逗号分隔，如：service,help"
+                  className="mt-1 h-7 text-xs"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* 配置预览 */}
       <details className="pt-2 border-t border-slate-200">
         <summary className="text-xs text-slate-600 cursor-pointer hover:text-slate-800">
@@ -1537,6 +2322,9 @@ function SendCommandConfig({ config, onChange }: any) {
               enableRetry: config.enableRetry ?? true,
               retryCount: config.retryCount ?? 3,
               retryDelay: config.retryDelay ?? 2000,
+              businessRolePriority: config.businessRolePriority || {},
+              staffRetryStrategy: config.staffRetryStrategy || {},
+              aiBehaviorExecution: config.aiBehaviorExecution || {},
             },
             null,
             2
@@ -1603,6 +2391,93 @@ function CommandStatusConfig({ config, onChange }: any) {
               <SelectItem value="both">双面板</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：业务角色日志策略 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>👥</span>
+          业务角色日志策略
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label htmlFor="roleLogStrategy" className="text-xs">日志策略</Label>
+            <Select
+              value={config.roleLogStrategy || 'global'}
+              onValueChange={(value) => onChange('roleLogStrategy', value)}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择日志策略" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="global">全局统一日志</SelectItem>
+                <SelectItem value="per_role">按角色独立日志</SelectItem>
+                <SelectItem value="mixed">混合日志</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-slate-500 mt-1">
+              决定如何记录不同业务角色的操作日志
+            </p>
+          </div>
+
+          {config.roleLogStrategy === 'per_role' && (
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="enableRoleFilter"
+                checked={config.enableRoleFilter ?? false}
+                onCheckedChange={(checked) => onChange('enableRoleFilter', checked)}
+              />
+              <Label htmlFor="enableRoleFilter" className="text-xs">启用角色过滤</Label>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：AI行为日志策略 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🤖</span>
+          AI行为日志策略
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="logAIBehavior"
+              checked={config.logAIBehavior ?? false}
+              onCheckedChange={(checked) => onChange('logAIBehavior', checked)}
+            />
+            <Label htmlFor="logAIBehavior" className="text-sm">记录AI行为模式</Label>
+          </div>
+          
+          {config.logAIBehavior && (
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="logBehaviorMode"
+                  checked={config.logBehaviorMode ?? false}
+                  onCheckedChange={(checked) => onChange('logBehaviorMode', checked)}
+                />
+                <Label htmlFor="logBehaviorMode" className="text-xs">记录行为模式</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="logExecutionTime"
+                  checked={config.logExecutionTime ?? true}
+                  onCheckedChange={(checked) => onChange('logExecutionTime', checked)}
+                />
+                <Label htmlFor="logExecutionTime" className="text-xs">记录执行时间</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="logConfidence"
+                  checked={config.logConfidence ?? false}
+                  onCheckedChange={(checked) => onChange('logConfidence', checked)}
+                />
+                <Label htmlFor="logConfidence" className="text-xs">记录置信度</Label>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -2672,6 +3547,193 @@ function EndConfig({ config, onChange }: any) {
         </div>
       </div>
 
+      {/* ========== 阶段二新增：业务角色优先级配置 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🎯</span>
+          业务角色优先级
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label htmlFor="rolePriorityMode" className="text-xs">优先级模式</Label>
+            <Select
+              value={config.businessRolePriority?.mode || 'global'}
+              onValueChange={(value) => onChange('businessRolePriority', {
+                ...(config.businessRolePriority || {}),
+                mode: value
+              })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择优先级模式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="global">全局优先级</SelectItem>
+                <SelectItem value="per_role">按角色优先级</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {config.businessRolePriority?.mode === 'per_role' && (
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+              <Label className="text-xs font-medium text-slate-700">角色优先级规则</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="highPriorityRoles" className="text-xs">高优先级角色</Label>
+                  <Input
+                    id="highPriorityRoles"
+                    value={config.businessRolePriority?.roles?.high || ''}
+                    onChange={(e) => onChange('businessRolePriority', {
+                      ...(config.businessRolePriority || {}),
+                      roles: { ...(config.businessRolePriority?.roles || {}), high: e.target.value }
+                    })}
+                    placeholder="用逗号分隔"
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="mediumPriorityRoles" className="text-xs">中优先级角色</Label>
+                  <Input
+                    id="mediumPriorityRoles"
+                    value={config.businessRolePriority?.roles?.medium || ''}
+                    onChange={(e) => onChange('businessRolePriority', {
+                      ...(config.businessRolePriority || {}),
+                      roles: { ...(config.businessRolePriority?.roles || {}), medium: e.target.value }
+                    })}
+                    placeholder="用逗号分隔"
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：工作人员重试策略 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🔄</span>
+          工作人员重试策略
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label htmlFor="staffRetryMode" className="text-xs">重试模式</Label>
+            <Select
+              value={config.staffRetryStrategy?.mode || 'standard'}
+              onValueChange={(value) => onChange('staffRetryStrategy', {
+                ...(config.staffRetryStrategy || {}),
+                mode: value
+              })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择重试模式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="standard">标准重试</SelectItem>
+                <SelectItem value="staff_aware">工作人员感知重试</SelectItem>
+                <SelectItem value="smart">智能重试</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {config.staffRetryStrategy?.mode === 'staff_aware' && (
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="skipIfStaffOnline"
+                  checked={config.staffRetryStrategy?.skipIfStaffOnline ?? false}
+                  onCheckedChange={(checked) => onChange('staffRetryStrategy', {
+                    ...(config.staffRetryStrategy || {}),
+                    skipIfStaffOnline: checked
+                  })}
+                />
+                <Label htmlFor="skipIfStaffOnline" className="text-xs">工作人员在线时跳过重试</Label>
+              </div>
+              <div>
+                <Label htmlFor="staffOnlineCheckTimeout" className="text-xs">在线检测超时（秒）</Label>
+                <Input
+                  id="staffOnlineCheckTimeout"
+                  type="number"
+                  min="1"
+                  max="60"
+                  value={config.staffRetryStrategy?.staffOnlineCheckTimeout ?? 5}
+                  onChange={(e) => onChange('staffRetryStrategy', {
+                    ...(config.staffRetryStrategy || {}),
+                    staffOnlineCheckTimeout: parseInt(e.target.value)
+                  })}
+                  className="mt-1 h-7 text-xs"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：AI行为执行策略 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🤖</span>
+          AI行为执行策略
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label htmlFor="aiExecutionMode" className="text-xs">执行模式</Label>
+            <Select
+              value={config.aiBehaviorExecution?.mode || 'auto'}
+              onValueChange={(value) => onChange('aiBehaviorExecution', {
+                ...(config.aiBehaviorExecution || {}),
+                mode: value
+              })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择执行模式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">自动执行</SelectItem>
+                <SelectItem value="conditional">条件执行</SelectItem>
+                <SelectItem value="manual">手动触发</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {config.aiBehaviorExecution?.mode === 'conditional' && (
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+              <Label className="text-xs font-medium text-slate-700">执行条件</Label>
+              <div>
+                <Label htmlFor="executeOnHighConfidence" className="text-xs">高置信度阈值</Label>
+                <Input
+                  id="executeOnHighConfidence"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="1"
+                  value={config.aiBehaviorExecution?.executeOnHighConfidence ?? 0.8}
+                  onChange={(e) => onChange('aiBehaviorExecution', {
+                    ...(config.aiBehaviorExecution || {}),
+                    executeOnHighConfidence: parseFloat(e.target.value)
+                  })}
+                  className="mt-1 h-7 text-xs"
+                  placeholder="0-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="executeOnIntention" className="text-xs">仅对特定意图执行</Label>
+                <Input
+                  id="executeOnIntention"
+                  value={config.aiBehaviorExecution?.executeOnIntention || ''}
+                  onChange={(e) => onChange('aiBehaviorExecution', {
+                    ...(config.aiBehaviorExecution || {}),
+                    executeOnIntention: e.target.value
+                  })}
+                  placeholder="用逗号分隔，如：service,help"
+                  className="mt-1 h-7 text-xs"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* 配置预览 */}
       <details className="pt-2 border-t border-slate-200">
         <summary className="text-xs text-slate-600 cursor-pointer hover:text-slate-800">
@@ -2930,6 +3992,193 @@ function RobotDispatchConfig({ config, onChange }: any) {
                 placeholder="email,wechat,webhook"
                 className="mt-1"
               />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：业务角色优先级配置 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🎯</span>
+          业务角色优先级
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label htmlFor="rolePriorityMode" className="text-xs">优先级模式</Label>
+            <Select
+              value={config.businessRolePriority?.mode || 'global'}
+              onValueChange={(value) => onChange('businessRolePriority', {
+                ...(config.businessRolePriority || {}),
+                mode: value
+              })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择优先级模式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="global">全局优先级</SelectItem>
+                <SelectItem value="per_role">按角色优先级</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {config.businessRolePriority?.mode === 'per_role' && (
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+              <Label className="text-xs font-medium text-slate-700">角色优先级规则</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="highPriorityRoles" className="text-xs">高优先级角色</Label>
+                  <Input
+                    id="highPriorityRoles"
+                    value={config.businessRolePriority?.roles?.high || ''}
+                    onChange={(e) => onChange('businessRolePriority', {
+                      ...(config.businessRolePriority || {}),
+                      roles: { ...(config.businessRolePriority?.roles || {}), high: e.target.value }
+                    })}
+                    placeholder="用逗号分隔"
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="mediumPriorityRoles" className="text-xs">中优先级角色</Label>
+                  <Input
+                    id="mediumPriorityRoles"
+                    value={config.businessRolePriority?.roles?.medium || ''}
+                    onChange={(e) => onChange('businessRolePriority', {
+                      ...(config.businessRolePriority || {}),
+                      roles: { ...(config.businessRolePriority?.roles || {}), medium: e.target.value }
+                    })}
+                    placeholder="用逗号分隔"
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：工作人员重试策略 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🔄</span>
+          工作人员重试策略
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label htmlFor="staffRetryMode" className="text-xs">重试模式</Label>
+            <Select
+              value={config.staffRetryStrategy?.mode || 'standard'}
+              onValueChange={(value) => onChange('staffRetryStrategy', {
+                ...(config.staffRetryStrategy || {}),
+                mode: value
+              })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择重试模式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="standard">标准重试</SelectItem>
+                <SelectItem value="staff_aware">工作人员感知重试</SelectItem>
+                <SelectItem value="smart">智能重试</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {config.staffRetryStrategy?.mode === 'staff_aware' && (
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="skipIfStaffOnline"
+                  checked={config.staffRetryStrategy?.skipIfStaffOnline ?? false}
+                  onCheckedChange={(checked) => onChange('staffRetryStrategy', {
+                    ...(config.staffRetryStrategy || {}),
+                    skipIfStaffOnline: checked
+                  })}
+                />
+                <Label htmlFor="skipIfStaffOnline" className="text-xs">工作人员在线时跳过重试</Label>
+              </div>
+              <div>
+                <Label htmlFor="staffOnlineCheckTimeout" className="text-xs">在线检测超时（秒）</Label>
+                <Input
+                  id="staffOnlineCheckTimeout"
+                  type="number"
+                  min="1"
+                  max="60"
+                  value={config.staffRetryStrategy?.staffOnlineCheckTimeout ?? 5}
+                  onChange={(e) => onChange('staffRetryStrategy', {
+                    ...(config.staffRetryStrategy || {}),
+                    staffOnlineCheckTimeout: parseInt(e.target.value)
+                  })}
+                  className="mt-1 h-7 text-xs"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========== 阶段二新增：AI行为执行策略 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🤖</span>
+          AI行为执行策略
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label htmlFor="aiExecutionMode" className="text-xs">执行模式</Label>
+            <Select
+              value={config.aiBehaviorExecution?.mode || 'auto'}
+              onValueChange={(value) => onChange('aiBehaviorExecution', {
+                ...(config.aiBehaviorExecution || {}),
+                mode: value
+              })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择执行模式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">自动执行</SelectItem>
+                <SelectItem value="conditional">条件执行</SelectItem>
+                <SelectItem value="manual">手动触发</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {config.aiBehaviorExecution?.mode === 'conditional' && (
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+              <Label className="text-xs font-medium text-slate-700">执行条件</Label>
+              <div>
+                <Label htmlFor="executeOnHighConfidence" className="text-xs">高置信度阈值</Label>
+                <Input
+                  id="executeOnHighConfidence"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="1"
+                  value={config.aiBehaviorExecution?.executeOnHighConfidence ?? 0.8}
+                  onChange={(e) => onChange('aiBehaviorExecution', {
+                    ...(config.aiBehaviorExecution || {}),
+                    executeOnHighConfidence: parseFloat(e.target.value)
+                  })}
+                  className="mt-1 h-7 text-xs"
+                  placeholder="0-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="executeOnIntention" className="text-xs">仅对特定意图执行</Label>
+                <Input
+                  id="executeOnIntention"
+                  value={config.aiBehaviorExecution?.executeOnIntention || ''}
+                  onChange={(e) => onChange('aiBehaviorExecution', {
+                    ...(config.aiBehaviorExecution || {}),
+                    executeOnIntention: e.target.value
+                  })}
+                  placeholder="用逗号分隔，如：service,help"
+                  className="mt-1 h-7 text-xs"
+                />
+              </div>
             </div>
           )}
         </div>
