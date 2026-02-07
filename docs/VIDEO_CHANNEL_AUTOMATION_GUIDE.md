@@ -248,7 +248,7 @@ src/
 - 保存到本地文件（实际应用中应保存到数据库）
 - 返回提取的Cookie数量
 
-### 4. 人工审核
+### 6. 人工审核（含权限检测）
 
 **接口**: `POST /api/video-channel/manual-audit`
 
@@ -265,16 +265,27 @@ src/
   "success": true,
   "shopScreenshotBase64": "data:image/png;base64,...",
   "shopScreenshotUrl": "/api/video-channel/audit/shop_1770485085832.png",
+  "shopAccessible": true,
+  "shopStatusCode": 200,
   "assistantScreenshotBase64": "data:image/png;base64,...",
   "assistantScreenshotUrl": "/api/video-channel/audit/assistant_1770485085832.png",
-  "message": "人工审核截图生成成功，请审核"
+  "assistantAccessible": false,
+  "assistantStatusCode": 200,
+  "message": "Cookie权限不完整，只能访问视频号小店，无法访问视频号助手"
 }
 ```
 
 **功能说明**:
 - 使用Cookie访问视频号小店和助手页面
+- 检测Cookie在两个页面的可访问性（HTTP状态码 + 页面内容验证）
 - 生成页面截图供人工审核
 - 返回截图的base64编码和存储路径
+- 返回Cookie权限检测结果，明确说明Cookie可以访问哪些页面
+
+**Cookie权限说明**:
+- **完整权限**: 可访问视频号小店和视频号助手
+- **部分权限**: 只能访问视频号小店或只能访问视频号助手
+- **无效Cookie**: 无法访问任何页面
 
 ## 🎨 前端页面
 
@@ -285,15 +296,17 @@ src/
 1. **步骤引导**: 显示当前执行步骤（获取二维码 → 检测登录 → 提取Cookie → 人工审核）
 2. **二维码展示**: 显示视频号小店登录二维码
 3. **登录状态检测**: 实时显示登录状态
-4. **Cookie管理**: 显示提取的Cookie列表
-5. **截图审核**: 展示视频号小店和助手的页面截图
-6. **API文档**: 内置完整的API接口文档
+4. **Cookie管理**: 显示提取的Cookie列表（所有Cookie，不过滤）
+5. **权限检测**: 显示Cookie在视频号小店和视频号助手的访问权限
+6. **截图审核**: 展示视频号小店和助手的页面截图
+7. **API文档**: 内置完整的API接口文档
 
 ### UI组件
 - 使用 shadcn/ui 组件库
 - 响应式设计，支持移动端
 - 实时状态更新
 - 错误提示和加载状态
+- Cookie权限状态显示（可访问/不可访问）
 
 ## 🔧 配置说明
 

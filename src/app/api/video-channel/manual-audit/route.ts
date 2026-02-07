@@ -41,9 +41,13 @@ export async function POST(request: NextRequest) {
         success: true,
         shopScreenshotBase64,
         shopScreenshotUrl: result.shopScreenshotUrl,
+        shopAccessible: result.shopAccessible,
+        shopStatusCode: result.shopStatusCode,
         assistantScreenshotBase64,
         assistantScreenshotUrl: result.assistantScreenshotUrl,
-        message: '人工审核截图生成成功，请审核'
+        assistantAccessible: result.assistantAccessible,
+        assistantStatusCode: result.assistantStatusCode,
+        message: result.message || '人工审核截图生成成功，请审核'
       });
     } else {
       return NextResponse.json({

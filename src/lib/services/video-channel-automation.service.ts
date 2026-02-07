@@ -38,8 +38,13 @@ interface ManualAuditResult {
   success: boolean;
   shopScreenshotPath?: string;
   shopScreenshotUrl?: string;
+  shopAccessible?: boolean;
+  shopStatusCode?: number;
   assistantScreenshotPath?: string;
   assistantScreenshotUrl?: string;
+  assistantAccessible?: boolean;
+  assistantStatusCode?: number;
+  message?: string;
   error?: string;
 }
 
@@ -354,33 +359,27 @@ class VideoChannelAutomationService {
   /**
    * 4. 提取和保存Cookie
    */
-  async extractAndSaveCookies(userId: string, cookies: any[]): Promise<{ success: boolean; cookieCount?: number; error?: string }> {
+  async extractAndSaveCookies(userId: string, cookies: any[]): Promise<{ success: boolean; cookieCount?: number; error?: string; cookies?: any[] }> {
     try {
-      // 提取关键Cookie
-      const keyCookies = cookies
-        .filter(cookie =>
-          cookie.name.toLowerCase().includes('session') ||
-          cookie.name.toLowerCase().includes('token') ||
-          cookie.name.toLowerCase().includes('user') ||
-          cookie.name.toLowerCase().includes('login')
-        )
-        .map(cookie => ({
-          name: cookie.name,
-          value: cookie.value,
-          domain: cookie.domain,
-          path: cookie.path,
-          expires: cookie.expires,
-          httpOnly: cookie.httpOnly,
-          secure: cookie.secure,
-          sameSite: cookie.sameSite
-        }));
+      // 提取所有Cookie（不过滤，保留完整权限信息）
+      const allCookies = cookies.map(cookie => ({
+        name: cookie.name,
+        value: cookie.value,
+        domain: cookie.domain,
+        path: cookie.path,
+        expires: cookie.expires,
+        httpOnly: cookie.httpOnly,
+        secure: cookie.secure,
+        sameSite: cookie.sameSite
+      }));
 
       // 保存到文件（实际应用中应该保存到数据库）
       const timestamp = Date.now();
       const cookieFilePath = path.join('/tmp', `cookies_${userId}_${timestamp}.json`);
       await fs.writeFile(cookieFilePath, JSON.stringify({
         userId,
-        cookies: keyCookies,
+        cookies: allCookies,
+        cookieCount: allCookies.length,
         extractedAt: new Date(),
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30天后过期
         status: 'active'
@@ -388,7 +387,8 @@ class VideoChannelAutomationService {
 
       return {
         success: true,
-        cookieCount: keyCookies.length
+        cookieCount: allCookies.length,
+        cookies: allCookies
       };
     } catch (error: any) {
       console.error('提取和保存Cookie失败:', error);
@@ -400,7 +400,7 @@ class VideoChannelAutomationService {
   }
 
   /**
-   * 5. 人工审核（截图）
+   * 5. 人工审核（截图 + 权限验证）
    */
   async manualAudit(cookies: any[]): Promise<ManualAuditResult> {
     const browser = await this.getBrowser();
@@ -411,12 +411,29 @@ class VideoChannelAutomationService {
       await page.setCookie(...cookies);
 
       const timestamp = Date.now();
+      let shopAccessible = false;
+      let assistantAccessible = false;
+      let shopStatusCode = 0;
+      let assistantStatusCode = 0;
 
       // 访问视频号小店页面并截图
-      await page.goto(this.shopUrl, {
+      const shopResponse = await page.goto(this.shopUrl, {
         waitUntil: 'networkidle2',
         timeout: 30000
       });
+      shopStatusCode = shopResponse?.status() || 0;
+
+      // 检查小店页面是否真的可访问（检查是否有登录按钮）
+      const shopPageAccessible = await page.evaluate(() => {
+        const loginButton = document.querySelector('.login-btn') ||
+                           document.querySelector('button[type="submit"]') ||
+                           document.querySelector('.scan-login-tip');
+        const userAvatar = document.querySelector('.user-avatar') ||
+                          document.querySelector('.shop-name') ||
+                          document.querySelector('.nav-user');
+        return !loginButton && !!userAvatar;
+      });
+      shopAccessible = shopStatusCode === 200 && shopPageAccessible;
 
       const shopScreenshotPath = path.join(this.auditDir, `shop_${timestamp}.png`);
       await page.screenshot({
@@ -425,10 +442,22 @@ class VideoChannelAutomationService {
       });
 
       // 访问视频号助手页面并截图
-      await page.goto(this.assistantUrl, {
+      const assistantResponse = await page.goto(this.assistantUrl, {
         waitUntil: 'networkidle2',
         timeout: 30000
       });
+      assistantStatusCode = assistantResponse?.status() || 0;
+
+      // 检查助手页面是否真的可访问
+      const assistantPageAccessible = await page.evaluate(() => {
+        const loginButton = document.querySelector('.login-btn') ||
+                           document.querySelector('button[type="submit"]') ||
+                           document.querySelector('.scan-login-tip');
+        const userAvatar = document.querySelector('.user-avatar') ||
+                          document.querySelector('.nav-user');
+        return !loginButton && !!userAvatar;
+      });
+      assistantAccessible = assistantStatusCode === 200 && assistantPageAccessible;
 
       const assistantScreenshotPath = path.join(this.auditDir, `assistant_${timestamp}.png`);
       await page.screenshot({
@@ -436,11 +465,27 @@ class VideoChannelAutomationService {
         fullPage: true
       });
 
+      // 生成权限消息
+      let message = '';
+      if (shopAccessible && assistantAccessible) {
+        message = 'Cookie权限完整，可访问视频号小店和视频号助手';
+      } else if (shopAccessible && !assistantAccessible) {
+        message = 'Cookie权限不完整，只能访问视频号小店，无法访问视频号助手';
+      } else if (!shopAccessible && assistantAccessible) {
+        message = 'Cookie权限不完整，只能访问视频号助手，无法访问视频号小店';
+      } else {
+        message = 'Cookie无效，无法访问视频号小店和视频号助手';
+      }
+
       // 保存审核记录
       const auditRecord = {
         id: timestamp,
         shopScreenshotPath,
         assistantScreenshotPath,
+        shopAccessible,
+        assistantAccessible,
+        shopStatusCode,
+        assistantStatusCode,
         checkedAt: new Date(),
         status: 'pending_review'
       };
@@ -452,8 +497,13 @@ class VideoChannelAutomationService {
         success: true,
         shopScreenshotPath,
         shopScreenshotUrl: `/api/video-channel/audit/shop_${timestamp}.png`,
+        shopAccessible,
+        shopStatusCode,
         assistantScreenshotPath,
-        assistantScreenshotUrl: `/api/video-channel/audit/assistant_${timestamp}.png`
+        assistantScreenshotUrl: `/api/video-channel/audit/assistant_${timestamp}.png`,
+        assistantAccessible,
+        assistantStatusCode,
+        message
       };
     } catch (error: any) {
       console.error('人工审核失败:', error);

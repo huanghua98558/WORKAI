@@ -21,6 +21,13 @@ export default function VideoChannelConversionPage() {
     shop?: string;
     assistant?: string;
   }>({});
+  const [cookiePermissions, setCookiePermissions] = useState<{
+    shopAccessible?: boolean;
+    assistantAccessible?: boolean;
+    shopStatusCode?: number;
+    assistantStatusCode?: number;
+    message?: string;
+  }>({});
   const [error, setError] = useState<string | null>(null);
   const [userId] = useState('user_' + Date.now());
 
@@ -193,6 +200,13 @@ export default function VideoChannelConversionPage() {
           shop: data.shopScreenshotBase64,
           assistant: data.assistantScreenshotBase64
         });
+        setCookiePermissions({
+          shopAccessible: data.shopAccessible,
+          assistantAccessible: data.assistantAccessible,
+          shopStatusCode: data.shopStatusCode,
+          assistantStatusCode: data.assistantStatusCode,
+          message: data.message
+        });
         setStep(5);
       } else {
         setError(data.error || '人工审核失败');
@@ -213,6 +227,7 @@ export default function VideoChannelConversionPage() {
     setLoginStatus('not_logged');
     setCookies([]);
     setScreenshots({});
+    setCookiePermissions({});
     setError(null);
   };
 
@@ -439,6 +454,66 @@ export default function VideoChannelConversionPage() {
                 <CardDescription>请检查以下截图，确认页面是否正常</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* Cookie权限状态 */}
+                {cookiePermissions.message && (
+                  <Alert variant={
+                    cookiePermissions.shopAccessible && cookiePermissions.assistantAccessible
+                      ? 'default'
+                      : 'destructive'
+                  }>
+                    {cookiePermissions.shopAccessible && cookiePermissions.assistantAccessible ? (
+                      <CheckCircle className="h-4 w-4" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4" />
+                    )}
+                    <AlertTitle>Cookie权限检测</AlertTitle>
+                    <AlertDescription>{cookiePermissions.message}</AlertDescription>
+                  </Alert>
+                )}
+
+                {/* 详细权限信息 */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-muted rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-medium">视频号小店</h3>
+                      {cookiePermissions.shopAccessible ? (
+                        <Badge className="bg-green-600">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          可访问
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          不可访问
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      HTTP状态码: {cookiePermissions.shopStatusCode || '-'}
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-muted rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-medium">视频号助手</h3>
+                      {cookiePermissions.assistantAccessible ? (
+                        <Badge className="bg-green-600">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          可访问
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          不可访问
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      HTTP状态码: {cookiePermissions.assistantStatusCode || '-'}
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <h3 className="font-medium mb-2">视频号小店页面</h3>
                   {screenshots.shop && (
@@ -465,7 +540,7 @@ export default function VideoChannelConversionPage() {
                   <CheckCircle className="h-4 w-4" />
                   <AlertTitle>转化流程完成</AlertTitle>
                   <AlertDescription>
-                    Cookie已提取，审核截图已生成，可以进行后续操作
+                    Cookie已提取，审核截图已生成，请检查Cookie权限是否满足需求
                   </AlertDescription>
                 </Alert>
               </CardContent>
