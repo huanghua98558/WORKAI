@@ -179,7 +179,9 @@ export class RobotCommandManager {
       .update(robotCommands)
       .set({
         ...updates,
-        updatedAt: new Date(),
+        executedAt: updates.executedAt instanceof Date ? updates.executedAt.toISOString() : updates.executedAt,
+        completedAt: updates.completedAt instanceof Date ? updates.completedAt.toISOString() : updates.completedAt,
+        updatedAt: new Date().toISOString(),
       })
       .where(eq(robotCommands.id, id))
       .returning();
@@ -197,7 +199,7 @@ export class RobotCommandManager {
         status: 'pending',
         retryCount: sql`${robotCommands.retryCount} + 1`,
         errorMessage: null,
-        updatedAt: new Date(),
+        updatedAt: new Date().toISOString(),
       })
       .where(eq(robotCommands.id, id))
       .returning();

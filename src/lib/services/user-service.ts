@@ -4,16 +4,18 @@ import { eq } from 'drizzle-orm';
 
 interface User {
   id: string;
-  userId: string;
-  platform: string;
-  platformUserId: string;
-  name: string;
-  status: string;
-  roles: string[];
-  tags: string[];
-  metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  username: string;
+  email?: string;
+  password?: string;
+  role?: string;
+  isActive?: boolean;
+  lastLoginAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  // 保留兼容旧代码的字段
+  platform?: string;
+  platformUserId?: string;
+  name?: string;
 }
 
 class UserService {

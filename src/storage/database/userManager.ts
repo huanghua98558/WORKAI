@@ -1,13 +1,15 @@
 import { eq, and, SQL, like, or } from "drizzle-orm";
 import { getDb } from "coze-coding-dev-sdk";
-import { users, insertUserSchema, updateUserSchema } from "./shared/schema";
-import type { User, InsertUser, UpdateUser } from "./shared/schema";
+import { users } from "./shared/schema";
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = typeof users.$inferInsert;
+export type UpdateUser = Partial<InsertUser>;
 
 export class UserManager {
   async createUser(data: InsertUser): Promise<User> {
     const db = await getDb();
-    const validated = insertUserSchema.parse(data);
-    const [user] = await db.insert(users).values(validated).returning();
+    const [user] = await db.insert(users).values(data).returning();
     return user;
   }
 
@@ -66,10 +68,9 @@ export class UserManager {
 
   async updateUser(id: string, data: UpdateUser): Promise<User | null> {
     const db = await getDb();
-    const validated = updateUserSchema.parse(data);
     const [user] = await db
       .update(users)
-      .set({ ...validated, updatedAt: new Date() })
+      .set({ ...data, updatedAt: new Date().toISOString() })
       .where(eq(users.id, id))
       .returning();
     return user || null;
@@ -110,7 +111,7 @@ export class UserManager {
     const db = await getDb();
     await db
       .update(users)
-      .set({ lastLoginAt: new Date() })
+      .set({ lastLoginAt: new Date().toISOString() })
       .where(eq(users.id, id));
   }
 

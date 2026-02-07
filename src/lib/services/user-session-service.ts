@@ -1,6 +1,6 @@
 import { userSessions, NewUserSession } from '@/storage/database/new-schemas/user-sessions';
 import { db } from '@/lib/db';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 
 export interface CreateUserSessionInput {
   userId: string;

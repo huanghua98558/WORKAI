@@ -1,10 +1,11 @@
 import { eq, and, SQL, like, or } from "drizzle-orm";
 import { getDb } from "coze-coding-dev-sdk";
 import { systemSettings } from "./shared/schema";
-import type { SystemSetting } from "./shared/schema";
+
+export type SystemSetting = typeof systemSettings.$inferSelect;
 
 export class SystemSettingManager {
-  async createSetting(data: Partial<SystemSetting>): Promise<SystemSetting> {
+  async createSetting(data: Omit<Partial<SystemSetting>, 'id' | 'updatedAt' | 'createdAt'> & { key: string; value: string }): Promise<SystemSetting> {
     const db = await getDb();
     const [setting] = await db.insert(systemSettings).values(data).returning();
     return setting;
@@ -60,7 +61,7 @@ export class SystemSettingManager {
     const db = await getDb();
     const [setting] = await db
       .update(systemSettings)
-      .set({ ...data, updatedAt: new Date() })
+      .set({ ...data, updatedAt: new Date().toISOString() })
       .where(eq(systemSettings.id, id))
       .returning();
     return setting || null;
@@ -73,12 +74,12 @@ export class SystemSettingManager {
     if (existing) {
       const [setting] = await db
         .update(systemSettings)
-        .set({ 
-          value, 
+        .set({
+          value,
           category: category || existing.category,
           description: description || existing.description,
           updatedAtBy: updatedBy,
-          updatedAt: new Date() 
+          updatedAt: new Date().toISOString()
         })
         .where(eq(systemSettings.id, existing.id))
         .returning();
