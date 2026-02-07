@@ -125,7 +125,7 @@ export default function MonitoringPage() {
       const res = await fetch('/api/monitoring/executions?limit=50');
       const data = await res.json();
       if (data.code === 0) {
-        setExecutions(data.data || []);
+        setExecutions(data.data);
       }
     } catch (error) {
       console.error('获取执行列表失败:', error);
@@ -139,7 +139,7 @@ export default function MonitoringPage() {
       const res = await fetch('/api/monitoring/ai-logs?limit=50');
       const data = await res.json();
       console.log('[监控] AI日志响应:', {
-        success: data.code === 0,
+        code: data.code,
         dataLength: data.data?.length,
         firstItem: data.data?.[0] ? {
           id: data.data[0].id,
@@ -150,7 +150,7 @@ export default function MonitoringPage() {
         } : null
       });
       if (data.code === 0) {
-        setAiLogs(data.data || []);
+        setAiLogs(data.data);
       }
     } catch (error) {
       console.error('[监控] 获取AI日志失败:', error);

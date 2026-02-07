@@ -2,8 +2,6 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '@/storage/database/shared/schema';
 import * as newSchemas from '@/storage/database/new-schemas';
-import * as monitoring from '@/storage/database/monitoring';
-import { sharedSessions } from '@/storage/database/shared-sessions';
 
 // 延迟初始化数据库连接，避免构建时依赖环境变量
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -25,8 +23,6 @@ function initializeDb() {
       schema: {
         ...schema,
         ...newSchemas,
-        ...monitoring,
-        sharedSessions,
       },
     });
   }
@@ -52,7 +48,3 @@ export {
   robots,
   interventions
 } from '@/storage/database/new-schemas';
-// 导出monitoring schema
-export * from '@/storage/database/monitoring';
-// 导出sharedSessions
-export { sharedSessions };
