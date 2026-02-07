@@ -38,8 +38,9 @@ export default function BusinessRoleForm({ robots = [], initialData, onSave, onC
   // 调试日志：组件渲染时输出
   console.log('[BusinessRoleForm] 组件渲染:', {
     robotsCount: robots.length,
-    initialData: initialData ? initialData.name : '无',
+    initialData: initialData ? { name: initialData.name, robotId: initialData.robotId, robotRobotId: initialData.robotRobotId } : '无',
     currentRobotId: formData.robotId,
+    robots: robots.map(r => ({ name: r.name, id: r.id })),
   });
 
   // 初始化表单数据（只在 initialData 变化时执行，不依赖 robots）
