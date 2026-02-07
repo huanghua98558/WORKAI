@@ -348,43 +348,50 @@ class VideoChannelAutomationService {
   }
 
   /**
-   * 3. 检测页面可访问性
+   * 3. 检测页面可访问性（带货助手和视频号助手联动性检测）
    */
   async checkPageAccessibility(cookies: any[]): Promise<PageAccessibilityResult> {
     const browser = await this.getBrowser();
-    const page = await browser.newPage();
 
     try {
-      // 设置Cookie
-      await page.setCookie(...cookies);
+      // 创建两个独立的页面实例
+      const shopPage = await browser.newPage();
+      const assistantPage = await browser.newPage();
 
-      // 检测带货助手页面
-      const shopResponse = await page.goto(this.shopUrl, {
-        waitUntil: 'networkidle2',
-        timeout: 30000
-      });
+      try {
+        // 同时为两个页面设置Cookie
+        await shopPage.setCookie(...cookies);
+        await assistantPage.setCookie(...cookies);
 
-      // 检测视频号助手页面
-      const assistantResponse = await page.goto(this.assistantUrl, {
-        waitUntil: 'networkidle2',
-        timeout: 30000
-      });
+        // 并发检测带货助手页面和视频号助手页面
+        const [shopResponse, assistantResponse] = await Promise.all([
+          shopPage.goto(this.shopUrl, {
+            waitUntil: 'networkidle2',
+            timeout: 30000
+          }),
+          assistantPage.goto(this.assistantUrl, {
+            waitUntil: 'networkidle2',
+            timeout: 30000
+          })
+        ]);
 
-      return {
-        success: true,
-        shopAccessible: shopResponse?.status() === 200,
-        assistantAccessible: assistantResponse?.status() === 200,
-        shopStatusCode: shopResponse?.status(),
-        assistantStatusCode: assistantResponse?.status()
-      };
+        return {
+          success: true,
+          shopAccessible: shopResponse?.status() === 200,
+          assistantAccessible: assistantResponse?.status() === 200,
+          shopStatusCode: shopResponse?.status(),
+          assistantStatusCode: assistantResponse?.status()
+        };
+      } finally {
+        await shopPage.close();
+        await assistantPage.close();
+      }
     } catch (error: any) {
       console.error('检测页面可访问性失败:', error);
       return {
         success: false,
         error: error.message || '检测页面可访问性失败'
       };
-    } finally {
-      await page.close();
     }
   }
 
@@ -433,118 +440,120 @@ class VideoChannelAutomationService {
 
   /**
    * 5. 人工审核（截图 + 权限验证）
+   * 使用Cookie检测带货助手和视频号助手的联动性
    */
   async manualAudit(cookies: any[]): Promise<ManualAuditResult> {
     const browser = await this.getBrowser();
-    const page = await browser.newPage();
 
     try {
-      // 设置Cookie
-      await page.setCookie(...cookies);
+      // 创建两个独立的页面实例，分别用于带货助手和视频号助手
+      const shopPage = await browser.newPage();
+      const assistantPage = await browser.newPage();
 
-      const timestamp = Date.now();
-      let shopAccessible = false;
-      let assistantAccessible = false;
-      let shopStatusCode = 0;
-      let assistantStatusCode = 0;
+      try {
+        // 同时为两个页面设置Cookie（同一个Cookie可以访问两个页面）
+        await shopPage.setCookie(...cookies);
+        await assistantPage.setCookie(...cookies);
 
-      // 访问视频号小店页面并截图
-      const shopResponse = await page.goto(this.shopUrl, {
-        waitUntil: 'networkidle2',
-        timeout: 30000
-      });
-      shopStatusCode = shopResponse?.status() || 0;
+        const timestamp = Date.now();
 
-      // 检查小店页面是否真的可访问（检查是否有登录按钮）
-      const shopPageAccessible = await page.evaluate(() => {
-        const loginButton = document.querySelector('.login-btn') ||
-                           document.querySelector('button[type="submit"]') ||
-                           document.querySelector('.scan-login-tip');
-        const userAvatar = document.querySelector('.user-avatar') ||
-                          document.querySelector('.shop-name') ||
-                          document.querySelector('.nav-user');
-        return !loginButton && !!userAvatar;
-      });
-      shopAccessible = shopStatusCode === 200 && shopPageAccessible;
+        // 并发访问两个页面并截图
+        const [shopResponse, assistantResponse] = await Promise.all([
+          shopPage.goto(this.shopUrl, {
+            waitUntil: 'networkidle2',
+            timeout: 30000
+          }),
+          assistantPage.goto(this.assistantUrl, {
+            waitUntil: 'networkidle2',
+            timeout: 30000
+          })
+        ]);
 
-      const shopScreenshotPath = path.join(this.auditDir, `shop_${timestamp}.png`);
-      await page.screenshot({
-        path: shopScreenshotPath,
-        fullPage: true
-      });
+        const shopStatusCode = shopResponse?.status() || 0;
+        const assistantStatusCode = assistantResponse?.status() || 0;
 
-      // 访问视频号助手页面并截图
-      const assistantResponse = await page.goto(this.assistantUrl, {
-        waitUntil: 'networkidle2',
-        timeout: 30000
-      });
-      assistantStatusCode = assistantResponse?.status() || 0;
+        // 检查带货助手页面是否真的可访问
+        const shopPageAccessible = await shopPage.evaluate(() => {
+          const loginButton = document.querySelector('.login-btn') ||
+                             document.querySelector('button[type="submit"]') ||
+                             document.querySelector('.scan-login-tip');
+          const userAvatar = document.querySelector('.user-avatar') ||
+                            document.querySelector('.shop-name') ||
+                            document.querySelector('.nav-user');
+          return !loginButton && !!userAvatar;
+        });
+        const shopAccessible = shopStatusCode === 200 && shopPageAccessible;
 
-      // 检查助手页面是否真的可访问
-      const assistantPageAccessible = await page.evaluate(() => {
-        const loginButton = document.querySelector('.login-btn') ||
-                           document.querySelector('button[type="submit"]') ||
-                           document.querySelector('.scan-login-tip');
-        const userAvatar = document.querySelector('.user-avatar') ||
-                          document.querySelector('.nav-user');
-        return !loginButton && !!userAvatar;
-      });
-      assistantAccessible = assistantStatusCode === 200 && assistantPageAccessible;
+        // 检查视频号助手页面是否真的可访问
+        const assistantPageAccessible = await assistantPage.evaluate(() => {
+          const loginButton = document.querySelector('.login-btn') ||
+                             document.querySelector('button[type="submit"]') ||
+                             document.querySelector('.scan-login-tip');
+          const userAvatar = document.querySelector('.user-avatar') ||
+                            document.querySelector('.nav-user');
+          return !loginButton && !!userAvatar;
+        });
+        const assistantAccessible = assistantStatusCode === 200 && assistantPageAccessible;
 
-      const assistantScreenshotPath = path.join(this.auditDir, `assistant_${timestamp}.png`);
-      await page.screenshot({
-        path: assistantScreenshotPath,
-        fullPage: true
-      });
+        // 并发截图两个页面
+        const shopScreenshotPath = path.join(this.auditDir, `shop_${timestamp}.png`);
+        const assistantScreenshotPath = path.join(this.auditDir, `assistant_${timestamp}.png`);
 
-      // 生成权限消息
-      let message = '';
-      if (shopAccessible && assistantAccessible) {
-        message = 'Cookie权限完整，可访问带货助手和视频号助手';
-      } else if (shopAccessible && !assistantAccessible) {
-        message = 'Cookie权限不完整，只能访问带货助手，无法访问视频号助手';
-      } else if (!shopAccessible && assistantAccessible) {
-        message = 'Cookie权限不完整，只能访问视频号助手，无法访问带货助手';
-      } else {
-        message = 'Cookie无效，无法访问带货助手和视频号助手';
+        await Promise.all([
+          shopPage.screenshot({ path: shopScreenshotPath, fullPage: true }),
+          assistantPage.screenshot({ path: assistantScreenshotPath, fullPage: true })
+        ]);
+
+        // 生成权限消息
+        let message = '';
+        if (shopAccessible && assistantAccessible) {
+          message = 'Cookie权限完整，可访问带货助手和视频号助手';
+        } else if (shopAccessible && !assistantAccessible) {
+          message = 'Cookie权限不完整，只能访问带货助手，无法访问视频号助手';
+        } else if (!shopAccessible && assistantAccessible) {
+          message = 'Cookie权限不完整，只能访问视频号助手，无法访问带货助手';
+        } else {
+          message = 'Cookie无效，无法访问带货助手和视频号助手';
+        }
+
+        // 保存审核记录
+        const auditRecord = {
+          id: timestamp,
+          shopScreenshotPath,
+          assistantScreenshotPath,
+          shopAccessible,
+          assistantAccessible,
+          shopStatusCode,
+          assistantStatusCode,
+          checkedAt: new Date(),
+          status: 'pending_review'
+        };
+
+        const auditRecordPath = path.join('/tmp', `audit_record_${timestamp}.json`);
+        await fs.writeFile(auditRecordPath, JSON.stringify(auditRecord, null, 2));
+
+        return {
+          success: true,
+          shopScreenshotPath,
+          shopScreenshotUrl: `/api/video-channel/audit/shop_${timestamp}.png`,
+          shopAccessible,
+          shopStatusCode,
+          assistantScreenshotPath,
+          assistantScreenshotUrl: `/api/video-channel/audit/assistant_${timestamp}.png`,
+          assistantAccessible,
+          assistantStatusCode,
+          message
+        };
+      } finally {
+        await shopPage.close();
+        await assistantPage.close();
       }
-
-      // 保存审核记录
-      const auditRecord = {
-        id: timestamp,
-        shopScreenshotPath,
-        assistantScreenshotPath,
-        shopAccessible,
-        assistantAccessible,
-        shopStatusCode,
-        assistantStatusCode,
-        checkedAt: new Date(),
-        status: 'pending_review'
-      };
-
-      const auditRecordPath = path.join('/tmp', `audit_record_${timestamp}.json`);
-      await fs.writeFile(auditRecordPath, JSON.stringify(auditRecord, null, 2));
-
-      return {
-        success: true,
-        shopScreenshotPath,
-        shopScreenshotUrl: `/api/video-channel/audit/shop_${timestamp}.png`,
-        shopAccessible,
-        shopStatusCode,
-        assistantScreenshotPath,
-        assistantScreenshotUrl: `/api/video-channel/audit/assistant_${timestamp}.png`,
-        assistantAccessible,
-        assistantStatusCode,
-        message
-      };
     } catch (error: any) {
       console.error('人工审核失败:', error);
       return {
         success: false,
         error: error.message || '人工审核失败'
       };
-    } finally {
-      await page.close();
     }
   }
 

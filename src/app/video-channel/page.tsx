@@ -330,8 +330,15 @@ export default function VideoChannelConversionPage() {
         <div>
           <h1 className="text-3xl font-bold">视频号兼职人员转化流程</h1>
           <p className="text-muted-foreground mt-2">
-            通过自动化工具实现带货助手和视频号助手的登录、Cookie提取和人工审核
+            扫码登录后，自动提取Cookie并检测带货助手和视频号助手的联动性
           </p>
+          <Alert className="mt-4">
+            <Info className="h-4 w-4" />
+            <AlertTitle>说明</AlertTitle>
+            <AlertDescription>
+              只需扫描一个二维码（带货助手），登录后可同时访问带货助手和视频号助手，Cookie两者共享。
+            </AlertDescription>
+          </Alert>
         </div>
         <Button onClick={resetProcess} variant="outline">
           重新开始
@@ -386,7 +393,7 @@ export default function VideoChannelConversionPage() {
             <Card>
               <CardHeader>
                 <CardTitle>步骤1：获取登录二维码</CardTitle>
-                <CardDescription>点击下方按钮生成带货助手登录二维码</CardDescription>
+                <CardDescription>点击下方按钮生成带货助手登录二维码，该二维码可同时访问带货助手和视频号助手</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button
@@ -610,7 +617,7 @@ export default function VideoChannelConversionPage() {
             <Card>
               <CardHeader>
                 <CardTitle>步骤4：人工审核</CardTitle>
-                <CardDescription>生成带货助手和视频号助手的页面截图供人工审核</CardDescription>
+                <CardDescription>使用Cookie检测带货助手和视频号助手的联动性，生成页面截图供人工审核</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button
