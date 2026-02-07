@@ -13,13 +13,11 @@ export const interventions = pgTable(
     
     // 会话关联
     sessionId: varchar("session_id", { length: 36 })
-      .notNull()
-      .references(() => sessions.id, { onDelete: "cascade" }),
+      .notNull(),
     
     // 工作人员信息
     staffId: varchar("staff_id", { length: 36 })
-      .notNull()
-      .references(() => staff.id, { onDelete: "cascade" }),
+      .notNull(),
     staffName: varchar("staff_name", { length: 200 }).notNull(),
     
     // 触发消息

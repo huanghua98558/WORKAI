@@ -14,11 +14,9 @@ export const messages = pgTable(
     
     // 会话和机器人关联
     sessionId: varchar("session_id", { length: 36 })
-      .notNull()
-      .references(() => sessions.id, { onDelete: "cascade" }),
+      .notNull(),
     robotId: varchar("robot_id", { length: 36 })
-      .notNull()
-      .references(() => robots.id, { onDelete: "cascade" }),
+      .notNull(),
     
     // 消息内容
     content: text("content").notNull(),

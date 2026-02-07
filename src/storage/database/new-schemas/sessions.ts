@@ -13,8 +13,7 @@ export const sessions = pgTable(
     
     // 机器人关联
     robotId: varchar("robot_id", { length: 36 })
-      .notNull()
-      .references(() => robots.id, { onDelete: "cascade" }),
+      .notNull(),
     
     // 用户信息
     userId: varchar("user_id", { length: 100 }).notNull(),
@@ -34,7 +33,7 @@ export const sessions = pgTable(
     
     // 介入信息
     staffIntervened: boolean("staff_intervened").default(false),
-    staffId: varchar("staff_id", { length: 36 }).references(() => staff.id),
+    staffId: varchar("staff_id", { length: 36 }),
     staffInterventionCount: integer("staff_intervention_count").default(0),
     firstInterventionAt: timestamp("first_intervention_at", { withTimezone: true }),
     

@@ -16,8 +16,7 @@ export const userSessions = pgTable(
       .notNull()
       .unique(),
     robotId: varchar("robot_id", { length: 36 })
-      .notNull()
-      .references(() => robots.id, { onDelete: "cascade" }),
+      .notNull(),
 
     // 状态
     status: varchar("status", { length: 20 })
