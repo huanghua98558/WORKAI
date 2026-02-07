@@ -40,22 +40,27 @@ export default function VideoChannelConversionPage() {
   const [sendSuccess, setSendSuccess] = useState(false);
   const [loadingRobot, setLoadingRobot] = useState(false);
 
-  // 倒计时效果
+  // 倒计时效果（修复版：避免定时器重置）
   useEffect(() => {
+    let timer: NodeJS.Timeout;
+
     if (remainingTime > 0 && step === 2 && loginStatus === 'checking') {
-      const timer = setInterval(() => {
+      timer = setInterval(() => {
         setRemainingTime(prev => {
           if (prev <= 1) {
-            clearInterval(timer);
             return 0;
           }
           return prev - 1;
         });
       }, 1000);
-
-      return () => clearInterval(timer);
     }
-  }, [remainingTime, step, loginStatus]);
+
+    return () => {
+      if (timer) {
+        clearInterval(timer);
+      }
+    };
+  }, [step, loginStatus]); // 移除remainingTime依赖，避免定时器重置
 
   // 格式化剩余时间
   const formatTime = (seconds: number) => {

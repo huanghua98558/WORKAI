@@ -88,6 +88,7 @@ class VideoChannelAutomationService {
   private assistantUrl = 'https://channels.weixin.qq.com/assistant';
   private currentQrcodeId: string | null = null;
   private currentQrcodeExpiresAt: Date | null = null;
+  private currentQrcodePage: puppeteer.Page | null = null; // 保存二维码页面实例
   private qrcodeLifetime = 5 * 60 * 1000; // 5分钟有效期
 
   constructor() {
@@ -98,24 +99,64 @@ class VideoChannelAutomationService {
   }
 
   /**
-   * 检测二维码是否过期
+   * 检测二维码是否过期（带日志）
    */
   isQrcodeExpired(): boolean {
     if (!this.currentQrcodeExpiresAt) {
+      console.log('[二维码过期] 未设置过期时间，视为过期');
       return true;
     }
-    return new Date() > this.currentQrcodeExpiresAt;
+
+    const now = new Date();
+    const expired = now > this.currentQrcodeExpiresAt;
+    const remaining = this.currentQrcodeExpiresAt.getTime() - now.getTime();
+
+    console.log('[二维码过期] 检测过期状态:', {
+      当前时间: now.toISOString(),
+      过期时间: this.currentQrcodeExpiresAt.toISOString(),
+      剩余时间: Math.floor(remaining / 1000) + '秒',
+      是否过期: expired
+    });
+
+    return expired;
   }
 
   /**
-   * 获取二维码剩余有效时间（秒）
+   * 获取二维码剩余有效时间（秒）（带日志）
    */
   getQrcodeRemainingTime(): number {
     if (!this.currentQrcodeExpiresAt) {
+      console.log('[二维码过期] 未设置过期时间，剩余时间: 0秒');
       return 0;
     }
+
     const remaining = this.currentQrcodeExpiresAt.getTime() - Date.now();
-    return Math.max(0, Math.floor(remaining / 1000));
+    const remainingSeconds = Math.max(0, Math.floor(remaining / 1000));
+
+    console.log('[二维码过期] 获取剩余时间:', remainingSeconds + '秒');
+
+    return remainingSeconds;
+  }
+
+  /**
+   * 关闭二维码页面（刷新二维码时调用）
+   */
+  async closeQrcodePage(): Promise<void> {
+    if (this.currentQrcodePage && !this.currentQrcodePage.isClosed()) {
+      console.log('[二维码页面] 关闭旧二维码页面');
+      await this.currentQrcodePage.close();
+      this.currentQrcodePage = null;
+    }
+  }
+
+  /**
+   * 重置二维码状态（用于刷新二维码）
+   */
+  async resetQrcode(): Promise<void> {
+    console.log('[二维码重置] 重置二维码状态');
+    await this.closeQrcodePage();
+    this.currentQrcodeId = null;
+    this.currentQrcodeExpiresAt = null;
   }
 
   private async ensureDirectories() {
@@ -149,6 +190,9 @@ class VideoChannelAutomationService {
    * 1. 获取视频号小店二维码（优化版）
    */
   async getQrcode(): Promise<QrcodeResult> {
+    // 先重置旧二维码状态
+    await this.resetQrcode();
+
     const browser = await this.getBrowser();
     const page = await browser.newPage();
 
@@ -260,6 +304,13 @@ class VideoChannelAutomationService {
         this.currentQrcodeId = qrcodeId;
         this.currentQrcodeExpiresAt = new Date(Date.now() + this.qrcodeLifetime);
 
+        console.log('[二维码生成] 二维码状态更新:', {
+          qrcodeId,
+          生成时间: new Date().toISOString(),
+          过期时间: this.currentQrcodeExpiresAt.toISOString(),
+          有效期: this.qrcodeLifetime / 1000 + '秒'
+        });
+
         return {
           success: true,
           qrcodeId,
@@ -282,6 +333,13 @@ class VideoChannelAutomationService {
       this.currentQrcodeId = qrcodeId;
       this.currentQrcodeExpiresAt = new Date(Date.now() + this.qrcodeLifetime);
 
+      console.log('[二维码生成] 二维码状态更新:', {
+        qrcodeId,
+        生成时间: new Date().toISOString(),
+        过期时间: this.currentQrcodeExpiresAt.toISOString(),
+        有效期: this.qrcodeLifetime / 1000 + '秒'
+      });
+
       // 生成访问URL
       const qrcodeUrl = `/api/video-channel/qrcode/${qrcodeId}.png`;
 
@@ -299,25 +357,46 @@ class VideoChannelAutomationService {
         error: error.message || '获取二维码失败'
       };
     } finally {
-      await page.close();
+      // 关闭旧的二维码页面（如果有）
+      if (this.currentQrcodePage && this.currentQrcodePage !== page) {
+        await this.currentQrcodePage.close();
+      }
+      // 保存当前二维码页面实例（不关闭，用于后续检测登录）
+      this.currentQrcodePage = page;
     }
   }
 
   /**
-   * 2. 检测登录状态（优化版）
+   * 2. 检测登录状态（优化版：复用二维码页面）
    */
   async checkLoginStatus(): Promise<LoginStatusResult> {
-    const browser = await this.getBrowser();
-    const page = await browser.newPage();
+    // 如果没有二维码页面，创建一个新页面
+    if (!this.currentQrcodePage) {
+      console.log('[检测登录] 未找到二维码页面，创建新页面...');
+      const browser = await this.getBrowser();
+      this.currentQrcodePage = await browser.newPage();
+    }
+
+    const page = this.currentQrcodePage;
 
     try {
       console.log('[检测登录] 开始检测登录状态...');
 
-      // 访问视频号小店页面（使用更快的等待策略）
-      await page.goto(this.shopUrl, {
-        waitUntil: 'domcontentloaded', // 使用domcontentloaded而不是networkidle2
-        timeout: 15000 // 减少超时时间到15秒
-      });
+      // 如果页面没有打开或者已经关闭，重新加载
+      if (page.isClosed()) {
+        console.log('[检测登录] 页面已关闭，重新打开...');
+        await page.goto(this.shopUrl, {
+          waitUntil: 'domcontentloaded',
+          timeout: 15000
+        });
+      } else {
+        // 页面已打开，刷新页面检查登录状态
+        console.log('[检测登录] 刷新页面检查登录状态...');
+        await page.reload({
+          waitUntil: 'domcontentloaded',
+          timeout: 15000
+        });
+      }
 
       console.log('[检测登录] 页面加载完成，开始检查登录元素...');
 
@@ -330,7 +409,8 @@ class VideoChannelAutomationService {
                            document.querySelector('button[type="submit"]') ||
                            document.querySelector('.scan-login-tip') ||
                            document.querySelector('.login-container') ||
-                           document.querySelector('.qr-login');
+                           document.querySelector('.qr-login') ||
+                           document.querySelector('[class*="login"]');
 
         console.log('[检测登录] 登录按钮元素:', loginButton ? '存在' : '不存在');
 
@@ -339,7 +419,8 @@ class VideoChannelAutomationService {
                           document.querySelector('.shop-name') ||
                           document.querySelector('.nav-user') ||
                           document.querySelector('.user-info') ||
-                          document.querySelector('.header-user');
+                          document.querySelector('.header-user') ||
+                          document.querySelector('[class*="user"]');
 
         console.log('[检测登录] 用户信息元素:', userAvatar ? '存在' : '不存在');
 
@@ -377,8 +458,6 @@ class VideoChannelAutomationService {
         qrcodeExpired: this.isQrcodeExpired(),
         error: error.message || '检测登录状态失败'
       };
-    } finally {
-      await page.close();
     }
   }
 
