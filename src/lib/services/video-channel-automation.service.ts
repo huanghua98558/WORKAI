@@ -83,7 +83,7 @@ class VideoChannelAutomationService {
   private qrcodeDir: string;
   private auditDir: string;
   // 带货助手页面
-  private shopUrl = 'https://store.weixin.qq.com/talent/';
+  private shopUrl = 'https://store.weixin.qq.com/talent/home'; // 登录成功后的URL
   // 视频号助手页面（独立URL或通过带货助手页面内的入口访问）
   private assistantUrl = 'https://channels.weixin.qq.com/assistant';
   private currentQrcodeId: string | null = null;
@@ -498,7 +498,8 @@ class VideoChannelAutomationService {
                             currentUrl.includes('work.weixin.qq.com');
 
       // 如果URL包含店铺路径，优先判断为已登录
-      const urlIsShopPage = currentUrl.includes('store.weixin.qq.com/talent') ||
+      const urlIsShopPage = currentUrl.includes('store.weixin.qq.com/talent/home') ||
+                            currentUrl.includes('store.weixin.qq.com/talent/') ||
                             currentUrl.includes('channels.weixin.qq.com/assistant');
 
       // 优化判断逻辑：URL是店铺页时，优先信任URL，忽略可能误检的登录框
