@@ -45,12 +45,20 @@ const intentConfigApiRoutes = require('./routes/intent-config.api');
 const flowEngineApiRoutes = require('./routes/flow-engine.api');
 const riskApiRoutes = require('./routes/risk.api');
 const collabApiRoutes = require('./routes/collab.api');
+console.log('[app.js] Attempting to load auth.api...');
+const authApiRoutes = require('./routes/auth.api');
+console.log('[app.js] auth.api loaded successfully');
+console.log('[app.js] Attempting to load apikey.api...');
+const apiKeyApiRoutes = require('./routes/apikey.api');
+console.log('[app.js] apikey.api loaded successfully');
 console.log('[app.js] Attempting to load ai-module.api...');
 const aiModuleApiRoutes = require('./routes/ai-module.api');
 console.log('[app.js] ai-module.api loaded successfully');
 
 const redisClient = require('./lib/redis');
 const { getLogger, fastifyRequestLogger } = require('./lib/logger');
+const { corsConfig } = require('./lib/cors');
+const { getCspConfig } = require('./lib/csp');
 
 const robotService = require('./services/robot.service');
 const robotCommandService = require('./services/robot-command.service');
@@ -75,14 +83,11 @@ redisClient.connect().then(() => {
 });
 
 // 注册插件
-fastify.register(cors, {
-  origin: true, // 生产环境建议配置具体域名
-  credentials: true
-});
+// 使用安全的CORS配置（白名单模式）
+fastify.register(cors, corsConfig);
 
-fastify.register(helmet, {
-  contentSecurityPolicy: false // 开发环境关闭 CSP
-});
+// 使用CSP配置（根据环境自动选择）
+fastify.register(helmet, getCspConfig());
 
 fastify.register(rateLimit, {
   max: 1000,
@@ -152,6 +157,8 @@ fastify.register(flowEngineApiRoutes, { prefix: '/api/flow-engine' });
 fastify.register(riskApiRoutes, { prefix: '/api' });
 fastify.register(aiModuleApiRoutes, { prefix: '/api/ai' });
 fastify.register(collabApiRoutes, { prefix: '/api/collab' });
+fastify.register(authApiRoutes, { prefix: '/api/auth' });
+fastify.register(apiKeyApiRoutes, { prefix: '/api/apikeys' });
 
 // WebSocket 路由
 fastify.register(async function (fastify) {
