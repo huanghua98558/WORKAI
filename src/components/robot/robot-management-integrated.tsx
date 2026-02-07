@@ -824,9 +824,23 @@ export default function RobotManagement() {
                           <Bot className="h-8 w-8 text-blue-600" />
                         </div>
                         <div className="space-y-2">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="text-lg font-semibold">{robot.name || robot.nickname || '未命名机器人'}</h3>
                             {getStatusBadge(robot.isActive, robot.status)}
+                            {/* 业务角色标志 */}
+                            {robot.businessRoles && robot.businessRoles.length > 0 && (
+                              <div className="flex items-center gap-1 ml-2">
+                                {robot.businessRoles.map((role) => (
+                                  <Badge 
+                                    key={role.id} 
+                                    variant="outline" 
+                                    className="text-xs bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                                  >
+                                    {role.name}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           <div className="text-sm text-muted-foreground">
                             {robot.company && robot.nickname 
@@ -964,22 +978,6 @@ export default function RobotManagement() {
                         </div>
                       )}
 
-                      {/* 业务角色 */}
-                      {robot.businessRoles && robot.businessRoles.length > 0 && (
-                        <div className="col-span-2 md:col-span-3">
-                          <div className="text-muted-foreground mb-1 flex items-center gap-2">
-                            <Activity className="h-3 w-3" />
-                            业务角色
-                          </div>
-                          <div className="font-medium flex flex-wrap gap-1">
-                            {robot.businessRoles.map((role) => (
-                              <Badge key={role.id} variant="outline">
-                                {role.name}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                       
                       <div>
                         <div className="text-muted-foreground mb-1 flex items-center gap-2">
