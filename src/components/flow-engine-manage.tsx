@@ -38,6 +38,9 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import FlowEditor from '@/components/flow-engine-editor';
+import VersionManagement from '@/components/flow-engine/version-management';
+import TestPanel from '@/components/flow-engine/test-panel';
+import ExecutionMonitor from '@/components/flow-engine/execution-monitor';
 import { NODE_TYPES, NODE_METADATA } from '@/app/flow-engine/types';
 import {
   getFlowDefinitions,
@@ -107,7 +110,7 @@ export default function FlowEngineManage() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFlow, setSelectedFlow] = useState<FlowDefinition | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [activeTab, setActiveTab] = useState<'flows' | 'instances'>('flows');
+  const [activeTab, setActiveTab] = useState<'flows' | 'instances' | 'versions' | 'test' | 'monitor'>('flows');
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
 
   // 编辑器对话框状态（统一用于创建和编辑）
@@ -496,10 +499,10 @@ export default function FlowEngineManage() {
       </div>
 
       {/* 标签页切换 */}
-      <div className="flex gap-2 border-b border-border">
+      <div className="flex gap-2 border-b border-border overflow-x-auto">
         <button
           onClick={() => setActiveTab('flows')}
-          className={`px-4 py-2 font-medium transition-colors ${
+          className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${
             activeTab === 'flows'
               ? 'text-primary border-b-2 border-primary'
               : 'text-muted-foreground hover:text-foreground'
@@ -510,7 +513,7 @@ export default function FlowEngineManage() {
         </button>
         <button
           onClick={() => setActiveTab('instances')}
-          className={`px-4 py-2 font-medium transition-colors ${
+          className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${
             activeTab === 'instances'
               ? 'text-primary border-b-2 border-primary'
               : 'text-muted-foreground hover:text-foreground'
@@ -518,6 +521,39 @@ export default function FlowEngineManage() {
         >
           <Activity className="h-4 w-4 inline mr-2" />
           执行记录 ({instances.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('versions')}
+          className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${
+            activeTab === 'versions'
+              ? 'text-primary border-b-2 border-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <FileText className="h-4 w-4 inline mr-2" />
+          版本管理
+        </button>
+        <button
+          onClick={() => setActiveTab('test')}
+          className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${
+            activeTab === 'test'
+              ? 'text-primary border-b-2 border-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Play className="h-4 w-4 inline mr-2" />
+          测试面板
+        </button>
+        <button
+          onClick={() => setActiveTab('monitor')}
+          className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${
+            activeTab === 'monitor'
+              ? 'text-primary border-b-2 border-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Eye className="h-4 w-4 inline mr-2" />
+          执行监控
         </button>
       </div>
 
@@ -726,6 +762,21 @@ export default function FlowEngineManage() {
             </ScrollArea>
           </CardContent>
         </Card>
+      )}
+
+      {/* 版本管理 */}
+      {activeTab === 'versions' && (
+        <VersionManagement />
+      )}
+
+      {/* 测试面板 */}
+      {activeTab === 'test' && (
+        <TestPanel />
+      )}
+
+      {/* 执行监控 */}
+      {activeTab === 'monitor' && (
+        <ExecutionMonitor />
       )}
 
       {/* 统一的流程编辑器对话框（创建和编辑） */}
