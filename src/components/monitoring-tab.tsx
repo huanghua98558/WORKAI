@@ -14,7 +14,7 @@ interface Execution {
   robot_name?: string;
   session_id: string;
   user_id: string;
-  group_id: string;
+  group_ref: string;
   status: string;
   start_time: string;
   end_time: string;
@@ -382,7 +382,7 @@ export default function MonitoringTab() {
                             会话: {execution.session_id}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            用户: {execution.user_id} • 群组: {execution.group_id}
+                            用户: {execution.user_id} • 群组: {execution.group_ref}
                           </div>
                           {execution.robot_name && (
                             <div className="text-xs text-muted-foreground">
@@ -458,7 +458,7 @@ export default function MonitoringTab() {
                       </div>
                       <div>
                         <span className="text-muted-foreground">群组ID:</span>
-                        <span className="ml-2">{selectedExecution.group_id}</span>
+                        <span className="ml-2">{selectedExecution.group_ref}</span>
                       </div>
                       <div>
                         <span className="text-muted-foreground">状态:</span>

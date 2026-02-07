@@ -129,11 +129,11 @@ export function adaptExecutionToUnifiedMessage(execution: any): UnifiedMessage {
                   '';
 
   const groupName = execution.group_name ||
-                   execution.groupId ||
+                   execution.groupRef ||
                    '';
 
-  const groupId = execution.group_id ||
-                 execution.groupId ||
+  const groupId = execution.group_ref ||
+                 execution.groupRef ||
                  '';
 
   const userId = execution.user_id ||
@@ -188,7 +188,7 @@ export interface Execution {
   robot_name?: string;
   session_id: string;
   user_id: string;
-  group_id: string;
+  group_ref: string;
   status: string;
   start_time: string;
   end_time: string;
@@ -212,7 +212,7 @@ export function adaptMonitoringExecutionToUnifiedMessage(execution: Execution): 
     robotName: execution.robot_name,
     sessionId: execution.session_id,
     userId: execution.user_id,
-    groupId: execution.group_id,
+    groupId: execution.group_ref,
     content: userMessage,
     source: 'user',
     isFromUser: true,

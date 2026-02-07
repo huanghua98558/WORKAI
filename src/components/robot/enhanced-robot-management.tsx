@@ -28,11 +28,11 @@ interface Robot {
   status: 'online' | 'offline' | 'maintenance';
   last_heartbeat?: string;
   priority: number;
-  group_id?: string;
+  group_ref?: string;
   group_name?: string;
   group_color?: string;
   group_icon?: string;
-  role_id?: string;
+  role_ref?: string;
   role_name?: string;
   capabilities?: string[];
   max_concurrent_sessions: number;
@@ -250,8 +250,8 @@ export default function RobotManagement() {
       name: robot.name,
       apiBaseUrl: robot.api_base_url,
       description: robot.description || '',
-      groupId: robot.group_id || '',
-      roleId: robot.role_id || '',
+      groupId: robot.group_ref || '',
+      roleId: robot.role_ref || '',
       priority: robot.priority,
       maxConcurrentSessions: robot.max_concurrent_sessions,
       loadBalancingWeight: robot.load_balancing_weight,
@@ -403,18 +403,18 @@ export default function RobotManagement() {
   const filteredRobots = robots.filter(robot => {
     const matchesSearch = robot.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          robot.robot_id.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesGroup = selectedGroupId === 'all' || robot.group_id === selectedGroupId;
+    const matchesGroup = selectedGroupId === 'all' || robot.group_ref === selectedGroupId;
     return matchesSearch && matchesGroup;
   });
 
   // 按分组分组机器人
   const robotsByGroup = groups.map(group => ({
     ...group,
-    robots: filteredRobots.filter(r => r.group_id === group.id)
+    robots: filteredRobots.filter(r => r.group_ref === group.id)
   }));
 
   // 未分组的机器人
-  const ungroupedRobots = filteredRobots.filter(r => !r.group_id);
+  const ungroupedRobots = filteredRobots.filter(r => !r.group_ref);
 
   // 获取状态标签
   const getStatusBadge = (isActive: boolean, status: string) => {

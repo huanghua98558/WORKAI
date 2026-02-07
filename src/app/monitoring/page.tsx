@@ -18,7 +18,7 @@ interface Execution {
   messageId?: string | null;
   sessionId: string;
   userId?: string | null;
-  groupId?: string | null;
+  groupRef?: string | null;
   status: string;
   startTime: string;
   endTime?: string | null;
@@ -459,7 +459,7 @@ export default function MonitoringPage() {
                             {getStatusIcon(execution.status)}
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
-                                <div className="font-medium">{execution.userId || execution.groupId}</div>
+                                <div className="font-medium">{execution.userId || execution.groupRef}</div>
                                 {messageContent && (
                                   <span className="text-sm text-muted-foreground">发送消息：</span>
                                 )}

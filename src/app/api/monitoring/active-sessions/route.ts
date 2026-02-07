@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         SELECT
           sm.session_id as "sessionId",
           sm.user_id as "userId",
-          sm.group_id as "groupId",
+          sm.group_ref as "groupId",
           sm.user_name as "userName",
           sm.group_name as "groupName",
           sm.robot_id as "robotId",
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
           )) as "lastMessage"
         FROM session_messages sm
         WHERE sm.timestamp >= ${activeThreshold.toISOString()}
-        GROUP BY sm.session_id, sm.user_id, sm.group_id, sm.user_name, sm.group_name, sm.robot_id, sm.is_human
+        GROUP BY sm.session_id, sm.user_id, sm.group_ref, sm.user_name, sm.group_name, sm.robot_id, sm.is_human
         ORDER BY MAX(sm.timestamp) DESC
         LIMIT ${limit}
       )
