@@ -553,12 +553,189 @@ class AIService {
   }
 
   /**
+   * 生成带图片上下文的AI回复（新增）
+   * 支持图片识别结果的上下文增强
+   */
+  async generateReplyWithContext(options) {
+    const startTime = Date.now();
+    const { messages, imageContext, scene } = options;
+    const sessionId = options.sessionId || null;
+    const messageId = options.messageId || null;
+    const robotId = options.robotId || null;
+    const robotName = options.robotName || null;
+
+    this.logger.info('开始生成带图片上下文的回复', {
+      sessionId,
+      messageId,
+      scene,
+      hasImageContext: !!imageContext
+    });
+
+    let clientConfig;
+    let enhancedMessages;
+
+    try {
+      // 使用serviceReply客户端
+      clientConfig = this.getClient('serviceReply');
+
+      // 复制原始消息列表
+      enhancedMessages = [...messages];
+
+      // 如果有图片上下文，增强系统提示词或用户消息
+      if (imageContext && scene) {
+        const contextPrefix = this.buildImageContextPrefix(scene, imageContext);
+
+        // 在用户消息前添加图片上下文信息
+        const lastUserMessageIndex = enhancedMessages.findIndex(msg => msg.role === 'user');
+
+        if (lastUserMessageIndex !== -1) {
+          // 在最后一个用户消息前添加上下文
+          const originalUserMessage = enhancedMessages[lastUserMessageIndex].content;
+          enhancedMessages[lastUserMessageIndex].content = `${contextPrefix}\n\n${originalUserMessage}`;
+
+          this.logger.info('图片上下文已添加到用户消息', {
+            scene,
+            contextLength: contextPrefix.length
+          });
+        } else {
+          // 没有用户消息，添加一个新的用户消息
+          enhancedMessages.push({
+            role: 'user',
+            content: contextPrefix
+          });
+
+          this.logger.info('图片上下文已作为新用户消息添加', {
+            scene,
+            contextLength: contextPrefix.length
+          });
+        }
+      }
+
+      const response = await clientConfig.client.invoke(enhancedMessages, {
+        model: clientConfig.modelId,
+        temperature: options.temperature || clientConfig.temperature,
+        maxTokens: options.maxTokens || 1000
+      });
+
+      const duration = Date.now() - startTime;
+      const content = response.content;
+
+      // 记录 AI IO 日志
+      await aiIoLogService.saveLog({
+        sessionId,
+        messageId,
+        robotId,
+        robotName,
+        operationType: 'ai_reply_with_context',
+        aiInput: JSON.stringify(enhancedMessages),
+        aiOutput: content,
+        modelId: clientConfig.modelId,
+        temperature: clientConfig.temperature,
+        requestDuration: duration,
+        status: 'success',
+      });
+
+      // 记录性能日志
+      await this.logger.performance('带图片上下文的AI回复', duration, {
+        modelId: clientConfig.modelId,
+        sessionId,
+        outputLength: content.length,
+        scene
+      });
+
+      return {
+        content,
+        usage: {
+          duration,
+          modelId: clientConfig.modelId
+        }
+      };
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.logger.error('生成带图片上下文的回复失败', {
+        sessionId,
+        messageId,
+        scene,
+        error: error.message,
+        duration
+      });
+
+      // 记录错误日志
+      await aiIoLogService.saveLog({
+        sessionId,
+        messageId,
+        robotId,
+        robotName,
+        operationType: 'ai_reply_with_context',
+        aiInput: enhancedMessages ? JSON.stringify(enhancedMessages) : null,
+        aiOutput: null,
+        modelId: clientConfig?.modelId,
+        temperature: clientConfig?.temperature,
+        requestDuration: duration,
+        status: 'error',
+        errorMessage: error.message,
+      });
+
+      // 降级处理：返回标准回复（不带图片上下文）
+      this.logger.info('降级处理：使用标准回复生成');
+      return this.generateStandardReply(options);
+    }
+  }
+
+  /**
+   * 生成标准回复（降级处理）
+   */
+  async generateStandardReply(options) {
+    try {
+      const clientConfig = this.getClient('serviceReply');
+      const response = await clientConfig.client.invoke(options.messages, {
+        model: clientConfig.modelId,
+        temperature: options.temperature || clientConfig.temperature,
+        maxTokens: options.maxTokens || 1000
+      });
+
+      return {
+        content: response.content,
+        usage: {
+          duration: 0,
+          modelId: clientConfig.modelId
+        }
+      };
+    } catch (error) {
+      this.logger.error('生成标准回复失败', { error: error.message });
+      // 最终降级：返回固定话术
+      return {
+        content: '您好，我已收到您的消息，正在为您处理中，请稍等片刻 🙏',
+        usage: {
+          duration: 0,
+          modelId: 'fallback'
+        }
+      };
+    }
+  }
+
+  /**
+   * 构建图片上下文前缀
+   */
+  buildImageContextPrefix(scene, imageContext) {
+    const contextMap = {
+      video_account: `用户发送了视频号开通截图，识别结果如下：\n${JSON.stringify(imageContext, null, 2)}\n\n请根据以上识别结果，为用户提供针对性的帮助和建议。`,
+      account_violation: `用户发送了账号违规截图，识别结果如下：\n${JSON.stringify(imageContext, null, 2)}\n\n请根据以上识别结果，为用户提供解封建议或帮助。`,
+      product: `用户发送了产品截图，识别结果如下：\n${JSON.stringify(imageContext, null, 2)}\n\n请根据以上识别结果，为用户提供产品推荐或解答相关问题。`,
+      order: `用户发送了订单截图，识别结果如下：\n${JSON.stringify(imageContext, null, 2)}\n\n请根据以上识别结果，为用户提供订单状态查询或帮助。`,
+      payment: `用户发送了支付截图，识别结果如下：\n${JSON.stringify(imageContext, null, 2)}\n\n请根据以上识别结果，为用户提供支付相关帮助。`
+    };
+
+    return contextMap[scene] || `用户发送了图片，识别结果如下：\n${JSON.stringify(imageContext, null, 2)}\n\n请根据以上识别结果，为用户提供相关帮助。`;
+  }
+
+  /**
    * 获取当前配置状态
    */
   getConfigStatus() {
     const status = {};
     const providers = ['intentRecognition', 'serviceReply', 'report', 'conversion'];
-    
+
     providers.forEach(provider => {
       const clientConfig = this.clients[provider];
       if (clientConfig) {
@@ -575,7 +752,7 @@ class AIService {
         };
       }
     });
-    
+
     return status;
   }
 }

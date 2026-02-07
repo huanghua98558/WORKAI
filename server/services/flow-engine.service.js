@@ -62,7 +62,11 @@ const NodeType = {
   // 数据和满意度相关节点
   DATA_QUERY: 'data_query', // 数据查询节点
   SATISFACTION_INFER: 'satisfaction_infer', // 满意度推断节点
-  VARIABLE_SET: 'variable_set' // 变量设置节点
+  VARIABLE_SET: 'variable_set', // 变量设置节点
+
+  // 图片识别相关节点（新增）
+  IMAGE_PROCESS: 'image_process', // 图片处理复合节点（检测+下载+识别+分析+决策）
+  AI_REPLY_ENHANCED: 'ai_reply_enhanced' // 增强AI回复节点（支持图片上下文）
 };
 
 // 流程状态枚举
@@ -135,7 +139,11 @@ class FlowEngine {
       // 数据和满意度相关节点处理器
       [NodeType.DATA_QUERY]: this.handleDataQueryNode.bind(this),
       [NodeType.SATISFACTION_INFER]: this.handleSatisfactionInferNode.bind(this),
-      [NodeType.VARIABLE_SET]: this.handleVariableSetNode.bind(this)
+      [NodeType.VARIABLE_SET]: this.handleVariableSetNode.bind(this),
+
+      // 图片识别相关节点处理器（新增）
+      [NodeType.IMAGE_PROCESS]: this.handleImageProcessNode.bind(this),
+      [NodeType.AI_REPLY_ENHANCED]: this.handleAIReplyEnhancedNode.bind(this)
     };
 
     // 模板缓存
@@ -3812,6 +3820,427 @@ class FlowEngine {
       logger.error('获取系统配置失败', { error: error.message });
       return null;
     }
+  }
+
+  // ============================================
+  // 图片识别相关节点处理器（新增）
+  // ============================================
+
+  /**
+   * 处理图片处理复合节点（IMAGE_PROCESS）
+   * 功能：检测 → 下载 → 识别 → 分析 → 决策（一步完成）
+   */
+  async handleImageProcessNode(node, context) {
+    logger.info('执行图片处理节点', { node, context });
+
+    try {
+      const { data } = node;
+      const config = data || {};
+
+      // 步骤1：检测图片
+      if (config.enableDetection) {
+        const hasImage = context.message?.image ? true : false;
+        if (!hasImage) {
+          logger.info('消息中不包含图片，跳过图片处理', { context });
+          return {
+            success: true,
+            hasImage: false,
+            nextNodeId: config.skipNodeId,
+            context: {
+              ...context,
+              hasImage: false,
+              lastNodeType: 'image_process'
+            }
+          };
+        }
+        context.imageUrl = context.message.image.url;
+        logger.info('检测到图片', { imageUrl: context.imageUrl });
+      }
+
+      // 步骤2：下载图片
+      if (config.enableDownload && context.imageUrl) {
+        const downloadResult = await this.downloadImage(context.imageUrl, config);
+        context.storageUrl = downloadResult.storageUrl;
+        context.localImagePath = downloadResult.localPath;
+        logger.info('图片下载成功', { storageUrl: context.storageUrl });
+      }
+
+      // 步骤3：识别图片
+      if (config.enableRecognition && context.imageUrl) {
+        const recognitionResult = await this.recognizeImage(context.imageUrl, config);
+        context.ocrText = recognitionResult.ocrText;
+        context.gpt4vResult = recognitionResult.gpt4vResult;
+        context.scene = recognitionResult.scene;
+        context.recognitionMethod = recognitionResult.method;
+        logger.info('图片识别成功', {
+          scene: context.scene,
+          method: context.recognitionMethod
+        });
+      }
+
+      // 步骤4：分析内容
+      if (config.enableAnalysis && context.scene && context.ocrText) {
+        const analysisResult = await this.analyzeImageContent(
+          context.ocrText,
+          context.scene,
+          context.imageUrl,
+          config
+        );
+        context.imageAnalysis = analysisResult;
+        logger.info('图片内容分析成功', {
+          scene: context.scene,
+          analysisKeys: Object.keys(analysisResult)
+        });
+      }
+
+      // 步骤5：场景决策
+      if (config.enableScenarioDecision && context.scene) {
+        const sceneRouting = {
+          video_account: config.videoAccountNodeId,
+          account_violation: config.violationNodeId,
+          product: config.productNodeId,
+          order: config.orderNodeId,
+          general: config.generalNodeId
+        };
+
+        const nextNodeId = sceneRouting[context.scene] || sceneRouting.general;
+        logger.info('场景决策完成', {
+          scene: context.scene,
+          nextNodeId
+        });
+
+        return {
+          success: true,
+          hasImage: true,
+          scene: context.scene,
+          nextNodeId,
+          context: {
+            ...context,
+            hasImage: true,
+            scene: context.scene,
+            lastNodeType: 'image_process'
+          }
+        };
+      }
+
+      // 默认：返回下一个节点ID
+      return {
+        success: true,
+        hasImage: true,
+        scene: context.scene,
+        nextNodeId: node.nextNodeId,
+        context: {
+          ...context,
+          hasImage: true,
+          scene: context.scene,
+          lastNodeType: 'image_process'
+        }
+      };
+    } catch (error) {
+      logger.error('图片处理节点执行失败', {
+        error: error.message,
+        stack: error.stack
+      });
+
+      return {
+        success: false,
+        error: error.message,
+        hasImage: false,
+        context: {
+          ...context,
+          lastNodeType: 'image_process',
+          imageProcessError: error.message
+        }
+      };
+    }
+  }
+
+  /**
+   * 处理增强AI回复节点（AI_REPLY_ENHANCED）
+   * 功能：AI回复 + 支持图片上下文
+   */
+  async handleAIReplyEnhancedNode(node, context) {
+    logger.info('执行增强AI回复节点', { node, context });
+
+    try {
+      const { data } = node;
+      const {
+        modelId,
+        prompt,
+        personaId,
+        temperature = 0.7,
+        maxTokens = 1000,
+        useContextHistory = true,
+        systemPrompt,
+        enableImageContext = true,
+        fallbackToOriginal = true
+      } = data || {};
+
+      // 协同分析：检查工作人员状态，决定是否应该由AI回复
+      try {
+        const sessionId = context.sessionId || context.variables?.sessionId;
+        if (sessionId) {
+          const aiDecision = await collaborationService.shouldAIReply(sessionId, {
+            robotId: context.robotId,
+            groupName: context.groupName,
+            userName: context.userName
+          });
+
+          logger.info('协同分析：AI回复决策', {
+            sessionId,
+            shouldReply: aiDecision.shouldReply,
+            reason: aiDecision.reason,
+            strategy: aiDecision.strategy,
+            staffContext: aiDecision.staffContext
+          });
+
+          // 如果不应该AI回复，返回空结果
+          if (!aiDecision.shouldReply) {
+            logger.info('协同分析：AI暂停回复，等待工作人员处理', {
+              sessionId,
+              reason: aiDecision.reason
+            });
+
+            return {
+              success: true,
+              aiReply: null,
+              skipped: true,
+              skipReason: aiDecision.reason,
+              strategy: aiDecision.strategy,
+              staffContext: aiDecision.staffContext,
+              context: {
+                ...context,
+                aiReply: null,
+                lastNodeType: 'ai_reply_enhanced',
+                collaborationDecision: aiDecision
+              }
+            };
+          }
+        }
+      } catch (error) {
+        logger.error('协同分析检查失败（继续执行AI回复）', {
+          error: error.message,
+          sessionId: context.sessionId
+        });
+        // 协同分析失败不影响主流程，继续执行AI回复
+      }
+
+      // 获取AI服务实例
+      const aiService = await AIServiceFactory.createServiceByModelId(modelId);
+
+      // 构建消息列表
+      const messages = [];
+
+      // 添加系统提示词
+      if (systemPrompt) {
+        messages.push({ role: 'system', content: systemPrompt });
+      } else if (personaId) {
+        // 如果指定了角色，加载角色提示词
+        const role = await this.getRoleById(personaId);
+        if (role) {
+          messages.push({ role: 'system', content: role.system_prompt });
+          logger.info('使用角色提示词', { personaId, roleName: role.name });
+        }
+      }
+
+      // 添加历史对话
+      if (useContextHistory && context.history && Array.isArray(context.history)) {
+        messages.push(...context.history);
+      }
+
+      // 添加当前用户消息
+      let userMessage = context.message?.content ||
+                       context.message?.spoken ||
+                       context.userMessage ||
+                       prompt;
+
+      // 如果有图片上下文，构建增强的消息
+      if (enableImageContext && context.imageAnalysis && context.scene) {
+        const contextPrefix = this.buildImageContextPrefix(
+          context.scene,
+          context.imageAnalysis
+        );
+
+        // 将图片上下文信息添加到用户消息中
+        userMessage = `${contextPrefix}\n\n用户问题：${userMessage}`;
+
+        logger.info('使用图片上下文增强AI回复', {
+          scene: context.scene,
+          contextLength: contextPrefix.length
+        });
+      }
+
+      if (userMessage) {
+        messages.push({ role: 'user', content: userMessage });
+      }
+
+      // 调用AI生成回复
+      const result = await aiService.generateReply(messages, {
+        sessionId: context.sessionId,
+        messageId: context.messageId,
+        operationType: 'ai_reply_enhanced',
+        temperature,
+        maxTokens
+      });
+
+      logger.info('增强AI回复节点执行成功', {
+        model: modelId,
+        responseLength: result.content.length,
+        usage: result.usage,
+        hasImageContext: enableImageContext && !!context.imageAnalysis
+      });
+
+      // 记录AI IO日志
+      await this.saveAILog(context.sessionId, context.messageId, {
+        robotId: context.robotId,
+        robotName: context.robotName,
+        operationType: 'ai_reply_enhanced',
+        aiInput: JSON.stringify(messages),
+        aiOutput: result.content,
+        modelId,
+        requestDuration: result.usage?.duration || 0,
+        status: 'success'
+      });
+
+      return {
+        success: true,
+        aiReply: result.content,
+        model: modelId,
+        usage: result.usage,
+        context: {
+          ...context,
+          aiReply: result.content,
+          lastNodeType: 'ai_reply_enhanced'
+        }
+      };
+    } catch (error) {
+      logger.error('增强AI回复节点执行失败', { error: error.message });
+
+      // 返回默认回复，避免中断流程
+      return {
+        success: false,
+        aiReply: '抱歉，我暂时无法回复您的消息，请稍后再试。',
+        error: error.message,
+        context: {
+          ...context,
+          aiReply: '抱歉，我暂时无法回复您的消息，请稍后再试。',
+          lastNodeType: 'ai_reply_enhanced'
+        }
+      };
+    }
+  }
+
+  /**
+   * 下载图片
+   */
+  async downloadImage(imageUrl, config) {
+    logger.info('开始下载图片', { imageUrl });
+
+    try {
+      // 这里应该使用实际的HTTP请求下载图片
+      // 暂时模拟下载
+      const mockDownloadResult = {
+        storageUrl: imageUrl, // 暂时使用原始URL
+        localPath: `/tmp/images/${Date.now()}.jpg`
+      };
+
+      logger.info('图片下载完成', { storageUrl: mockDownloadResult.storageUrl });
+
+      return mockDownloadResult;
+    } catch (error) {
+      logger.error('图片下载失败', { imageUrl, error: error.message });
+      throw new Error(`图片下载失败: ${error.message}`);
+    }
+  }
+
+  /**
+   * 识别图片
+   */
+  async recognizeImage(imageUrl, config) {
+    logger.info('开始识别图片', { imageUrl });
+
+    try {
+      // 这里应该调用实际的图片识别服务（GPT-4V + OCR）
+      // 暂时模拟识别结果
+      const mockResult = {
+        ocrText: '模拟OCR识别的文字内容',
+        gpt4vResult: {
+          scene: 'video_account',
+          confidence: 0.95,
+          details: {}
+        },
+        scene: 'video_account',
+        method: 'mixed'
+      };
+
+      logger.info('图片识别完成', {
+        scene: mockResult.scene,
+        method: mockResult.method
+      });
+
+      return mockResult;
+    } catch (error) {
+      logger.error('图片识别失败', { imageUrl, error: error.message });
+      throw new Error(`图片识别失败: ${error.message}`);
+    }
+  }
+
+  /**
+   * 分析图片内容
+   */
+  async analyzeImageContent(ocrText, scene, imageUrl, config) {
+    logger.info('开始分析图片内容', { scene });
+
+    try {
+      // 这里应该根据场景进行内容分析
+      // 暂时模拟分析结果
+      const mockAnalysis = {};
+
+      switch (scene) {
+        case 'video_account':
+          mockAnalysis.status = '进行中';
+          mockAnalysis.step = '身份认证';
+          mockAnalysis.error = null;
+          break;
+        case 'account_violation':
+          mockAnalysis.severity = 'medium';
+          mockAnalysis.reason = '违规发布内容';
+          mockAnalysis.banDays = 7;
+          break;
+        case 'product':
+          mockAnalysis.productName = 'iPhone 15 Pro';
+          mockAnalysis.price = '7999元';
+          mockAnalysis.specs = '256GB, 钛金属原色';
+          break;
+        default:
+          mockAnalysis.general = '通用图片内容';
+      }
+
+      logger.info('图片内容分析完成', {
+        scene,
+        analysisKeys: Object.keys(mockAnalysis)
+      });
+
+      return mockAnalysis;
+    } catch (error) {
+      logger.error('图片内容分析失败', { scene, error: error.message });
+      throw new Error(`图片内容分析失败: ${error.message}`);
+    }
+  }
+
+  /**
+   * 构建图片上下文前缀
+   */
+  buildImageContextPrefix(scene, imageAnalysis) {
+    const contextMap = {
+      video_account: `用户发送了视频号开通截图，识别结果：${JSON.stringify(imageAnalysis)}。`,
+      account_violation: `用户发送了账号违规截图，识别结果：${JSON.stringify(imageAnalysis)}。`,
+      product: `用户发送了产品截图，识别结果：${JSON.stringify(imageAnalysis)}。`,
+      order: `用户发送了订单截图，识别结果：${JSON.stringify(imageAnalysis)}。`,
+      payment: `用户发送了支付截图，识别结果：${JSON.stringify(imageAnalysis)}。`
+    };
+
+    return contextMap[scene] || `用户发送了图片，识别结果：${JSON.stringify(imageAnalysis)}。`;
   }
 }
 
