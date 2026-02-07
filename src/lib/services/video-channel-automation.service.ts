@@ -1,5 +1,6 @@
 import puppeteer from 'puppeteer';
-import { promises as fs } from 'fs';
+import { promises as fsPromises } from 'fs';
+import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -91,12 +92,66 @@ class VideoChannelAutomationService {
   private currentQrcodeExpiresAt: Date | null = null;
   private currentQrcodePage: puppeteer.Page | null = null; // 保存二维码页面实例
   private qrcodeLifetime = 5 * 60 * 1000; // 5分钟有效期
+  private qrcodeStatusFile: string; // 二维码状态持久化文件
 
   constructor() {
     // 确保 /tmp 目录存在
     this.qrcodeDir = path.join('/tmp', 'qrcodes');
     this.auditDir = path.join('/tmp', 'audit');
+    this.qrcodeStatusFile = path.join('/tmp', 'qrcode-status.json');
     this.ensureDirectories();
+    this.loadQrcodeStatus(); // 启动时加载持久化的状态
+  }
+
+  /**
+   * 从文件加载二维码状态（同步，构造函数调用）
+   */
+  private loadQrcodeStatus(): void {
+    try {
+      const data = fs.readFileSync(this.qrcodeStatusFile, 'utf-8');
+      const status = JSON.parse(data);
+      if (status.currentQrcodeId && status.currentQrcodeExpiresAt) {
+        this.currentQrcodeId = status.currentQrcodeId;
+        this.currentQrcodeExpiresAt = new Date(status.currentQrcodeExpiresAt);
+        console.log('[持久化] 已加载二维码状态:', {
+          currentQrcodeId: this.currentQrcodeId,
+          currentQrcodeExpiresAt: this.currentQrcodeExpiresAt.toISOString(),
+          instanceId: this.instanceId
+        });
+      }
+    } catch (error) {
+      // 文件不存在或读取失败，忽略
+      console.log('[持久化] 未找到有效的二维码状态文件');
+    }
+  }
+
+  /**
+   * 保存二维码状态到文件
+   */
+  private async saveQrcodeStatus(): Promise<void> {
+    try {
+      const status = {
+        currentQrcodeId: this.currentQrcodeId,
+        currentQrcodeExpiresAt: this.currentQrcodeExpiresAt?.toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      await fsPromises.writeFile(this.qrcodeStatusFile, JSON.stringify(status, null, 2));
+      console.log('[持久化] 已保存二维码状态:', status);
+    } catch (error) {
+      console.error('[持久化] 保存二维码状态失败:', error);
+    }
+  }
+
+  /**
+   * 清除二维码状态文件
+   */
+  private async clearQrcodeStatus(): Promise<void> {
+    try {
+      await fsPromises.unlink(this.qrcodeStatusFile);
+      console.log('[持久化] 已清除二维码状态文件');
+    } catch (error) {
+      // 文件不存在，忽略
+    }
   }
 
   /**
@@ -158,6 +213,7 @@ class VideoChannelAutomationService {
     await this.closeQrcodePage();
     this.currentQrcodeId = null;
     this.currentQrcodeExpiresAt = null;
+    await this.clearQrcodeStatus(); // 清除持久化状态
   }
 
   /**
@@ -189,8 +245,8 @@ class VideoChannelAutomationService {
 
   private async ensureDirectories() {
     try {
-      await fs.mkdir(this.qrcodeDir, { recursive: true });
-      await fs.mkdir(this.auditDir, { recursive: true });
+      await fsPromises.mkdir(this.qrcodeDir, { recursive: true });
+      await fsPromises.mkdir(this.auditDir, { recursive: true });
     } catch (error) {
       console.error('创建目录失败:', error);
     }
@@ -414,7 +470,7 @@ class VideoChannelAutomationService {
         const qrcodeId = `${timestamp}_full`;
         const qrcodePath = path.join(this.qrcodeDir, `${qrcodeId}.png`);
 
-        await fs.writeFile(qrcodePath, fullScreenshot);
+        await fsPromises.writeFile(qrcodePath, fullScreenshot);
 
         console.log('[获取二维码] 已保存完整页面截图:', qrcodePath);
 
@@ -433,7 +489,7 @@ class VideoChannelAutomationService {
 
         const partialId = `${timestamp}_partial`;
         const partialPath = path.join(this.qrcodeDir, `${partialId}.png`);
-        await fs.writeFile(partialPath, partialScreenshot);
+        await fsPromises.writeFile(partialPath, partialScreenshot);
 
         // 更新当前二维码状态
         this.currentQrcodeId = qrcodeId;
@@ -445,6 +501,9 @@ class VideoChannelAutomationService {
           过期时间: this.currentQrcodeExpiresAt.toISOString(),
           有效期: this.qrcodeLifetime / 1000 + '秒'
         });
+
+        // 持久化状态
+        await this.saveQrcodeStatus();
 
         return {
           success: true,
@@ -462,7 +521,7 @@ class VideoChannelAutomationService {
       const timestamp = Date.now();
       const qrcodeId = `${timestamp}`;
       const qrcodePath = path.join(this.qrcodeDir, `${qrcodeId}.png`);
-      await fs.writeFile(qrcodePath, qrcodeScreenshot);
+      await fsPromises.writeFile(qrcodePath, qrcodeScreenshot);
 
       // 更新当前二维码状态
       this.currentQrcodeId = qrcodeId;
@@ -474,6 +533,9 @@ class VideoChannelAutomationService {
         过期时间: this.currentQrcodeExpiresAt.toISOString(),
         有效期: this.qrcodeLifetime / 1000 + '秒'
       });
+
+      // 持久化状态
+      await this.saveQrcodeStatus();
 
       // 生成访问URL
       const qrcodeUrl = `/api/video-channel/qrcode/${qrcodeId}.png`;
@@ -739,7 +801,7 @@ class VideoChannelAutomationService {
       // 保存到文件（实际应用中应该保存到数据库）
       const timestamp = Date.now();
       const cookieFilePath = path.join('/tmp', `cookies_${userId}_${timestamp}.json`);
-      await fs.writeFile(cookieFilePath, JSON.stringify({
+      await fsPromises.writeFile(cookieFilePath, JSON.stringify({
         userId,
         cookies: allCookies,
         cookieCount: allCookies.length,
@@ -854,7 +916,7 @@ class VideoChannelAutomationService {
         };
 
         const auditRecordPath = path.join('/tmp', `audit_record_${timestamp}.json`);
-        await fs.writeFile(auditRecordPath, JSON.stringify(auditRecord, null, 2));
+        await fsPromises.writeFile(auditRecordPath, JSON.stringify(auditRecord, null, 2));
 
         return {
           success: true,
