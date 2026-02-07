@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Scan, CheckCircle, Cookie, Eye, AlertCircle, Loader2, RefreshCw, Clock } from 'lucide-react';
+import { Scan, CheckCircle, Cookie, Eye, AlertCircle, Loader2, RefreshCw, Clock, Info } from 'lucide-react';
 
 export default function VideoChannelConversionPage() {
   const [step, setStep] = useState(1);
