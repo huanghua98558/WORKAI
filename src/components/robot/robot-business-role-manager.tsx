@@ -317,7 +317,10 @@ export default function RobotBusinessRoleManager() {
       )}
 
       {/* 新增/编辑对话框 */}
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+      <Dialog open={showDialog} onOpenChange={(open) => {
+        console.log('[RobotBusinessRoleManager] Dialog 状态变化:', open, '当前 robots:', robots.length);
+        setShowDialog(open);
+      }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingRole ? '编辑业务角色' : '新增业务角色'}</DialogTitle>
@@ -327,6 +330,7 @@ export default function RobotBusinessRoleManager() {
                 : '创建一个新的业务角色'}
             </DialogDescription>
           </DialogHeader>
+          {console.log('[RobotBusinessRoleManager] 渲染 BusinessRoleForm，robots:', robots.length, '个')}
           <BusinessRoleForm
             robots={robots}
             initialData={editingRole}
