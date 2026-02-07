@@ -19,6 +19,7 @@ export const interventions = pgTable(
     staffId: varchar("staff_id", { length: 36 })
       .notNull(),
     staffName: varchar("staff_name", { length: 200 }).notNull(),
+    staffType: varchar("staff_type", { length: 20 }), // 工作人员类型：management, community_ops, after_sales, conversion_staff
     
     // 触发消息
     messageId: varchar("message_id", { length: 36 }), // 触发介入的消息ID

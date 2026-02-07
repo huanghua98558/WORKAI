@@ -131,6 +131,8 @@ export const alertHistory = pgTable("alert_history", {
 	confidence: integer(),
 	needReply: boolean("need_reply"),
 	needHuman: boolean("need_human"),
+	relatedTaskId: varchar("related_task_id", { length: 36 }),
+	source: varchar("source", { length: 50 }),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
 	index("idx_alert_history_alert_level").using("btree", table.alertLevel.asc().nullsLast().op("text_ops")),
@@ -139,6 +141,7 @@ export const alertHistory = pgTable("alert_history", {
 	index("idx_alert_history_intent_type").using("btree", table.intentType.asc().nullsLast().op("text_ops")),
 	index("idx_alert_history_session_id").using("btree", table.sessionId.asc().nullsLast().op("text_ops")),
 	index("idx_alert_history_status").using("btree", table.status.asc().nullsLast().op("text_ops")),
+	index("idx_alert_history_related_task_id").using("btree", table.relatedTaskId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const alertDedupRecords = pgTable("alert_dedup_records", {
@@ -271,6 +274,8 @@ export const collaborationDecisionLogs = pgTable("collaboration_decision_logs", 
 	staffContext: text("staff_context"),
 	infoContext: text("info_context"),
 	strategy: text(),
+	staffType: varchar("staff_type", { length: 50 }),
+	messageType: varchar("message_type", { length: 50 }),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
 });
 

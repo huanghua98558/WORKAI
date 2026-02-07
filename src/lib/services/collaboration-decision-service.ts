@@ -30,6 +30,10 @@ export interface RecordDecisionInput {
   staffId?: string;
   /** 员工名称（如果有） */
   staffName?: string;
+  /** 员工类型（可选） */
+  staffType?: 'management' | 'community' | 'after_sales' | 'conversion';
+  /** 消息类型（可选） */
+  messageType?: 'user' | 'staff' | 'system' | 'notification';
 }
 
 export interface DecisionResult {
@@ -86,9 +90,11 @@ export class CollaborationDecisionService {
         staffContext: input.staffContext || '',
         infoContext: input.infoContext || '',
         strategy: input.strategy || '',
+        staffType: input.staffType || null,
+        messageType: input.messageType || null,
         createdAt: new Date().toISOString(),
       };
-
+      
       // 保存到数据库
       await db.insert(collaborationDecisionLogs).values(decisionData);
 
@@ -137,6 +143,8 @@ export class CollaborationDecisionService {
         staffContext: input.staffContext || '',
         infoContext: input.infoContext || '',
         strategy: input.strategy || '',
+        staffType: input.staffType || null,
+        messageType: input.messageType || null,
         createdAt: new Date().toISOString(),
       }));
 

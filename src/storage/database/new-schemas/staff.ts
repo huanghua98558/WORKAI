@@ -19,6 +19,9 @@ export const staff = pgTable(
     role: varchar("role", { length: 50 }).default("staff"), // admin, manager, staff
     permissions: jsonb("permissions").default("[]"), // 权限列表
     
+    // 工作人员类型
+    staffType: varchar("staff_type", { length: 20 }).notNull().default("management"), // management, community_ops, after_sales, conversion_staff
+    
     // 工作状态
     status: varchar("status", { length: 20 }).default("offline"), // online, busy, offline
     statusMessage: varchar("status_message", { length: 500 }),
@@ -50,6 +53,7 @@ export const staff = pgTable(
     statusIdx: index("staff_status_idx").on(table.status),
     roleIdx: index("staff_role_idx").on(table.role),
     emailIdx: index("staff_email_idx").on(table.email),
+    staffTypeIdx: index("staff_staff_type_idx").on(table.staffType),
   })
 );
 
