@@ -44,7 +44,7 @@ export const alertRules = pgTable("alert_rules", {
 	cooldownPeriod: integer("cooldown_period").default(300),
 	messageTemplate: text("message_template"),
 	keywords: text(),
-	groupId: varchar("group_id", { length: 36 }),
+	groupRef: varchar("group_ref", { length: 36 }),
 	enableEscalation: boolean("enable_escalation").default(false),
 	escalationLevel: integer("escalation_level").default(0),
 	escalationThreshold: integer("escalation_threshold").default(3),
