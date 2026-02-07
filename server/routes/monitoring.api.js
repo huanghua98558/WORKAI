@@ -7,6 +7,7 @@ const { getDb } = require('coze-coding-dev-sdk');
 const { execution_tracking, sessions, ai_io_logs, session_messages, robots } = require('../database/schema');
 const { eq, desc, and, gte, lte } = require('drizzle-orm');
 const logger = require('../services/system-logger.service');
+const cacheService = require('../lib/cache');
 
 async function monitoringRoutes(fastify, options) {
   const logger = require('../services/system-logger.service');
@@ -237,9 +238,23 @@ async function monitoringRoutes(fastify, options) {
     }
   });
 
-  // 6. 获取系统健康状态
+  // 6. 获取系统健康状态（带缓存）
   fastify.get('/monitoring/health', async (request, reply) => {
     try {
+      const cacheKey = 'monitoring:health';
+      const cacheTTL = 60; // 1分钟过期
+
+      // 尝试从缓存获取
+      const cached = await cacheService.get(cacheKey);
+      if (cached) {
+        return reply.send({
+          code: 0,
+          message: 'success (cached)',
+          data: cached
+        });
+      }
+
+      // 从数据库查询
       const db = await getDb();
 
       // 统计最近1小时的执行情况
@@ -272,32 +287,37 @@ async function monitoringRoutes(fastify, options) {
           gte(sessions.lastMessageAt, oneHourAgo)
         ));
 
+      const healthData = {
+        executions: {
+          total: recentExecutions.length,
+          success: successCount,
+          error: errorCount,
+          processing: processingCount,
+          successRate: recentExecutions.length > 0
+            ? (successCount / recentExecutions.length * 100).toFixed(2)
+            : '0.00'
+        },
+        ai: {
+          total: recentAiCalls.length,
+          success: aiSuccessCount,
+          error: aiErrorCount,
+          successRate: recentAiCalls.length > 0
+            ? (aiSuccessCount / recentAiCalls.length * 100).toFixed(2)
+            : '0.00'
+        },
+        sessions: {
+          active: activeSessions.length
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      // 写入缓存
+      await cacheService.set(cacheKey, healthData, cacheTTL);
+
       return reply.send({
         code: 0,
         message: 'success',
-        data: {
-          executions: {
-            total: recentExecutions.length,
-            success: successCount,
-            error: errorCount,
-            processing: processingCount,
-            successRate: recentExecutions.length > 0
-              ? (successCount / recentExecutions.length * 100).toFixed(2)
-              : '0.00'
-          },
-          ai: {
-            total: recentAiCalls.length,
-            success: aiSuccessCount,
-            error: aiErrorCount,
-            successRate: recentAiCalls.length > 0
-              ? (aiSuccessCount / recentAiCalls.length * 100).toFixed(2)
-              : '0.00'
-          },
-          sessions: {
-            active: activeSessions.length
-          },
-          timestamp: new Date().toISOString()
-        }
+        data: healthData
       });
     } catch (error) {
       console.error('获取系统健康状态失败:', error);

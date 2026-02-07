@@ -5,13 +5,16 @@
 
 const { getDb } = require('coze-coding-dev-sdk');
 const { robots, apiCallLogs } = require('../database/schema');
-const { eq, and, like, or } = require('drizzle-orm');
+const { eq, and, like, or, desc } = require('drizzle-orm');
 const axios = require('axios');
 const { getLogger } = require('../lib/logger');
+const cacheService = require('../lib/cache');
 
 class RobotService {
   constructor() {
     this.logger = getLogger('ROBOT');
+    this.cachePrefix = 'robots:'; // 缓存前缀
+    this.cacheTTL = 300; // 5分钟过期
   }
   /**
    * 生成机器人的回调地址和通讯地址
@@ -167,11 +170,22 @@ class RobotService {
   }
 
   /**
-   * 获取所有机器人
+   * 获取所有机器人（带缓存）
    */
   async getAllRobots(options = {}) {
+    // 生成缓存键
+    const cacheKey = `${this.cachePrefix}list:${JSON.stringify(options)}`;
+
+    // 尝试从缓存获取
+    const cached = await cacheService.get(cacheKey);
+    if (cached) {
+      this.logger.debug('从缓存获取机器人列表', { cacheKey });
+      return cached;
+    }
+
+    // 从数据库查询
     const db = await getDb();
-    const { isActive, status, search } = options;
+    const { isActive, status, search, limit = 100, offset = 0 } = options;
 
     let whereConditions = [];
     
@@ -196,7 +210,13 @@ class RobotService {
       .select()
       .from(robots)
       .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-      .orderBy(robots.createdAt);
+      .orderBy(desc(robots.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    // 写入缓存
+    await cacheService.set(cacheKey, results, this.cacheTTL);
+    this.logger.debug('机器人列表已缓存', { cacheKey, count: results.length });
 
     return results;
   }
@@ -290,6 +310,10 @@ class RobotService {
       .where(eq(robots.id, id))
       .returning();
 
+    // 清除机器人列表缓存
+    await cacheService.delPattern(`${this.cachePrefix}list:*`);
+    this.logger.info('机器人列表缓存已清除', { robotId: id });
+
     return result[0];
   }
 
@@ -298,10 +322,15 @@ class RobotService {
    */
   async deleteRobot(id) {
     const db = await getDb();
+    
     const result = await db
       .delete(robots)
       .where(eq(robots.id, id))
       .returning();
+
+    // 清除机器人列表缓存
+    await cacheService.delPattern(`${this.cachePrefix}list:*`);
+    this.logger.info('机器人列表缓存已清除', { robotId: id });
 
     return result[0];
   }
