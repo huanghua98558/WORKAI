@@ -1,6 +1,11 @@
 /**
  * Redis 客户端管理
- * 支持内存模式降级
+ * 支持 @upstash/redis REST API、ioredis 和内存模式降级
+ *
+ * 优先级：
+ * 1. Upstash REST API（最稳定，无连接限制）
+ * 2. ioredis（传统 Redis 连接）
+ * 3. 内存模式（降级方案）
  */
 
 const { getLogger } = require('./logger');
@@ -13,6 +18,7 @@ class RedisClient {
     this.memoryStore = new Map(); // 内存存储
     this.useMemoryMode = false;
     this.memoryClient = null; // 缓存内存客户端
+    this.useRestApi = false; // 是否使用 REST API
     this.logger = getLogger('REDIS');
   }
 
@@ -24,98 +30,128 @@ class RedisClient {
       return this.getMemoryClient();
     }
 
-    // 尝试连接 Redis
-    try {
-      const Redis = require('ioredis');
-      let config;
-
-      // 优先使用 REDIS_URL（支持 Upstash Redis）
-      if (process.env.REDIS_URL) {
-        config = process.env.REDIS_URL;
-        this.logger.info('使用 REDIS_URL 连接 Redis');
-      } else {
-        // 使用传统配置方式
-        config = {
-          host: process.env.REDIS_HOST || 'localhost',
-          port: parseInt(process.env.REDIS_PORT || 6379),
-          db: parseInt(process.env.REDIS_DB || 0),
-          connectTimeout: 5000,
-          maxRetriesPerRequest: 3
-        };
-
-        if (process.env.REDIS_PASSWORD) {
-          config.password = process.env.REDIS_PASSWORD;
-        }
-      }
-
-      // 配置 Redis 连接选项（支持自动重连）
-      const options = typeof config === 'string' ? {
-        connectTimeout: 15000, // 增加连接超时时间到 15 秒
-        maxRetriesPerRequest: 5, // 增加重试次数到 5 次
-        retryStrategy: (times) => Math.min(times * 200, 5000), // 优化重试策略
-        lazyConnect: false, // 立即连接
-        keepAlive: 30000, // 保持连接
-        enableReadyCheck: true, // 启用就绪检查
-      } : {
-        ...config,
-        connectTimeout: 15000,
-        maxRetriesPerRequest: 5,
-        retryStrategy: (times) => Math.min(times * 200, 5000),
-        lazyConnect: false,
-        keepAlive: 30000,
-        enableReadyCheck: true,
-      };
-
-      this.client = new Redis(typeof config === 'string' ? config : '', options);
-      this.publisher = new Redis(typeof config === 'string' ? config : '', options);
-      this.subscriber = new Redis(typeof config === 'string' ? config : '', options);
-
-      // 正确的错误处理
-      this.client.on('error', (err) => {
-        this.logger.error('Redis 客户端错误', { error: err.message });
-      });
-      this.publisher.on('error', (err) => {
-        this.logger.error('Redis 发布者错误', { error: err.message });
-      });
-      this.subscriber.on('error', (err) => {
-        this.logger.error('Redis 订阅者错误', { error: err.message });
-      });
-
-      // 监听连接状态
-      this.client.on('connect', () => {
-        this.logger.info('Redis 客户端已连接');
-      });
-      this.client.on('close', () => {
-        this.logger.warn('Redis 客户端连接已关闭');
-      });
-      this.client.on('reconnecting', () => {
-        this.logger.info('Redis 客户端正在重连...');
-      });
-
-      // 启动健康检查
-      this.startHealthCheck();
-
-      // ioredis 默认是懒连接，不需要手动调用 connect()
-      // 直接进行 ping 测试
+    // 优先使用 Upstash REST API（如果配置了 REST URL）
+    if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
       try {
-        await this.client.ping();
-        this.logger.info('Redis 客户端已连接', {
-          mode: process.env.REDIS_URL ? 'URL' : 'Config',
-          config: process.env.REDIS_URL ? 'Upstash Redis' : `${config.host}:${config.port}`
-        });
-        return this.client;
+        return await this.connectRestApi();
       } catch (error) {
-        throw error;
+        this.logger.error('Upstash REST API 连接失败，尝试 ioredis', { error: error.message });
+        // 继续尝试 ioredis
       }
+    }
+
+    // 尝试使用 ioredis 连接 Redis
+    try {
+      return await this.connectIoredis();
     } catch (error) {
-      this.logger.warn('Redis 连接失败，切换到内存模式', {
-        error: error.message,
-        mode: process.env.REDIS_URL ? 'URL' : 'Config'
-      });
+      this.logger.warn('ioredis 连接失败，切换到内存模式', { error: error.message });
       this.useMemoryMode = true;
       this.client = this.publisher = this.subscriber = null;
       return this.getMemoryClient();
     }
+  }
+
+  /**
+   * 使用 @upstash/redis REST API 连接
+   */
+  async connectRestApi() {
+    const { Redis } = require('@upstash/redis');
+    this.useRestApi = true;
+
+    this.client = new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    });
+
+    // 测试连接
+    await this.client.ping();
+    this.logger.info('✅ Upstash Redis REST API 已连接', {
+      url: process.env.UPSTASH_REDIS_REST_URL
+    });
+
+    // 复用 client 连接
+    this.publisher = this.client;
+    this.subscriber = this.client;
+
+    return this.client;
+  }
+
+  /**
+   * 使用 ioredis 连接 Redis
+   */
+  async connectIoredis() {
+    const Redis = require('ioredis');
+    let config;
+
+    // 优先使用 REDIS_URL（支持 Upstash Redis）
+    if (process.env.REDIS_URL) {
+      config = process.env.REDIS_URL;
+      this.logger.info('使用 REDIS_URL 连接 Redis');
+    } else {
+      // 使用传统配置方式
+      config = {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || 6379),
+        db: parseInt(process.env.REDIS_DB || 0),
+        connectTimeout: 5000,
+        maxRetriesPerRequest: 3
+      };
+
+      if (process.env.REDIS_PASSWORD) {
+        config.password = process.env.REDIS_PASSWORD;
+      }
+    }
+
+    // 配置 Redis 连接选项（支持自动重连）
+    const options = typeof config === 'string' ? {
+      connectTimeout: 15000, // 增加连接超时时间到 15 秒
+      maxRetriesPerRequest: 5, // 增加重试次数到 5 次
+      retryStrategy: (times) => Math.min(times * 200, 5000), // 优化重试策略
+      lazyConnect: false, // 立即连接
+      keepAlive: 30000, // 保持连接
+      enableReadyCheck: true, // 启用就绪检查
+    } : {
+      ...config,
+      connectTimeout: 15000,
+      maxRetriesPerRequest: 5,
+      retryStrategy: (times) => Math.min(times * 200, 5000),
+      lazyConnect: false,
+      keepAlive: 30000,
+      enableReadyCheck: true,
+    };
+
+    this.client = new Redis(typeof config === 'string' ? config : '', options);
+
+    // 复用 client 连接，减少连接数（Upstash Redis 有连接限制）
+    this.publisher = this.client;
+    this.subscriber = this.client;
+
+    // 错误处理
+    this.client.on('error', (err) => {
+      if (err.message) {
+        this.logger.error('Redis 连接错误', { error: err.message });
+      }
+    });
+
+    // 监听连接状态
+    this.client.on('connect', () => {
+      this.logger.info('Redis 客户端已连接');
+    });
+    this.client.on('close', () => {
+      this.logger.warn('Redis 客户端连接已关闭');
+    });
+    this.client.on('reconnecting', (delay) => {
+      this.logger.info(`Redis 客户端正在重连... (延迟: ${delay}ms)`);
+    });
+
+    // 测试连接
+    await this.client.ping();
+    this.logger.info('✅ Redis 客户端已连接', {
+      mode: process.env.REDIS_URL ? 'URL' : 'Config',
+      config: process.env.REDIS_URL ? 'Upstash Redis' : `${config.host}:${config.port}`
+    });
+
+    return this.client;
   }
 
   getMemoryClient() {
@@ -198,17 +234,28 @@ class RedisClient {
         // 内存模式下忽略过期时间
         return 1;
       },
-      publish: async (channel, message) => {
-        // 内存模式下不实现发布订阅
-        return 0;
+      ping: async () => {
+        return 'PONG';
       },
       quit: async () => {
         // 内存模式下无需关闭连接
         return 'OK';
+      },
+      publish: async (channel, message) => {
+        // 内存模式下不实现发布订阅
+        return 0;
+      },
+      subscribe: async (channel, callback) => {
+        // 内存模式下不实现订阅
+        return 0;
+      },
+      unsubscribe: async (channel) => {
+        return 0;
       }
     };
 
     this.memoryClient = memoryClient;
+    this.logger.info('✅ 内存模式客户端已创建');
     return memoryClient;
   }
 
@@ -221,7 +268,7 @@ class RedisClient {
         const client = await this.connect();
         return client;
       } catch (error) {
-        console.warn('⚠️  Redis 连接失败，使用内存模式');
+        this.logger.warn('获取客户端失败，使用内存模式', { error: error.message });
         this.useMemoryMode = true;
         return this.getMemoryClient();
       }
@@ -250,45 +297,27 @@ class RedisClient {
   }
 
   async close() {
-    if (this.client && !this.useMemoryMode) await this.client.quit();
-    if (this.publisher && !this.useMemoryMode) await this.publisher.quit();
-    if (this.subscriber && !this.useMemoryMode) await this.subscriber.quit();
+    if (this.client && !this.useMemoryMode && !this.useRestApi) {
+      await this.client.quit();
+    }
+    // REST API 和内存模式无需关闭
   }
 
   isMemoryMode() {
     return this.useMemoryMode;
   }
 
-  /**
-   * 启动健康检查
-   * 每 30 秒检查一次 Redis 连接状态
-   */
-  startHealthCheck() {
-    if (this.useMemoryMode) {
-      return;
-    }
+  isRestApiMode() {
+    return this.useRestApi;
+  }
 
-    let healthCheckTimer;
-
-    const checkHealth = async () => {
-      try {
-        if (this.client && !this.useMemoryMode) {
-          await this.client.ping();
-        }
-      } catch (error) {
-        this.logger.error('Redis 健康检查失败，切换到内存模式', { error: error.message });
-        this.useMemoryMode = true;
-        if (healthCheckTimer) {
-          clearInterval(healthCheckTimer);
-        }
-      }
+  getConnectionInfo() {
+    return {
+      mode: this.useMemoryMode ? 'memory' : (this.useRestApi ? 'rest' : 'ioredis'),
+      useMemoryMode: this.useMemoryMode,
+      useRestApi: this.useRestApi,
+      connected: this.client !== null,
     };
-
-    // 每 30 秒检查一次
-    healthCheckTimer = setInterval(checkHealth, 30000);
-
-    // 首次延迟 10 秒执行
-    setTimeout(checkHealth, 10000);
   }
 }
 

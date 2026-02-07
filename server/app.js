@@ -63,6 +63,11 @@ const prometheusService = require('./lib/prometheus');
 const cacheService = require('./lib/cache');
 const cacheWarmupService = require('./services/cache-warmup.service');
 
+// 初始化缓存服务
+cacheService.init().catch((error) => {
+  logger.warn('缓存服务初始化失败', { error: error.message });
+});
+
 const robotService = require('./services/robot.service');
 const robotCommandService = require('./services/robot-command.service');
 

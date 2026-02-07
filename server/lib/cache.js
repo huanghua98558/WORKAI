@@ -398,26 +398,36 @@ class CacheService {
       const l1Stats = this.getL1Stats();
 
       // L2 Redis 缓存统计
-      const info = await this.client.info('stats');
-      const lines = info.split('\n');
-
       const l2Stats = {
         total_commands: 0,
         total_connections: 0,
         total_keys: 0
       };
 
-      for (const line of lines) {
-        if (line.startsWith('total_commands_processed:')) {
-          l2Stats.total_commands = parseInt(line.split(':')[1]);
-        } else if (line.startsWith('total_connections_received:')) {
-          l2Stats.total_connections = parseInt(line.split(':')[1]);
+      // 尝试获取 Redis 统计信息（Upstash REST API 不支持 info 命令）
+      try {
+        const info = await this.client.info('stats');
+        const lines = info.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('total_commands_processed:')) {
+            l2Stats.total_commands = parseInt(line.split(':')[1]);
+          } else if (line.startsWith('total_connections_received:')) {
+            l2Stats.total_connections = parseInt(line.split(':')[1]);
+          }
         }
+      } catch (error) {
+        // Upstash REST API 不支持 info 命令，使用默认值
+        this.logger.debug('Redis info 命令不可用，使用默认值');
       }
 
       // 获取数据库键的数量
-      const dbsize = await this.client.dbsize();
-      l2Stats.total_keys = dbsize;
+      try {
+        const dbsize = await this.client.dbsize();
+        l2Stats.total_keys = dbsize;
+      } catch (error) {
+        this.logger.warn('获取 DBSIZE 失败', { error: error.message });
+      }
 
       return {
         l1: l1Stats,
