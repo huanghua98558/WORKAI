@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { TrendChart, MiniBarChart } from '@/components/ui/chart';
 import {
   Activity,
   TrendingUp,
@@ -336,6 +337,37 @@ export default function ComprehensiveAnalytics() {
         </Card>
       </div>
 
+      {/* 趋势图表 */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {data?.performance.trends.requests && (
+          <TrendChart
+            title="请求量趋势"
+            data={data.performance.trends.requests}
+            unit="次"
+            color="#3b82f6"
+            height={180}
+          />
+        )}
+        {data?.performance.trends.responseTime && (
+          <TrendChart
+            title="响应时间趋势"
+            data={data.performance.trends.responseTime}
+            unit="ms"
+            color="#10b981"
+            height={180}
+          />
+        )}
+        {data?.performance.trends.errorRate && (
+          <TrendChart
+            title="错误率趋势"
+            data={data.performance.trends.errorRate}
+            unit="%"
+            color="#ef4444"
+            height={180}
+          />
+        )}
+      </div>
+
       {/* 详细分析 */}
       <Tabs defaultValue="bottlenecks" className="space-y-4">
         <TabsList>
@@ -450,20 +482,15 @@ export default function ComprehensiveAnalytics() {
                 </div>
 
                 {data?.ai.modelUsage && data.ai.modelUsage.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium mb-3">模型使用分布</h4>
-                    <div className="space-y-3">
-                      {data.ai.modelUsage.map((usage, index) => (
-                        <div key={index} className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <span>{usage.model}</span>
-                            <span>{usage.count} 次</span>
-                          </div>
-                          <Progress value={(usage.count / (data?.ai.totalRequests || 1)) * 100} />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <MiniBarChart
+                    title="模型使用分布"
+                    data={data.ai.modelUsage.map(usage => ({
+                      label: usage.model,
+                      value: usage.count,
+                    }))}
+                    maxValue={data.ai.totalRequests}
+                    color="#8b5cf6"
+                  />
                 )}
               </div>
             </CardContent>
