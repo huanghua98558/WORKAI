@@ -514,12 +514,11 @@ export default function AdminDashboard() {
     const interval = setInterval(() => {
       console.log('[自动刷新] 刷新关键数据...');
       // 只刷新会话数据，快速响应
-      fetchWithTimeout('/api/monitoring/executions?limit=200', 2000).then(res => {
+      fetchWithTimeout('/api/admin/sessions/active?limit=200', 2000).then(res => {
         if (res.ok) {
           res.json().then(data => {
-            const executions = data.data || [];
-            const uniqueSessions = adaptExecutionsToSessions(executions);
-            setSessions(uniqueSessions);
+            const sessions = data.data || [];
+            setSessions(sessions);
           });
         }
       });
@@ -854,13 +853,11 @@ export default function AdminDashboard() {
 
     setIsSearchingSessions(true);
     try {
-      // 获取所有执行记录
-      const res = await fetch('/api/monitoring/executions?limit=200');
+      // 获取所有会话（包括sessions表和execution_tracking表）
+      const res = await fetch('/api/admin/sessions/active?limit=200');
       if (res.ok) {
         const data = await res.json();
-        const executions = data.data || [];
-        // 使用适配器转换为会话
-        const allSessions = adaptExecutionsToSessions(executions);
+        const allSessions = data.data || [];
         // 使用过滤器进行搜索和状态筛选
         const filtered = filterSessions(allSessions, sessionSearchQuery, sessionStatusFilter);
         setSessions(filtered);
@@ -934,7 +931,7 @@ export default function AdminDashboard() {
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 增加到10秒
 
         console.log('[初始化] 发起会话 API 请求...');
-        const sessionsRes = await fetch('/api/monitoring/executions?limit=200', {
+        const sessionsRes = await fetch('/api/admin/sessions/active?limit=200', {
           signal: controller.signal
         });
         
@@ -944,11 +941,9 @@ export default function AdminDashboard() {
         if (sessionsRes.ok) {
           const data = await sessionsRes.json();
           console.log('[初始化] API 返回数据:', data);
-          // 使用适配器将执行记录转换为会话格式
-          const executions = data.data || [];
-          console.log('[初始化] 执行记录数量:', executions.length);
-          const sessions = adaptExecutionsToSessions(executions);
-          console.log('[初始化] 转换后的会话数量:', sessions.length);
+          // 新API已经返回格式化的会话数据，直接使用
+          const sessions = data.data || [];
+          console.log('[初始化] 会话数量:', sessions.length);
           console.log('[初始化] 会话数据:', sessions);
           setSessions(sessions);
           console.log(`[初始化] 关键数据加载完成，耗时: ${Date.now() - startTime}ms`);
@@ -2997,12 +2992,11 @@ ${callbacks.robotStatus}
                               alert('✅ 已切换为人工接管');
                               setShowSessionDetail(false);
                               // 重新加载会话列表
-                              const sessionsRes = await fetch('/api/monitoring/executions?limit=200');
+                              const sessionsRes = await fetch('/api/admin/sessions/active?limit=200');
                               if (sessionsRes.ok) {
                                 const data = await sessionsRes.json();
-                                const executions = data.data || [];
-                                const uniqueSessions = adaptExecutionsToSessions(executions);
-                                setSessions(uniqueSessions);
+                                const sessions = data.data || [];
+                                setSessions(sessions);
                               }
                             } else {
                               alert('❌ 切换失败');
@@ -3038,12 +3032,11 @@ ${callbacks.robotStatus}
                                 }
                               }
                               // 重新加载会话列表
-                              const sessionsRes = await fetch('/api/monitoring/executions?limit=200');
+                              const sessionsRes = await fetch('/api/admin/sessions/active?limit=200');
                               if (sessionsRes.ok) {
                                 const data = await sessionsRes.json();
-                                const executions = data.data || [];
-                                const uniqueSessions = adaptExecutionsToSessions(executions);
-                                setSessions(uniqueSessions);
+                                const sessions = data.data || [];
+                                setSessions(sessions);
                               }
                             } else {
                               alert('❌ 切换失败');
