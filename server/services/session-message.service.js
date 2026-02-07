@@ -8,6 +8,7 @@ const { sessionMessages } = require('../database/schema');
 const { sql } = require('drizzle-orm');
 const logger = require('./system-logger.service');
 const { diagnoseAndHandleSaveError } = require('./message-save-diagnostics');
+const messageCacheService = require('./message-cache.service');
 
 class SessionMessageService {
   /**
@@ -91,6 +92,10 @@ class SessionMessageService {
       });
 
       await db.insert(sessionMessages).values(message);
+
+      // 清除缓存（新消息插入后，缓存失效）
+      await messageCacheService.deleteSessionMessages(sessionId);
+      await messageCacheService.deleteSessionStats(sessionId);
 
       logger.info('SessionMessage', '用户消息保存成功', {
         sessionId: message.sessionId,
@@ -194,6 +199,11 @@ class SessionMessageService {
     };
 
     await db.insert(sessionMessages).values(message);
+
+    // 清除缓存（新消息插入后，缓存失效）
+    await messageCacheService.deleteSessionMessages(sessionId);
+    await messageCacheService.deleteSessionStats(sessionId);
+
     console.log(`[会话消息] 保存机器人回复: sessionId=${sessionId}, robot=${robotName}, intent=${intent}, content="${content.substring(0, 50)}..."`);
   }
 
@@ -227,13 +237,25 @@ class SessionMessageService {
     };
 
     await db.insert(sessionMessages).values(message);
+
+    // 清除缓存（新消息插入后，缓存失效）
+    await messageCacheService.deleteSessionMessages(sessionId);
+    await messageCacheService.deleteSessionStats(sessionId);
+
     console.log(`[会话消息] 保存人工回复: sessionId=${sessionId}, robot=${robotName}, operator=${operator}`);
   }
 
   /**
-   * 获取会话的消息记录
+   * 获取会话的消息记录（带缓存）
    */
   async getSessionMessages(sessionId, limit = 100) {
+    // 尝试从缓存获取
+    const cached = await messageCacheService.getSessionMessages(sessionId, limit);
+    if (cached) {
+      return cached;
+    }
+
+    // 缓存未命中，从数据库查询
     const db = await getDb();
 
     const messages = await db
@@ -243,7 +265,7 @@ class SessionMessageService {
       .orderBy(sessionMessages.timestamp)
       .limit(limit);
 
-    return messages.map(msg => ({
+    const formattedMessages = messages.map(msg => ({
       id: msg.id,
       content: msg.content,
       isFromUser: msg.isFromUser,
@@ -256,12 +278,24 @@ class SessionMessageService {
       robotName: msg.robotName,
       extraData: msg.extraData,
     }));
+
+    // 写入缓存
+    await messageCacheService.setSessionMessages(sessionId, formattedMessages, limit);
+
+    return formattedMessages;
   }
 
   /**
-   * 搜索会话消息
+   * 搜索会话消息（带缓存）
    */
   async searchMessages(keyword, limit = 50) {
+    // 尝试从缓存获取
+    const cached = await messageCacheService.getSearchMessages(keyword, limit);
+    if (cached) {
+      return cached;
+    }
+
+    // 缓存未命中，从数据库查询
     const db = await getDb();
 
     const messages = await db
@@ -271,13 +305,23 @@ class SessionMessageService {
       .orderBy(sessionMessages.timestamp)
       .limit(limit);
 
+    // 写入缓存
+    await messageCacheService.setSearchMessages(keyword, messages, limit);
+
     return messages;
   }
 
   /**
-   * 获取用户的消息历史
+   * 获取用户的消息历史（带缓存）
    */
   async getUserMessages(userId, limit = 50) {
+    // 尝试从缓存获取
+    const cached = await messageCacheService.getUserMessages(userId, limit);
+    if (cached) {
+      return cached;
+    }
+
+    // 缓存未命中，从数据库查询
     const db = await getDb();
 
     const messages = await db
@@ -287,13 +331,23 @@ class SessionMessageService {
       .orderBy(sessionMessages.timestamp)
       .limit(limit);
 
+    // 写入缓存
+    await messageCacheService.setUserMessages(userId, messages, limit);
+
     return messages;
   }
 
   /**
-   * 获取会话统计
+   * 获取会话统计（带缓存）
    */
   async getSessionStats(sessionId) {
+    // 尝试从缓存获取
+    const cached = await messageCacheService.getSessionStats(sessionId);
+    if (cached) {
+      return cached;
+    }
+
+    // 缓存未命中，从数据库查询
     const db = await getDb();
 
     const result = await db
@@ -306,7 +360,12 @@ class SessionMessageService {
       .from(sessionMessages)
       .where(sql`${sessionMessages.sessionId} = ${sessionId}`);
 
-    return result[0] || { total: 0, userMessages: 0, botMessages: 0, humanMessages: 0 };
+    const stats = result[0] || { total: 0, userMessages: 0, botMessages: 0, humanMessages: 0 };
+
+    // 写入缓存
+    await messageCacheService.setSessionStats(sessionId, stats);
+
+    return stats;
   }
 
   /**

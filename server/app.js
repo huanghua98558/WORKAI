@@ -59,6 +59,9 @@ const redisClient = require('./lib/redis');
 const { getLogger, fastifyRequestLogger } = require('./lib/logger');
 const { corsConfig } = require('./lib/cors');
 const { getCspConfig } = require('./lib/csp');
+const prometheusService = require('./lib/prometheus');
+const cacheService = require('./lib/cache');
+const cacheWarmupService = require('./services/cache-warmup.service');
 
 const robotService = require('./services/robot.service');
 const robotCommandService = require('./services/robot-command.service');
@@ -157,6 +160,22 @@ fastify.register(collabApiRoutes, { prefix: '/api/collab' });
 fastify.register(authApiRoutes, { prefix: '/api/auth' });
 fastify.register(apiKeyApiRoutes, { prefix: '/api/apikeys' });
 
+// Prometheus 监控端点
+fastify.get('/metrics', async (request, reply) => {
+  reply.type(prometheusService.getContentType());
+  return await prometheusService.getMetrics();
+});
+
+// 健康检查端点（包含缓存统计）
+fastify.get('/health', async (request, reply) => {
+  const cacheStats = await cacheService.getStats();
+  return {
+    status: 'healthy',
+    uptime: process.uptime(),
+    cache: cacheStats
+  };
+});
+
 // WebSocket 路由
 fastify.register(async function (fastify) {
   fastify.get('/ws', { websocket: true }, (connection, req) => {
@@ -208,16 +227,19 @@ fastify.register(async function (fastify) {
 // 导出 WebSocket 客户端管理器（供其他服务使用）
 global.wsClients = wsClients;
 
-// 健康检查
-fastify.get('/health', async (request, reply) => {
-  return {
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    startTime: SERVER_START_TIME,
-    uptime: Date.now() - SERVER_START_TIME,
-    version: process.env.npm_package_version || '1.0.0'
-  };
-});
+// 启动 Prometheus 缓存指标更新器（每 30 秒更新一次）
+prometheusService.startCacheMetricsUpdater(cacheService, 30000);
+
+logger.info('[Prometheus] 缓存指标更新器已启动');
+
+// 执行缓存预热（异步执行，不阻塞服务启动）
+(async () => {
+  try {
+    await cacheWarmupService.warmup();
+  } catch (error) {
+    logger.error('[启动] 缓存预热失败', { error: error.message });
+  }
+})();
 
 // 启动服务器
 const start = async () => {
