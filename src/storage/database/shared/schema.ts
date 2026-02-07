@@ -87,7 +87,7 @@ export const alertGroups = pgTable("alert_groups", {
 
 export const notificationMethods = pgTable("notification_methods", {
 	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
-	alertRuleId: varchar("alert_rule_id", { length: 36 }).notNull(),
+	ruleRef: varchar("rule_ref", { length: 36 }).notNull(),
 	methodType: varchar("method_type", { length: 50 }).notNull(),
 	isEnabled: boolean("is_enabled").default(true).notNull(),
 	recipientConfig: jsonb("recipient_config"),
@@ -96,18 +96,18 @@ export const notificationMethods = pgTable("notification_methods", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("idx_notification_methods_alert_rule_id").using("btree", table.alertRuleId.asc().nullsLast().op("text_ops")),
+	index("idx_notification_methods_rule_ref").using("btree", table.ruleRef.asc().nullsLast().op("text_ops")),
 ]);
 
 export const alertHistory = pgTable("alert_history", {
 	id: varchar({ length: 36 }).default(sql`gen_random_uuid()`).primaryKey().notNull(),
 	sessionId: varchar("session_id", { length: 255 }),
-	alertRuleId: varchar("alert_rule_id", { length: 36 }).notNull(),
+	ruleRef: varchar("rule_ref", { length: 36 }).notNull(),
 	intentType: varchar("intent_type", { length: 50 }).notNull(),
 	alertLevel: varchar("alert_level", { length: 20 }).notNull(),
 	groupId: varchar("group_id", { length: 255 }),
 	groupName: varchar("group_name", { length: 255 }),
-	alertGroupId: varchar("alert_group_id", { length: 36 }),
+	alertGroupRef: varchar("alert_group_ref", { length: 36 }),
 	userId: varchar("user_id", { length: 255 }),
 	userName: varchar("user_name", { length: 255 }),
 	groupChatId: varchar("group_chat_id", { length: 255 }),
@@ -134,7 +134,7 @@ export const alertHistory = pgTable("alert_history", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
 	index("idx_alert_history_alert_level").using("btree", table.alertLevel.asc().nullsLast().op("text_ops")),
-	index("idx_alert_history_alert_rule_id").using("btree", table.alertRuleId.asc().nullsLast().op("text_ops")),
+	index("idx_alert_history_rule_ref").using("btree", table.ruleRef.asc().nullsLast().op("text_ops")),
 	index("idx_alert_history_created_at").using("btree", table.createdAt.asc().nullsLast().op("timestamptz_ops")),
 	index("idx_alert_history_intent_type").using("btree", table.intentType.asc().nullsLast().op("text_ops")),
 	index("idx_alert_history_session_id").using("btree", table.sessionId.asc().nullsLast().op("text_ops")),
