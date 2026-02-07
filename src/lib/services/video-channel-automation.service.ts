@@ -402,47 +402,32 @@ class VideoChannelAutomationService {
   }
 
   /**
-   * 2. 检测登录状态（优化版：复用二维码页面 + 更准确的检测逻辑）
+   * 2. 检测登录状态（优化版：不刷新页面，直接检查当前状态）
    */
   async checkLoginStatus(): Promise<LoginStatusResult> {
-    // 如果没有二维码页面，创建一个新页面
-    if (!this.currentQrcodePage) {
-      console.log('[检测登录] 未找到二维码页面，创建新页面...');
-      const browser = await this.getBrowser();
+    const browser = await this.getBrowser();
+
+    // 如果没有二维码页面或者页面已关闭，重新访问店铺页面
+    if (!this.currentQrcodePage || this.currentQrcodePage.isClosed()) {
+      console.log('[检测登录] 未找到二维码页面或页面已关闭，重新访问店铺页面...');
       this.currentQrcodePage = await browser.newPage();
+      await this.currentQrcodePage.goto(this.shopUrl, {
+        waitUntil: 'domcontentloaded',
+        timeout: 30000
+      });
     }
 
     const page = this.currentQrcodePage;
 
     try {
       console.log('[检测登录] 开始检测登录状态...');
+      console.log('[检测登录] 当前页面URL:', page.url());
 
-      // 记录刷新前的URL
-      const beforeUrl = page.url();
-      console.log('[检测登录] 刷新前URL:', beforeUrl);
+      // 不刷新页面，直接检查当前状态（避免破坏登录状态）
+      const currentUrl = page.url();
+      console.log('[检测登录] 当前页面URL:', currentUrl);
 
-      // 刷新页面检查登录状态
-      console.log('[检测登录] 刷新页面检查登录状态...');
-      const navigationPromise = page.waitForNavigation({
-        waitUntil: 'domcontentloaded',
-        timeout: 10000
-      }).catch(() => {
-        console.log('[检测登录] 导航超时，可能没有发生跳转');
-      });
-
-      await page.reload({
-        waitUntil: 'domcontentloaded',
-        timeout: 15000
-      });
-
-      // 等待导航完成
-      await navigationPromise;
-
-      const afterUrl = page.url();
-      console.log('[检测登录] 刷新后URL:', afterUrl);
-      console.log('[检测登录] URL是否变化:', beforeUrl !== afterUrl);
-
-      console.log('[检测登录] 页面加载完成，开始检查登录元素...');
+      console.log('[检测登录] 开始检查页面元素...');
 
       // 更准确的登录状态检测逻辑
       const loginCheckResult = await page.evaluate(() => {
@@ -458,14 +443,12 @@ class VideoChannelAutomationService {
         console.log('[页面上下文] 页面URL:', result.pageUrl);
 
         // 检查是否有登录框（未登录状态）
+        // 优化选择器，只匹配真正的登录二维码容器
         const loginSelectors = [
-          '.qrcode',
-          '.login-container',
-          '.qr-login',
-          '[class*="login"]',
-          'img[alt*="二维码"]',
-          'img[alt*="scan"]',
-          '.scan-login-tip'
+          '.login-container .qrcode',  // 登录容器内的二维码
+          '.qr-login .qrcode-img',     // 二维码登录容器内的二维码
+          'img[alt*="二维码"][alt*="登录"]',  // 明确标注为"登录二维码"的图片
+          '.scan-login-container',     // 扫码登录容器
         ];
 
         for (const selector of loginSelectors) {
@@ -479,14 +462,14 @@ class VideoChannelAutomationService {
 
         // 检查是否有店铺信息（已登录状态）
         const shopSelectors = [
-          '.shop-name',
-          '.user-avatar',
-          '.nav-user',
-          '.user-info',
-          '.header-user',
-          '.store-name',
-          '[class*="shop"]',
-          '[class*="store"]'
+          '.shop-name',              // 店铺名称
+          '.user-avatar',            // 用户头像
+          '.nav-user',               // 导航栏用户信息
+          '.user-info',              // 用户信息
+          '.header-user',            // 头部用户信息
+          '.store-name',             // 店铺名称
+          '[class*="shop-name"]',    // 包含shop-name的class
+          '[class*="store-name"]',   // 包含store-name的class
         ];
 
         for (const selector of shopSelectors) {
@@ -507,22 +490,25 @@ class VideoChannelAutomationService {
 
       // 判断登录状态：
       // 1. 如果URL跳转到了微信登录页（passport.weixin.qq.com 或 mp.weixin.qq.com），说明未登录
-      // 2. 如果有登录框且没有店铺信息，说明未登录
-      // 3. 如果有店铺信息或者URL包含店铺相关路径，说明已登录
-      const urlIsLoginPage = afterUrl.includes('passport.weixin.qq.com') ||
-                            afterUrl.includes('mp.weixin.qq.com') ||
-                            afterUrl.includes('work.weixin.qq.com');
+      // 2. 如果URL包含店铺路径，优先判断为已登录（即使检测到登录框，可能是页面残留）
+      // 3. 如果有店铺信息，说明已登录
+      // 4. 如果有登录框且没有店铺信息，说明未登录
+      const urlIsLoginPage = currentUrl.includes('passport.weixin.qq.com') ||
+                            currentUrl.includes('mp.weixin.qq.com') ||
+                            currentUrl.includes('work.weixin.qq.com');
 
-      // 如果URL包含店铺路径，说明已登录
-      const urlIsShopPage = afterUrl.includes('store.weixin.qq.com/talent') ||
-                            afterUrl.includes('channels.weixin.qq.com/assistant');
+      // 如果URL包含店铺路径，优先判断为已登录
+      const urlIsShopPage = currentUrl.includes('store.weixin.qq.com/talent') ||
+                            currentUrl.includes('channels.weixin.qq.com/assistant');
 
+      // 优化判断逻辑：URL是店铺页时，优先信任URL，忽略可能误检的登录框
       const isLoggedIn = !urlIsLoginPage &&
-                        !loginCheckResult.hasLoginForm &&
-                        (loginCheckResult.hasShopInfo || urlIsShopPage);
+                        (urlIsShopPage || loginCheckResult.hasShopInfo);
 
       console.log('[检测登录] URL是登录页:', urlIsLoginPage);
       console.log('[检测登录] URL是店铺页:', urlIsShopPage);
+      console.log('[检测登录] 检测到登录框:', loginCheckResult.hasLoginForm);
+      console.log('[检测登录] 检测到店铺信息:', loginCheckResult.hasShopInfo);
       console.log('[检测登录] 最终登录状态:', isLoggedIn);
 
       // 检查二维码是否过期
