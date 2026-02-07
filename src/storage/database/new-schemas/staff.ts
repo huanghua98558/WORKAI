@@ -48,6 +48,7 @@ export const staff = pgTable(
       .defaultNow()
       .notNull(),
     lastActiveAt: timestamp("last_active_at", { withTimezone: true }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (table) => ({
     statusIdx: index("staff_status_idx").on(table.status),

@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { staffTypeService } from '@/services/staff-type-service';
-import { StaffType } from '@/services/staff-type-service';
+import { staffTypeService, StaffType } from '@/services/staff-type-service';
+
+// API StaffType 到数据库 StaffType 的映射
+const API_TO_DB_STAFF_TYPE: Record<string, StaffType> = {
+  'management': StaffType.MANAGEMENT,
+  'community': StaffType.COMMUNITY,
+  'conversion': StaffType.CONVERSION,
+  'after_sales': StaffType.AFTER_SALES,
+};
+
+// 数据库 StaffType 到 API StaffType 的映射
+const DB_TO_API_STAFF_TYPE: Record<StaffType, string> = {
+  [StaffType.MANAGEMENT]: 'management',
+  [StaffType.COMMUNITY]: 'community',
+  [StaffType.CONVERSION]: 'conversion',
+  [StaffType.AFTER_SALES]: 'after_sales',
+};
 
 /**
  * GET /api/staff/type
@@ -81,24 +96,26 @@ export async function POST(request: NextRequest) {
     }
 
     // 验证 staffType 是否有效
-    const validTypes: StaffType[] = ['management', 'community', 'conversion', 'after_sales', 'sales', 'notification'];
-    if (!validTypes.includes(body.staffType)) {
+    const validApiTypes = Object.keys(API_TO_DB_STAFF_TYPE);
+    if (!validApiTypes.includes(body.staffType)) {
       return NextResponse.json(
         {
           success: false,
-          error: `Invalid staffType. Must be one of: ${validTypes.join(', ')}`,
+          error: `Invalid staffType. Must be one of: ${validApiTypes.join(', ')}`,
         },
         { status: 400 }
       );
     }
 
-    const result = await staffTypeService.setStaffType(body.staffUserId, body.staffType);
+    // 映射 API 类型到数据库类型
+    const dbStaffType = API_TO_DB_STAFF_TYPE[body.staffType];
+    const result = await staffTypeService.setStaffType(body.staffUserId, dbStaffType);
 
-    if (!result.success) {
+    if (!result) {
       return NextResponse.json(
         {
           success: false,
-          error: result.error,
+          error: '设置工作人员类型失败',
         },
         { status: 500 }
       );
@@ -106,7 +123,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: result.staffType,
+      data: DB_TO_API_STAFF_TYPE[dbStaffType],
       message: `工作人员类型已设置为: ${body.staffType}`,
     });
   } catch (error) {
@@ -151,7 +168,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // 验证每个项目
-    const validTypes: StaffType[] = ['management', 'community', 'conversion', 'after_sales', 'sales', 'notification'];
+    const validApiTypes = Object.keys(API_TO_DB_STAFF_TYPE);
     for (const item of body.items) {
       if (!item.staffUserId || !item.staffType) {
         return NextResponse.json(
@@ -163,11 +180,11 @@ export async function PUT(request: NextRequest) {
         );
       }
 
-      if (!validTypes.includes(item.staffType)) {
+      if (!validApiTypes.includes(item.staffType)) {
         return NextResponse.json(
           {
             success: false,
-            error: `Invalid staffType for ${item.staffUserId}. Must be one of: ${validTypes.join(', ')}`,
+            error: `Invalid staffType for ${item.staffUserId}. Must be one of: ${validApiTypes.join(', ')}`,
           },
           { status: 400 }
         );
@@ -179,12 +196,13 @@ export async function PUT(request: NextRequest) {
 
     // 逐个处理
     for (const item of body.items) {
-      const result = await staffTypeService.setStaffType(item.staffUserId, item.staffType);
-      
-      if (result.success) {
+      const dbStaffType = API_TO_DB_STAFF_TYPE[item.staffType];
+      const result = await staffTypeService.setStaffType(item.staffUserId, dbStaffType);
+
+      if (result) {
         results.push({
           staffUserId: item.staffUserId,
-          staffType: item.staffType,
+          staffType: DB_TO_API_STAFF_TYPE[dbStaffType],
           success: true,
         });
       } else {

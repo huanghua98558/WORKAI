@@ -1,14 +1,15 @@
-import { db } from '../storage/database';
-import { staff } from '../storage/database/shared/schema';
+import { db } from '../lib/db';
+import { staff } from '../storage/database/new-schemas';
+import { eq, isNull } from 'drizzle-orm';
 
 /**
  * 工作人员类型枚举
  */
 export enum StaffType {
   MANAGEMENT = 'management',       // 管理人员
-  COMMUNITY = 'community',         // 社群运维
+  COMMUNITY = 'community_ops',         // 社群运维
   AFTER_SALES = 'after_sales',     // 售后客服
-  CONVERSION = 'conversion',       // 转化客服
+  CONVERSION = 'conversion_staff',       // 转化客服
 }
 
 /**
@@ -44,12 +45,12 @@ export class StaffTypeService {
   /**
    * 获取工作人员类型
    */
-  async getStaffType(staffUserId: string): Promise<StaffType | null> {
+  async getStaffType(email: string): Promise<StaffType | null> {
     try {
       const result = await db
         .select({ staffType: staff.staffType })
         .from(staff)
-        .where(eq(staff.userId, staffUserId))
+        .where(eq(staff.email, email))
         .limit(1);
 
       if (result.length === 0) {
@@ -64,14 +65,61 @@ export class StaffTypeService {
   }
 
   /**
+   * 根据标识符获取工作人员类型（支持多种标识符：email、id等）
+   */
+  async getStaffTypeByIdentifier(identifier: string): Promise<{
+    success: boolean;
+    staffType?: StaffType | null;
+    error?: string;
+  }> {
+    try {
+      // 尝试通过 email 查询
+      let staffRecord = await db
+        .select({ staffType: staff.staffType, id: staff.id })
+        .from(staff)
+        .where(eq(staff.email, identifier))
+        .limit(1);
+
+      // 如果没找到，尝试通过 id 查询
+      if (staffRecord.length === 0) {
+        staffRecord = await db
+          .select({ staffType: staff.staffType, id: staff.id })
+          .from(staff)
+          .where(eq(staff.id, identifier))
+          .limit(1);
+      }
+
+      if (staffRecord.length === 0) {
+        return {
+          success: false,
+          error: '工作人员不存在',
+          staffType: null,
+        };
+      }
+
+      return {
+        success: true,
+        staffType: staffRecord[0].staffType as StaffType,
+      };
+    } catch (error) {
+      console.error('[StaffTypeService] 获取工作人员类型失败:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        staffType: null,
+      };
+    }
+  }
+
+  /**
    * 设置工作人员类型
    */
-  async setStaffType(staffUserId: string, staffType: StaffType): Promise<boolean> {
+  async setStaffType(email: string, staffType: StaffType): Promise<boolean> {
     try {
       await db
         .update(staff)
         .set({ staffType, updatedAt: new Date() })
-        .where(eq(staff.userId, staffUserId));
+        .where(eq(staff.email, email));
 
       return true;
     } catch (error) {
@@ -83,12 +131,12 @@ export class StaffTypeService {
   /**
    * 批量设置工作人员类型
    */
-  async batchSetStaffType(updates: Array<{ staffUserId: string; staffType: StaffType }>): Promise<{ success: number; failed: number }> {
+  async batchSetStaffType(updates: Array<{ email: string; staffType: StaffType }>): Promise<{ success: number; failed: number }> {
     let success = 0;
     let failed = 0;
 
     for (const update of updates) {
-      const result = await this.setStaffType(update.staffUserId, update.staffType);
+      const result = await this.setStaffType(update.email, update.staffType);
       if (result) {
         success++;
       } else {
@@ -102,19 +150,22 @@ export class StaffTypeService {
   /**
    * 获取所有工作人员及其类型
    */
-  async getAllStaffWithTypes(): Promise<Array<{ userId: string; name: string; staffType: StaffType }>> {
+  async getAllStaffWithTypes(): Promise<Array<{ id: string; email: string; name: string; staffType: StaffType }>> {
     try {
       const results = await db
         .select({
-          userId: staff.userId,
+          id: staff.id,
+          email: staff.email,
           name: staff.name,
           staffType: staff.staffType,
         })
         .from(staff)
+        .where(isNull(staff.deletedAt))
         .orderBy(staff.name);
 
       return results.map(r => ({
-        userId: r.userId,
+        id: r.id,
+        email: r.email,
         name: r.name,
         staffType: r.staffType as StaffType,
       }));
@@ -125,13 +176,53 @@ export class StaffTypeService {
   }
 
   /**
-   * 根据类型获取工作人员列表
+   * 获取所有工作人员类型映射（用于API）
    */
-  async getStaffByType(staffType: StaffType): Promise<Array<{ userId: string; name: string }>> {
+  async getAllStaffTypes(): Promise<{
+    success: boolean;
+    staffTypes?: Array<{ staffUserId: string; staffType: StaffType; staffName?: string; createdAt?: string }>;
+    error?: string;
+  }> {
     try {
       const results = await db
         .select({
-          userId: staff.userId,
+          staffUserId: staff.id,
+          staffType: staff.staffType,
+          staffName: staff.name,
+          createdAt: staff.createdAt,
+        })
+        .from(staff)
+        .where(isNull(staff.deletedAt))
+        .orderBy(staff.createdAt);
+
+      return {
+        success: true,
+        staffTypes: results.map(r => ({
+          staffUserId: r.staffUserId,
+          staffType: r.staffType as StaffType,
+          staffName: r.staffName,
+          createdAt: r.createdAt?.toISOString(),
+        })),
+      };
+    } catch (error) {
+      console.error('[StaffTypeService] 获取所有工作人员类型失败:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        staffTypes: [],
+      };
+    }
+  }
+
+  /**
+   * 根据类型获取工作人员列表
+   */
+  async getStaffByType(staffType: StaffType): Promise<Array<{ id: string; email: string; name: string }>> {
+    try {
+      const results = await db
+        .select({
+          id: staff.id,
+          email: staff.email,
           name: staff.name,
         })
         .from(staff)

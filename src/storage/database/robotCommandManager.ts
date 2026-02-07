@@ -1,6 +1,7 @@
 import { eq, and, SQL, like, desc, sql } from "drizzle-orm";
 import { getDb } from "coze-coding-dev-sdk";
-import { robotCommands, robots } from "./shared/schema";
+import { robotCommands } from "./shared/schema";
+import { robots } from "./new-schemas";
 
 // TypeScript types
 export type RobotCommand = typeof robotCommands.$inferSelect;
@@ -96,11 +97,9 @@ export class RobotCommandManager {
         messageId: robotCommands.messageId,
         // robots 字段
         robotName: robots.name,
-        robotNickname: robots.nickname,
-        robotCompany: robots.company,
       })
       .from(robotCommands)
-      .leftJoin(robots, eq(robotCommands.robotId, robots.robotId))
+      .leftJoin(robots, eq(robotCommands.robotId, robots.id))
       .where(whereClause)
       .orderBy(desc(robotCommands.createdAt))
       .limit(limit)

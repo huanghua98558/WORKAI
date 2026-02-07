@@ -317,6 +317,35 @@ export class CollaborationDecisionService {
   }
 
   /**
+   * 获取会话的所有决策记录
+   */
+  async getDecisionsBySession(sessionId: string): Promise<{
+    success: boolean;
+    decisions?: any[];
+    error?: string;
+  }> {
+    try {
+      const decisions = await db
+        .select()
+        .from(collaborationDecisionLogs)
+        .where(eq(collaborationDecisionLogs.sessionId, sessionId))
+        .orderBy(desc(collaborationDecisionLogs.createdAt));
+
+      return {
+        success: true,
+        decisions: decisions || [],
+      };
+    } catch (error) {
+      console.error('[CollaborationDecisionService] 获取决策失败:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        decisions: [],
+      };
+    }
+  }
+
+  /**
    * 获取决策统计
    */
   async getDecisionStats(sessionId: string): Promise<{

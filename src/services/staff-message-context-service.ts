@@ -1,6 +1,8 @@
-import { db } from '../storage/database';
-import { staffMessages, collaborationDecisionLogs } from '../storage/database/shared/schema';
+import { db } from '../lib/db';
+import { staffMessages } from '../storage/database/shared/schema';
+import { collaborationDecisionLogs } from '../storage/database/shared/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
+import { StaffType } from './staff-type-service';
 
 /**
  * 工作人员消息上下文接口
@@ -26,6 +28,45 @@ export interface StaffMessageContext {
  * 用于收集工作人员消息前后的上下文信息
  */
 export class StaffMessageContextService {
+  /**
+   * 记录工作人员消息
+   */
+  async recordStaffMessage(data: {
+    messageId: string;
+    sessionId: string;
+    staffUserId: string;
+    staffName: string;
+    staffType: StaffType;
+    content: string;
+    relatedUserId?: string;
+    isMention?: boolean;
+    metadata?: any;
+  }): Promise<{ success: boolean; error?: string }> {
+    try {
+      await db.insert(staffMessages).values({
+        messageId: data.messageId,
+        sessionId: data.sessionId,
+        staffUserId: data.staffUserId,
+        staffName: data.staffName,
+        content: data.content,
+        isMention: data.isMention || false,
+        metadata: data.metadata || {},
+        timestamp: new Date(),
+        createdAt: new Date(),
+      });
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      console.error('[StaffMessageContextService] 记录工作人员消息失败:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
   /**
    * 获取工作人员消息上下文
    * @param messageId 消息ID
