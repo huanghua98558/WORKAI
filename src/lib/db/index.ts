@@ -3,22 +3,37 @@ import postgres from 'postgres';
 import * as schema from '@/storage/database/shared/schema';
 import * as newSchemas from '@/storage/database/new-schemas';
 
-// 从环境变量获取数据库URL
-const DATABASE_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+// 延迟初始化数据库连接，避免构建时依赖环境变量
+let _db: ReturnType<typeof drizzle> | null = null;
+let _client: ReturnType<typeof postgres> | null = null;
 
-if (!DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is not set');
+function getDatabaseUrl(): string {
+  const DATABASE_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  if (!DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set');
+  }
+  return DATABASE_URL;
 }
 
-// 创建PostgreSQL连接
-const connectionString = DATABASE_URL;
-const client = postgres(connectionString, { max: 10 });
+function initializeDb() {
+  if (!_db) {
+    const connectionString = getDatabaseUrl();
+    _client = postgres(connectionString, { max: 10 });
+    _db = drizzle(_client, {
+      schema: {
+        ...schema,
+        ...newSchemas,
+      },
+    });
+  }
+  return _db;
+}
 
-// 创建Drizzle实例
-export const db = drizzle(client, {
-  schema: {
-    ...schema,
-    ...newSchemas,
+// 导出数据库实例（懒加载）
+export const db = new Proxy({} as ReturnType<typeof drizzle>, {
+  get(_target, prop) {
+    const db = initializeDb();
+    return db[prop as keyof typeof db];
   },
 });
 
