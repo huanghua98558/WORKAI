@@ -79,6 +79,7 @@ interface ManualAuditResult {
 }
 
 class VideoChannelAutomationService {
+  private instanceId: string = Date.now().toString(); // 用于调试单例是否被重新创建
   private browser: puppeteer.Browser | null = null;
   private qrcodeDir: string;
   private auditDir: string;
@@ -103,7 +104,7 @@ class VideoChannelAutomationService {
    */
   isQrcodeExpired(): boolean {
     if (!this.currentQrcodeExpiresAt) {
-      console.log('[二维码过期] 未设置过期时间，视为过期。当前二维码ID:', this.currentQrcodeId);
+      console.log('[二维码过期] 未设置过期时间，视为过期。当前二维码ID:', this.currentQrcodeId, 'instanceId:', this.instanceId);
       return true;
     }
 
@@ -217,6 +218,7 @@ class VideoChannelAutomationService {
    * 1. 获取视频号小店二维码（优化版）
    */
   async getQrcode(): Promise<QrcodeResult> {
+    console.log('[二维码生成] 开始生成二维码, instanceId:', this.instanceId);
     // 先重置旧二维码状态
     await this.resetQrcode();
 
@@ -305,6 +307,19 @@ class VideoChannelAutomationService {
             timeout: 30000
           });
           console.log('[获取二维码] 登录页面URL:', page.url());
+
+          // 检查页面是否自动跳转（防止登录页面跳转到其他页面）
+          const currentUrl = page.url();
+          if (!currentUrl.includes('/talent') || currentUrl.includes('/talent/home')) {
+            console.log('[获取二维码] 页面自动跳转，重新访问登录页面');
+            // 清除Cookie后重新访问
+            await page.deleteCookie(...await page.cookies());
+            await page.goto(loginPageUrl, {
+              waitUntil: 'domcontentloaded',
+              timeout: 30000
+            });
+            console.log('[获取二维码] 重新访问后页面URL:', page.url());
+          }
         }
       } else {
         // 恢复请求拦截（允许加载二维码图片）
@@ -316,8 +331,8 @@ class VideoChannelAutomationService {
       page.removeAllListeners('request');
       await page.setRequestInterception(false);
 
-      // 等待2秒，让页面完全加载
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // 立即查找二维码，不等待（防止页面自动跳转）
+      console.log('[获取二维码] 立即查找二维码，防止页面跳转');
 
       // 查找二维码元素（优化查找逻辑）
       let qrcodeElement: puppeteer.ElementHandle<Element> | null = null;
@@ -333,10 +348,10 @@ class VideoChannelAutomationService {
         '[class*="login"] img'
       ];
 
-      // 并行尝试多个选择器
+      // 并行尝试多个选择器（减少超时时间，防止页面跳转）
       const selectorPromises = qrcodeSelectors.map(async (selector) => {
         try {
-          await page.waitForSelector(selector, { timeout: 2000 }); // 减少到2秒
+          await page.waitForSelector(selector, { timeout: 500 }); // 减少到500ms
           return await page.$(selector);
         } catch (e) {
           return null;
