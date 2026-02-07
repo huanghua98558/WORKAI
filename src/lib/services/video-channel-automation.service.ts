@@ -1,10 +1,12 @@
 import puppeteer from 'puppeteer';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * 视频号小店自动化服务
  * 提供：获取二维码、检测登录、提取Cookie、人工审核、页面可访问性检测
+ * 新增：专属二维码生成和管理、用户管理、消息自动发送
  */
 
 interface QrcodeResult {
@@ -14,7 +16,35 @@ interface QrcodeResult {
   qrcodeUrl?: string;
   qrcodeBase64?: string;
   expiresAt?: Date;
+  userId?: string;
   error?: string;
+}
+
+interface User {
+  id: string;
+  userId: string; // WorkTool用户ID
+  userName: string;
+  robotId: string;
+  robotName: string;
+  status: string;
+  metadata: any;
+  createdAt: Date;
+  updatedAt: Date;
+  lastActiveAt: Date;
+}
+
+interface QrcodeRecord {
+  id: string;
+  userId: string;
+  qrcodeId: string;
+  qrcodePath: string;
+  qrcodeUrl: string;
+  ossObjectName: string;
+  status: string;
+  expiresAt: Date;
+  scannedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface LoginStatusResult {
@@ -586,6 +616,231 @@ class VideoChannelAutomationService {
     if (this.browser) {
       await this.browser.close();
       this.browser = null;
+    }
+  }
+
+  /**
+   * 6. 为用户生成专属二维码
+   * @param {string} userId - 用户ID（WorkTool用户ID）
+   * @param {string} robotId - 转化客服机器人ID
+   */
+  async generateQrcodeForUser(userId: string, robotId: string): Promise<QrcodeResult> {
+    try {
+      console.log(`为用户生成专属二维码: userId=${userId}, robotId=${robotId}`);
+
+      // 生成二维码
+      const qrcodeResult = await this.getQrcode();
+
+      if (!qrcodeResult.success || !qrcodeResult.qrcodeId) {
+        return {
+          success: false,
+          error: '生成二维码失败: ' + (qrcodeResult.error || '未知错误')
+        };
+      }
+
+      // 保存二维码记录到数据库（通过API调用）
+      const timestamp = Date.now();
+      const qrcodeRecord = {
+        id: uuidv4(),
+        userId: userId,
+        qrcodeId: qrcodeResult.qrcodeId,
+        qrcodePath: qrcodeResult.qrcodePath,
+        qrcodeUrl: qrcodeResult.qrcodeUrl,
+        ossObjectName: `video-channel/qrcode_${qrcodeResult.qrcodeId}.png`,
+        status: 'created',
+        expiresAt: qrcodeResult.expiresAt,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      // 调用后端API保存二维码记录
+      const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
+      const response = await fetch(`${backendUrl}/api/video-channel/qrcode`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(qrcodeRecord)
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        console.error('保存二维码记录失败:', result.error);
+        return {
+          success: false,
+          error: '保存二维码记录失败: ' + result.error
+        };
+      }
+
+      // 更新当前二维码状态
+      this.currentQrcodeId = qrcodeResult.qrcodeId;
+      this.currentQrcodeExpiresAt = qrcodeResult.expiresAt || new Date(Date.now() + this.qrcodeLifetime);
+
+      console.log(`专属二维码生成成功: userId=${userId}, qrcodeId=${qrcodeResult.qrcodeId}`);
+
+      return {
+        success: true,
+        qrcodeId: qrcodeResult.qrcodeId,
+        qrcodePath: qrcodeResult.qrcodePath,
+        qrcodeUrl: qrcodeResult.qrcodeUrl,
+        expiresAt: qrcodeResult.expiresAt,
+        userId: userId
+      };
+    } catch (error: any) {
+      console.error('生成专属二维码失败:', error);
+      return {
+        success: false,
+        error: error.message || '生成专属二维码失败'
+      };
+    }
+  }
+
+  /**
+   * 7. 发送二维码给用户（私聊）
+   * @param {string} userId - 用户ID
+   * @param {string} userName - 用户昵称
+   * @param {string} robotId - 转化客服机器人ID
+   * @param {string} qrcodePath - 二维码文件路径
+   * @param {string} extraText - 附加留言
+   */
+  async sendQrcodeToUser(
+    userId: string,
+    userName: string,
+    robotId: string,
+    qrcodePath: string,
+    extraText: string = ''
+  ): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+      console.log(`发送二维码给用户: userId=${userId}, userName=${userName}, robotId=${robotId}`);
+
+      // 上传二维码到OSS并发送给用户
+      const result = await this.sendQrcodeToWorkTool(qrcodePath, robotId, userName, extraText);
+
+      if (result.success) {
+        // 更新二维码状态为已发送
+        const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
+        await fetch(`${backendUrl}/api/video-channel/qrcode/update-status`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            userId,
+            status: 'sent'
+          })
+        });
+
+        return {
+          success: true,
+          message: '二维码发送成功'
+        };
+      } else {
+        return {
+          success: false,
+          error: result.error || '发送失败'
+        };
+      }
+    } catch (error: any) {
+      console.error('发送二维码给用户失败:', error);
+      return {
+        success: false,
+        error: error.message || '发送二维码给用户失败'
+      };
+    }
+  }
+
+  /**
+   * 8. 发送消息给用户
+   * @param {string} userId - 用户ID
+   * @param {string} robotId - 转化客服机器人ID
+   * @param {string} messageType - 消息类型
+   * @param {string} templateCode - 消息模板代码
+   * @param {Object} variables - 变量替换
+   */
+  async sendMessageToUser(
+    userId: string,
+    robotId: string,
+    messageType: string,
+    templateCode: string,
+    variables: Record<string, any> = {}
+  ): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+      console.log(`发送消息给用户: userId=${userId}, messageType=${messageType}, templateCode=${templateCode}`);
+
+      // 获取用户信息
+      const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
+      const userResponse = await fetch(`${backendUrl}/api/video-channel/user/${userId}`);
+      const userResult = await userResponse.json();
+
+      if (!userResult.success || !userResult.user) {
+        return {
+          success: false,
+          error: '获取用户信息失败'
+        };
+      }
+
+      const user = userResult.user;
+      const userName = user.userName;
+
+      // 获取消息模板
+      const templateResponse = await fetch(`${backendUrl}/api/video-channel/message-template/${templateCode}`);
+      const templateResult = await templateResponse.json();
+
+      if (!templateResult.success || !templateResult.template) {
+        return {
+          success: false,
+          error: '获取消息模板失败'
+        };
+      }
+
+      const template = templateResult.template;
+      let messageContent = template.templateContent;
+
+      // 替换变量
+      Object.keys(variables).forEach(key => {
+        messageContent = messageContent.replace(new RegExp(`{{${key}}}`, 'g'), variables[key]);
+      });
+
+      // 替换用户名
+      messageContent = messageContent.replace(new RegExp(`{{userName}}`, 'g'), userName);
+
+      // 发送消息
+      const response = await this.sendQrcodeToWorkTool('', robotId, userName, messageContent);
+
+      if (response.success) {
+        // 记录消息日志
+        await fetch(`${backendUrl}/api/video-channel/message-log`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            userId,
+            robotId,
+            messageType,
+            templateCode,
+            messageContent,
+            status: 'sent'
+          })
+        });
+
+        return {
+          success: true,
+          message: '消息发送成功'
+        };
+      } else {
+        return {
+          success: false,
+          error: response.error || '发送消息失败'
+        };
+      }
+    } catch (error: any) {
+      console.error('发送消息给用户失败:', error);
+      return {
+        success: false,
+        error: error.message || '发送消息给用户失败'
+      };
     }
   }
 }

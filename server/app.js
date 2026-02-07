@@ -20,6 +20,9 @@ const multipart = require('@fastify/multipart');
 const websocket = require('@fastify/websocket');
 
 const worktoolCallbackRoutes = require('./routes/worktool.callback');
+const worktoolSendOssImageApiRoutes = require('./routes/worktool-send-oss-image.api');
+const worktoolConversionRobotApiRoutes = require('./routes/worktool-conversion-robot.api');
+const videoChannelApiRoutes = require('./routes/video-channel.api');
 const adminApiRoutes = require('./routes/admin.api');
 const qaApiRoutes = require('./routes/qa.api');
 const robotApiRoutes = require('./routes/robot.api');
@@ -123,6 +126,9 @@ fastifyRequestLogger(fastify);
 
 // 注册路由
 fastify.register(worktoolCallbackRoutes, { prefix: '/api/worktool/callback' });
+fastify.register(worktoolSendOssImageApiRoutes, { prefix: '/api/worktool' });
+fastify.register(worktoolConversionRobotApiRoutes, { prefix: '/api/worktool' });
+fastify.register(videoChannelApiRoutes, { prefix: '/api/video-channel' });
 fastify.register(adminApiRoutes, { prefix: '/api/admin' });
 fastify.register(qaApiRoutes, { prefix: '/api/admin' });
 fastify.register(robotApiRoutes, { prefix: '/api/admin' });
