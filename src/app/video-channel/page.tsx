@@ -101,11 +101,14 @@ export default function VideoChannelConversionPage() {
           if (data.robot.defaultGroupName) {
             setToName(data.robot.defaultGroupName);
           }
+          console.log('[加载机器人] 成功加载转化客服机器人:', data.robot.name);
         } else {
-          console.warn('获取转化客服机器人失败:', data.error);
+          console.warn('[加载机器人] 获取转化客服机器人失败:', data.error);
+          // 不设置错误提示，只是没有机器人而已
         }
       } catch (error) {
-        console.error('加载转化客服机器人失败:', error);
+        console.error('[加载机器人] 加载转化客服机器人失败:', error);
+        // 不设置错误提示，只是没有机器人而已
       } finally {
         setLoadingRobot(false);
       }

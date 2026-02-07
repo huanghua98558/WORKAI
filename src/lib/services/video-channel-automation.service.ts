@@ -393,8 +393,13 @@ class VideoChannelAutomationService {
       };
     } finally {
       // 关闭旧的二维码页面（如果有）
-      if (this.currentQrcodePage && this.currentQrcodePage !== page) {
-        await this.currentQrcodePage.close();
+      try {
+        if (this.currentQrcodePage && this.currentQrcodePage !== page && !this.currentQrcodePage.isClosed()) {
+          await this.currentQrcodePage.close();
+          console.log('[二维码页面] 已关闭旧二维码页面');
+        }
+      } catch (closeError) {
+        console.warn('[二维码页面] 关闭旧页面时出错，可能页面已关闭:', closeError);
       }
       // 保存当前二维码页面实例（不关闭，用于后续检测登录）
       this.currentQrcodePage = page;
