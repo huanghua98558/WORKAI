@@ -127,6 +127,69 @@ interface RobotSatisfaction {
   lastActivity: string;
 }
 
+// 业务角色分析接口
+interface BusinessRoleAnalysis {
+  businessRole: string | null;
+  businessRoleName: string;
+  businessRoleDescription: string;
+  aiBehavior: string;
+  staffEnabled: boolean;
+  enableTaskCreation: boolean;
+  stats: {
+    totalDecisions: number;
+    aiReplyCount: number;
+    staffReplyCount: number;
+    aiReplyRate: number;
+    staffReplyRate: number;
+    priorityDistribution: {
+      high: number;
+      medium: number;
+      low: number;
+    };
+  };
+}
+
+// 关键词分析接口
+interface KeywordAnalysis {
+  keyword: string;
+  businessRoleId: string | null;
+  businessRoleCode: string;
+  businessRoleName: string;
+  aiBehavior: string;
+  keywords: string[];
+  stats: {
+    triggerCount: number;
+    aiReplyCount: number;
+    staffReplyCount: number;
+    bothReplyCount: number;
+    noneReplyCount: number;
+    staffReplyRate: number;
+    lastTriggeredAt: string | null;
+  };
+}
+
+// 任务分析接口
+interface TaskAnalysis {
+  businessRoleId: string | null;
+  businessRoleCode: string;
+  businessRoleName: string;
+  enableTaskCreation: boolean;
+  aiBehavior: string;
+  stats: {
+    totalTasks: number;
+    pendingTasks: number;
+    processingTasks: number;
+    completedTasks: number;
+    cancelledTasks: number;
+    completionRate: number;
+    priorityDistribution: {
+      high: number;
+      normal: number;
+      low: number;
+    };
+  };
+}
+
 export default function CollabDashboard() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<CollabStats | null>(null);
@@ -135,6 +198,11 @@ export default function CollabDashboard() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [recommendationStats, setRecommendationStats] = useState<RecommendationStats | null>(null);
   const [robotSatisfaction, setRobotSatisfaction] = useState<RobotSatisfaction[]>([]);
+  const [businessRoleData, setBusinessRoleData] = useState<BusinessRoleAnalysis[]>([]);
+  const [keywordData, setKeywordData] = useState<KeywordAnalysis[]>([]);
+  const [taskData, setTaskData] = useState<TaskAnalysis[]>([]);
+  const [businessRoleOverallStats, setBusinessRoleOverallStats] = useState<any>({});
+  const [autoRefresh, setAutoRefresh] = useState(false);
   const [selectedRobot, setSelectedRobot] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState('24h');
   const [error, setError] = useState<string | null>(null);
@@ -158,6 +226,32 @@ export default function CollabDashboard() {
       loadRobotSatisfaction();
     }
   }, [activeTab, timeRange]);
+
+  // 加载业务角色数据
+  useEffect(() => {
+    if (activeTab === 'business-role') {
+      loadBusinessRoleData();
+    }
+  }, [activeTab, timeRange, selectedRobot]);
+
+  // 自动刷新功能
+  useEffect(() => {
+    if (!autoRefresh) return;
+
+    const interval = setInterval(() => {
+      if (activeTab === 'overview') {
+        loadStats();
+      } else if (activeTab === 'recommendations') {
+        loadRecommendations();
+      } else if (activeTab === 'robot-satisfaction') {
+        loadRobotSatisfaction();
+      } else if (activeTab === 'business-role') {
+        loadBusinessRoleData();
+      }
+    }, 30000); // 每30秒刷新一次
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, activeTab, timeRange, selectedRobot]);
 
   const loadStats = async () => {
     try {
@@ -224,11 +318,55 @@ export default function CollabDashboard() {
     }
   };
 
+  const loadBusinessRoleData = async (subTab: string = 'business-role') => {
+    try {
+      const params = new URLSearchParams();
+      if (timeRange !== 'all') {
+        const now = new Date();
+        const startTime = timeRange === '24h'
+          ? new Date(now.getTime() - 24 * 60 * 60 * 1000)
+          : timeRange === '7d'
+          ? new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        params.append('startTime', startTime.toISOString());
+        params.append('endTime', now.toISOString());
+      }
+      if (selectedRobot) {
+        params.append('robotId', selectedRobot);
+      }
+
+      const baseUrl = `/api/collaboration/analytics/${subTab}?${params.toString()}`;
+      const res = await fetch(baseUrl);
+
+      if (!res.ok) {
+        throw new Error('加载数据失败');
+      }
+
+      const data = await res.json();
+      if (data.success) {
+        if (subTab === 'business-role') {
+          setBusinessRoleData(data.data.businessRoleAnalysis || []);
+          setBusinessRoleOverallStats(data.data.overallStats || {});
+        } else if (subTab === 'keywords') {
+          setKeywordData(data.data.keywordAnalysis || []);
+          setBusinessRoleOverallStats(data.data.overallStats || {});
+        } else if (subTab === 'tasks') {
+          setTaskData(data.data.taskAnalysis || []);
+          setBusinessRoleOverallStats(data.data.overallStats || {});
+        }
+      }
+    } catch (err) {
+      console.error('[CollabDashboard] 加载业务角色数据失败:', err);
+      setError(err instanceof Error ? err.message : '加载失败');
+    }
+  };
+
   // 刷新数据
   const handleRefresh = () => {
     loadStats();
     if (activeTab === 'recommendations') loadRecommendations();
     if (activeTab === 'robot-satisfaction') loadRobotSatisfaction();
+    if (activeTab === 'business-role') loadBusinessRoleData();
   };
 
   // 导出CSV文件
@@ -264,6 +402,56 @@ export default function CollabDashboard() {
 
     } catch (err) {
       console.error('[CollabDashboard] 导出失败:', err);
+      setError(err instanceof Error ? err.message : '导出失败');
+    }
+  };
+
+  // 导出业务角色数据
+  const handleBusinessRoleExport = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (timeRange !== 'all') {
+        const now = new Date();
+        const startTime = timeRange === '24h'
+          ? new Date(now.getTime() - 24 * 60 * 60 * 1000)
+          : timeRange === '7d'
+          ? new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        params.append('startTime', startTime.toISOString());
+        params.append('endTime', now.toISOString());
+      }
+      if (selectedRobot) {
+        params.append('robotId', selectedRobot);
+      }
+
+      const url = `/api/collaboration/analytics/business-role/export?${params.toString()}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error('导出失败');
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `business-role-analysis-${Date.now()}.csv`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1].replace(/['"]/g, '');
+        }
+      }
+
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      console.error('[CollabDashboard] 业务角色导出失败:', err);
       setError(err instanceof Error ? err.message : '导出失败');
     }
   };
@@ -387,6 +575,15 @@ export default function CollabDashboard() {
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                 刷新
               </Button>
+              <Button
+                variant={autoRefresh ? 'default' : 'outline'}
+                onClick={() => setAutoRefresh(!autoRefresh)}
+                disabled={loading}
+                className="gap-2"
+              >
+                <Zap className="h-4 w-4" />
+                {autoRefresh ? '自动开' : '自动关'}
+              </Button>
             </div>
           </div>
         </div>
@@ -403,12 +600,13 @@ export default function CollabDashboard() {
         )}
 
         <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-[750px]">
+          <TabsList className="grid w-full grid-cols-6 lg:w-[900px]">
             <TabsTrigger value="overview">总览</TabsTrigger>
             <TabsTrigger value="staff">工作人员</TabsTrigger>
             <TabsTrigger value="decisions">决策日志</TabsTrigger>
             <TabsTrigger value="recommendations">智能推荐</TabsTrigger>
             <TabsTrigger value="robot-satisfaction">机器人满意度</TabsTrigger>
+            <TabsTrigger value="business-role">业务角色</TabsTrigger>
           </TabsList>
 
           {/* 总览标签页 */}
@@ -883,6 +1081,141 @@ export default function CollabDashboard() {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 业务角色标签页 */}
+          <TabsContent value="business-role" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>业务角色分析</CardTitle>
+                    <CardDescription>按业务角色维度分析协同效率</CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleBusinessRoleExport()}
+                    disabled={loading || businessRoleData.length === 0}
+                    className="gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    导出CSV
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="space-y-4">
+                    {[...Array(3)].map((_, i) => (
+                      <Skeleton key={i} className="h-32" />
+                    ))}
+                  </div>
+                ) : businessRoleData.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Target className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>暂无业务角色数据</p>
+                    <p className="text-xs mt-2">系统将基于业务角色配置统计协同数据</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {businessRoleData.map((role, index) => (
+                      <div key={index} className="border rounded-lg p-4 space-y-3 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h3 className="font-semibold text-lg">
+                                {role.businessRoleName || '未设置'}
+                              </h3>
+                              {role.aiBehavior === 'full_auto' && (
+                                <Badge className="bg-green-500">全自动</Badge>
+                              )}
+                              {role.aiBehavior === 'semi_auto' && (
+                                <Badge className="bg-yellow-500">半自动</Badge>
+                              )}
+                              {role.aiBehavior === 'record_only' && (
+                                <Badge className="bg-gray-500">仅记录</Badge>
+                              )}
+                              {role.staffEnabled && (
+                                <Badge variant="outline" className="text-blue-600 border-blue-600">
+                                  <Users className="h-3 w-3 mr-1" />
+                                  工作人员启用
+                                </Badge>
+                              )}
+                              {role.enableTaskCreation && (
+                                <Badge variant="outline" className="text-green-600 border-green-600">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  任务创建
+                                </Badge>
+                              )}
+                            </div>
+                            {role.businessRoleDescription && (
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                {role.businessRoleDescription}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold">
+                              {formatNumber(role.stats.totalDecisions)}
+                            </div>
+                            <div className="text-sm text-gray-500">决策总数</div>
+                          </div>
+                        </div>
+
+                        {/* 回复率统计 */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="flex items-center gap-1">
+                                <Bot className="h-4 w-4 text-green-600" />
+                                AI回复
+                              </span>
+                              <span className="font-semibold">{formatNumber(role.stats.aiReplyCount)}</span>
+                            </div>
+                            <Progress value={role.stats.aiReplyRate} className="h-2" />
+                            <div className="text-xs text-gray-500 text-right">
+                              {formatPercentage(role.stats.aiReplyRate)}
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="flex items-center gap-1">
+                                <Users className="h-4 w-4 text-blue-600" />
+                                工作人员回复
+                              </span>
+                              <span className="font-semibold">{formatNumber(role.stats.staffReplyCount)}</span>
+                            </div>
+                            <Progress value={role.stats.staffReplyRate} className="h-2" />
+                            <div className="text-xs text-gray-500 text-right">
+                              {formatPercentage(role.stats.staffReplyRate)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 优先级分布 */}
+                        <div className="flex items-center gap-4 pt-2 border-t">
+                          <div className="text-sm text-gray-600 dark:text-gray-400">
+                            优先级分布：
+                          </div>
+                          <div className="flex gap-3">
+                            <Badge variant="outline" className="text-red-600 border-red-600">
+                              高: {role.stats.priorityDistribution.high}
+                            </Badge>
+                            <Badge variant="outline" className="text-yellow-600 border-yellow-600">
+                              中: {role.stats.priorityDistribution.medium}
+                            </Badge>
+                            <Badge variant="outline" className="text-gray-600 border-gray-600">
+                              低: {role.stats.priorityDistribution.low}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>
