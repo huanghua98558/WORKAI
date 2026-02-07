@@ -214,21 +214,32 @@ export default function NewDashboard() {
 
       if (sessionsRes.ok) {
         const data = await sessionsRes.json();
+        console.log('[Dashboard] 执行记录响应:', data);
         if (data.code === 0 && Array.isArray(data.data)) {
+          console.log('[Dashboard] 执行记录数据:', data.data);
           // 转换执行记录为会话格式
-          const sessions = data.data.slice(0, 5).map((execution: any) => ({
-            sessionId: execution.sessionId,
-            userId: execution.userId,
-            groupId: execution.groupId,
-            userName: execution.userName || execution.userId,
-            groupName: execution.groupName || execution.groupId,
-            status: execution.status === 'success' ? 'auto' : 'human',
-            lastActiveTime: execution.createdAt,
-            messageCount: 1,
-            lastMessage: execution.messageContent || execution.steps?.user_message?.content || '暂无消息',
-          }));
+          const sessions = data.data.slice(0, 5).map((execution: any) => {
+            const transformed = {
+              sessionId: execution.sessionId,
+              userId: execution.userId,
+              groupId: execution.groupId,
+              userName: execution.steps?.user_message?.userId || execution.userId || '未知用户',
+              groupName: execution.steps?.user_message?.groupId || execution.groupId || '未知群组',
+              status: execution.status === 'success' || execution.status === 'completed' ? 'auto' : 'human',
+              lastActiveTime: execution.createdAt,
+              messageCount: 1,
+              lastMessage: execution.steps?.user_message?.content || '暂无消息',
+            };
+            console.log('[Dashboard] 转换后的会话:', transformed);
+            return transformed;
+          });
+          console.log('[Dashboard] 最终会话列表:', sessions);
           setRecentSessions(sessions);
+        } else {
+          console.error('[Dashboard] 执行记录数据格式错误:', data);
         }
+      } else {
+        console.error('[Dashboard] 执行记录请求失败:', sessionsRes.status, sessionsRes.statusText);
       }
     } catch (error) {
       console.error('加载告警数据失败:', error);

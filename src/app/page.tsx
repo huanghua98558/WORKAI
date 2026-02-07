@@ -840,7 +840,7 @@ export default function AdminDashboard() {
       // 重置为原始会话列表
       setIsSearchingSessions(true);
       try {
-        const res = await fetch('/api/admin/sessions/active?limit=50');
+        const res = await fetch('/api/sessions/from-executions?limit=50');
         if (res.ok) {
           const data = await res.json();
           // 去重：确保sessionId唯一
@@ -885,7 +885,7 @@ export default function AdminDashboard() {
         }
       } else {
         // 只有筛选条件
-        const res = await fetch('/api/admin/sessions/active?limit=50');
+        const res = await fetch('/api/sessions/from-executions?limit=50');
         if (res.ok) {
           const data = await res.json();
           const filtered = (data.data || []).filter((s: Session) => {
@@ -964,7 +964,7 @@ export default function AdminDashboard() {
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 增加到10秒
 
         console.log('[初始化] 发起会话 API 请求...');
-        const sessionsRes = await fetch('/api/proxy/admin/sessions/active?limit=20', {
+        const sessionsRes = await fetch('/api/sessions/from-executions?limit=50', {
           signal: controller.signal
         });
         
@@ -974,7 +974,10 @@ export default function AdminDashboard() {
         if (sessionsRes.ok) {
           const data = await sessionsRes.json();
           console.log('[初始化] API 返回数据:', data);
-          const uniqueSessions = (data.data || []).reduce((acc: Session[], session: Session) => {
+          // 兼容两种格式：{success: true, data: [...]} 或 {data: [...]}
+          const sessionsData = data.data || [];
+          console.log('[初始化] 会话数据:', sessionsData);
+          const uniqueSessions = sessionsData.reduce((acc: Session[], session: Session) => {
             if (!acc.find(s => s.sessionId === session.sessionId)) {
               acc.push(session);
             }
