@@ -1,6 +1,25 @@
 -- 多机器人架构支持 - 第一阶段：机器人分组和角色管理
 -- 执行时间：2025-02-03
 
+-- 0. 删除旧的外键约束（如果存在）
+DO $$
+BEGIN
+  -- 删除 robots 表上的旧外键约束
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'robots_group_id_fkey'
+  ) THEN
+    ALTER TABLE robots DROP CONSTRAINT robots_group_id_fkey;
+  END IF;
+  
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'robots_role_id_fkey'
+  ) THEN
+    ALTER TABLE robots DROP CONSTRAINT robots_role_id_fkey;
+  END IF;
+END $$;
+
 -- 1. 创建机器人分组表
 CREATE TABLE IF NOT EXISTS robot_groups (
     id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -1,6 +1,41 @@
 -- 告警系统增强功能迁移
 -- 添加分组、批量处理和升级机制
 
+-- 0. 删除旧的外键约束（如果存在）
+DO $$
+BEGIN
+  -- 删除 alert_rules 表上的旧外键约束
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'alert_rules_group_id_fkey'
+  ) THEN
+    ALTER TABLE alert_rules DROP CONSTRAINT alert_rules_group_id_fkey;
+  END IF;
+  
+  -- 删除 robots 表上的旧外键约束（如果有）
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'robots_group_id_fkey'
+  ) THEN
+    ALTER TABLE robots DROP CONSTRAINT robots_group_id_fkey;
+  END IF;
+  
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'robots_role_id_fkey'
+  ) THEN
+    ALTER TABLE robots DROP CONSTRAINT robots_role_id_fkey;
+  END IF;
+  
+  -- 删除 sessions 表上的旧外键约束（如果有）
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'sessions_group_id_fkey'
+  ) THEN
+    ALTER TABLE sessions DROP CONSTRAINT sessions_group_id_fkey;
+  END IF;
+END $$;
+
 -- 1. 创建告警分组表
 CREATE TABLE IF NOT EXISTS alert_groups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -29,24 +64,25 @@ ALTER TABLE alert_history
   ADD COLUMN IF NOT EXISTS escalation_level INTEGER DEFAULT 0,
   ADD COLUMN IF NOT EXISTS escalation_count INTEGER DEFAULT 0,
   ADD COLUMN IF NOT EXISTS escalation_history JSONB DEFAULT '[]',
-  ADD COLUMN IF NOT EXISTS parent_alert_id UUID REFERENCES alert_history(id),
+  ADD COLUMN IF NOT EXISTS parent_alert_id UUID,
   ADD COLUMN IF NOT EXISTS batch_id UUID,
   ADD COLUMN IF NOT EXISTS batch_size INTEGER DEFAULT 1;
 
 -- 4. 创建告警升级历史表
 CREATE TABLE IF NOT EXISTS alert_upgrades (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  alert_id UUID NOT NULL REFERENCES alert_history(id) ON DELETE CASCADE,
+  alert_id UUID NOT NULL,
   from_level INTEGER NOT NULL,
   to_level INTEGER NOT NULL,
   escalate_reason TEXT,
   escalate_method VARCHAR(50),
   escalate_config JSONB,
   escalated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  escalated_by VARCHAR(100),
-  INDEX idx_alert_upgrades_alert_id (alert_id),
-  INDEX idx_alert_upgrades_escalated_at (escalated_at)
+  escalated_by VARCHAR(100)
 );
+
+CREATE INDEX IF NOT EXISTS idx_alert_upgrades_alert_id ON alert_upgrades(alert_id);
+CREATE INDEX IF NOT EXISTS idx_alert_upgrades_escalated_at ON alert_upgrades(escalated_at);
 
 -- 5. 创建告警批量处理记录表
 CREATE TABLE IF NOT EXISTS alert_batch_operations (
@@ -60,10 +96,11 @@ CREATE TABLE IF NOT EXISTS alert_batch_operations (
   operation_result JSONB,
   created_by VARCHAR(100),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  completed_at TIMESTAMP,
-  INDEX idx_batch_operations_created_at (created_at),
-  INDEX idx_batch_operations_status (operation_status)
+  completed_at TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_batch_operations_created_at ON alert_batch_operations(created_at);
+CREATE INDEX IF NOT EXISTS idx_batch_operations_status ON alert_batch_operations(operation_status);
 
 -- 6. 创建告警统计快照表（用于趋势分析）
 CREATE TABLE IF NOT EXISTS alert_stats_snapshots (
