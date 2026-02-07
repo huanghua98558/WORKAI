@@ -103,7 +103,7 @@ class VideoChannelAutomationService {
    */
   isQrcodeExpired(): boolean {
     if (!this.currentQrcodeExpiresAt) {
-      console.log('[二维码过期] 未设置过期时间，视为过期');
+      console.log('[二维码过期] 未设置过期时间，视为过期。当前二维码ID:', this.currentQrcodeId);
       return true;
     }
 
@@ -159,6 +159,33 @@ class VideoChannelAutomationService {
     this.currentQrcodeExpiresAt = null;
   }
 
+  /**
+   * 清除所有视频号相关的Cookie
+   */
+  async clearVideoChannelCookies(): Promise<void> {
+    const browser = await this.getBrowser();
+    const pages = await browser.pages();
+
+    for (const page of pages) {
+      try {
+        const cookies = await page.cookies();
+        // 清除所有微信相关的Cookie
+        const weixinCookies = cookies.filter(cookie =>
+          cookie.domain.includes('weixin.qq.com') ||
+          cookie.domain.includes('work.weixin.qq.com')
+        );
+
+        for (const cookie of weixinCookies) {
+          await page.deleteCookie(cookie);
+        }
+
+        console.log(`[清除Cookie] 页面 ${page.url()} 清除了 ${weixinCookies.length} 个Cookie`);
+      } catch (error) {
+        console.error('[清除Cookie] 清除Cookie失败:', error);
+      }
+    }
+  }
+
   private async ensureDirectories() {
     try {
       await fs.mkdir(this.qrcodeDir, { recursive: true });
@@ -193,12 +220,20 @@ class VideoChannelAutomationService {
     // 先重置旧二维码状态
     await this.resetQrcode();
 
+    // 清除所有视频号相关的Cookie
+    await this.clearVideoChannelCookies();
+
     const browser = await this.getBrowser();
     const page = await browser.newPage();
 
     try {
       // 设置用户代理
       await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+      // 确保新页面也没有Cookie
+      await page.deleteCookie(...await page.cookies());
+
+      console.log('[二维码生成] 已清除所有Cookie，确保未登录状态');
 
       // 禁用图片加载（只加载必要的资源，加快速度）
       await page.setRequestInterception(true);
@@ -367,7 +402,7 @@ class VideoChannelAutomationService {
   }
 
   /**
-   * 2. 检测登录状态（优化版：复用二维码页面）
+   * 2. 检测登录状态（优化版：复用二维码页面 + 更准确的检测逻辑）
    */
   async checkLoginStatus(): Promise<LoginStatusResult> {
     // 如果没有二维码页面，创建一个新页面
@@ -382,59 +417,117 @@ class VideoChannelAutomationService {
     try {
       console.log('[检测登录] 开始检测登录状态...');
 
-      // 如果页面没有打开或者已经关闭，重新加载
-      if (page.isClosed()) {
-        console.log('[检测登录] 页面已关闭，重新打开...');
-        await page.goto(this.shopUrl, {
-          waitUntil: 'domcontentloaded',
-          timeout: 15000
-        });
-      } else {
-        // 页面已打开，刷新页面检查登录状态
-        console.log('[检测登录] 刷新页面检查登录状态...');
-        await page.reload({
-          waitUntil: 'domcontentloaded',
-          timeout: 15000
-        });
-      }
+      // 记录刷新前的URL
+      const beforeUrl = page.url();
+      console.log('[检测登录] 刷新前URL:', beforeUrl);
+
+      // 刷新页面检查登录状态
+      console.log('[检测登录] 刷新页面检查登录状态...');
+      const navigationPromise = page.waitForNavigation({
+        waitUntil: 'domcontentloaded',
+        timeout: 10000
+      }).catch(() => {
+        console.log('[检测登录] 导航超时，可能没有发生跳转');
+      });
+
+      await page.reload({
+        waitUntil: 'domcontentloaded',
+        timeout: 15000
+      });
+
+      // 等待导航完成
+      await navigationPromise;
+
+      const afterUrl = page.url();
+      console.log('[检测登录] 刷新后URL:', afterUrl);
+      console.log('[检测登录] URL是否变化:', beforeUrl !== afterUrl);
 
       console.log('[检测登录] 页面加载完成，开始检查登录元素...');
 
-      // 检查是否已登录（检查页面是否有登录后的元素）
-      const isLoggedIn = await page.evaluate(() => {
-        console.log('[检测登录] 在页面上下文中检查登录状态...');
+      // 更准确的登录状态检测逻辑
+      const loginCheckResult = await page.evaluate(() => {
+        const result = {
+          hasLoginForm: false,
+          hasShopInfo: false,
+          pageTitle: document.title,
+          pageUrl: window.location.href,
+          bodyText: document.body.innerText.substring(0, 200)
+        };
 
-        // 检查是否存在登录按钮（未登录状态）
-        const loginButton = document.querySelector('.login-btn') ||
-                           document.querySelector('button[type="submit"]') ||
-                           document.querySelector('.scan-login-tip') ||
-                           document.querySelector('.login-container') ||
-                           document.querySelector('.qr-login') ||
-                           document.querySelector('[class*="login"]');
+        console.log('[页面上下文] 页面标题:', result.pageTitle);
+        console.log('[页面上下文] 页面URL:', result.pageUrl);
 
-        console.log('[检测登录] 登录按钮元素:', loginButton ? '存在' : '不存在');
+        // 检查是否有登录框（未登录状态）
+        const loginSelectors = [
+          '.qrcode',
+          '.login-container',
+          '.qr-login',
+          '[class*="login"]',
+          'img[alt*="二维码"]',
+          'img[alt*="scan"]',
+          '.scan-login-tip'
+        ];
 
-        // 检查是否存在用户头像或店铺信息（已登录状态）
-        const userAvatar = document.querySelector('.user-avatar') ||
-                          document.querySelector('.shop-name') ||
-                          document.querySelector('.nav-user') ||
-                          document.querySelector('.user-info') ||
-                          document.querySelector('.header-user') ||
-                          document.querySelector('[class*="user"]');
+        for (const selector of loginSelectors) {
+          const element = document.querySelector(selector) as HTMLElement | null;
+          if (element && element.offsetParent !== null) { // 检查元素是否可见
+            result.hasLoginForm = true;
+            console.log('[页面上下文] 找到登录元素:', selector);
+            break;
+          }
+        }
 
-        console.log('[检测登录] 用户信息元素:', userAvatar ? '存在' : '不存在');
+        // 检查是否有店铺信息（已登录状态）
+        const shopSelectors = [
+          '.shop-name',
+          '.user-avatar',
+          '.nav-user',
+          '.user-info',
+          '.header-user',
+          '.store-name',
+          '[class*="shop"]',
+          '[class*="store"]'
+        ];
 
-        // 如果没有登录按钮且有用户信息，说明已登录
-        const isLogged = !loginButton && !!userAvatar;
-        console.log('[检测登录] 登录状态判断:', isLogged);
+        for (const selector of shopSelectors) {
+          const element = document.querySelector(selector) as HTMLElement | null;
+          if (element && element.offsetParent !== null) {
+            result.hasShopInfo = true;
+            console.log('[页面上下文] 找到店铺信息元素:', selector);
+            break;
+          }
+        }
 
-        return isLogged;
+        console.log('[页面上下文] 登录框:', result.hasLoginForm, '店铺信息:', result.hasShopInfo);
+
+        return result;
       });
 
+      console.log('[检测登录] 页面检测结果:', loginCheckResult);
+
+      // 判断登录状态：
+      // 1. 如果URL跳转到了微信登录页（passport.weixin.qq.com 或 mp.weixin.qq.com），说明未登录
+      // 2. 如果有登录框且没有店铺信息，说明未登录
+      // 3. 如果有店铺信息或者URL包含店铺相关路径，说明已登录
+      const urlIsLoginPage = afterUrl.includes('passport.weixin.qq.com') ||
+                            afterUrl.includes('mp.weixin.qq.com') ||
+                            afterUrl.includes('work.weixin.qq.com');
+
+      // 如果URL包含店铺路径，说明已登录
+      const urlIsShopPage = afterUrl.includes('store.weixin.qq.com/talent') ||
+                            afterUrl.includes('channels.weixin.qq.com/assistant');
+
+      const isLoggedIn = !urlIsLoginPage &&
+                        !loginCheckResult.hasLoginForm &&
+                        (loginCheckResult.hasShopInfo || urlIsShopPage);
+
+      console.log('[检测登录] URL是登录页:', urlIsLoginPage);
+      console.log('[检测登录] URL是店铺页:', urlIsShopPage);
       console.log('[检测登录] 最终登录状态:', isLoggedIn);
 
       // 检查二维码是否过期
       const qrcodeExpired = this.isQrcodeExpired();
+      console.log('[检测登录] 二维码是否过期:', qrcodeExpired);
 
       // 如果已登录，提取Cookie
       let cookies: any[] = [];
@@ -442,6 +535,15 @@ class VideoChannelAutomationService {
         console.log('[检测登录] 已登录，开始提取Cookie...');
         cookies = await page.cookies();
         console.log('[检测登录] 提取到', cookies.length, '个Cookie');
+
+        // 打印关键Cookie
+        const importantCookies = cookies.filter(c =>
+          c.name.includes('wxsid') ||
+          c.name.includes('webwxuvid') ||
+          c.name.includes('mm_lang') ||
+          c.name.includes('rewards_wechat_id')
+        );
+        console.log('[检测登录] 关键Cookie:', importantCookies.map(c => ({ name: c.name, domain: c.domain })));
       }
 
       return {
