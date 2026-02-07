@@ -27,8 +27,8 @@ CREATE TABLE IF NOT EXISTS robot_roles (
 
 -- 3. 扩展 robots 表，添加多机器人支持字段
 ALTER TABLE robots
-ADD COLUMN IF NOT EXISTS group_id VARCHAR(36) REFERENCES robot_groups(id) ON DELETE SET NULL,
-ADD COLUMN IF NOT EXISTS role_id VARCHAR(36) REFERENCES robot_roles(id) ON DELETE SET NULL,
+ADD COLUMN IF NOT EXISTS group_ref VARCHAR(36),
+ADD COLUMN IF NOT EXISTS role_ref VARCHAR(36),
 ADD COLUMN IF NOT EXISTS capabilities JSONB, -- 机器人能力配置
 ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 10, -- 机器人优先级
 ADD COLUMN IF NOT EXISTS max_concurrent_sessions INTEGER DEFAULT 100, -- 最大并发会话数
@@ -44,8 +44,8 @@ ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]', -- 机器人标签
 ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}', -- 机器人元数据
 
 -- 添加索引
-CREATE INDEX IF NOT EXISTS idx_robots_group_id ON robots(group_id);
-CREATE INDEX IF NOT EXISTS idx_robots_role_id ON robots(role_id);
+CREATE INDEX IF NOT EXISTS idx_robots_group_ref ON robots(group_ref);
+CREATE INDEX IF NOT EXISTS idx_robots_role_ref ON robots(role_ref);
 CREATE INDEX IF NOT EXISTS idx_robots_priority ON robots(priority);
 CREATE INDEX IF NOT EXISTS idx_robots_current_session_count ON robots(current_session_count);
 CREATE INDEX IF NOT EXISTS idx_robots_last_heartbeat_at ON robots(last_heartbeat_at);
@@ -71,8 +71,8 @@ ON CONFLICT (name) DO NOTHING;
 -- 添加注释
 COMMENT ON TABLE robot_groups IS '机器人分组表';
 COMMENT ON TABLE robot_roles IS '机器人角色表';
-COMMENT ON COLUMN robots.group_id IS '所属分组ID';
-COMMENT ON COLUMN robots.role_id IS '角色ID';
+COMMENT ON COLUMN robots.group_ref IS '所属分组ID';
+COMMENT ON COLUMN robots.role_ref IS '角色ID';
 COMMENT ON COLUMN robots.capabilities IS '机器人能力配置 JSON: {"abilities": ["chat", "reply", "broadcast"], "limits": {"maxMessages": 1000, "maxUsers": 100}}';
 COMMENT ON COLUMN robots.priority IS '优先级，数值越大优先级越高';
 COMMENT ON COLUMN robots.max_concurrent_sessions IS '最大并发会话数';

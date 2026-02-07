@@ -41,7 +41,7 @@ export const messages = pgTable(
     aiConfidence: decimal("ai_confidence", { precision: 3, scale: 2 }), // AI置信度 0-1
     
     // 意图识别
-    intentId: varchar("intent_id", { length: 36 }).references(() => intents.id),
+    intentRef: varchar("intent_ref", { length: 36 }),
     intentConfidence: decimal("intent_confidence", { precision: 3, scale: 2 }),
     emotion: varchar("emotion", { length: 50 }), // positive, neutral, negative
     emotionScore: decimal("emotion_score", { precision: 3, scale: 2 }),
@@ -62,7 +62,7 @@ export const messages = pgTable(
     robotIdIdx: index("messages_robot_id_idx").on(table.robotId),
     senderIdIdx: index("messages_sender_id_idx").on(table.senderId),
     createdAtIdx: index("messages_created_at_idx").on(table.createdAt),
-    intentIdIdx: index("messages_intent_id_idx").on(table.intentId),
+    intentRefIdx: index("messages_intent_ref_idx").on(table.intentRef),
     senderTypeIdx: index("messages_sender_type_idx").on(table.senderType),
   })
 );

@@ -100,7 +100,7 @@ export async function POST(
           messageType: msg.messageType,
           emotion: msg.emotion,
           emotionScore: msg.emotionScore,
-          intentId: msg.intentId,
+          intentRef: msg.intentRef,
           intentConfidence: msg.intentConfidence,
           aiModel: msg.aiModel,
           aiProvider: msg.aiProvider,

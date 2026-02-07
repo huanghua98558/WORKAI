@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS alert_groups (
 
 -- 2. 修改告警规则表，添加升级相关字段
 ALTER TABLE alert_rules
-  ADD COLUMN IF NOT EXISTS group_id UUID REFERENCES alert_groups(id),
+  ADD COLUMN IF NOT EXISTS group_ref UUID,
   ADD COLUMN IF NOT EXISTS enable_escalation BOOLEAN DEFAULT FALSE,
   ADD COLUMN IF NOT EXISTS escalation_level INTEGER DEFAULT 0,
   ADD COLUMN IF NOT EXISTS escalation_threshold INTEGER DEFAULT 3,
@@ -25,7 +25,7 @@ ALTER TABLE alert_rules
 
 -- 3. 修改告警历史表，添加分组和升级相关字段
 ALTER TABLE alert_history
-  ADD COLUMN IF NOT EXISTS group_id UUID REFERENCES alert_groups(id),
+  ADD COLUMN IF NOT EXISTS group_ref UUID,
   ADD COLUMN IF NOT EXISTS escalation_level INTEGER DEFAULT 0,
   ADD COLUMN IF NOT EXISTS escalation_count INTEGER DEFAULT 0,
   ADD COLUMN IF NOT EXISTS escalation_history JSONB DEFAULT '[]',
@@ -92,22 +92,22 @@ ON CONFLICT (group_name) DO NOTHING;
 
 -- 8. 更新现有告警规则，分配到默认分组
 UPDATE alert_rules
-SET group_id = (SELECT id FROM alert_groups WHERE group_code = 'security' LIMIT 1)
+SET group_ref = (SELECT id FROM alert_groups WHERE group_code = 'security' LIMIT 1)
 WHERE intentType IN ('risk', 'spam');
 
 UPDATE alert_rules
-SET group_id = (SELECT id FROM alert_groups WHERE group_code = 'system' LIMIT 1)
+SET group_ref = (SELECT id FROM alert_groups WHERE group_code = 'system' LIMIT 1)
 WHERE intentType IN ('admin');
 
 UPDATE alert_rules
-SET group_id = (SELECT id FROM alert_groups WHERE group_code = 'business' LIMIT 1)
+SET group_ref = (SELECT id FROM alert_groups WHERE group_code = 'business' LIMIT 1)
 WHERE intentType NOT IN ('risk', 'spam', 'admin');
 
 -- 9. 创建索引以提高查询性能
-CREATE INDEX IF NOT EXISTS idx_alert_history_group_id ON alert_history(group_id);
+CREATE INDEX IF NOT EXISTS idx_alert_history_group_ref ON alert_history(group_ref);
 CREATE INDEX IF NOT EXISTS idx_alert_history_batch_id ON alert_history(batch_id);
 CREATE INDEX IF NOT EXISTS idx_alert_history_parent_alert_id ON alert_history(parent_alert_id);
-CREATE INDEX IF NOT EXISTS idx_alert_rules_group_id ON alert_rules(group_id);
+CREATE INDEX IF NOT EXISTS idx_alert_rules_group_ref ON alert_rules(group_ref);
 CREATE INDEX IF NOT EXISTS idx_alert_history_escalation_level ON alert_history(escalation_level);
 
 -- 10. 创建函数：自动更新更新时间

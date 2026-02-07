@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       aiTokensUsed: body.aiTokensUsed,
       aiCost: body.aiCost,
       aiConfidence: body.aiConfidence,
-      intentId: body.intentId,
+      intentRef: body.intentRef,
       intentConfidence: body.intentConfidence,
       emotion: body.emotion,
       emotionScore: body.emotionScore,

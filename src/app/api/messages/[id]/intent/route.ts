@@ -96,7 +96,7 @@ export async function POST(
 
     // 5. 更新消息的意图字段
     await messageService.updateMessage(id, {
-      intentId: intentData.intent,
+      intentRef: intentData.intent,
       intentConfidence: String(intentData.confidence),
     });
 

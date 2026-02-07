@@ -17,7 +17,7 @@ export interface CreateMessageInput {
   aiTokensUsed?: number;
   aiCost?: number;
   aiConfidence?: number;
-  intentId?: string;
+  intentRef?: string;
   intentConfidence?: number;
   emotion?: string;
   emotionScore?: number;
@@ -64,7 +64,7 @@ export class MessageService {
         aiTokensUsed: input.aiTokensUsed,
         aiCost: input.aiCost ? String(input.aiCost) : undefined,
         aiConfidence: input.aiConfidence ? String(input.aiConfidence) : undefined,
-        intentId: input.intentId,
+        intentRef: input.intentRef,
         intentConfidence: input.intentConfidence ? String(input.intentConfidence) : undefined,
         emotion: input.emotion,
         emotionScore: input.emotionScore ? String(input.emotionScore) : undefined,
