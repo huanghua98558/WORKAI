@@ -441,6 +441,14 @@ class VideoChannelAutomationService {
 
         console.log('[页面上下文] 页面标题:', result.pageTitle);
         console.log('[页面上下文] 页面URL:', result.pageUrl);
+        console.log('[页面上下文] 页面内容:', result.bodyText);
+
+        // 检查页面是否显示登录超时或需要重新登录
+        const hasLoginTimeout = result.bodyText.includes('登录超时') ||
+                               result.bodyText.includes('重新登录') ||
+                               result.bodyText.includes('请重新登录');
+
+        console.log('[页面上下文] 检测到登录超时:', hasLoginTimeout);
 
         // 检查是否有登录框（未登录状态）
         // 优化选择器，只匹配真正的登录二维码容器
@@ -489,10 +497,14 @@ class VideoChannelAutomationService {
       console.log('[检测登录] 页面检测结果:', loginCheckResult);
 
       // 判断登录状态：
-      // 1. 如果URL跳转到了微信登录页（passport.weixin.qq.com 或 mp.weixin.qq.com），说明未登录
-      // 2. 如果URL包含店铺路径，优先判断为已登录（即使检测到登录框，可能是页面残留）
-      // 3. 如果有店铺信息，说明已登录
-      // 4. 如果有登录框且没有店铺信息，说明未登录
+      // 1. 如果页面显示登录超时或需要重新登录，说明未登录
+      // 2. 如果URL跳转到了微信登录页（passport.weixin.qq.com 或 mp.weixin.qq.com），说明未登录
+      // 3. 如果URL包含店铺路径，优先判断为已登录（即使检测到登录框，可能是页面残留）
+      // 4. 如果有店铺信息，说明已登录
+      const hasLoginTimeout = loginCheckResult.bodyText.includes('登录超时') ||
+                             loginCheckResult.bodyText.includes('重新登录') ||
+                             loginCheckResult.bodyText.includes('请重新登录');
+
       const urlIsLoginPage = currentUrl.includes('passport.weixin.qq.com') ||
                             currentUrl.includes('mp.weixin.qq.com') ||
                             currentUrl.includes('work.weixin.qq.com');
@@ -502,10 +514,14 @@ class VideoChannelAutomationService {
                             currentUrl.includes('store.weixin.qq.com/talent/') ||
                             currentUrl.includes('channels.weixin.qq.com/assistant');
 
-      // 优化判断逻辑：URL是店铺页时，优先信任URL，忽略可能误检的登录框
-      const isLoggedIn = !urlIsLoginPage &&
+      // 优化判断逻辑：
+      // - 如果页面显示登录超时，优先判断为未登录
+      // - 如果URL是店铺页且没有显示登录超时，判断为已登录
+      const isLoggedIn = !hasLoginTimeout &&
+                        !urlIsLoginPage &&
                         (urlIsShopPage || loginCheckResult.hasShopInfo);
 
+      console.log('[检测登录] 页面显示登录超时:', hasLoginTimeout);
       console.log('[检测登录] URL是登录页:', urlIsLoginPage);
       console.log('[检测登录] URL是店铺页:', urlIsShopPage);
       console.log('[检测登录] 检测到登录框:', loginCheckResult.hasLoginForm);
