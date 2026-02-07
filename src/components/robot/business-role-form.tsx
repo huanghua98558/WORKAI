@@ -45,7 +45,13 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
       const response = await fetch('/api/proxy/admin/robots');
       const result = await response.json();
       if (result.code === 0 && result.data) {
-        setRobots(result.data);
+        // 确保 id 字段是字符串类型
+        const formattedRobots = result.data.map((robot: any) => ({
+          ...robot,
+          id: String(robot.id),
+        }));
+        console.log('[BusinessRoleForm] 加载的机器人列表:', formattedRobots);
+        setRobots(formattedRobots);
       }
     } catch (error) {
       console.error('加载机器人列表失败:', error);
@@ -56,7 +62,18 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
   useEffect(() => {
     if (initialData) {
       // 使用 robotId 或 robotRobotId 作为 robotId（兼容不同数据源）
-      const finalRobotId = initialData.robotId || initialData.robotRobotId || '';
+      const rawRobotId = initialData.robotId || initialData.robotRobotId || '';
+      const finalRobotId = String(rawRobotId); // 确保是字符串类型
+
+      console.log('[BusinessRoleForm] 初始化表单数据:', {
+        initialData,
+        rawRobotId,
+        finalRobotId,
+        hasRobotId: !!initialData.robotId,
+        hasRobotRobotId: !!initialData.robotRobotId,
+        typeOfRobotId: typeof initialData.robotId,
+        typeOfRobotRobotId: typeof initialData.robotRobotId,
+      });
 
       setFormData({
         name: initialData.name,
@@ -72,6 +89,22 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
       });
     }
   }, [initialData]);
+
+  // 监控 formData.robotId 变化
+  useEffect(() => {
+    console.log('[BusinessRoleForm] formData.robotId 变化:', formData.robotId);
+  }, [formData.robotId]);
+
+  // 监控机器人列表加载
+  useEffect(() => {
+    console.log('[BusinessRoleForm] 机器人列表:', robots.length, '个机器人');
+    console.log('[BusinessRoleForm] 机器人详情:', robots);
+    // 当机器人列表加载完成后，检查是否有匹配的机器人
+    if (robots.length > 0 && formData.robotId) {
+      const matchedRobot = robots.find(r => String(r.id) === String(formData.robotId));
+      console.log('[BusinessRoleForm] 匹配的机器人:', matchedRobot?.name || '未找到');
+    }
+  }, [robots, formData.robotId]);
 
   // 添加关键词
   const handleAddKeyword = () => {
@@ -185,21 +218,33 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
         <div className="space-y-2">
           <Label htmlFor="robot">绑定机器人（可选）</Label>
           <Select
-            value={formData.robotId || 'none'}
-            onValueChange={(value) => setFormData({ ...formData, robotId: value === 'none' ? '' : value })}
+            key={robots.length > 0 ? 'loaded' : 'loading'}
+            value={String(formData.robotId || 'none')}
+            onValueChange={(value) => {
+              console.log('[BusinessRoleForm] 机器人选择变化:', value, '当前 formData.robotId:', formData.robotId);
+              setFormData({ ...formData, robotId: value === 'none' ? '' : String(value) });
+            }}
           >
             <SelectTrigger>
-              <SelectValue placeholder="选择要绑定的机器人" />
+              <SelectValue placeholder={robots.length > 0 ? "选择要绑定的机器人" : "加载机器人列表中..."} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">不绑定（通用角色）</SelectItem>
-              {robots.map((robot) => (
-                <SelectItem key={robot.id} value={robot.id}>
-                  {robot.name || robot.nickname || '未命名机器人'} - {robot.id}
-                </SelectItem>
-              ))}
+              {robots.map((robot) => {
+                const robotId = String(robot.id);
+                return (
+                  <SelectItem key={robotId} value={robotId}>
+                    {robot.name || robot.nickname || '未命名机器人'} ({robotId.slice(0, 8)}...)
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
+          {formData.robotId && (
+            <p className="text-xs text-muted-foreground">
+              当前已选择：{robots.find(r => String(r.id) === String(formData.robotId))?.name || '未找到匹配的机器人'}
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">
             绑定后，该业务角色将仅用于指定的机器人。不绑定则所有机器人都可使用。
           </p>
