@@ -247,18 +247,77 @@ class VideoChannelAutomationService {
         }
       });
 
-      // 访问视频号小店登录页面（减少超时时间）
+      // 访问视频号小店页面（检测到未登录时，获取登录链接）
       await page.goto(this.shopUrl, {
-        waitUntil: 'domcontentloaded', // 改为domcontentloaded，比networkidle2更快
-        timeout: 30000 // 减少超时时间到30秒
+        waitUntil: 'domcontentloaded',
+        timeout: 30000
       });
+
+      console.log('[获取二维码] 当前页面URL:', page.url());
+
+      // 等待2秒，让页面完全加载
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // 检查页面内容
+      const bodyText = await page.evaluate(() => document.body.innerText || '');
+      console.log('[获取二维码] 页面内容:', bodyText.substring(0, 200));
+
+      const hasLoginTimeout = bodyText.includes('登录超时') ||
+                             bodyText.includes('重新登录') ||
+                             bodyText.includes('请重新登录');
+
+      console.log('[获取二维码] 检测登录超时:', hasLoginTimeout);
+
+      if (hasLoginTimeout) {
+        console.log('[获取二维码] 检测到"登录超时"，查找登录链接');
+
+        // 查找登录链接的href
+        const loginLinkInfo = await page.evaluate(() => {
+          const links = Array.from(document.querySelectorAll('a'));
+          const loginLink = links.find(link => {
+            const text = (link as HTMLElement).innerText || '';
+            return text.includes('登录');
+          });
+
+          if (loginLink) {
+            return {
+              href: (loginLink as HTMLAnchorElement).href,
+              innerText: (loginLink as HTMLElement).innerText
+            };
+          }
+          return null;
+        });
+
+        console.log('[获取二维码] 登录链接信息:', loginLinkInfo);
+
+        // 恢复请求拦截（允许加载二维码图片）
+        page.removeAllListeners('request');
+        await page.setRequestInterception(false);
+
+        if (loginLinkInfo && loginLinkInfo.href) {
+          console.log('[获取二维码] 登录链接是JavaScript链接，尝试访问登录页面');
+
+          // 尝试直接访问视频号小店登录页面
+          const loginPageUrl = 'https://store.weixin.qq.com/';
+          console.log('[获取二维码] 访问登录页面:', loginPageUrl);
+          await page.goto(loginPageUrl, {
+            waitUntil: 'domcontentloaded',
+            timeout: 30000
+          });
+          console.log('[获取二维码] 登录页面URL:', page.url());
+        }
+      } else {
+        // 恢复请求拦截（允许加载二维码图片）
+        page.removeAllListeners('request');
+        await page.setRequestInterception(false);
+      }
 
       // 恢复请求拦截（允许加载二维码图片）
       page.removeAllListeners('request');
       await page.setRequestInterception(false);
 
-      // 减少等待时间
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // 等待2秒，让页面完全加载
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       // 查找二维码元素（优化查找逻辑）
       let qrcodeElement: puppeteer.ElementHandle<Element> | null = null;
@@ -312,11 +371,39 @@ class VideoChannelAutomationService {
         }
       }
 
-      // 策略3：如果还是没有找到，截取登录区域（不是整个页面）
+      // 策略3：如果还是没有找到，截取整个页面
       if (!qrcodeElement) {
-        console.log('未找到二维码元素，截取登录区域');
+        console.log('[获取二维码] 未找到二维码元素，截取整个页面');
 
-        // 尝试截取页面中间区域（通常二维码在中间）
+        // 先获取页面信息
+        const pageInfo = await page.evaluate(() => {
+          return {
+            title: document.title,
+            url: window.location.href,
+            bodyText: document.body.innerText.substring(0, 1000),
+            imageCount: document.querySelectorAll('img').length,
+            images: Array.from(document.querySelectorAll('img')).map(img => ({
+              src: img.src.substring(0, 100),
+              alt: img.alt,
+              width: img.width,
+              height: img.height
+            })).slice(0, 10)
+          };
+        });
+
+        console.log('[获取二维码] 页面信息:', JSON.stringify(pageInfo, null, 2));
+
+        const fullScreenshot = await page.screenshot();
+
+        const timestamp = Date.now();
+        const qrcodeId = `${timestamp}_full`;
+        const qrcodePath = path.join(this.qrcodeDir, `${qrcodeId}.png`);
+
+        await fs.writeFile(qrcodePath, fullScreenshot);
+
+        console.log('[获取二维码] 已保存完整页面截图:', qrcodePath);
+
+        // 同时保存一个中间区域的截图，作为备用
         const viewport = page.viewport();
         const clipArea = {
           x: Math.floor((viewport?.width || 1280) * 0.25),
@@ -329,11 +416,9 @@ class VideoChannelAutomationService {
           clip: clipArea
         });
 
-        const timestamp = Date.now();
-        const qrcodeId = `${timestamp}_partial`;
-        const qrcodePath = path.join(this.qrcodeDir, `${qrcodeId}.png`);
-
-        await fs.writeFile(qrcodePath, partialScreenshot);
+        const partialId = `${timestamp}_partial`;
+        const partialPath = path.join(this.qrcodeDir, `${partialId}.png`);
+        await fs.writeFile(partialPath, partialScreenshot);
 
         // 更新当前二维码状态
         this.currentQrcodeId = qrcodeId;
