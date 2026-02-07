@@ -239,6 +239,18 @@ export interface IntentConfig {
   confidenceThreshold?: number; // 置信度阈值（0-1）
   fallbackIntent?: string;      // 默认意图
   saveToContext: boolean;       // 是否保存到上下文
+
+  // ========== 阶段一新增：业务角色感知 ==========
+  businessRoleMode: 'global' | 'per_role';  // 业务角色模式：global=全局配置, per_role=按角色配置
+  roleBasedIntents?: {                        // 基于角色的意图配置
+    [roleCode: string]: {
+      supportedIntents: string[];            // 该角色支持的意图
+      confidenceThreshold: number;           // 该角色的置信度阈值
+      systemPrompt?: string                  // 该角色的自定义提示词
+    }
+  };
+  fallbackIntentBehavior: 'global_fallback' | 'role_fallback' | 'none'; // 未识别时的行为
+  enableRoleOverride: boolean;               // 是否允许角色配置覆盖全局配置
 }
 
 // DECISION 节点配置
@@ -248,6 +260,21 @@ export interface DecisionConfig {
   rules?: DecisionRule[];     // 规则列表
   trueLabel?: string;         // True分支标签
   falseLabel?: string;        // False分支标签
+
+  // ========== 阶段一新增：AI 行为感知 ==========
+  enableAIBehaviorTrigger: boolean;       // 是否启用 AI 行为触发
+  aiBehaviorTrigger: {                    // AI 行为触发条件
+    full_auto: DecisionRule[];            // 全自动模式的决策规则
+    semi_auto: DecisionRule[];            // 半自动模式的决策规则
+    record_only: DecisionRule[];          // 仅记录模式的决策规则
+  };
+  defaultAIBehaviorMode: 'full_auto' | 'semi_auto' | 'record_only'; // 默认 AI 行为模式
+  enablePriorityBasedDecision: boolean;   // 是否启用基于优先级的决策
+  priorityRules: {                         // 优先级规则
+    high: { branch: string; aiBehaviorMode: string };
+    medium: { branch: string; aiBehaviorMode: string };
+    low: { branch: string; aiBehaviorMode: string };
+  };
 }
 
 export interface DecisionRule {
@@ -267,11 +294,42 @@ export interface AIReplyConfig {
   contextWindowSize?: number;   // 上下文窗口大小
   personaId?: string;          // 人设ID
   enableThinking: boolean;      // 是否启用思考模式
+
   // 新增：工作人员联动配置
   adaptiveReply?: boolean;     // 是否启用自适应回复（工作人员联动）
   staffPresenceDetection?: boolean; // 是否检测工作人员存在
   replyModeWhenStaffOnline?: 'normal' | 'low_priority' | 'delay' | 'skip'; // 工作人员在线时的回复模式
   staffDetectionWindow?: number; // 工作人员检测窗口（分钟）
+
+  // ========== 阶段一新增：人设配置 ==========
+  businessRolePersonas: {                     // 基于角色的人设配置
+    [roleCode: string]: {
+      persona: string;                        // 角色人设描述
+      tone: 'formal' | 'casual' | 'friendly' | 'professional'; // 语调
+      responseLength: 'short' | 'medium' | 'long'; // 回复长度
+      enableContext: boolean;                 // 是否启用上下文
+      contextWindow: number;                  // 上下文窗口大小
+      customSystemPrompt?: string             // 自定义系统提示词
+    }
+  };
+  aiBehaviorResponse: {                       // AI 行为响应策略
+    full_auto: {                              // 全自动模式
+      enableAutoReply: boolean;
+      requireApproval: boolean;
+      autoConfidenceThreshold: number;
+    };
+    semi_auto: {                              // 半自动模式
+      enableAutoReply: boolean;
+      requireApproval: boolean;
+      autoConfidenceThreshold: number;
+    };
+    record_only: {                            // 仅记录模式
+      enableAutoReply: boolean;
+      requireApproval: boolean;
+    }
+  };
+  enablePersonaOverride: boolean;             // 是否允许人设配置覆盖全局配置
+  defaultPersonaTone: 'formal' | 'casual' | 'friendly' | 'professional'; // 默认语调
 }
 
 // MESSAGE_DISPATCH 节点配置

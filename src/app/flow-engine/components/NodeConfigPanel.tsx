@@ -394,6 +394,64 @@ function IntentConfig({ config, onChange }: any) {
         </p>
       </div>
 
+      {/* ========== 阶段一新增：业务角色感知配置 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🎭</span>
+          业务角色感知配置
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div>
+            <Label htmlFor="businessRoleMode" className="text-xs">业务角色模式</Label>
+            <Select
+              value={config.businessRoleMode || 'global'}
+              onValueChange={(value) => onChange('businessRoleMode', value)}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择业务角色模式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="global">全局配置</SelectItem>
+                <SelectItem value="per_role">按角色配置</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-slate-500 mt-1">
+              {config.businessRoleMode === 'global' 
+                ? '使用统一的意图识别配置' 
+                : '为每个业务角色配置不同的意图识别策略'}
+            </p>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enableRoleOverride"
+              checked={config.enableRoleOverride ?? false}
+              onCheckedChange={(checked) => onChange('enableRoleOverride', checked)}
+            />
+            <Label htmlFor="enableRoleOverride" className="text-sm">
+              允许角色配置覆盖全局配置
+            </Label>
+          </div>
+
+          <div>
+            <Label htmlFor="fallbackIntentBehavior" className="text-xs">未识别意图行为</Label>
+            <Select
+              value={config.fallbackIntentBehavior || 'global_fallback'}
+              onValueChange={(value) => onChange('fallbackIntentBehavior', value)}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择未识别意图行为" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="global_fallback">使用全局默认意图</SelectItem>
+                <SelectItem value="role_fallback">使用角色默认意图</SelectItem>
+                <SelectItem value="none">不设置默认意图</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
       {/* 配置预览 */}
       <details className="pt-2 border-t border-slate-200">
         <summary className="text-xs text-slate-600 cursor-pointer hover:text-slate-800">
@@ -409,6 +467,9 @@ function IntentConfig({ config, onChange }: any) {
               saveToContext: config.saveToContext ?? true,
               contextKey: config.contextKey || 'intent',
               systemPrompt: config.systemPrompt || '',
+              businessRoleMode: config.businessRoleMode || 'global',
+              enableRoleOverride: config.enableRoleOverride ?? false,
+              fallbackIntentBehavior: config.fallbackIntentBehavior || 'global_fallback',
             },
             null,
             2
@@ -588,25 +649,125 @@ function DecisionConfig({ config, onChange }: any) {
         </div>
       </div>
 
+      {/* ========== 阶段一新增：AI 行为感知配置 ========== */}
+      <div className="pt-2 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🤖</span>
+          AI 行为感知配置
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enableAIBehaviorTrigger"
+              checked={config.enableAIBehaviorTrigger ?? false}
+              onCheckedChange={(checked) => onChange('enableAIBehaviorTrigger', checked)}
+            />
+            <Label htmlFor="enableAIBehaviorTrigger" className="text-sm">
+              启用 AI 行为触发
+            </Label>
+          </div>
+
+          <div>
+            <Label htmlFor="defaultAIBehaviorMode" className="text-xs">默认 AI 行为模式</Label>
+            <Select
+              value={config.defaultAIBehaviorMode || 'semi_auto'}
+              onValueChange={(value) => onChange('defaultAIBehaviorMode', value)}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择默认 AI 行为模式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="full_auto">全自动（AI 自动处理）</SelectItem>
+                <SelectItem value="semi_auto">半自动（AI + 人工）</SelectItem>
+                <SelectItem value="record_only">仅记录（不执行动作）</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-slate-500 mt-1">
+              根据 AI 行为模式自动选择决策分支
+            </p>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enablePriorityBasedDecision"
+              checked={config.enablePriorityBasedDecision ?? false}
+              onCheckedChange={(checked) => onChange('enablePriorityBasedDecision', checked)}
+            />
+            <Label htmlFor="enablePriorityBasedDecision" className="text-sm">
+              启用基于优先级的决策
+            </Label>
+          </div>
+
+          {config.enablePriorityBasedDecision && (
+            <div className="ml-4 p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+              <Label className="text-xs font-medium text-slate-700">优先级规则</Label>
+              {['high', 'medium', 'low'].map((priority) => (
+                <div key={priority} className="flex items-center gap-2">
+                  <Label htmlFor={`priority-${priority}`} className="text-xs w-12 capitalize">{priority}</Label>
+                  <Input
+                    id={`priority-${priority}`}
+                    value={config.priorityRules?.[priority]?.branch || ''}
+                    onChange={(e) => onChange('priorityRules', {
+                      ...(config.priorityRules || {}),
+                      [priority]: { ...(config.priorityRules?.[priority] || {}), branch: e.target.value }
+                    })}
+                    placeholder="分支节点ID"
+                    className="h-7 text-xs flex-1"
+                  />
+                  <Select
+                    value={config.priorityRules?.[priority]?.aiBehaviorMode || 'semi_auto'}
+                    onValueChange={(value) => onChange('priorityRules', {
+                      ...(config.priorityRules || {}),
+                      [priority]: { ...(config.priorityRules?.[priority] || {}), aiBehaviorMode: value }
+                    })}
+                  >
+                    <SelectTrigger className="h-7 w-28">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full_auto">全自动</SelectItem>
+                      <SelectItem value="semi_auto">半自动</SelectItem>
+                      <SelectItem value="record_only">仅记录</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* JSON 视图（可选） */}
       <details className="pt-2 border-t border-slate-200">
         <summary className="text-xs text-slate-600 cursor-pointer hover:text-slate-800">
           查看/编辑 JSON 配置
         </summary>
         <Textarea
-          value={JSON.stringify({ conditions, decisionMode: config.decisionMode || 'priority', defaultTarget: config.defaultTarget || '' }, null, 2)}
+          value={JSON.stringify({
+            conditions,
+            decisionMode: config.decisionMode || 'priority',
+            defaultTarget: config.defaultTarget || '',
+            enableAIBehaviorTrigger: config.enableAIBehaviorTrigger ?? false,
+            defaultAIBehaviorMode: config.defaultAIBehaviorMode || 'semi_auto',
+            enablePriorityBasedDecision: config.enablePriorityBasedDecision ?? false,
+            priorityRules: config.priorityRules || {},
+          }, null, 2)}
           onChange={(e) => {
             try {
               const parsed = JSON.parse(e.target.value);
               onChange('conditions', parsed.conditions || []);
               onChange('decisionMode', parsed.decisionMode || 'priority');
               onChange('defaultTarget', parsed.defaultTarget || '');
+              onChange('enableAIBehaviorTrigger', parsed.enableAIBehaviorTrigger ?? false);
+              onChange('defaultAIBehaviorMode', parsed.defaultAIBehaviorMode || 'semi_auto');
+              onChange('enablePriorityBasedDecision', parsed.enablePriorityBasedDecision ?? false);
+              onChange('priorityRules', parsed.priorityRules || {});
             } catch (err) {
               // JSON 解析错误，不更新
             }
           }}
           className="mt-2 font-mono text-xs"
-          rows={6}
+          rows={8}
           placeholder="JSON 格式的决策配置"
         />
       </details>
@@ -779,6 +940,167 @@ function AiReplyConfig({ config, onChange }: any) {
         </p>
       </div>
 
+      {/* ========== 阶段一新增：人设配置 ========== */}
+      <div className="pt-3 border-t border-slate-200">
+        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+          <span>🎨</span>
+          人设配置
+        </Label>
+        <div className="space-y-3 mt-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enablePersonaOverride"
+              checked={config.enablePersonaOverride ?? false}
+              onCheckedChange={(checked) => onChange('enablePersonaOverride', checked)}
+            />
+            <Label htmlFor="enablePersonaOverride" className="text-sm">
+              允许人设配置覆盖全局配置
+            </Label>
+          </div>
+
+          <div>
+            <Label htmlFor="defaultPersonaTone" className="text-xs">默认语调</Label>
+            <Select
+              value={config.defaultPersonaTone || 'professional'}
+              onValueChange={(value) => onChange('defaultPersonaTone', value)}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="选择默认语调" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="formal">正式（formal）</SelectItem>
+                <SelectItem value="casual">轻松（casual）</SelectItem>
+                <SelectItem value="friendly">友好（friendly）</SelectItem>
+                <SelectItem value="professional">专业（professional）</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <details className="border border-slate-200 rounded-lg">
+            <summary className="text-xs text-slate-600 cursor-pointer hover:text-slate-800 p-2 flex items-center gap-2">
+              <span>AI 行为响应策略</span>
+            </summary>
+            <div className="p-3 space-y-4">
+              <div className="border-b pb-3">
+                <Label className="text-xs font-medium text-slate-700">全自动模式</Label>
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="full_auto_enableAutoReply"
+                      checked={config.aiBehaviorResponse?.full_auto?.enableAutoReply ?? true}
+                      onCheckedChange={(checked) => onChange('aiBehaviorResponse', {
+                        ...(config.aiBehaviorResponse || {}),
+                        full_auto: { ...(config.aiBehaviorResponse?.full_auto || {}), enableAutoReply: checked }
+                      })}
+                    />
+                    <Label htmlFor="full_auto_enableAutoReply" className="text-[10px]">自动回复</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="full_auto_requireApproval"
+                      checked={config.aiBehaviorResponse?.full_auto?.requireApproval ?? false}
+                      onCheckedChange={(checked) => onChange('aiBehaviorResponse', {
+                        ...(config.aiBehaviorResponse || {}),
+                        full_auto: { ...(config.aiBehaviorResponse?.full_auto || {}), requireApproval: checked }
+                      })}
+                    />
+                    <Label htmlFor="full_auto_requireApproval" className="text-[10px]">需要审批</Label>
+                  </div>
+                  <div>
+                    <Input
+                      id="full_auto_autoConfidenceThreshold"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="1"
+                      value={config.aiBehaviorResponse?.full_auto?.autoConfidenceThreshold ?? 0.8}
+                      onChange={(e) => onChange('aiBehaviorResponse', {
+                        ...(config.aiBehaviorResponse || {}),
+                        full_auto: { ...(config.aiBehaviorResponse?.full_auto || {}), autoConfidenceThreshold: parseFloat(e.target.value) }
+                      })}
+                      className="h-7 text-xs"
+                      placeholder="阈值"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-b pb-3">
+                <Label className="text-xs font-medium text-slate-700">半自动模式</Label>
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="semi_auto_enableAutoReply"
+                      checked={config.aiBehaviorResponse?.semi_auto?.enableAutoReply ?? true}
+                      onCheckedChange={(checked) => onChange('aiBehaviorResponse', {
+                        ...(config.aiBehaviorResponse || {}),
+                        semi_auto: { ...(config.aiBehaviorResponse?.semi_auto || {}), enableAutoReply: checked }
+                      })}
+                    />
+                    <Label htmlFor="semi_auto_enableAutoReply" className="text-[10px]">自动回复</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="semi_auto_requireApproval"
+                      checked={config.aiBehaviorResponse?.semi_auto?.requireApproval ?? true}
+                      onCheckedChange={(checked) => onChange('aiBehaviorResponse', {
+                        ...(config.aiBehaviorResponse || {}),
+                        semi_auto: { ...(config.aiBehaviorResponse?.semi_auto || {}), requireApproval: checked }
+                      })}
+                    />
+                    <Label htmlFor="semi_auto_requireApproval" className="text-[10px]">需要审批</Label>
+                  </div>
+                  <div>
+                    <Input
+                      id="semi_auto_autoConfidenceThreshold"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="1"
+                      value={config.aiBehaviorResponse?.semi_auto?.autoConfidenceThreshold ?? 0.6}
+                      onChange={(e) => onChange('aiBehaviorResponse', {
+                        ...(config.aiBehaviorResponse || {}),
+                        semi_auto: { ...(config.aiBehaviorResponse?.semi_auto || {}), autoConfidenceThreshold: parseFloat(e.target.value) }
+                      })}
+                      className="h-7 text-xs"
+                      placeholder="阈值"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs font-medium text-slate-700">仅记录模式</Label>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="record_only_enableAutoReply"
+                      checked={config.aiBehaviorResponse?.record_only?.enableAutoReply ?? false}
+                      onCheckedChange={(checked) => onChange('aiBehaviorResponse', {
+                        ...(config.aiBehaviorResponse || {}),
+                        record_only: { ...(config.aiBehaviorResponse?.record_only || {}), enableAutoReply: checked }
+                      })}
+                    />
+                    <Label htmlFor="record_only_enableAutoReply" className="text-[10px]">自动回复</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="record_only_requireApproval"
+                      checked={config.aiBehaviorResponse?.record_only?.requireApproval ?? false}
+                      onCheckedChange={(checked) => onChange('aiBehaviorResponse', {
+                        ...(config.aiBehaviorResponse || {}),
+                        record_only: { ...(config.aiBehaviorResponse?.record_only || {}), requireApproval: checked }
+                      })}
+                    />
+                    <Label htmlFor="record_only_requireApproval" className="text-[10px]">需要审批</Label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+
       {/* 配置预览 */}
       <details className="pt-2 border-t border-slate-200">
         <summary className="text-xs text-slate-600 cursor-pointer hover:text-slate-800">
@@ -795,6 +1117,9 @@ function AiReplyConfig({ config, onChange }: any) {
               contextWindowSize: config.contextWindowSize ?? 10,
               enableThinking: config.enableThinking ?? false,
               systemPrompt: config.systemPrompt || '',
+              enablePersonaOverride: config.enablePersonaOverride ?? false,
+              defaultPersonaTone: config.defaultPersonaTone || 'professional',
+              aiBehaviorResponse: config.aiBehaviorResponse || {},
             },
             null,
             2
