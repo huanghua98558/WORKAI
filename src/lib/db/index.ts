@@ -46,5 +46,6 @@ export {
   userSessions,
   messages,
   robots,
-  interventions
+  interventions,
+  businessRoles
 } from '@/storage/database/new-schemas';

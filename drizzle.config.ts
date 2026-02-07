@@ -8,6 +8,7 @@ export default defineConfig({
     './src/storage/database/new-schemas/robots.ts',
     './src/storage/database/new-schemas/staff.ts',
     './src/storage/database/new-schemas/intents.ts',
+    './src/storage/database/new-schemas/business-roles.ts',
   ],
   out: './drizzle',
   dialect: 'postgresql',

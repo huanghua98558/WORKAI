@@ -1,259 +1,244 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { businessRoles, robots } from '@/storage/database/new-schemas';
-import { eq, desc, count } from 'drizzle-orm';
+import { businessRoles } from '@/storage/database/new-schemas/business-roles';
+import { eq, and, or, like, desc } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
-/**
- * GET /api/robots/business-roles
- * 获取业务角色列表（含机器人数量统计）
- */
 export async function GET(request: NextRequest) {
   try {
-    const roles = await db.query.businessRoles.findMany({
-      orderBy: (businessRoles, { desc }) => [desc(businessRoles.createdAt)],
-    });
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const search = searchParams.get('search') || '';
+    const robotId = searchParams.get('robotId') || undefined;
 
-    // 统计每个业务角色的机器人数量
-    const rolesWithCount = await Promise.all(
-      roles.map(async (role) => {
-        const [{ count: robotCount }] = await db
-          .select({ count: count() })
-          .from(robots)
-          .where(
-            sql`config->>'businessRole' = ${role.code}`
-          );
+    const offset = (page - 1) * limit;
 
-        return {
-          id: role.id,
-          name: role.name,
-          code: role.code,
-          description: role.description,
-          aiBehavior: role.aiBehavior,
-          staffEnabled: role.staffEnabled,
-          staffTypeFilter: role.staffTypeFilter,
-          keywords: role.keywords,
-          defaultTaskPriority: role.defaultTaskPriority,
-          enableTaskCreation: role.enableTaskCreation,
-          robotCount: Number(robotCount),
-          createdAt: role.createdAt,
-          updatedAt: role.updatedAt,
-        };
-      })
-    );
+    // 构建查询条件
+    const conditions = [];
+
+    if (search) {
+      conditions.push(
+        or(
+          like(businessRoles.name, `%${search}%`),
+          like(businessRoles.code, `%${search}%`),
+          like(businessRoles.description || '', `%${search}%`)
+        )
+      );
+    }
+
+    if (robotId) {
+      conditions.push(
+        or(
+          eq(businessRoles.robotId, robotId),
+          sql`${businessRoles.robotId} IS NULL`
+        )
+      );
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // 查询业务角色列表
+    const rolesList = await db
+      .select()
+      .from(businessRoles)
+      .where(whereClause)
+      .orderBy(desc(businessRoles.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    // 查询总数
+    const totalCount = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(businessRoles)
+      .where(whereClause);
 
     return NextResponse.json({
       success: true,
-      data: rolesWithCount,
-      count: rolesWithCount.length,
+      data: {
+        roles: rolesList,
+        pagination: {
+          page,
+          limit,
+          total: totalCount[0]?.count || 0,
+          pages: Math.ceil((totalCount[0]?.count || 0) / limit),
+        },
+      },
     });
   } catch (error) {
-    console.error('Error in GET /api/robots/business-roles:', error);
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 });
+    console.error('获取业务角色列表失败:', error);
+    return NextResponse.json(
+      { success: false, error: '获取业务角色列表失败' },
+      { status: 500 }
+    );
   }
 }
 
-/**
- * POST /api/robots/business-roles
- * 新增业务角色
- */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const {
+      name,
+      code,
+      description,
+      aiBehavior,
+      staffEnabled,
+      staffTypeFilter,
+      keywords,
+      enableTaskCreation,
+      defaultTaskPriority,
+      robotId,
+    } = body;
 
     // 验证必填字段
-    if (!body.name || !body.code) {
-      return NextResponse.json({
-        success: false,
-        error: 'Missing required fields: name, code',
-      }, { status: 400 });
-    }
-
-    // 验证 code 格式
-    const validCodes = ['community_ops', 'conversion_staff', 'after_sales'];
-    if (!validCodes.includes(body.code)) {
-      return NextResponse.json({
-        success: false,
-        error: `Invalid code. Must be one of: ${validCodes.join(', ')}`,
-      }, { status: 400 });
-    }
-
-    // 验证 aiBehavior 格式
-    const validAiBehaviors = ['full_auto', 'semi_auto', 'record_only'];
-    if (!validAiBehaviors.includes(body.aiBehavior)) {
-      return NextResponse.json({
-        success: false,
-        error: `Invalid aiBehavior. Must be one of: ${validAiBehaviors.join(', ')}`,
-      }, { status: 400 });
+    if (!name || !code || !aiBehavior) {
+      return NextResponse.json(
+        { success: false, error: '缺少必填字段：name, code, aiBehavior' },
+        { status: 400 }
+      );
     }
 
     // 检查 code 是否已存在
-    const existing = await db.query.businessRoles.findFirst({
-      where: eq(businessRoles.code, body.code),
-    });
+    const existing = await db
+      .select()
+      .from(businessRoles)
+      .where(eq(businessRoles.code, code))
+      .limit(1);
 
-    if (existing) {
-      return NextResponse.json({
-        success: false,
-        error: `Business role with code "${body.code}" already exists`,
-      }, { status: 409 });
+    if (existing.length > 0) {
+      return NextResponse.json(
+        { success: false, error: '业务角色编码已存在' },
+        { status: 400 }
+      );
     }
 
-    // 创建新业务角色
-    const newRole = {
-      id: crypto.randomUUID(),
-      name: body.name,
-      code: body.code,
-      description: body.description || null,
-      aiBehavior: body.aiBehavior || 'semi_auto',
-      staffEnabled: body.staffEnabled ?? true,
-      staffTypeFilter: body.staffTypeFilter || [],
-      keywords: body.keywords || [],
-      defaultTaskPriority: body.defaultTaskPriority || 'normal',
-      enableTaskCreation: body.enableTaskCreation ?? false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    await db.insert(businessRoles).values(newRole);
+    // 创建业务角色
+    const newRole = await db
+      .insert(businessRoles)
+      .values({
+        name,
+        code,
+        description,
+        aiBehavior,
+        staffEnabled: staffEnabled ?? true,
+        staffTypeFilter: staffTypeFilter || [],
+        keywords: keywords || [],
+        enableTaskCreation: enableTaskCreation ?? false,
+        defaultTaskPriority: defaultTaskPriority || 'normal',
+        robotId,
+        updatedAt: new Date(),
+      })
+      .returning();
 
     return NextResponse.json({
       success: true,
-      data: newRole,
-      message: '业务角色创建成功',
-    }, { status: 201 });
+      data: newRole[0],
+    });
   } catch (error) {
-    console.error('Error in POST /api/robots/business-roles:', error);
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 });
+    console.error('创建业务角色失败:', error);
+    return NextResponse.json(
+      { success: false, error: '创建业务角色失败' },
+      { status: 500 }
+    );
   }
 }
 
-/**
- * PUT /api/robots/business-roles
- * 更新业务角色
- */
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
+    const {
+      id,
+      name,
+      code,
+      description,
+      aiBehavior,
+      staffEnabled,
+      staffTypeFilter,
+      keywords,
+      enableTaskCreation,
+      defaultTaskPriority,
+      robotId,
+    } = body;
 
-    // 验证必填字段
-    if (!body.id) {
-      return NextResponse.json({
-        success: false,
-        error: 'Missing required field: id',
-      }, { status: 400 });
-    }
-
-    // 验证 aiBehavior 格式
-    if (body.aiBehavior) {
-      const validAiBehaviors = ['full_auto', 'semi_auto', 'record_only'];
-      if (!validAiBehaviors.includes(body.aiBehavior)) {
-        return NextResponse.json({
-          success: false,
-          error: `Invalid aiBehavior. Must be one of: ${validAiBehaviors.join(', ')}`,
-        }, { status: 400 });
-      }
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: '缺少必填字段：id' },
+        { status: 400 }
+      );
     }
 
     // 更新业务角色
-    await db
+    const updatedRole = await db
       .update(businessRoles)
       .set({
-        name: body.name,
-        code: body.code,
-        description: body.description,
-        aiBehavior: body.aiBehavior,
-        staffEnabled: body.staffEnabled,
-        staffTypeFilter: body.staffTypeFilter,
-        keywords: body.keywords,
-        defaultTaskPriority: body.defaultTaskPriority,
-        enableTaskCreation: body.enableTaskCreation,
+        ...(name && { name }),
+        description,
+        aiBehavior,
+        staffEnabled,
+        staffTypeFilter,
+        keywords,
+        enableTaskCreation,
+        defaultTaskPriority,
+        robotId,
         updatedAt: new Date(),
       })
-      .where(eq(businessRoles.id, body.id));
+      .where(eq(businessRoles.id, id))
+      .returning();
 
-    // 清除缓存
-    const { robotBusinessRoleService } = await import('@/services/robot-business-role-service');
-    robotBusinessRoleService.clearCache();
+    if (updatedRole.length === 0) {
+      return NextResponse.json(
+        { success: false, error: '业务角色不存在' },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      message: '业务角色更新成功',
+      data: updatedRole[0],
     });
   } catch (error) {
-    console.error('Error in PUT /api/robots/business-roles:', error);
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 });
+    console.error('更新业务角色失败:', error);
+    return NextResponse.json(
+      { success: false, error: '更新业务角色失败' },
+      { status: 500 }
+    );
   }
 }
 
-/**
- * DELETE /api/robots/business-roles
- * 删除业务角色
- */
 export async function DELETE(request: NextRequest) {
   try {
-    const body = await request.json();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
 
-    // 验证必填字段
-    if (!body.id) {
-      return NextResponse.json({
-        success: false,
-        error: 'Missing required field: id',
-      }, { status: 400 });
-    }
-
-    // 检查是否有机器人使用该业务角色
-    const role = await db.query.businessRoles.findFirst({
-      where: eq(businessRoles.id, body.id),
-    });
-
-    if (!role) {
-      return NextResponse.json({
-        success: false,
-        error: 'Business role not found',
-      }, { status: 404 });
-    }
-
-    const [{ count: robotCount }] = await db
-      .select({ count: count() })
-      .from(robots)
-      .where(
-        sql`config->>'businessRole' = ${role.code}`
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: '缺少必填参数：id' },
+        { status: 400 }
       );
-
-    if (robotCount > 0) {
-      return NextResponse.json({
-        success: false,
-        error: `无法删除：有 ${robotCount} 个机器人正在使用此业务角色`,
-      }, { status: 409 });
     }
 
     // 删除业务角色
-    await db
+    const deletedRole = await db
       .delete(businessRoles)
-      .where(eq(businessRoles.id, body.id));
+      .where(eq(businessRoles.id, id))
+      .returning();
 
-    // 清除缓存
-    const { robotBusinessRoleService } = await import('@/services/robot-business-role-service');
-    robotBusinessRoleService.clearCache();
+    if (deletedRole.length === 0) {
+      return NextResponse.json(
+        { success: false, error: '业务角色不存在' },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
       message: '业务角色删除成功',
     });
   } catch (error) {
-    console.error('Error in DELETE /api/robots/business-roles:', error);
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 });
+    console.error('删除业务角色失败:', error);
+    return NextResponse.json(
+      { success: false, error: '删除业务角色失败' },
+      { status: 500 }
+    );
   }
 }

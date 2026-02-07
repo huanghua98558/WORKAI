@@ -1,7 +1,8 @@
 import { db } from '@/lib/db';
-import { robots, businessRoles } from '@/storage/database/new-schemas';
+import { robots } from '@/storage/database/new-schemas';
+import { businessRoles, type AIBehavior } from '@/storage/database/new-schemas/business-roles';
 import { eq, sql } from 'drizzle-orm';
-import type { BusinessRole, AIBehavior } from '@/storage/database/new-schemas/business-roles';
+import type { BusinessRole } from '@/storage/database/new-schemas/business-roles';
 
 /**
  * 业务角色配置接口
@@ -50,10 +51,13 @@ export class RobotBusinessRoleService {
       }
 
       // 2. 读取机器人配置
-      const robot = await db.query.robots.findFirst({
-        where: eq(robots.id, robotId),
-      });
+      const robotList = await db
+        .select()
+        .from(robots)
+        .where(eq(robots.id, robotId))
+        .limit(1);
 
+      const robot = robotList[0];
       if (!robot) {
         return {
           success: false,
@@ -73,10 +77,13 @@ export class RobotBusinessRoleService {
       }
 
       // 3. 读取业务角色定义
-      const businessRole = await db.query.businessRoles.findFirst({
-        where: eq(businessRoles.code, businessRoleCode),
-      });
+      const businessRoleList = await db
+        .select()
+        .from(businessRoles)
+        .where(eq(businessRoles.code, businessRoleCode))
+        .limit(1);
 
+      const businessRole = businessRoleList[0];
       if (!businessRole) {
         return {
           success: false,
@@ -130,7 +137,7 @@ export class RobotBusinessRoleService {
     try {
       const result = await this.getBusinessConfigByRobotId(robotId);
 
-      if (!result.success) {
+      if (!result.success || !result.businessConfig) {
         // 配置读取失败，返回默认行为（AI回复）
         console.warn('[RobotBusinessRoleService] 获取业务配置失败，使用默认行为:', result.error);
         return {
@@ -205,7 +212,7 @@ export class RobotBusinessRoleService {
     try {
       const result = await this.getBusinessConfigByRobotId(robotId);
 
-      if (!result.success) {
+      if (!result.success || !result.businessConfig) {
         // 配置读取失败，返回默认行为（识别所有工作人员）
         console.warn('[RobotBusinessRoleService] 获取业务配置失败，使用默认行为:', result.error);
         return {
