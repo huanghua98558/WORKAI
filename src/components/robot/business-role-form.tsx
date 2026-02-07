@@ -34,29 +34,33 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
   const [keywordInput, setKeywordInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [robots, setRobots] = useState<any[]>([]);
+  const [robotsLoading, setRobotsLoading] = useState(true);
 
-  // 加载机器人列表
+  // 加载机器人列表（只在组件挂载时加载一次）
   useEffect(() => {
-    fetchRobots();
-  }, []);
-
-  const fetchRobots = async () => {
-    try {
-      const response = await fetch('/api/proxy/admin/robots');
-      const result = await response.json();
-      if (result.code === 0 && result.data) {
-        // 确保 id 字段是字符串类型
-        const formattedRobots = result.data.map((robot: any) => ({
-          ...robot,
-          id: String(robot.id),
-        }));
-        console.log('[BusinessRoleForm] 加载的机器人列表:', formattedRobots);
-        setRobots(formattedRobots);
+    const fetchRobots = async () => {
+      try {
+        setRobotsLoading(true);
+        const response = await fetch('/api/proxy/admin/robots');
+        const result = await response.json();
+        if (result.code === 0 && result.data) {
+          // 确保 id 字段是字符串类型
+          const formattedRobots = result.data.map((robot: any) => ({
+            ...robot,
+            id: String(robot.id),
+          }));
+          console.log('[BusinessRoleForm] 加载的机器人列表:', formattedRobots);
+          setRobots(formattedRobots);
+        }
+      } catch (error) {
+        console.error('加载机器人列表失败:', error);
+      } finally {
+        setRobotsLoading(false);
       }
-    } catch (error) {
-      console.error('加载机器人列表失败:', error);
-    }
-  };
+    };
+
+    fetchRobots();
+  }, []); // 空依赖数组，只在挂载时执行一次
 
   // 初始化表单数据
   useEffect(() => {
@@ -87,24 +91,34 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
         enableTaskCreation: initialData.enableTaskCreation ?? true,
         robotId: finalRobotId,
       });
+    } else {
+      // 重置表单数据（新增模式）
+      setFormData({
+        name: '',
+        code: '',
+        description: '',
+        aiBehavior: 'semi_auto',
+        staffEnabled: true,
+        staffTypeFilter: [],
+        keywords: [],
+        defaultTaskPriority: 'normal',
+        enableTaskCreation: true,
+        robotId: '',
+      });
     }
   }, [initialData]);
 
-  // 监控 formData.robotId 变化
+  // 监控机器人列表加载（调试用）
   useEffect(() => {
-    console.log('[BusinessRoleForm] formData.robotId 变化:', formData.robotId);
-  }, [formData.robotId]);
+    console.log('[BusinessRoleForm] 机器人列表加载完成:', robots.length, '个机器人');
+  }, [robots]);
 
-  // 监控机器人列表加载
+  // 监控 formData.robotId 变化（调试用）
   useEffect(() => {
-    console.log('[BusinessRoleForm] 机器人列表:', robots.length, '个机器人');
-    console.log('[BusinessRoleForm] 机器人详情:', robots);
-    // 当机器人列表加载完成后，检查是否有匹配的机器人
-    if (robots.length > 0 && formData.robotId) {
-      const matchedRobot = robots.find(r => String(r.id) === String(formData.robotId));
-      console.log('[BusinessRoleForm] 匹配的机器人:', matchedRobot?.name || '未找到');
+    if (formData.robotId !== undefined) {
+      console.log('[BusinessRoleForm] formData.robotId 变化:', formData.robotId);
     }
-  }, [robots, formData.robotId]);
+  }, [formData.robotId]);
 
   // 添加关键词
   const handleAddKeyword = () => {
@@ -218,7 +232,7 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
         <div className="space-y-2">
           <Label htmlFor="robot">绑定机器人（可选）</Label>
           <Select
-            key={robots.length > 0 ? 'loaded' : 'loading'}
+            disabled={robotsLoading}
             value={String(formData.robotId || 'none')}
             onValueChange={(value) => {
               console.log('[BusinessRoleForm] 机器人选择变化:', value, '当前 formData.robotId:', formData.robotId);
@@ -226,7 +240,7 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
             }}
           >
             <SelectTrigger>
-              <SelectValue placeholder={robots.length > 0 ? "选择要绑定的机器人" : "加载机器人列表中..."} />
+              <SelectValue placeholder={robotsLoading ? "加载机器人列表中..." : "选择要绑定的机器人"} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">不绑定（通用角色）</SelectItem>
@@ -240,13 +254,13 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
               })}
             </SelectContent>
           </Select>
-          {formData.robotId && (
+          {formData.robotId && !robotsLoading && (
             <p className="text-xs text-muted-foreground">
               当前已选择：{robots.find(r => String(r.id) === String(formData.robotId))?.name || '未找到匹配的机器人'}
             </p>
           )}
           <p className="text-xs text-muted-foreground">
-            绑定后，该业务角色将仅用于指定的机器人。不绑定则所有机器人都可使用。
+            {robotsLoading ? '正在加载机器人列表...' : '绑定后，该业务角色将仅用于指定的机器人。不绑定则所有机器人都可使用。'}
           </p>
         </div>
       </div>
