@@ -42,10 +42,10 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
 
   const fetchRobots = async () => {
     try {
-      const response = await fetch('/api/robots');
+      const response = await fetch('/api/proxy/admin/robots');
       const result = await response.json();
-      if (result.success && result.data?.robots) {
-        setRobots(result.data.robots);
+      if (result.code === 0 && result.data) {
+        setRobots(result.data);
       }
     } catch (error) {
       console.error('加载机器人列表失败:', error);
@@ -192,7 +192,7 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
               <SelectItem value="none">不绑定（通用角色）</SelectItem>
               {robots.map((robot) => (
                 <SelectItem key={robot.id} value={robot.id}>
-                  {robot.name} - {robot.id}
+                  {robot.name || robot.nickname || '未命名机器人'} - {robot.robotId || robot.id}
                 </SelectItem>
               ))}
             </SelectContent>
