@@ -8,9 +8,10 @@ import { TaskPriority, TaskStatus } from '@/services/after-sales-task-service';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const result = await afterSalesTaskService.getTaskById(params.id);
 
     if (!result.success) {
@@ -45,9 +46,10 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const body = await request.json();
 
     // 验证状态

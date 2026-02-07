@@ -45,6 +45,7 @@ import {
 } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import AfterSalesTaskMonitor from '@/components/after-sales-task-monitor';
 import {
   BarChart3,
   TrendingUp,
@@ -61,6 +62,7 @@ import {
   MoreHorizontal,
   Play,
   RefreshCw,
+  ShieldCheck,
 } from 'lucide-react';
 
 // 类型定义
@@ -548,11 +550,12 @@ export default function EnhancedAlertManagement() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="groups">分组管理</TabsTrigger>
           <TabsTrigger value="batch">批量处理</TabsTrigger>
           <TabsTrigger value="escalation">升级机制</TabsTrigger>
           <TabsTrigger value="analytics">统计分析</TabsTrigger>
+          <TabsTrigger value="after-sales">售后任务</TabsTrigger>
         </TabsList>
 
         <TabsContent value="groups" className="mt-6">
@@ -585,6 +588,10 @@ export default function EnhancedAlertManagement() {
 
         <TabsContent value="analytics" className="mt-6">
           {renderAnalytics()}
+        </TabsContent>
+
+        <TabsContent value="after-sales" className="mt-6">
+          <AfterSalesTaskMonitor />
         </TabsContent>
       </Tabs>
 

@@ -451,7 +451,7 @@ export default function BusinessMessageMonitor({
       );
     }
     
-    if (replyStatus.isReplied) {
+    if (replyStatus.replied) {
       // 已回复
       if (replyStatus.replyType === 'ai') {
         return (
@@ -460,23 +460,55 @@ export default function BusinessMessageMonitor({
             AI已回复
           </Badge>
         );
-      } else if (replyStatus.replyType === 'human') {
+      } else if (replyStatus.replyType === 'staff') {
+        const staffTypeText = replyStatus.staffType ? `(${getStaffTypeName(replyStatus.staffType)})` : '';
         return (
           <Badge variant="outline" className="gap-1 border-orange-500 text-orange-500 text-xs">
             <User className="h-3 w-3" />
-            人工已回复
+            人工已回复{staffTypeText}
+          </Badge>
+        );
+      } else if (replyStatus.replyType === 'both') {
+        return (
+          <Badge variant="outline" className="gap-1 border-indigo-500 text-indigo-500 text-xs">
+            <Activity className="h-3 w-3" />
+            AI+人工
+          </Badge>
+        );
+      }
+    } else {
+      // 未回复
+      if (replyStatus.shouldAiReply) {
+        return (
+          <Badge variant="outline" className="gap-1 border-blue-500 text-blue-500 text-xs">
+            <Bot className="h-3 w-3" />
+            待AI回复
+          </Badge>
+        );
+      } else {
+        return (
+          <Badge variant="outline" className="gap-1 border-yellow-500 text-yellow-500 text-xs">
+            <Clock className="h-3 w-3" />
+            待人工
           </Badge>
         );
       }
     }
     
-    // 未回复
-    return (
-      <Badge variant="outline" className="gap-1 border-yellow-500 text-yellow-500 text-xs">
-        <Clock className="h-3 w-3" />
-        待回复
-      </Badge>
-    );
+    return null;
+  };
+
+  // 获取工作人员类型名称
+  const getStaffTypeName = (staffType: string): string => {
+    const names: Record<string, string> = {
+      'management': '管理',
+      'community': '社群',
+      'conversion': '转化',
+      'after_sales': '售后',
+      'sales': '销售',
+      'notification': '通知',
+    };
+    return names[staffType] || staffType;
   };
 
   return (

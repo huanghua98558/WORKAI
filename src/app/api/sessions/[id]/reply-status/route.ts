@@ -25,9 +25,10 @@ export interface MessageReplyStatus {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const sessionId = params.id;
 
     // 获取会话的所有决策日志
