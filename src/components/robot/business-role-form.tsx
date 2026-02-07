@@ -42,12 +42,11 @@ export default function BusinessRoleForm({ robots = [], initialData, onSave, onC
     currentRobotId: formData.robotId,
   });
 
-  // 初始化表单数据
+  // 初始化表单数据（只在 initialData 变化时执行，不依赖 robots）
   useEffect(() => {
     console.log('[BusinessRoleForm] useEffect initialData 触发:', {
       initialData: initialData ? initialData.name : '无',
       robotsCount: robots.length,
-      robots: robots,
     });
 
     if (initialData) {
@@ -59,7 +58,6 @@ export default function BusinessRoleForm({ robots = [], initialData, onSave, onC
         rawRobotId,
         finalRobotId,
         robotsCount: robots.length,
-        robots: robots,
         hasMatch: robots.some(r => String(r.id) === String(finalRobotId)),
       });
 
@@ -91,7 +89,7 @@ export default function BusinessRoleForm({ robots = [], initialData, onSave, onC
         robotId: '',
       });
     }
-  }, [initialData, robots]); // 添加 robots 依赖，确保 robots 更新后重新初始化
+  }, [initialData]); // 只依赖 initialData，不依赖 robots
 
   // 添加关键词
   const handleAddKeyword = () => {
