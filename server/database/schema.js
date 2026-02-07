@@ -1040,6 +1040,78 @@ exports.systemLogs = pgTable(
 );
 
 // ============================================
+// 会话管理表
+// ============================================
+
+// 会话表（会话管理）
+exports.sessions = pgTable(
+  "sessions",
+  {
+    id: varchar("id", { length: 255 }).primaryKey(),
+    sessionId: varchar("session_id", { length: 255 }).notNull().unique(),
+    userId: varchar("user_id", { length: 255 }),
+    groupId: varchar("group_id", { length: 255 }),
+    userName: varchar("user_name", { length: 255 }),
+    groupName: varchar("group_name", { length: 255 }),
+    roomType: integer("room_type"),
+    status: varchar("status", { length: 50 }).default("auto"),
+    context: jsonb("context").default("[]"),
+    messageCount: integer("message_count").default(0),
+    lastIntent: varchar("last_intent", { length: 100 }),
+    intentConfidence: numeric("intent_confidence"),
+    lastProcessedAt: timestamp("last_processed_at", { withTimezone: true }),
+    lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    robotId: varchar("robot_id", { length: 255 }),
+    robotName: varchar("robot_name", { length: 255 }),
+  },
+  (table) => ({
+    sessionIdIdx: index("sessions_session_id_idx").on(table.sessionId),
+    userIdIdx: index("sessions_user_id_idx").on(table.userId),
+    groupIdIdx: index("sessions_group_id_idx").on(table.groupId),
+    statusIdx: index("sessions_status_idx").on(table.status),
+    lastProcessedAtIdx: index("sessions_last_processed_at_idx").on(table.lastProcessedAt),
+    robotIdIdx: index("sessions_robot_id_idx").on(table.robotId),
+  })
+);
+
+// ============================================
+// 执行追踪表
+// ============================================
+
+// 执行追踪表（消息处理流程追踪）
+exports.execution_tracking = pgTable(
+  "execution_tracking",
+  {
+    id: varchar("id", { length: 255 }).primaryKey(),
+    processingId: varchar("processing_id", { length: 255 }).notNull().unique(),
+    robotId: varchar("robot_id", { length: 255 }),
+    robotName: varchar("robot_name", { length: 255 }),
+    messageId: varchar("message_id", { length: 255 }),
+    sessionId: varchar("session_id", { length: 255 }).notNull(),
+    userId: varchar("user_id", { length: 255 }),
+    groupId: varchar("group_id", { length: 255 }),
+    status: varchar("status", { length: 50 }).notNull().default("processing"),
+    steps: jsonb("steps").default("{}"),
+    errorMessage: text("error_message"),
+    errorStack: text("error_stack"),
+    startTime: timestamp("start_time", { withTimezone: true }),
+    endTime: timestamp("end_time", { withTimezone: true }),
+    processingTime: integer("processing_time"),
+    decision: jsonb("decision"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    processingIdIdx: index("execution_tracking_processing_id_idx").on(table.processingId),
+    sessionIdIdx: index("execution_tracking_session_id_idx").on(table.sessionId),
+    statusIdx: index("execution_tracking_status_idx").on(table.status),
+    createdAtIdx: index("execution_tracking_created_at_idx").on(table.createdAt),
+  })
+);
+
+// ============================================
 // 协同分析相关表
 // ============================================
 
