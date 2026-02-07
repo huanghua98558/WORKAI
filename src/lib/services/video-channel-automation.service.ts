@@ -82,8 +82,10 @@ class VideoChannelAutomationService {
   private browser: puppeteer.Browser | null = null;
   private qrcodeDir: string;
   private auditDir: string;
-  private shopUrl = 'https://channels.weixin.qq.com/shop';
-  private assistantUrl = 'https://channels.weixin.qq.com/assistant';
+  // 视频号小店主页面（包含带货助手和视频号助手）
+  private shopUrl = 'https://store.weixin.qq.com/talent/';
+  // 视频号助手和小店在同一个页面内，通过导航切换
+  private assistantUrl = 'https://store.weixin.qq.com/talent/';
   private currentQrcodeId: string | null = null;
   private currentQrcodeExpiresAt: Date | null = null;
   private qrcodeLifetime = 5 * 60 * 1000; // 5分钟有效期
