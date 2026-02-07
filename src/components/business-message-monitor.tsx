@@ -1,16 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  MessageSquare, 
-  RefreshCw, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
+import {
+  MessageSquare,
+  RefreshCw,
+  Clock,
+  CheckCircle,
+  XCircle,
   Activity,
   AlertCircle,
   TrendingUp,
@@ -24,29 +24,52 @@ import {
   ExternalLink
 } from 'lucide-react';
 
-import { adaptExecutionsToUnifiedMessages, UnifiedMessage } from '@/lib/message-adapter';
-
-interface MessageExecution {
-  id: string;
-  processing_id: string;
-  robot_id: string;
-  robot_name?: string;
-  session_id: string;
-  user_id: string;
-  group_id: string;
-  user_name?: string;
-  group_name?: string;
-  message_content: string;
-  intent?: string;
-  status: 'processing' | 'completed' | 'failed';
-  error_message?: string;
-  ai_response?: string;
-  started_at: string;
-  completed_at?: string;
-  duration?: number;
-  node_type?: string;
+// 会话数据类型
+interface Session {
+  sessionId: string;
+  userName: string;
+  groupName: string;
+  robotId: string;
+  robotName: string;
+  robotNickname?: string;
+  lastMessage: string;
+  isFromUser: boolean;
+  isFromBot: boolean;
+  isHuman: boolean;
+  lastActiveTime: string;
+  messageCount: number;
+  userMessages: number;
+  aiReplyCount: number;
+  humanReplyCount: number;
+  replyCount: number;
+  lastIntent: string;
+  status: 'auto' | 'human';
+  startTime: string;
+  company?: string;
 }
 
+// 统一消息格式（兼容原接口）
+interface UnifiedMessage {
+  id: string;
+  sessionId: string;
+  content: string;
+  userName?: string;
+  groupName?: string;
+  robotName?: string;
+  status: 'processing' | 'completed' | 'failed';
+  intent?: string;
+  startedAt: string;
+  createdAt: string;
+  completedAt?: string;
+  duration?: number;
+  senderType: 'user' | 'bot' | 'human';
+  aiResponse?: string;
+  errorMessage?: string;
+  nodeType?: string;
+  extraData?: any;
+}
+
+// 统计数据类型
 interface MessageStats {
   total: number;
   processing: number;
@@ -55,82 +78,119 @@ interface MessageStats {
   success_rate: string;
 }
 
+// 组件Props
 interface BusinessMessageMonitorProps {
+  /** 会话列表数据 */
+  sessions: Session[];
   /** 跳转到会话管理的回调函数 */
   onNavigateToSession?: (sessionId: string) => void;
 }
 
-export default function BusinessMessageMonitor({ onNavigateToSession }: BusinessMessageMonitorProps) {
-  const [executions, setExecutions] = useState<UnifiedMessage[]>([]);
-  const [stats, setStats] = useState<MessageStats | null>(null);
+export default function BusinessMessageMonitor({
+  sessions,
+  onNavigateToSession
+}: BusinessMessageMonitorProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'processing' | 'completed' | 'failed'>('all');
   const [expandedExecutionId, setExpandedExecutionId] = useState<string | null>(null);
-  const [limit, setLimit] = useState(50);
+  const [limit, setLimit] = useState(20);
 
-  const loadExecutions = async () => {
-    setIsLoading(true);
-    try {
-      const url = new URL('/api/monitoring/executions', window.location.origin);
-      url.searchParams.append('limit', limit.toString());
-      
-      const res = await fetch(url.toString());
-      if (res.ok) {
-        const data = await res.json();
-        if (data.code === 0 && Array.isArray(data.data)) {
-          const executionsData = data.data || [];
-          
-          // 使用适配器转换数据格式
-          const unifiedMessages = adaptExecutionsToUnifiedMessages(executionsData);
-          setExecutions(unifiedMessages);
-          
-          // 计算统计数据
-          const total = unifiedMessages.length;
-          const processing = unifiedMessages.filter((e: UnifiedMessage) => e.status === 'processing').length;
-          const completed = unifiedMessages.filter((e: UnifiedMessage) => e.status === 'completed').length;
-          const failed = unifiedMessages.filter((e: UnifiedMessage) => e.status === 'failed').length;
-          const successRate = total > 0 ? ((completed / (completed + failed)) * 100).toFixed(1) : '0.0';
-          
-          setStats({
-            total,
-            processing,
-            completed,
-            failed,
-            success_rate: successRate
-          });
+  // 将 sessions 的最新消息转换为 UnifiedMessage 格式
+  const unifiedMessages = useMemo(() => {
+    return sessions
+      .filter(session => session.lastMessage) // 只包含有最新消息的会话
+      .map(session => {
+        // 根据消息类型确定状态
+        let status: 'processing' | 'completed' | 'failed' = 'completed';
+        if (session.isFromUser) {
+          status = 'completed';
+        } else if (session.isFromBot) {
+          status = 'completed';
+        } else if (session.isHuman) {
+          status = 'completed';
         }
-      }
-    } catch (error) {
-      console.error('加载消息执行列表失败:', error);
-    } finally {
-      setIsLoading(false);
-    }
+
+        // 确定发送者类型
+        let senderType: 'user' | 'bot' | 'human' = 'user';
+        if (session.isFromBot) {
+          senderType = 'bot';
+        } else if (session.isHuman) {
+          senderType = 'human';
+        }
+
+        return {
+          id: `${session.sessionId}-last`, // 使用 sessionId 生成唯一ID
+          sessionId: session.sessionId,
+          content: session.lastMessage || '',
+          userName: session.userName,
+          groupName: session.groupName,
+          robotName: session.robotName || session.robotNickname,
+          status,
+          intent: session.lastIntent,
+          startedAt: session.lastActiveTime,
+          createdAt: session.lastActiveTime,
+          completedAt: session.lastActiveTime,
+          duration: 0,
+          senderType,
+          aiResponse: undefined,
+          errorMessage: undefined,
+          nodeType: undefined,
+          extraData: {
+            messageCount: session.messageCount,
+            aiReplyCount: session.aiReplyCount,
+            humanReplyCount: session.humanReplyCount,
+            status: session.status,
+          }
+        };
+      });
+  }, [sessions]);
+
+  // 计算统计数据
+  const stats = useMemo(() => {
+    const total = unifiedMessages.length;
+    const processing = unifiedMessages.filter(e => e.status === 'processing').length;
+    const completed = unifiedMessages.filter(e => e.status === 'completed').length;
+    const failed = unifiedMessages.filter(e => e.status === 'failed').length;
+    const successRate = total > 0 ? ((completed / (completed + failed)) * 100).toFixed(1) : '0.0';
+
+    return {
+      total,
+      processing,
+      completed,
+      failed,
+      success_rate: successRate
+    };
+  }, [unifiedMessages]);
+
+  // 过滤消息记录
+  const filteredMessages = useMemo(() => {
+    return unifiedMessages.filter(msg => {
+      const matchesSearch = !searchQuery ||
+        msg.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        msg.userName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        msg.groupName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        msg.robotName?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesStatus = statusFilter === 'all' || msg.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [unifiedMessages, searchQuery, statusFilter]);
+
+  // 应用分页限制
+  const filteredExecutions = useMemo(() => {
+    return filteredMessages.slice(0, limit);
+  }, [filteredMessages, limit]);
+
+  // 处理刷新
+  const handleRefresh = () => {
+    // 由于使用 props 数据，刷新需要由父组件处理
+    // 这里只是触发一个通知
+    console.log('[BusinessMessageMonitor] 刷新请求（需要父组件更新数据）');
+    setIsLoading(true);
+    setTimeout(() => setIsLoading(false), 500);
   };
-
-  useEffect(() => {
-    loadExecutions();
-    
-    // 自动刷新
-    if (autoRefresh) {
-      const interval = setInterval(loadExecutions, 10000); // 每10秒刷新
-      return () => clearInterval(interval);
-    }
-  }, [autoRefresh, limit]);
-
-  // 过滤执行记录
-  const filteredExecutions = executions.filter(exec => {
-    const matchesSearch = !searchQuery || 
-      exec.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      exec.userName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      exec.groupName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      exec.robotName?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || exec.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
 
   // 获取状态图标和颜色
   const getStatusBadge = (status: string) => {
@@ -225,25 +285,7 @@ export default function BusinessMessageMonitor({ onNavigateToSession }: Business
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setAutoRefresh(!autoRefresh)}
-            className={autoRefresh ? 'bg-primary/10 border-primary/30' : ''}
-          >
-            {autoRefresh ? (
-              <>
-                <Activity className="h-4 w-4 mr-2 animate-pulse" />
-                自动刷新
-              </>
-            ) : (
-              <>
-                <Activity className="h-4 w-4 mr-2" />
-                手动刷新
-              </>
-            )}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={loadExecutions}
+            onClick={handleRefresh}
             disabled={isLoading}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />

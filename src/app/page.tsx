@@ -2540,6 +2540,7 @@ ${callbacks.robotStatus}
           {/* 业务消息监控内容 */}
           <TabsContent value="messages" className="mt-5">
             <BusinessMessageMonitor
+              sessions={sessions}
               onNavigateToSession={(sessionId) => {
                 const targetSession = sessions.find(s => s.sessionId === sessionId);
                 if (targetSession) {
