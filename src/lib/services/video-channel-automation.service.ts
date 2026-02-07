@@ -146,7 +146,7 @@ class VideoChannelAutomationService {
   }
 
   /**
-   * 1. 获取视频号小店二维码
+   * 1. 获取视频号小店二维码（优化版）
    */
   async getQrcode(): Promise<QrcodeResult> {
     const browser = await this.getBrowser();
@@ -156,33 +156,35 @@ class VideoChannelAutomationService {
       // 设置用户代理
       await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
-      // 访问视频号小店登录页面
+      // 禁用图片加载（只加载必要的资源，加快速度）
+      await page.setRequestInterception(true);
+      page.on('request', (req) => {
+        const resourceType = req.resourceType();
+        // 只加载文档、脚本和必要的样式，跳过图片、字体等
+        if (['image', 'font', 'media'].includes(resourceType)) {
+          req.abort();
+        } else {
+          req.continue();
+        }
+      });
+
+      // 访问视频号小店登录页面（减少超时时间）
       await page.goto(this.shopUrl, {
-        waitUntil: 'networkidle2',
-        timeout: 60000
+        waitUntil: 'domcontentloaded', // 改为domcontentloaded，比networkidle2更快
+        timeout: 30000 // 减少超时时间到30秒
       });
 
-      // 等待页面加载完成
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // 恢复请求拦截（允许加载二维码图片）
+      page.removeAllListeners('request');
+      await page.setRequestInterception(false);
 
-      // 尝试查找所有可能的二维码元素
-      const allImages = await page.evaluate(() => {
-        const images = Array.from(document.querySelectorAll('img'));
-        return images.map(img => ({
-          src: img.src,
-          alt: img.alt,
-          className: img.className,
-          width: img.width,
-          height: img.height
-        }));
-      });
+      // 减少等待时间
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      console.log('页面上的图片元素:', JSON.stringify(allImages, null, 2));
-
-      // 查找可能是二维码的图片（通常是正方形或者小图片）
+      // 查找二维码元素（优化查找逻辑）
       let qrcodeElement: puppeteer.ElementHandle<Element> | null = null;
 
-      // 策略1：尝试特定的选择器
+      // 策略1：快速尝试常见选择器（减少超时时间）
       const qrcodeSelectors = [
         '.qrcode-img',
         '.qrcode img',
@@ -193,20 +195,24 @@ class VideoChannelAutomationService {
         '[class*="login"] img'
       ];
 
-      for (const selector of qrcodeSelectors) {
+      // 并行尝试多个选择器
+      const selectorPromises = qrcodeSelectors.map(async (selector) => {
         try {
-          await page.waitForSelector(selector, { timeout: 3000 });
-          qrcodeElement = await page.$(selector);
-          if (qrcodeElement) {
-            console.log(`通过选择器 ${selector} 找到二维码元素`);
-            break;
-          }
+          await page.waitForSelector(selector, { timeout: 2000 }); // 减少到2秒
+          return await page.$(selector);
         } catch (e) {
-          continue;
+          return null;
         }
+      });
+
+      const results = await Promise.all(selectorPromises);
+      qrcodeElement = results.find(el => el !== null) || null;
+
+      if (qrcodeElement) {
+        console.log('通过选择器找到二维码元素');
       }
 
-      // 策略2：如果没有找到，尝试通过图片尺寸查找（二维码通常是正方形）
+      // 策略2：通过图片尺寸查找（如果选择器没找到）
       if (!qrcodeElement) {
         console.log('尝试通过图片尺寸查找二维码');
         const potentialQrcode = await page.evaluate(() => {
@@ -227,15 +233,28 @@ class VideoChannelAutomationService {
         }
       }
 
-      // 策略3：如果还是没有找到，截取整个页面，让用户自己识别
+      // 策略3：如果还是没有找到，截取登录区域（不是整个页面）
       if (!qrcodeElement) {
-        console.log('未找到二维码元素，截取整个页面');
-        const fullPageScreenshot = await page.screenshot();
+        console.log('未找到二维码元素，截取登录区域');
+
+        // 尝试截取页面中间区域（通常二维码在中间）
+        const viewport = page.viewport();
+        const clipArea = {
+          x: Math.floor((viewport?.width || 1280) * 0.25),
+          y: Math.floor((viewport?.height || 720) * 0.25),
+          width: Math.floor((viewport?.width || 1280) * 0.5),
+          height: Math.floor((viewport?.height || 720) * 0.5)
+        };
+
+        const partialScreenshot = await page.screenshot({
+          clip: clipArea
+        });
+
         const timestamp = Date.now();
-        const qrcodeId = `${timestamp}_full`;
+        const qrcodeId = `${timestamp}_partial`;
         const qrcodePath = path.join(this.qrcodeDir, `${qrcodeId}.png`);
 
-        await fs.writeFile(qrcodePath, fullPageScreenshot);
+        await fs.writeFile(qrcodePath, partialScreenshot);
 
         // 更新当前二维码状态
         this.currentQrcodeId = qrcodeId;
@@ -263,7 +282,7 @@ class VideoChannelAutomationService {
       this.currentQrcodeId = qrcodeId;
       this.currentQrcodeExpiresAt = new Date(Date.now() + this.qrcodeLifetime);
 
-      // 生成访问URL（实际应用中应该通过API路由提供）
+      // 生成访问URL
       const qrcodeUrl = `/api/video-channel/qrcode/${qrcodeId}.png`;
 
       return {
@@ -285,57 +304,73 @@ class VideoChannelAutomationService {
   }
 
   /**
-   * 2. 检测登录状态
+   * 2. 检测登录状态（优化版）
    */
   async checkLoginStatus(): Promise<LoginStatusResult> {
     const browser = await this.getBrowser();
     const page = await browser.newPage();
 
     try {
-      // 访问视频号小店页面
+      console.log('[检测登录] 开始检测登录状态...');
+
+      // 访问视频号小店页面（使用更快的等待策略）
       await page.goto(this.shopUrl, {
-        waitUntil: 'networkidle2',
-        timeout: 30000
+        waitUntil: 'domcontentloaded', // 使用domcontentloaded而不是networkidle2
+        timeout: 15000 // 减少超时时间到15秒
       });
+
+      console.log('[检测登录] 页面加载完成，开始检查登录元素...');
 
       // 检查是否已登录（检查页面是否有登录后的元素）
       const isLoggedIn = await page.evaluate(() => {
+        console.log('[检测登录] 在页面上下文中检查登录状态...');
+
         // 检查是否存在登录按钮（未登录状态）
         const loginButton = document.querySelector('.login-btn') ||
                            document.querySelector('button[type="submit"]') ||
-                           document.querySelector('.scan-login-tip');
+                           document.querySelector('.scan-login-tip') ||
+                           document.querySelector('.login-container') ||
+                           document.querySelector('.qr-login');
+
+        console.log('[检测登录] 登录按钮元素:', loginButton ? '存在' : '不存在');
 
         // 检查是否存在用户头像或店铺信息（已登录状态）
         const userAvatar = document.querySelector('.user-avatar') ||
                           document.querySelector('.shop-name') ||
-                          document.querySelector('.nav-user');
+                          document.querySelector('.nav-user') ||
+                          document.querySelector('.user-info') ||
+                          document.querySelector('.header-user');
+
+        console.log('[检测登录] 用户信息元素:', userAvatar ? '存在' : '不存在');
 
         // 如果没有登录按钮且有用户信息，说明已登录
-        return !loginButton && !!userAvatar;
+        const isLogged = !loginButton && !!userAvatar;
+        console.log('[检测登录] 登录状态判断:', isLogged);
+
+        return isLogged;
       });
 
+      console.log('[检测登录] 最终登录状态:', isLoggedIn);
+
+      // 检查二维码是否过期
+      const qrcodeExpired = this.isQrcodeExpired();
+
+      // 如果已登录，提取Cookie
+      let cookies: any[] = [];
       if (isLoggedIn) {
-        // 获取Cookie
-        const cookies = await page.cookies();
-
-        return {
-          success: true,
-          isLoggedIn: true,
-          cookies,
-          qrcodeExpired: false
-        };
-      } else {
-        // 检测二维码是否过期
-        const qrcodeExpired = this.isQrcodeExpired();
-
-        return {
-          success: true,
-          isLoggedIn: false,
-          qrcodeExpired
-        };
+        console.log('[检测登录] 已登录，开始提取Cookie...');
+        cookies = await page.cookies();
+        console.log('[检测登录] 提取到', cookies.length, '个Cookie');
       }
+
+      return {
+        success: true,
+        isLoggedIn,
+        cookies,
+        qrcodeExpired
+      };
     } catch (error: any) {
-      console.error('检测登录状态失败:', error);
+      console.error('[检测登录] 检测登录状态失败:', error);
       return {
         success: false,
         isLoggedIn: false,
