@@ -66,9 +66,32 @@ const PRIORITY_NAMES: Record<string, string> = {
 
 export default function RobotBusinessRoleManager() {
   const [businessRoles, setBusinessRoles] = useState<BusinessRole[]>([]);
+  const [robots, setRobots] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
   const [editingRole, setEditingRole] = useState<BusinessRole | null>(null);
+
+  // 加载机器人列表（只在组件挂载时加载一次）
+  useEffect(() => {
+    const fetchRobots = async () => {
+      try {
+        const response = await fetch('/api/proxy/admin/robots');
+        const result = await response.json();
+        if (result.code === 0 && result.data) {
+          // 确保 id 字段是字符串类型
+          const formattedRobots = result.data.map((robot: any) => ({
+            ...robot,
+            id: String(robot.id),
+          }));
+          setRobots(formattedRobots);
+        }
+      } catch (error) {
+        console.error('加载机器人列表失败:', error);
+      }
+    };
+
+    fetchRobots();
+  }, []);
 
   // 加载业务角色列表
   const loadBusinessRoles = async () => {
@@ -297,6 +320,7 @@ export default function RobotBusinessRoleManager() {
             </DialogDescription>
           </DialogHeader>
           <BusinessRoleForm
+            robots={robots}
             initialData={editingRole}
             onSave={handleSaveSuccess}
             onCancel={() => setShowDialog(false)}
