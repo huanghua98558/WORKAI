@@ -339,7 +339,9 @@ export default function CollabDashboard() {
       const res = await fetch(baseUrl);
 
       if (!res.ok) {
-        throw new Error('加载数据失败');
+        const errorText = await res.text();
+        console.error('[CollabDashboard] API错误响应:', res.status, errorText);
+        throw new Error(`API返回错误状态: ${res.status}`);
       }
 
       const data = await res.json();
