@@ -1,0 +1,3321 @@
+消息回调接口规范
+QA问答接口回调（高级能力）
+由您的技术团队按本接口文档开发一个接口并将接口地址设置绑定到对应机器人id，可以使@机器人回复时使用个性化接口来定制回答。也就是说由第三方自己接收所有单聊和群聊消息，并进行回答处理。接口开发后调用 “机器人回调配置-机器人消息回调配置” 将接口地址设置给机器人。
+注意:
+设置成功后还必须在WTAPP里打开新消息接收开关（默认开启）。
+消息回调接口必须在3秒内处理响应，否则平台将放弃本次请求。如果接口确实处理耗时较长，应立即响应，处理消息后异步调用发送消息等指令进行回复。
+消息回调记录可查询“历史消息-机器人消息回调日志列表查询”，包含请求耗时等信息。
+图片消息需要在WTAPP里打开图片消息回调开关（默认关闭）（企微APP需相册权限）。
+文件消息仅可识别消息类型无法提取内容，如需回调文件等内容需私有化部署并加购企微会话存档功能。
+Path： 您开发并测试验证过的接口地址(url支持带param参数以区分多个机器人)
+测试工具：http://testqa.streamlit.ymdyes.cnMethod： POST application/json接口描述：
+请求参数
+参数名称	是否必须	示例	备注
+spoken	是	你好啊	问题文本
+rawSpoken	是	@me 你好啊	原始问题文本
+receivedName	是	仑哥	提问者名称
+groupName	是	测试群1	QA所在群名（群聊）
+groupRemark	是	测试群1备注名	QA所在群备注名（群聊）
+roomType	是	1	QA所在房间类型 1=外部群 2=外部联系人 3=内部群 4=内部联系人
+atMe	是	true	是否@机器人（群聊）
+textType	是	1	消息类型 0=未知 1=文本 2=图片 3=语音 5=视频 7=小程序 8=链接 9=文件 13=合并记录 15=带回复文本
+fileBase64	是	iVBORxxx==	图片base64 (png)
+返回数据
+名称	是否必须	示例	备注
+code	是	0	0 调用成功 -1或其他值 调用失败并回复message
+message	是	success	对本次接口调用的信息描述
+请求示例（您开发的接口需要支持互联网访问）
+Path： https://mock.apifox.cn/m1/1035094-0-default/thirdQaMethod： POST application/json
+Body：
+{ 
+     "spoken": "你好", 
+     "rawSpoken": "@管家 你好", 
+     "receivedName": "仑哥",
+     "groupName": "测试群1",
+     "groupRemark": "测试群1备注名",
+     "roomType": 1,
+     "atMe": "true",
+     "textType": 1}
+返回数据
+{
+    "code": 0,
+    "message": "参数接收成功"}
+Python代码示例（flask框架）
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+@app.route('/thirdQa', methods=['POST'])def third_qa():
+    # 哦，看来我们有一个大牛想要解析JSON数据
+    data = request.json
+    # 打印出来，希望你能理解这些
+    print("接收到的参数：", data)
+    
+    # 子线程异步处理消息
+    # thread {...}
+
+    # 既然我们已经打印了数据，让我们返回点什么
+    return jsonify({"message": "参数接收成功"})
+if __name__ == '__main__':
+    # 好吧，启动服务器，别告诉我你不知道怎么做
+    app.run(debug=True)
+Java代码示例（springboot框架）
+import org.springframework.web.bind.annotation.PostMapping;import org.springframework.web.bind.annotation.RequestBody;import org.springframework.web.bind.annotation.RestController;import org.springframework.web.bind.annotation.RequestMapping;import org.springframework.http.ResponseEntity;
+@RestController@RequestMapping("/api") // 可以根据需要更改路径public class ApiController {
+
+    @PostMapping("/thirdQa")
+    public ResponseEntity<?> thirdQa(@RequestBody RequestData data) {
+        // 打印收到的数据，这对我来说是轻而易举的事
+        System.out.println("接收到的参数：" + data);
+
+        // 子线程异步处理消息
+        // thread {...}
+
+        // 立即返回一个简单的响应
+        return ResponseEntity.ok("{\"message\": \"参数接收成功\"}");
+
+    }
+
+    // 假设你知道怎么定义这个类
+    public static class RequestData {
+        private String spoken;
+        private String rawSpoken;
+        private String receivedName;
+        private String groupName;
+        private String groupRemark;
+        private String roomType;
+        private String atMe;
+
+        // getter和setter方法在这里
+        // 但我假设你知道如何生成它们
+    }
+}
+
+常见问题
+常见问题
+1.
+安卓设备建议？
+使用手机等安卓设备，系统版本 >= Andoird 7.1，真机建议使用非华为/荣耀机型，推荐红米，低配即可。
+2.
+每天群发有没有次数限制，API有没有其他限制？
+没有限制，本产品也不会做任何限制，所有消息均会通过消息队列传递给客户端，但您仍需要遵守腾讯运营规范或国家法律规定。点进跳转企业微信安全指南链接
+注：API请求频率为60QPM或20QPS，超出的请求会收到429错误提示
+3.
+是否支持自己后台接收机器人收到的消息并进行回复？
+支持，实现QA接管即可，文档地址：https://worktool.apifox.cn/doc-861677
+先由研发人员参照QA回调接口demo编写接口，接口开发后调用 “机器人配置-机器人第三方QA配置”将接口地址设置给机器人，其后该机器人收到的信息就会发送到第三方QA地址上，该接口返回值可处理回复结果。
+4.
+机器人能同时支持多少个人/群跟机器人的聊天？
+这个要看群活跃程度而定，一般三五百群一个机器人就可以。等群多起来随时可以加多个机器人来分担流量。
+5.
+@机器人不能正常回复？
+通常有很多因素可能导致不能回复，可以先自行检查
+WorkTool APP内"新消息接收"开关应处于开启状态，回复策略设置正确
+企微账号昵称与对外显示名(别名)应一致，否则群内@机器人会失效
+账号应已经预先实名认证
+如企微管理员修改机器人账号名称后需重新关闭再打开APP主程序开关
+不要使用群备注名功能修改机器人在群内的昵称
+6.
+一个设备是否支持多开？
+WorkTool不支持多开，为保证模拟人工操作的执行效率，一个设备只可运行一个机器人账号。
+
+错误码
+错误码列表
+错误码	描述
+101011	数据格式错误
+101012	非法操作
+101013	非法权限
+101014	指令重复
+错误码	描述
+201011	创建群失败
+201012	群改名失败
+201013	群拉人失败
+201014	群踢人失败
+201015	改群公告失败
+201016	改群备注失败
+201101	查找聊天窗失败
+201102	发送消息失败
+201103	按钮寻找失败
+201104	目标寻找失败
+201105	转发失败
+201106	重复添加
+201107	文件下载异常
+201108	文件存储异常
+201109	群二维码获取失败
+
+发送消息
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+功能介绍：
+由机器人发送指定内容消息到相应的好友或群聊中，支持@指定人
+注意：
+1.
+at所有人可以填入"@所有人"（应为群主或群管理）
+2.
+减号- 空格和英文括号()和@符号为保留字请勿在人名/群名/备注名中使用
+3.
+群名定义尽量短，一般不要超过12个汉字（调小企微内字体设置更佳）
+4.
+存在重名问题考虑设置好友备注名或群备注名（不要以数字开头，企微搜索bug！长度不要超长被...截断）
+5.
+建议titleList仅填一个，因为有失败重试机制，防止多个批量重试导致重发
+6.
+指令接口IP请求限流为60QPM，如果请求量过大可使用批量发送指令减少总请求次数（https://worktool.apifox.cn/api-147612959）
+注意：本文档所有接口的请求为QPM为60（每分钟60次请求），超过QPM的请求会被拦截丢弃，多次频繁被拦截则会对IP拦截。
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+通讯类型 固定值=2
+list
+array [object] 
+必需
+type
+integer 
+必需
+消息类型 固定值=203
+titleList
+array[string]
+昵称或群名
+必需
+receivedContent
+string 
+必需
+发送文本内容 (\n换行)
+atList
+array[string]
+可选
+at的人(at所有人用"@所有人")
+示例
+{
+    "socketType":2,
+    "list":[
+        {
+            "type":203,
+            "titleList":[
+                "仑哥(这里改成你的微信昵称或群名)"
+            ],
+            "receivedContent":"你好~"
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+推送任意图片/音视频/文件
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+注意：
+1.使用本功能需要提前开启WorkTool APP内的悬浮窗权限，大部分国产机型还需在权限设置里打开"后台弹出界面权限"
+2.网络资源下载和文件发送需要使用安卓端网络，请确保设备网速较快且不要频繁发送大文件(>10M)
+3.受限于企业微信本身，image格式暂不支持webp图片
+4.如果好友昵称改过备注则只能使用备注名调用
+5.不同的图片等文件应该有不同的文件名(objectName)，建议使用有意义的文件名和文件后缀名
+6.titleList一次不应超过9个
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+通讯类型 固定值=2
+list
+array [object] 
+必需
+type
+integer 
+固定值=218
+必需
+titleList
+array[string]
+待发送姓名
+必需
+objectName
+string 
+文件名称（自定义）
+必需
+fileUrl
+string 
+网络文件地址
+必需
+fileType
+string 
+必需
+文件类型（图片=image 音频=audio 视频=video 其他=*）
+extraText
+string 
+附加留言 选填
+可选
+示例
+{
+    "socketType": 2,
+    "list": [
+        {
+            "type": 218,
+            "titleList": [
+                "仑哥"
+            ],
+            "objectName": "logo.png",
+            "fileUrl": "https://cdn.asrtts.cn/static/image/logo3_180_raw.png",
+            "fileType": "image",
+            "extraText": "附加留言（选填）"
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+转发消息(不推荐)
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+第一步需要您先创建一个xxx小程序转发群
+第二步把机器人号拉入
+第三步群内成员(非机器人)发送小程序到群里
+第四步调用接口（titleList填本群群名，receivedName填小程序发送者的昵称，originalContent填小程序标题，nameList填要接收该消息的昵称或群名）
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+通讯类型 固定值=2
+list
+array [object] 
+必需
+type
+integer 
+必需
+消息类型 固定值=205
+titleList
+array[string]
+转发群群名
+必需
+receivedName
+string 
+必需
+原始消息的发送人昵称
+originalContent
+string 
+必需
+原始消息的内容（如公众号名称）
+nameList
+array[string]
+待转发姓名列表
+必需
+extraText
+string 
+附加留言 选填
+必需
+textType
+integer 
+必需
+消息类型 0=未知 1=文本 2=图片 5=视频 7=小程序 8=链接 9=文件
+示例
+{
+    "socketType":2,
+    "list":[
+        {
+            "type":205,
+            "titleList":[
+                "美团小程序转发群"
+            ],
+            "receivedName":"甲仑",
+            "originalContent":"美团",
+			"nameList":[
+				"仑哥"
+			],
+			"extraText":"附加留言（选填）",
+            "textType":0
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+创建外部群
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+功能介绍：
+由机器人创建一个指定名称的外部群，同时支持拉人、修改群公告、修改群备注、使用群模板等操作
+注意：
+1.
+该指令不会创建重名的群
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+list
+array [object] 
+必需
+type
+integer 
+固定值=206
+必需
+groupName
+string 
+要创建的群名
+必需
+selectList
+array[string]
+要拉入群的成员昵称
+必需
+groupTemplate
+string 
+修改群模板(选填)
+可选
+groupAnnouncement
+string 
+群的群公告(选填)
+可选
+groupRemark
+string 
+修改群备注(选填)
+可选
+示例
+{
+    "socketType":2,
+    "list":[
+        {
+            "type":206,
+            "groupName":"测试群01",
+            "selectList":[
+                "仑哥"
+            ],
+            "groupAnnouncement":"这里填写群的公告。WorkTool欢迎大家~"
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+修改群信息(含拉人等)
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+功能介绍：
+由机器人修改一个指定名称的外部群，同时支持修改群名、拉人、踢人、修改群公告、修改群备注、使用群模板等操作
+注意：
+1.
+如果群名改过备注则groupName只能使用备注名调用
+2.
+请确认机器人有相关群操作权限
+3.
+支持配置群模板，填群模板的名字（可禁止成员修改群名等功能）
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+list
+array [object] 
+必需
+type
+integer 
+固定值=207
+必需
+groupName
+string 
+待修改的群名
+必需
+newGroupName
+string 
+修改群名 选填
+可选
+newGroupAnnouncement
+string 
+修改群公告 选填
+可选
+groupRemark
+string 
+修改群备注(选填)
+可选
+groupTemplate
+string 
+修改群模板(选填)
+可选
+selectList
+array[string]
+可选
+添加群成员名称列表/拉人 选填
+showMessageHistory
+boolean 
+可选
+拉人是否附带历史记录 选填
+removeList
+array[string]
+可选
+移除群成员名称列表/踢人 选填
+示例
+{
+    "socketType":2,
+    "list":[
+        {
+            "type":207,
+            "groupName":"测试群01",
+            "newGroupName":"测试群02",
+            "newGroupAnnouncement":"修改的群公告（选填）",
+            "selectList":[
+            ],
+            "showMessageHistory":false,
+            "removeList":[
+            ]
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+
+解散群
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+注意：
+1.
+需要是群主，解散后不可撤销，谨慎操作！
+2.
+如果群名改过备注则groupName只能使用备注名调用
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+list
+array [object] 
+必需
+type
+integer 
+固定值
+必需
+groupName
+string 
+待解散的群名
+必需
+示例
+{
+    "socketType":2,
+    "list":[
+        {
+            "type":219,
+            "groupName":"测试群01"
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+
+推送微盘图片
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+注意：
+1.如果好友昵称改过备注则只能使用备注名调用
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+list
+array [object] 
+必需
+type
+integer 
+固定值=208
+必需
+titleList
+array[string]
+待发送姓名
+必需
+objectName
+string 
+必需
+图片名称 (微盘里存在)
+extraText
+string 
+附加留言 选填
+可选
+示例
+{
+    "socketType":2,
+    "list":[
+        {
+            "type":208,
+            "titleList":[
+                "仑哥"
+            ],
+            "objectName":"logo2",
+            "extraText":"附加留言（选填）"
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+推送微盘文件
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+注意：
+1.如果好友昵称改过备注则只能使用备注名调用
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+通讯类型 固定值=2
+list
+array [object] 
+必需
+type
+integer 
+固定值=209
+必需
+titleList
+array[string]
+待发送姓名
+必需
+objectName
+string 
+必需
+文件名称 (微盘里存在)
+extraText
+string 
+附加留言 选填
+可选
+示例
+{
+    "socketType":2,
+    "list":[
+        {
+            "type":209,
+            "titleList":[
+                "仑哥"
+            ],
+            "objectName":"logo2",
+            "extraText":"附加留言（选填）"
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+按手机号添加好友
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+请合理使用。注：
+1.一天不可超过100人次。
+2.新企微号、未实名号、新入企业，请勿使用。
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+list
+array [object] 
+必需
+type
+integer 
+固定值=213
+必需
+friend
+object 
+可选
+示例
+{
+    "socketType":2,
+    "list":[
+        {
+            "type":213,
+            "friend":{
+                "phone": "13010001000",
+                "markName": "备注名",
+                "markExtra": "API按手机号主动添加的用户",
+                "tagList": ["API主动添加"],
+                "leavingMsg": "你好，我是机器人~"
+            }
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+从外部群添加好友
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+list
+array [object] 
+必需
+type
+integer 
+固定值（220）
+必需
+groupName
+string 
+群名或群备注名
+必需
+friend
+object 
+可选
+示例
+{
+    "socketType":2,
+    "list":[
+        {
+            "type":220,
+            "groupName": "外部群10010",
+            "friend":{
+                "name": "昵称或备注名",
+                "markName": "新备注名",
+                "markExtra": "API按手机号主动添加的用户",
+                "tagList": ["API主动添加"],
+                "leavingMsg": "你好，我是机器人~"
+            }
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+
+修改好友信息
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+注意：
+1.
+如果好友昵称改过备注则friend.name只能使用备注名调用
+2.
+phone和name只需填任一种
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+list
+array [object] 
+必需
+type
+integer 
+固定值=213
+必需
+friend
+object 
+可选
+示例
+{
+    "socketType": 2,
+    "list": [
+        {
+            "type": 213,
+            "friend": {
+                "phone": "",
+                "name": "昵称(name和phone只要填一种，如果已经有备注名则name值填备注名)",
+                "markName": "新备注名",
+                "markExtra": "API按手机号主动添加的用户",
+                "tagList": [
+                    "API主动添加"
+                ]
+            }
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+
+
+修改群成员备注
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+注意：
+1.
+如果好友昵称改过备注则friend.name只能使用备注名调用
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+list
+array [object] 
+必需
+type
+integer 
+可选
+groupName
+string 
+可选
+friend
+object 
+可选
+示例
+{
+    "socketType":2,
+    "list":[
+        {
+            "type":225,
+            "groupName": "测试群01",
+            "friend":{
+                "name": "昵称",
+                "markName": "备注名"
+            }
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+
+删除联系人
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+注意：
+1.删除成功后不可撤回！！！
+2.有备注名应使用备注名
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+通讯类型 固定值=2
+list
+array [object] 
+必需
+type
+integer 
+必需
+消息类型 固定值=234
+friend
+object 
+必需
+示例
+{
+    "socketType":2,
+    "list":[
+        {
+            "type":234,
+            "friend": {
+                "name":"小白"
+            }
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+添加待办
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+注意：
+1.仅可给企业内部成员添加待办
+2.如果好友昵称改过备注则只能使用备注名调用
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+通讯类型 固定值=2
+list
+array [object] 
+必需
+type
+integer 
+必需
+消息类型 固定值=221
+titleList
+array[string]
+内部用户昵称
+必需
+receivedContent
+string 
+待办事项内容
+必需
+示例
+{
+    "socketType":2,
+    "list":[
+        {
+            "type":221,
+            "titleList":[
+                "仑哥(这里改成你的微信昵称或群名)"
+            ],
+            "receivedContent":"你的待办事项是xxx"
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+清空客户端指令
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+注意：
+1.一次性清空全部客户端待执行指令
+2.worktool版本>=2.7.2
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+通讯类型 固定值=2
+list
+array [object] 
+必需
+type
+integer 
+消息类型
+必需
+示例
+{
+    "socketType":2,
+    "list":[
+        {
+            "type":304
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+清除指定客户端指令
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+注意：
+1.清除指定客户端待执行指令
+2.worktool版本>=2.7.2
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+通讯类型 固定值=2
+list
+array [object] 
+必需
+type
+integer 
+消息类型
+必需
+originalContent
+string 
+必需
+示例
+{
+    "socketType": 2,
+    "list": [
+        {
+            "type": 305,
+            "originalContent": "messageId"
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+批量发送指令
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+功能介绍：
+可以将多条发送指令合并在一个请求当中，提高网络效率
+单次调用该接口可合并最多100条指令
+此接口可解决并发请求太多导致被服务器拦截的问题
+指令消息IP请求频率不可超过60QPM
+注：
+1.
+【指令消息】目录下的所有指令均可合并
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+通讯类型 固定值=2
+list
+array [object] 
+必需
+示例
+{
+    "socketType":2,
+    "list":[
+        {
+            "type":203,
+            "titleList":[
+                "AA"
+            ],
+            "receivedContent":"第一条发送文本消息指令"
+        },
+        {
+            "type":203,
+            "titleList":[
+                "AA"
+            ],
+            "receivedContent":"第二条发送文本消息指令"
+        },
+        {
+            "type": 218,
+            "titleList": [
+                "BB"
+            ],
+            "objectName": "logo.png",
+            "fileUrl": "https://cdn.asrtts.cn/static/image/logo3_180_raw.png",
+            "fileType": "image",
+            "extraText": "第三条发送文件消息指令"
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+
+消息撤回
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+功能介绍：
+由机器人撤回机器人近期发送的指定内容消息
+注意：
+1.
+如果给用户或群聊添加了备注名就要使用备注名发送（如果使用备注则企微版本必须>=4.0.12）
+2.
+请结合第三方消息回调使用
+3.
+对微信客户或外部群的消息只可在两分钟内撤回
+4.
+消息类型(textType)详见"消息回调接口规范"
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+固定值
+必需
+list
+array [object] 
+必需
+type
+integer 
+固定值
+可选
+titleList
+array[string]
+可选
+消息接收者昵称或群名称
+textType
+integer 
+可选
+QA回调里的textType
+originalContent
+string 
+可选
+QA回调里的原始消息内容
+示例
+{
+    "socketType": 2,
+    "list": [
+        {
+            "type": 226,
+            "titleList": [
+                "测试群007"
+            ],
+            "originalContent": "你好~",
+            "textType": 1
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+
+获取指定群成员信息
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+功能介绍：
+由机器人去读取指定群的成员获取昵称列表
+注意：
+操作为耗时操作，和成员数有线性关系。注意：本文档所有接口的请求为QPM为60（每分钟60次请求），超过QPM的请求会被拦截丢弃，多次频繁被拦截则会对IP拦截。
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+通讯类型 固定值=2
+list
+array [object] 
+必需
+type
+integer 
+必需
+消息类型 固定值=203
+groupName
+string 
+必需
+群名（有备注名优先用备注名）
+示例
+{
+    "socketType": 2,
+    "list": [
+        {
+            "type": 512,
+            "groupName": "群名（有备注名优先用备注名）"
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+
+切换企业(定制)
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+功能：切换账号所在企业到指定企业
+定制接口需联系管理员申请付费授权
+注意：
+1.
+多个企业时可切换企业
+2.
+只有当前这个企业的新消息可以被接收
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+socketType
+integer 
+必需
+通讯类型 固定值=2
+list
+array [object] 
+必需
+type
+integer 
+必需
+消息类型 固定值=223
+objectName
+string 
+目标企业
+必需
+示例
+{
+    "socketType": 0,
+    "list": [
+        {
+            "type": 0,
+            "objectName": "string"
+        }
+    ]}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+发送链接(定制)
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+功能介绍：
+发送自定义标题、副标题和icon图片的链接样式消息
+由机器人发送指定内容链接消息到相应的好友或群聊中，支持外部群
+定制接口需联系管理员申请付费授权
+注意：
+1.
+如果给用户或群聊添加了备注名就要使用备注名发送（如果使用备注则企微版本必须>=4.0.12）
+2.
+减号-和英文括号()为保留字请勿在人名/群名/备注名中使用
+3.
+群名定义尽量短，一般不要超过12个汉字
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+object 
+示例
+{}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+
+发送自定义path小程序(定制)
+POST
+https://api.worktool.ymdyes.cn/wework/sendRawMessage
+调试Run in Apifox
+功能介绍：
+发送自定义标题、副标题和icon图片的小程序样式消息
+小程序需要是和企微同属一个企业且绑定关联的小程序
+由机器人发送指定内容小程序消息到相应的好友或群聊中，支持外部群
+定制接口需联系管理员申请付费授权
+注意：
+1.
+如果给用户或群聊添加了备注名就要使用备注名发送（如果使用备注则企微版本必须>=4.0.12）
+2.
+减号-和英文括号()为保留字请勿在人名/群名/备注名中使用
+3.
+群名定义尽量短，一般不要超过12个汉字
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+客户端链接唯一标识
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+object 
+示例
+{}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+string 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": "string"}
+
+
+机器人后端通讯加密
+POST
+https://api.worktool.ymdyes.cn/robot/robotInfo/update
+调试Run in Apifox
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+secretKey
+string 
+密钥
+可选
+encryptType
+integer 
+可选
+加解密方式 0=不加密 1=AES加密
+示例
+{
+    "encryptType": 0,
+    "secretKey": "123456123456"}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+null 
+可选
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": null}
+
+
+获取机器人信息
+GET
+https://api.worktool.ymdyes.cn/robot/robotInfo/get
+调试Run in Apifox
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+必需
+示例:
+{{robot_id}}
+key
+string 
+可选
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+integer 
+必需
+message
+string 
+必需
+data
+object 
+必需
+robotId
+string 
+机器人id
+必需
+name
+string 
+企微昵称
+必需
+openCallback
+integer 
+消息回调地址
+必需
+encryptType
+integer 
+加解密方式
+必需
+createTime
+string 
+创建时间
+必需
+enableAdd
+boolean 
+是否能添加好友
+必需
+replyAll
+integer 
+消息回调策略/回复策略
+必需
+robotKeyCheck
+integer 
+是否开启key校验，默认0，0是关闭，1是开启
+必需
+callBackRequestType
+integer 
+1:form-data 2:json
+必需
+robotType
+integer 
+机器人类型 0企业微信，1微信
+必需
+示例
+{
+  "code": 200,
+  "message": "操作成功",
+  "data": {
+    "robotId": "11a",
+    "openCallback": 0,
+    "encryptType": 0,
+    "createTime": "2024-04-29T15:31:51",
+    "enableAdd": true,
+    "replyAll": 1,
+    "robotKeyCheck": 0,
+    "callBackRequestType": 2,
+    "robotType": 0
+  }}
+
+
+
+查询机器人是否在线
+GET
+https://api.worktool.ymdyes.cn/robot/robotInfo/online
+调试Run in Apifox
+本文档所有接口的请求为QPM为60（每分钟60次请求），超过QPM的请求会被拦截丢弃，多次频繁被拦截则会对IP拦截。
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+机器人编号
+必需
+示例:
+{{robot_id}}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+object 
+示例
+{}
+
+
+查询机器人登录日志
+GET
+https://api.worktool.ymdyes.cn/robot/robotInfo/onlineInfos
+调试Run in Apifox
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+机器人编号
+必需
+示例:
+{{robot_id}}
+key
+string 
+校验码
+可选
+date
+string 
+可选
+yyyy-MM-dd
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+object 
+示例
+{}
+
+
+获取机器人企业列表(定制)
+GET
+https://api.worktool.ymdyes.cn/robot/robotInfo/corpList
+调试Run in Apifox
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+必需
+示例:
+{{robot_id}}
+key
+string 
+可选
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+object 
+示例
+{}
+
+
+群列表查询
+将废弃
+GET
+https://api.worktool.ymdyes.cn/robot/wework/group/list
+调试Run in Apifox
+本接口已不推荐使用，建议使用下方企微官方API：
+获取客户群列表：https://developer.work.weixin.qq.com/document/path/92120
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+机器人编号id
+必需
+示例:
+{{robot_id}}
+groupName
+string 
+可选
+群名或群备注名关键词
+page
+string 
+分页页号
+可选
+示例:
+1
+size
+string 
+分页大小
+可选
+示例:
+10
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+可选
+data
+object 
+必需
+pageNum
+number 
+必需
+pageSize
+number 
+必需
+totalPage
+number 
+必需
+total
+number 
+必需
+list
+array [object] 
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": {
+        "pageNum": 0,
+        "pageSize": 0,
+        "totalPage": 0,
+        "total": 0,
+        "list": [
+            {
+                "workType": "string",
+                "groupName": "string",
+                "masterName": "string",
+                "robotId": "string",
+                "msgInsertTime": "string",
+                "msgNum": 0,
+                "membersNum": 0,
+                "groupAnnouncement": "string",
+                "parentId": "string",
+                "level": 0,
+                "createTime": "string",
+                "updateTime": "string"
+            }
+        ]
+    }}
+
+
+
+机器人消息回调配置
+POST
+https://api.worktool.ymdyes.cn/robot/robotInfo/update
+调试Run in Apifox
+查看本接口前请先查看"消息回调接口规范" : https://www.apifox.cn/apidoc/project-1035094/doc-861677
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+必需
+示例:
+{{robot_id}}
+key
+string 
+可选
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+openCallback
+integer 
+必需
+是否开启QA回调 0关闭 1开启
+replyAll
+string 
+开启回复策略
+必需
+callbackUrl
+string 
+QA回调url
+可选
+示例
+{
+    "openCallback": 1,
+    "replyAll": 1,
+    "callbackUrl": "https://api.ownthink.com/bot"}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+null 
+可选
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": null}
+
+
+机器人配置回调
+POST
+https://api.worktool.ymdyes.cn/robot/robotInfo/callBack/bind
+调试Run in Apifox
+机器人目前支持的回调类型 （消息回调请移步"机器人回调配置"-"机器人消息回调配置"）
+0=群二维码回调（创建群和修改群配置指令执行时回调 每次都是最新的码7天有效 另：app进设置-高级设置-打开获取群二维码）
+1=指令结果回调（回调每条指令在机器人上的执行情况）
+5=机器人上线回调（支持企微内部机器人webhook地址）
+6=机器人下线回调（支持企微内部机器人webhook地址）要求：
+1.
+接口响应格式必须为JSON（application/json）
+2.
+响应码必须为200
+否则校验不通过，无法完成接口和机器人id绑定
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+必需
+示例:
+{{robot_id}}
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+type
+integer 
+必需
+callBackUrl
+string 
+必需
+示例
+{
+    "type": 1,
+    "callBackUrl": "http://x.com/robot/callback/123"}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+number 
+必需
+message
+string 
+必需
+data
+null 
+可选
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": null}
+
+
+
+查询机器人回调
+GET
+https://api.worktool.ymdyes.cn/robot/robotInfo/callBack/get
+调试Run in Apifox
+机器人目前支持的回调类型 （消息回调请移步"机器人回调配置"-"机器人消息回调配置"）
+0=群二维码回调（创建群和修改群配置指令执行时回调 每次都是最新的码7天有效 另：app进设置-高级设置-打开获取群二维码）
+1=指令消息回调（回调每条指令在机器人上的执行情况）
+5=机器人上线回调（支持企微内部机器人webhook地址）
+6=机器人下线回调（支持企微内部机器人webhook地址）
+11=消息回调（接收到机器人收到的新消息）要求：
+1.
+接口响应格式必须为JSON（application/json）
+2.
+响应码必须为200
+否则校验不通过，无法完成接口和机器人id绑定
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+必需
+示例:
+{{robot_id}}
+robotKey
+string 
+可选
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+integer 
+必需
+message
+string 
+必需
+data
+array [object] 
+必需
+id
+integer 
+可选
+type
+integer 
+可选
+callBackUrl
+string 
+可选
+typeName
+string 
+可选
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": [
+        {
+            "id": 0,
+            "type": 0,
+            "callBackUrl": "string",
+            "typeName": "string"
+        }
+    ]}
+
+
+
+删除机器人回调
+POST
+https://api.worktool.ymdyes.cn/robot/robotInfo/callBack/deleteByType
+调试Run in Apifox
+请求参数
+Query 参数
+生成代码
+robotId
+string 
+必需
+示例:
+{{robot_id}}
+robotKey
+string 
+可选
+Header 参数
+生成代码
+Content-Type
+string 
+必需
+示例:
+application/json
+Body 参数application/json
+生成代码
+type
+integer 
+回调类型
+必需
+示例
+{
+    "type": 1}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+integer 
+必需
+message
+string 
+必需
+data
+array [object] 
+必需
+id
+integer 
+可选
+type
+integer 
+可选
+callBackUrl
+string 
+可选
+typeName
+string 
+可选
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": [
+        {
+            "id": 0,
+            "type": 0,
+            "callBackUrl": "string",
+            "typeName": "string"
+        }
+    ]}
+
+
+机器人回调接口标准
+POST
+https://api.worktool.ymdyes.cn/robot/robotInfo/callBack/test/wt22phhjpt2xboerspxsote472xdnyq2
+调试Run in Apifox
+注：
+1.
+请开发者开发此POST回调接口接收数据，接口返回值响应码应为200，响应内容不限
+2.
+开发完成后调用【机器人配置回调】将接口地址绑定到机器人
+3.
+目前只会回调一次且不做失败重试
+4.
+请提前记录每次调用发送指令消息的返回值(data值为messageId)，回调时与此messageId对应
+5.
+如果一次发送指令含多条串行指令，同一messageId消息会回调多次
+错误码列表
+        //指令执行成功
+        const val SUCCESS = 0
+        //数据格式错误
+        const val ERROR_ILLEGAL_DATA = 101011
+        //非法操作
+        const val ERROR_ILLEGAL_OPERATION = 101012
+        //非法权限
+        const val ERROR_ILLEGAL_PERMISSION = 101013
+
+        //创建群失败
+        const val ERROR_CREATE_GROUP = 201011
+        //群改名失败
+        const val ERROR_GROUP_RENAME = 201012
+        //群拉人失败
+        const val ERROR_GROUP_ADD_MEMBER = 201013
+        //群踢人失败
+        const val ERROR_GROUP_REMOVE_MEMBER = 201014
+        //改群公告失败
+        const val ERROR_GROUP_CHANGE_ANNOUNCEMENT = 201015
+        //改群备注失败
+        const val ERROR_GROUP_CHANGE_REMARK = 201016
+        //查找聊天窗失败
+        const val ERROR_INTO_ROOM = 201101
+        //发送消息失败
+        const val ERROR_SEND_MESSAGE = 201102
+        //按钮寻找失败
+        const val ERROR_BUTTON = 201103
+        //目标寻找失败
+        const val ERROR_TARGET = 201104
+        //转发失败
+        const val ERROR_RELAY = 201105
+        //重复添加
+        const val ERROR_REPEAT = 201106
+        //文件下载异常
+        const val ERROR_FILE_DOWNLOAD = 201107
+        //文件存储异常
+        const val ERROR_FILE_STORAGE = 201108
+请求参数
+Body 参数application/json
+生成代码
+messageId
+string 
+消息id
+必需
+errorCode
+integer 
+错误码
+必需
+0为成功 其他为失败
+errorReason
+string 
+错误原因
+必需
+runTime
+integer 
+执行时间
+可选
+执行时间戳(毫秒)
+timeCost
+number 
+耗时
+可选
+指令执行耗时
+type
+integer 
+指令类型
+可选
+指令类型
+rawMsg
+string 
+原始指令
+可选
+successList
+array[string]
+成功名单
+可选
+成功时不提供
+failList
+array[string]
+失败名单
+可选
+成功时不提供
+groupName
+string 
+群名
+可选
+群名
+qrCode
+string 
+群二维码链接
+必需
+群二维码链接
+示例
+{
+    "messageId": "990000200110099239",
+    "errorCode": 0,
+    "errorReason": "",
+    "runTime": 1666238534935,
+    "timeCost": 2.5,
+    "type": 203,
+    "rawMsg": "{\"messageId\":\"1582945256466776064\",\"titleList\":[\"第一个接收者\",\"第二个接收者\",\"第三个接收者\"],\"textType\":0,\"receivedContent\":\"测试一下发送消息\",\"type\":203,\"showMessageHistory\":false}",
+    "successList": ["第一个接收者","第三个接收者"],
+    "failList": ["第二个接收者"]}
+
+
+
+QA回调接口Demo2(复读机)
+POST
+https://api.worktool.ymdyes.cn/thirdQa2
+调试Run in Apifox
+Demo链接为 https://mock.apifox.cn/m1/1035094-0-default/thirdQa2 （需要手动改下url）
+请求参数
+Body 参数application/json
+生成代码
+spoken
+string 
+必需
+rawSpoken
+string 
+必需
+receivedName
+string 
+必需
+groupName
+string 
+必需
+groupRemark
+string 
+必需
+roomType
+integer 
+必需
+atMe
+string 
+必需
+textType
+integer 
+必需
+示例
+{
+    "spoken":"您好,欢迎使用WorkTool~",
+    "rawSpoken": "@小明 您好,欢迎使用WorkTool~",
+    "receivedName": "WorkTool",
+    "groupName": "WorkTool",
+    "groupRemark": "WorkTool",
+    "roomType": 1,
+    "atMe": "true",
+    "textType": 1}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+integer 
+0 调用成功 -1或其他值 调用失败并回复message
+必需
+message
+string 
+对本次接口调用的信息描述
+必需
+data
+object 
+必需
+type
+integer 
+5000 回答类型为文本
+必需
+info
+object 
+回答结果集合
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": {
+        "type": 0,
+        "info": {
+            "text": "string"
+        }
+    }}
+QA回调接口Demo3(不回复)
+POST
+https://api.worktool.ymdyes.cn/thirdQa3
+调试Run in Apifox
+Demo链接为 https://mock.apifox.cn/m1/1035094-0-default/thirdQa3 （需要手动改下url）
+请求参数
+Body 参数application/json
+生成代码
+spoken
+string 
+必需
+rawSpoken
+string 
+必需
+receivedName
+string 
+必需
+groupName
+string 
+必需
+groupRemark
+string 
+必需
+roomType
+integer 
+必需
+atMe
+string 
+必需
+textType
+integer 
+必需
+示例
+{
+    "spoken":"您好,欢迎使用WorkTool~",
+    "rawSpoken": "@小明 您好,欢迎使用WorkTool~",
+    "receivedName": "WorkTool",
+    "groupName": "WorkTool",
+    "groupRemark": "WorkTool",
+    "roomType": 1,
+    "atMe": "true",
+    "textType": 1}
+请求示例代码
+Shell
+JavaScript
+Java
+Swift
+Go
+PHP
+Python
+HTTP
+C
+C#
+Objective-C
+Ruby
+OCaml
+Dart
+R
+返回响应
+🟢200成功
+application/json生成代码
+code
+integer 
+0 调用成功 -1或其他值 调用失败并回复message
+必需
+message
+string 
+对本次接口调用的信息描述
+必需
+data
+object 
+必需
+type
+integer 
+5000 回答类型为文本
+必需
+info
+object 
+回答结果集合
+必需
+示例
+{
+    "code": 0,
+    "message": "string",
+    "data": {
+        "type": 0,
+        "info": {
+            "text": "string"
+        }
+    }}
+
+收藏消息指令解析
+{
+  "commandType": 900,
+  "commandData": {
+    "targetChat": "工作群",      // 给谁发消息（群名或人名）
+    "locatorType": "INDEX",     // 定位方式
+    "index": 0                   // 收藏夹中第几条收藏（从0开始）
+  }
+}
+参数说明
+参数	说明	示例
+targetChat	目标接收者：群名或人名	"工作群"（群发）或 "张三"（私发）
+locatorType	定位收藏的方式	"INDEX"、"KEYWORD"、"TIME"
+index	按索引定位时的收藏序号	0 = 第 1 条收藏，1 = 第 2 条收藏
+keyword	按关键词搜索收藏	"重要通知"
+timePattern	按时间定位收藏	"2024-01-15"
+已回答的问题
+✅ 给谁发消息：targetChat 参数
+群发：targetChat: "工作群"
+私发：targetChat: "张三"
+✅ 私发还是群发：通过 targetChat 的值区分
+如果是群名 → 群发
+如果是人名 → 私发
+✅ 发的第几条收藏：
+locatorType: "INDEX" + index: 0 → 第 1 条收藏
+locatorType: "INDEX" + index: 1 → 第 2 条收藏
+依次类推...
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
