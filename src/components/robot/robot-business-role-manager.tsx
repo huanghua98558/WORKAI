@@ -29,7 +29,9 @@ export interface BusinessRole {
   keywords: string[];
   defaultTaskPriority: 'low' | 'normal' | 'high';
   enableTaskCreation: boolean;
-  robotCount: number;
+  robotId: string | null;
+  robotName: string | null;
+  robotRobotId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -74,9 +76,9 @@ export default function RobotBusinessRoleManager() {
     try {
       const response = await fetch('/api/robots/business-roles');
       const result = await response.json();
-      
+
       if (result.success) {
-        setBusinessRoles(result.data);
+        setBusinessRoles(result.data || []);
       } else {
         toast.error('加载业务角色失败：' + result.error);
       }
@@ -178,10 +180,22 @@ export default function RobotBusinessRoleManager() {
                       <CardDescription className="text-xs">{role.code}</CardDescription>
                     </div>
                   </div>
-                  <Badge variant="outline">{role.robotCount} 个机器人</Badge>
+                  <Badge variant={role.robotId ? 'default' : 'outline'}>
+                    {role.robotId ? '已绑定' : '通用'}
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* 机器人绑定信息 */}
+                {role.robotId && role.robotName && (
+                  <div className="flex items-center gap-2 text-sm p-2 bg-muted rounded-md">
+                    <Bot className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">绑定机器人：</span>
+                    <span className="font-medium">{role.robotName}</span>
+                    <span className="text-muted-foreground text-xs">({role.robotRobotId})</span>
+                  </div>
+                )}
+
                 {/* 描述 */}
                 {role.description && (
                   <p className="text-sm text-muted-foreground">{role.description}</p>
@@ -242,7 +256,7 @@ export default function RobotBusinessRoleManager() {
                     size="sm"
                     className="flex-1"
                     onClick={() => handleDelete(role.id, role.name)}
-                    disabled={role.robotCount > 0}
+                    disabled={role.robotId !== null}
                   >
                     <Trash2 className="w-4 h-4 mr-1" />
                     删除

@@ -27,11 +27,30 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
     staffTypeFilter: [] as string[],
     keywords: [] as string[],
     defaultTaskPriority: 'normal' as 'low' | 'normal' | 'high',
-    enableTaskCreation: false,
+    enableTaskCreation: true, // 默认启用任务创建
+    robotId: '',
   });
 
   const [keywordInput, setKeywordInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [robots, setRobots] = useState<any[]>([]);
+
+  // 加载机器人列表
+  useEffect(() => {
+    fetchRobots();
+  }, []);
+
+  const fetchRobots = async () => {
+    try {
+      const response = await fetch('/api/robots');
+      const result = await response.json();
+      if (result.success && result.data?.robots) {
+        setRobots(result.data.robots);
+      }
+    } catch (error) {
+      console.error('加载机器人列表失败:', error);
+    }
+  };
 
   // 初始化表单数据
   useEffect(() => {
@@ -45,7 +64,8 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
         staffTypeFilter: initialData.staffTypeFilter || [],
         keywords: initialData.keywords || [],
         defaultTaskPriority: initialData.defaultTaskPriority || 'normal',
-        enableTaskCreation: initialData.enableTaskCreation,
+        enableTaskCreation: initialData.enableTaskCreation ?? true,
+        robotId: initialData.robotId || '',
       });
     }
   }, [initialData]);
@@ -77,7 +97,7 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
     setFormData({ ...formData, staffTypeFilter: newFilter });
   };
 
-  // 保存表单
+      // 保存表单
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -85,7 +105,11 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
     try {
       const url = '/api/robots/business-roles';
       const method = initialData ? 'PUT' : 'POST';
-      const body = initialData ? { ...formData, id: initialData.id } : formData;
+      const body = {
+        ...formData,
+        ...(initialData?.id && { id: initialData.id }),
+        robotId: formData.robotId || null, // 空字符串转换为 null
+      };
 
       const response = await fetch(url, {
         method,
@@ -153,6 +177,29 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
             placeholder="描述该业务角色的职责和特点"
             rows={3}
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="robot">绑定机器人（可选）</Label>
+          <Select
+            value={formData.robotId}
+            onValueChange={(value) => setFormData({ ...formData, robotId: value })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="选择要绑定的机器人" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">不绑定（通用角色）</SelectItem>
+              {robots.map((robot) => (
+                <SelectItem key={robot.id} value={robot.id}>
+                  {robot.name} - {robot.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            绑定后，该业务角色将仅用于指定的机器人。不绑定则所有机器人都可使用。
+          </p>
         </div>
       </div>
 
@@ -279,7 +326,7 @@ export default function BusinessRoleForm({ initialData, onSave, onCancel }: Busi
           <div>
             <Label>启用任务创建</Label>
             <p className="text-xs text-muted-foreground">
-              工作人员 @用户 + 关键词时自动创建任务
+              当工作人员 @用户 + 包含关键词时自动创建售后任务，用于配合人工处理
             </p>
           </div>
           <Switch

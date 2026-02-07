@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { businessRoles } from '@/storage/database/new-schemas/business-roles';
+import { businessRoles, robots } from '@/storage/database/new-schemas';
 import { eq, and, or, like, desc } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 
@@ -38,10 +38,27 @@ export async function GET(request: NextRequest) {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    // 查询业务角色列表
+    // 查询业务角色列表（包含机器人信息）
     const rolesList = await db
-      .select()
+      .select({
+        id: businessRoles.id,
+        name: businessRoles.name,
+        code: businessRoles.code,
+        description: businessRoles.description,
+        aiBehavior: businessRoles.aiBehavior,
+        staffEnabled: businessRoles.staffEnabled,
+        staffTypeFilter: businessRoles.staffTypeFilter,
+        keywords: businessRoles.keywords,
+        enableTaskCreation: businessRoles.enableTaskCreation,
+        defaultTaskPriority: businessRoles.defaultTaskPriority,
+        robotId: businessRoles.robotId,
+        createdAt: businessRoles.createdAt,
+        updatedAt: businessRoles.updatedAt,
+        robotName: robots.name,
+        robotRobotId: robots.id,
+      })
       .from(businessRoles)
+      .leftJoin(robots, eq(businessRoles.robotId, robots.id))
       .where(whereClause)
       .orderBy(desc(businessRoles.createdAt))
       .limit(limit)
@@ -55,14 +72,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: {
-        roles: rolesList,
-        pagination: {
-          page,
-          limit,
-          total: totalCount[0]?.count || 0,
-          pages: Math.ceil((totalCount[0]?.count || 0) / limit),
-        },
+      data: rolesList,
+      pagination: {
+        page,
+        limit,
+        total: totalCount[0]?.count || 0,
+        pages: Math.ceil((totalCount[0]?.count || 0) / limit),
       },
     });
   } catch (error) {

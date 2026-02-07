@@ -927,6 +927,21 @@ export default function RobotManagement() {
                           </div>
                         </div>
                       )}
+
+                      {/* 业务角色 */}
+                      {(robot.config as any)?.businessRole && (
+                        <div>
+                          <div className="text-muted-foreground mb-1 flex items-center gap-2">
+                            <ShieldCheck className="h-3 w-3" />
+                            业务角色
+                          </div>
+                          <div className="font-medium">
+                            <Badge variant="outline">
+                              {(robot.config as any).businessRole}
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
                       
                       <div>
                         <div className="text-muted-foreground mb-1 flex items-center gap-2">
