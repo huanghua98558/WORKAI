@@ -4,6 +4,8 @@
  */
 
 const { generateTokenPair, refreshToken, verifyToken } = require('../lib/jwt');
+const { userCacheService } = require('../services/user-cache.service');
+const { userManager } = require('../database/userManager');
 
 async function authRoutes(fastify, options) {
   // 登录接口
@@ -11,41 +13,72 @@ async function authRoutes(fastify, options) {
     try {
       const { username, password } = request.body;
 
-      // TODO: 验证用户名和密码
-      // 这里应该从数据库中查询用户信息
-      // 示例：
-      // const user = await db.query.users.findFirst({ where: eq(users.username, username) });
-      // const isValid = await bcrypt.compare(password, user.password);
+      // 验证用户名和密码
+      const user = await userManager.validatePassword(username, password);
 
-      // 临时模拟用户（开发环境）
-      if (username === 'admin' && password === 'admin123') {
-        const user = {
-          userId: '1',
-          username: 'admin',
-          role: 'admin'
-        };
-
-        const tokens = generateTokenPair(user);
-
-        fastify.log.info('[Auth] 用户登录成功', { userId: user.userId, username: user.username });
-
-        return reply.send({
-          code: 0,
-          message: '登录成功',
-          data: {
-            user,
-            ...tokens
-          }
+      if (!user) {
+        fastify.log.warn('[Auth] 登录失败：用户名或密码错误', { username });
+        return reply.status(401).send({
+          code: 401,
+          message: '用户名或密码错误',
+          error: 'Unauthorized'
         });
       }
 
-      return reply.status(401).send({
-        code: 401,
-        message: '用户名或密码错误',
-        error: 'Unauthorized'
+      // 检查用户是否激活
+      if (!user.isActive) {
+        fastify.log.warn('[Auth] 登录失败：用户已禁用', { userId: user.id, username: user.username });
+        return reply.status(403).send({
+          code: 403,
+          message: '账户已被禁用',
+          error: 'Forbidden'
+        });
+      }
+
+      // 生成 Token
+      const tokenPayload = {
+        userId: user.id,
+        username: user.username,
+        role: user.role
+      };
+
+      const tokens = generateTokenPair(tokenPayload);
+
+      // 更新最后登录时间
+      await userManager.updateLastLogin(user.id);
+
+      // 缓存用户信息和会话
+      await userCacheService.setUser(user);
+      await userCacheService.setUserSession(
+        user,
+        tokens.accessToken,
+        {
+          ip: request.ip,
+          userAgent: request.headers['user-agent']
+        }
+      );
+
+      fastify.log.info('[Auth] 用户登录成功', {
+        userId: user.id,
+        username: user.username
+      });
+
+      return reply.send({
+        code: 0,
+        message: '登录成功',
+        data: {
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            lastLoginAt: user.lastLoginAt
+          },
+          ...tokens
+        }
       });
     } catch (error) {
-      fastify.log.error('[Auth] 登录失败', { error: error.message });
+      fastify.log.error('[Auth] 登录失败', { error: error.message, stack: error.stack });
       return reply.status(500).send({
         code: 500,
         message: '登录失败',
@@ -218,17 +251,41 @@ async function authRoutes(fastify, options) {
         username: decoded.username,
         role: decoded.role
       };
+      request.token = token;
     }]
   }, async (request, reply) => {
     try {
-      // TODO: 从数据库中获取完整的用户信息
+      // 优先从缓存获取用户信息
+      let user = await userCacheService.getUser(request.user.userId);
+
+      // 如果缓存未命中，从数据库查询
+      if (!user) {
+        user = await userManager.getUserById(request.user.userId);
+        if (user) {
+          await userCacheService.setUser(user);
+        }
+      }
+
+      if (!user) {
+        return reply.status(404).send({
+          code: 404,
+          message: '用户不存在',
+          error: 'Not Found'
+        });
+      }
+
       return reply.send({
         code: 0,
         message: '获取用户信息成功',
         data: {
-          userId: request.user.userId,
-          username: request.user.username,
-          role: request.user.role
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          isActive: user.isActive,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+          lastLoginAt: user.lastLoginAt
         }
       });
     } catch (error) {
@@ -236,6 +293,60 @@ async function authRoutes(fastify, options) {
       return reply.status(500).send({
         code: 500,
         message: '获取用户信息失败',
+        error: error.message
+      });
+    }
+  });
+
+  // 登出接口
+  fastify.post('/logout', {
+    onRequest: [async (request, reply) => {
+      const authHeader = request.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return reply.status(401).send({
+          code: 401,
+          message: '未提供认证令牌',
+          error: 'Unauthorized'
+        });
+      }
+
+      const token = authHeader.substring(7);
+      const decoded = verifyToken(token);
+
+      if (!decoded) {
+        return reply.status(401).send({
+          code: 401,
+          message: '认证令牌无效或已过期',
+          error: 'Unauthorized'
+        });
+      }
+
+      request.user = {
+        userId: decoded.userId,
+        username: decoded.username,
+        role: decoded.role
+      };
+      request.token = token;
+    }]
+  }, async (request, reply) => {
+    try {
+      // 删除用户会话缓存
+      await userCacheService.deleteUserSession(request.user.userId, request.token);
+
+      fastify.log.info('[Auth] 用户登出成功', {
+        userId: request.user.userId,
+        username: request.user.username
+      });
+
+      return reply.send({
+        code: 0,
+        message: '登出成功'
+      });
+    } catch (error) {
+      fastify.log.error('[Auth] 登出失败', { error: error.message });
+      return reply.status(500).send({
+        code: 500,
+        message: '登出失败',
         error: error.message
       });
     }

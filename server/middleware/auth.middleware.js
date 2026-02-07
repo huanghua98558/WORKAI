@@ -3,7 +3,8 @@
  * 用于保护需要认证的路由
  */
 
-const { verifyToken } = require('./lib/jwt');
+const { verifyToken } = require('../lib/jwt');
+const userCacheService = require('../services/user-cache.service');
 
 /**
  * 验证 JWT 令牌的中间件
@@ -50,10 +51,28 @@ async function authMiddleware(fastify, options) {
       exp: decoded.exp
     };
 
+    // 尝试从缓存获取完整的用户信息
+    try {
+      const cachedUser = await userCacheService.getUser(decoded.userId);
+      if (cachedUser) {
+        request.user.fullUser = cachedUser;
+        request.user.isCached = true;
+      } else {
+        request.user.isCached = false;
+      }
+    } catch (error) {
+      fastify.log.warn('[Auth] 获取用户缓存失败', {
+        userId: decoded.userId,
+        error: error.message
+      });
+      request.user.isCached = false;
+    }
+
     fastify.log.info('[Auth] 用户认证成功', {
       userId: decoded.userId,
       username: decoded.username,
       role: decoded.role,
+      isCached: request.user.isCached,
       path: request.url
     });
   });
@@ -86,10 +105,28 @@ async function optionalAuthMiddleware(fastify, options) {
           exp: decoded.exp
         };
 
+        // 尝试从缓存获取完整的用户信息
+        try {
+          const cachedUser = await userCacheService.getUser(decoded.userId);
+          if (cachedUser) {
+            request.user.fullUser = cachedUser;
+            request.user.isCached = true;
+          } else {
+            request.user.isCached = false;
+          }
+        } catch (error) {
+          fastify.log.warn('[Auth] 获取用户缓存失败', {
+            userId: decoded.userId,
+            error: error.message
+          });
+          request.user.isCached = false;
+        }
+
         fastify.log.info('[Auth] 用户认证成功', {
           userId: decoded.userId,
           username: decoded.username,
           role: decoded.role,
+          isCached: request.user.isCached,
           path: request.url
         });
       }
