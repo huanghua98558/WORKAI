@@ -160,7 +160,7 @@ export default function VideoChannelAuditPage() {
                   <Badge className={auditData.data.shopAccessible ? 'bg-green-500' : 'bg-red-500'}>
                     {auditData.data.shopAccessible ? '可访问' : '不可访问'}
                   </Badge>
-                  <span className="text-sm">视频号小店</span>
+                  <span className="text-sm">带货助手</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge className={auditData.data.assistantAccessible ? 'bg-green-500' : 'bg-red-500'}>
@@ -179,7 +179,7 @@ export default function VideoChannelAuditPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ImageIcon className="h-5 w-5" />
-                  视频号小店
+                  带货助手
                 </CardTitle>
                 <CardDescription>
                   HTTP状态码: {auditData.data.shopStatusCode}
@@ -189,7 +189,7 @@ export default function VideoChannelAuditPage() {
                 {auditData.data.shopScreenshotUrl ? (
                   <img
                     src={auditData.data.shopScreenshotUrl}
-                    alt="视频号小店截图"
+                    alt="带货助手截图"
                     className="w-full rounded-lg border"
                   />
                 ) : (

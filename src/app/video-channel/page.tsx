@@ -330,7 +330,7 @@ export default function VideoChannelConversionPage() {
         <div>
           <h1 className="text-3xl font-bold">视频号兼职人员转化流程</h1>
           <p className="text-muted-foreground mt-2">
-            通过自动化工具实现视频号小店的登录、Cookie提取和人工审核
+            通过自动化工具实现带货助手和视频号助手的登录、Cookie提取和人工审核
           </p>
         </div>
         <Button onClick={resetProcess} variant="outline">
@@ -386,7 +386,7 @@ export default function VideoChannelConversionPage() {
             <Card>
               <CardHeader>
                 <CardTitle>步骤1：获取登录二维码</CardTitle>
-                <CardDescription>点击下方按钮生成视频号小店登录二维码</CardDescription>
+                <CardDescription>点击下方按钮生成带货助手登录二维码</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button
@@ -409,7 +409,7 @@ export default function VideoChannelConversionPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle>步骤2：扫描二维码登录</CardTitle>
-                    <CardDescription>请使用微信扫描下方二维码登录视频号小店</CardDescription>
+                    <CardDescription>请使用微信扫描下方二维码登录带货助手</CardDescription>
                   </div>
                   {remainingTime > 0 && loginStatus === 'checking' && (
                     <Badge variant="outline" className="gap-1">
@@ -610,7 +610,7 @@ export default function VideoChannelConversionPage() {
             <Card>
               <CardHeader>
                 <CardTitle>步骤4：人工审核</CardTitle>
-                <CardDescription>生成视频号小店和助手的页面截图供人工审核</CardDescription>
+                <CardDescription>生成带货助手和视频号助手的页面截图供人工审核</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button
@@ -655,7 +655,7 @@ export default function VideoChannelConversionPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 bg-muted rounded-lg">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-medium">视频号小店</h3>
+                      <h3 className="font-medium">带货助手</h3>
                       {cookiePermissions.shopAccessible ? (
                         <Badge className="bg-green-600">
                           <CheckCircle className="h-3 w-3 mr-1" />
@@ -695,11 +695,11 @@ export default function VideoChannelConversionPage() {
                 </div>
 
                 <div>
-                  <h3 className="font-medium mb-2">视频号小店页面</h3>
+                  <h3 className="font-medium mb-2">带货助手页面</h3>
                   {screenshots.shop && (
                     <img
                       src={screenshots.shop}
-                      alt="视频号小店页面"
+                      alt="带货助手页面"
                       className="w-full border rounded-lg"
                     />
                   )}
@@ -818,7 +818,7 @@ export default function VideoChannelConversionPage() {
                   <div className="text-muted-foreground">POST /api/video-channel/qrcode</div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  返回视频号小店登录二维码的base64编码图片，包含qrcodeId、expiresAt和remainingTime
+                  返回带货助手登录二维码的base64编码图片，包含qrcodeId、expiresAt和remainingTime
                 </p>
               </div>
 
@@ -870,7 +870,7 @@ export default function VideoChannelConversionPage() {
                   <div className="text-muted-foreground mt-2">Body: {`{ "cookies": [...] }`}</div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  使用Cookie访问视频号小店和助手页面，生成截图用于人工审核
+                  使用Cookie访问带货助手和视频号助手页面，生成截图用于人工审核
                 </p>
               </div>
             </CardContent>

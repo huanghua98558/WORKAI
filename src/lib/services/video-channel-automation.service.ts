@@ -82,10 +82,10 @@ class VideoChannelAutomationService {
   private browser: puppeteer.Browser | null = null;
   private qrcodeDir: string;
   private auditDir: string;
-  // 视频号小店主页面（包含带货助手和视频号助手）
+  // 带货助手页面
   private shopUrl = 'https://store.weixin.qq.com/talent/';
-  // 视频号助手和小店在同一个页面内，通过导航切换
-  private assistantUrl = 'https://store.weixin.qq.com/talent/';
+  // 视频号助手页面（独立URL或通过带货助手页面内的入口访问）
+  private assistantUrl = 'https://channels.weixin.qq.com/assistant';
   private currentQrcodeId: string | null = null;
   private currentQrcodeExpiresAt: Date | null = null;
   private qrcodeLifetime = 5 * 60 * 1000; // 5分钟有效期
@@ -358,7 +358,7 @@ class VideoChannelAutomationService {
       // 设置Cookie
       await page.setCookie(...cookies);
 
-      // 检测视频号小店页面
+      // 检测带货助手页面
       const shopResponse = await page.goto(this.shopUrl, {
         waitUntil: 'networkidle2',
         timeout: 30000
@@ -500,13 +500,13 @@ class VideoChannelAutomationService {
       // 生成权限消息
       let message = '';
       if (shopAccessible && assistantAccessible) {
-        message = 'Cookie权限完整，可访问视频号小店和视频号助手';
+        message = 'Cookie权限完整，可访问带货助手和视频号助手';
       } else if (shopAccessible && !assistantAccessible) {
-        message = 'Cookie权限不完整，只能访问视频号小店，无法访问视频号助手';
+        message = 'Cookie权限不完整，只能访问带货助手，无法访问视频号助手';
       } else if (!shopAccessible && assistantAccessible) {
-        message = 'Cookie权限不完整，只能访问视频号助手，无法访问视频号小店';
+        message = 'Cookie权限不完整，只能访问视频号助手，无法访问带货助手';
       } else {
-        message = 'Cookie无效，无法访问视频号小店和视频号助手';
+        message = 'Cookie无效，无法访问带货助手和视频号助手';
       }
 
       // 保存审核记录
