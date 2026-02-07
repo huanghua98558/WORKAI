@@ -13,6 +13,7 @@
     "@fastify/helmet": "^13.0.2",
     "@fastify/multipart": "^9.4.0",
     "@fastify/rate-limit": "^10.3.0",
+    "@upstash/redis": "^1.36.2",
     "axios": "^1.13.4",
     "coze-coding-dev-sdk": "^0.7.3",
     "dotenv": "^17.2.3",

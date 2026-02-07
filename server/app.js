@@ -89,14 +89,11 @@ fastify.register(cors, corsConfig);
 // 使用CSP配置（根据环境自动选择）
 fastify.register(helmet, getCspConfig());
 
+// rate-limit 使用内存模式（避免 Upstash Redis 连接限制）
 fastify.register(rateLimit, {
   max: 1000,
-  timeWindow: '1 minute',
-  redis: process.env.REDIS_URL ? {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || 6379),
-    db: parseInt(process.env.REDIS_DB || 0)
-  } : undefined
+  timeWindow: '1 minute'
+  // 不使用 redis 存储，使用内存存储
 });
 
 // 注册文件上传插件

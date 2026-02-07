@@ -27,17 +27,25 @@ class RedisClient {
     // 尝试连接 Redis
     try {
       const Redis = require('ioredis');
-      const config = {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || 6379),
-        db: parseInt(process.env.REDIS_DB || 0),
-        connectTimeout: 2000, // 缩短超时时间
-        maxRetriesPerRequest: 1,
-        lazyConnect: true
-      };
+      let config;
 
-      if (process.env.REDIS_PASSWORD) {
-        config.password = process.env.REDIS_PASSWORD;
+      // 优先使用 REDIS_URL（支持 Upstash Redis）
+      if (process.env.REDIS_URL) {
+        config = process.env.REDIS_URL;
+        this.logger.info('使用 REDIS_URL 连接 Redis');
+      } else {
+        // 使用传统配置方式
+        config = {
+          host: process.env.REDIS_HOST || 'localhost',
+          port: parseInt(process.env.REDIS_PORT || 6379),
+          db: parseInt(process.env.REDIS_DB || 0),
+          connectTimeout: 5000,
+          maxRetriesPerRequest: 3
+        };
+
+        if (process.env.REDIS_PASSWORD) {
+          config.password = process.env.REDIS_PASSWORD;
+        }
       }
 
       this.client = new Redis(config);
@@ -47,16 +55,13 @@ class RedisClient {
       // 简化的错误处理
       this.client.on('error', () => {}); // 静默错误
 
-      // 尝试连接
-      await this.client.connect();
-
-      // 简单的 ping 测试
+      // ioredis 默认是懒连接，不需要手动调用 connect()
+      // 直接进行 ping 测试
       try {
         await this.client.ping();
         this.logger.info('Redis 客户端已连接', {
-          host: config.host,
-          port: config.port,
-          db: config.db
+          mode: process.env.REDIS_URL ? 'URL' : 'Config',
+          config: process.env.REDIS_URL ? 'Upstash Redis' : `${config.host}:${config.port}`
         });
         return this.client;
       } catch (error) {
@@ -65,8 +70,7 @@ class RedisClient {
     } catch (error) {
       this.logger.warn('Redis 连接失败，切换到内存模式', {
         error: error.message,
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || 6379)
+        mode: process.env.REDIS_URL ? 'URL' : 'Config'
       });
       this.useMemoryMode = true;
       this.client = this.publisher = this.subscriber = null;
