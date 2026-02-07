@@ -388,6 +388,33 @@ async function monitoringRoutes(fastify, options) {
       });
     }
   });
+
+  // 8. 获取缓存统计信息（L1 + L2）
+  fastify.get('/monitoring/cache-stats', async (request, reply) => {
+    try {
+      const stats = await cacheService.getStats();
+
+      if (!stats) {
+        return reply.status(500).send({
+          code: -1,
+          message: '获取缓存统计失败'
+        });
+      }
+
+      return reply.send({
+        code: 0,
+        message: 'success',
+        data: stats
+      });
+    } catch (error) {
+      console.error('获取缓存统计失败:', error);
+      return reply.status(500).send({
+        code: -1,
+        message: '获取缓存统计失败',
+        error: error.message
+      });
+    }
+  });
 }
 
 module.exports = monitoringRoutes;

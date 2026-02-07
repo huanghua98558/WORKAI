@@ -267,3 +267,124 @@ REDIS_URL=redis://...
 **报告生成时间**：2026-02-07  
 **执行人**：WorkTool AI 团队  
 **版本**：v1.0
+---
+
+## 八、缓存分层策略（L1 + L2）✅ 新增
+
+### 8.1 分层架构设计
+
+**文件**：`server/lib/cache.js`
+
+**分层策略**：
+- **L1 层（内存缓存）**：
+  - 优先级：访问优先（热点数据，无网络开销）
+  - TTL：60 秒（默认）
+  - 作用：本地加速，减少 Redis 访问
+  - 最大容量：1000 个缓存项（自动清理）
+
+- **L2 层（Redis 缓存）**：
+  - 优先级：数据源优先（集中式缓存，数据一致性更好）
+  - TTL：300 秒（默认）
+  - 作用：主缓存源，持久化存储
+  - 服务：Upstash Redis (Tokyo 区域)
+
+### 8.2 访问策略
+
+**读取流程**：
+1. 优先从 L1 内存缓存获取（热点数据）
+2. L1 未命中，从 L2 Redis 获取
+3. L2 命中，回填 L1（热点数据本地加速）
+4. L2 未命中，返回 null
+
+**写入流程**：
+1. 同时写入 L1 和 L2
+2. L1 TTL 较短（60秒），L2 TTL 较长（300秒）
+3. 确保数据一致性
+
+**删除流程**：
+1. 同时删除 L1 和 L2
+2. 支持模糊删除（通配符模式）
+
+**降级策略**：
+1. Redis 异常时，降级到 L1 内存缓存
+2. L1 未命中，返回 null
+3. 确保服务可用性
+
+### 8.3 L1 内存缓存实现
+
+**核心类**：`MemoryCacheItem`
+```javascript
+class MemoryCacheItem {
+  constructor(value, ttl) {
+    this.value = value;
+    this.expiresAt = Date.now() + ttl * 1000;
+  }
+
+  isExpired() {
+    return Date.now() > this.expiresAt;
+  }
+}
+```
+
+**核心方法**：
+- `getL1(key)` - 从 L1 获取缓存
+- `setL1(key, value, ttl)` - 设置 L1 缓存
+- `deleteL1(key)` - 删除 L1 缓存
+- `cleanupL1Cache()` - 清理过期 L1 缓存
+- `startL1Cleanup()` - 启动定期清理任务（每分钟）
+- `getL1Stats()` - 获取 L1 统计信息
+
+### 8.4 缓存统计接口
+
+**接口**：`GET /api/monitoring/cache-stats`
+
+**返回数据**：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "l1": {
+      "hits": 3,
+      "misses": 1,
+      "sets": 3,
+      "deletes": 1,
+      "size": 2,
+      "hitRate": 0.75
+    },
+    "l2": {
+      "total_commands": 128,
+      "total_connections": 27,
+      "total_keys": 7
+    },
+    "summary": {
+      "totalHits": 3,
+      "totalMisses": 1,
+      "overallHitRate": 0.75,
+      "l1HitRate": 0.75
+    }
+  }
+}
+```
+
+### 8.5 性能提升
+
+**实测数据**：
+- **L1 命中率**：75%（3/4）
+- **L1 缓存大小**：2 个缓存项
+- **L2 Redis 键数**：7 个
+- **总命中率**：75%
+
+**性能提升预期**：
+- **热点数据访问**：减少 90% 的 Redis 访问（L1 命中）
+- **普通数据访问**：减少 80% 的数据库查询（L2 命中）
+- **Redis 使用量**：减少 20-30%（L1 缓存命中）
+- **响应时间**：L1 命中时 < 1ms，L2 命中时 < 10ms
+
+### 8.6 优势
+
+1. **性能优化**：L1 内存缓存无网络开销，响应速度极快
+2. **数据一致性**：L2 Redis 是主要缓存源，多实例共享数据
+3. **高可用性**：Redis 故障时降级到 L1，确保服务可用
+4. **成本优化**：减少 Redis 命令使用量，节省费用
+5. **智能清理**：定期清理过期 L1 缓存，避免内存占用过大
