@@ -1,43 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
 
-// 数据库连接池
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
+
+// 后端数据转前端数据
+function transformToFrontend(data: any) {
+  return {
+    ...data,
+    status: data.isActive ? 'active' : 'inactive',
+    trigger_type: data.triggerType,
+    trigger_config: data.triggerConfig || {},
+    created_at: data.createdAt,
+    updated_at: data.updatedAt,
+    created_by: data.createdBy,
+    edges: data.edges || [],
+    variables: data.variables || {},
+    timeout: data.timeout || 30000,
+    retryConfig: data.retryConfig || { maxRetries: 3, retryInterval: 1000 },
+    // 保留原始字段
+    is_active: data.isActive,
+    triggerType: data.triggerType,
+    triggerConfig: data.triggerConfig,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    createdBy: data.createdBy,
+  };
+}
+
+// 前端数据转后端数据
+function transformToBackend(data: any) {
+  return {
+    ...data,
+    is_active: data.status === 'active',
+    trigger_type: data.trigger_type,
+    trigger_config: data.trigger_config || {},
+    updated_at: new Date().toISOString(),
+    created_by: data.created_by || null,
+    retry_config: data.retryConfig || { maxRetries: 3, retryInterval: 1000 },
+  };
+}
 
 /**
  * GET /api/flow-engine/definitions/[id]
- * 获取指定流程定义的详细信息
+ * 获取流程定义详情
  */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const resolvedParams = await params;
-    const flowId = resolvedParams.id;
+    const { id } = await params;
+    
+    const url = new URL(`${BACKEND_URL}/api/flow-engine/definitions/${id}`);
 
-    const result = await pool.query(
-      'SELECT * FROM flow_definitions WHERE id = $1',
-      [flowId]
-    );
-
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        { success: false, error: '未找到流程定义' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: result.rows[0],
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
-  } catch (error: any) {
-    console.error('[GET /api/flow-engine/definitions/[id]] Error:', error);
+
+    const data = await response.json();
+    
+    // 转换数据格式
+    if (data.data) {
+      const transformedData = transformToFrontend(data.data);
+      return NextResponse.json({ 
+        ...data, 
+        data: transformedData 
+      }, { status: response.status });
+    }
+    
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    console.error('Get flow definition proxy error:', error);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: 'Failed to get flow definition' },
       { status: 500 }
     );
   }
@@ -52,46 +89,39 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const resolvedParams = await params;
-    const flowId = resolvedParams.id;
+    const { id } = await params;
+    
     const body = await request.json();
+    
+    // 转换前端字段为后端字段
+    const transformedBody = transformToBackend(body);
+    
+    const url = new URL(`${BACKEND_URL}/api/flow-engine/definitions/${id}`);
 
-    const result = await pool.query(
-      `UPDATE flow_definitions
-       SET name = $1,
-           description = $2,
-           nodes = $3,
-           edges = $4,
-           variables = $5,
-           updated_at = NOW()
-       WHERE id = $6
-       RETURNING *`,
-      [
-        body.name,
-        body.description,
-        JSON.stringify(body.nodes || []),
-        JSON.stringify(body.edges || []),
-        JSON.stringify(body.variables || {}),
-        flowId,
-      ]
-    );
-
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        { success: false, error: '未找到流程定义' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: result.rows[0],
-      message: '流程更新成功',
+    const response = await fetch(url.toString(), {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(transformedBody),
     });
-  } catch (error: any) {
-    console.error('[PUT /api/flow-engine/definitions/[id]] Error:', error);
+
+    const data = await response.json();
+    
+    // 转换返回数据的字段名称
+    if (data.data) {
+      const transformedData = transformToFrontend(data.data);
+      return NextResponse.json({ 
+        ...data, 
+        data: transformedData 
+      }, { status: response.status });
+    }
+    
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    console.error('Update flow definition proxy error:', error);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: 'Failed to update flow definition' },
       { status: 500 }
     );
   }
@@ -106,29 +136,21 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const resolvedParams = await params;
-    const flowId = resolvedParams.id;
+    const { id } = await params;
+    
+    const url = new URL(`${BACKEND_URL}/api/flow-engine/definitions/${id}`);
 
-    const result = await pool.query(
-      'DELETE FROM flow_definitions WHERE id = $1 RETURNING *',
-      [flowId]
-    );
-
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        { success: false, error: '未找到流程定义' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: '流程删除成功',
+    const response = await fetch(url.toString(), {
+      method: 'DELETE',
     });
-  } catch (error: any) {
-    console.error('[DELETE /api/flow-engine/definitions/[id]] Error:', error);
+
+    const data = await response.json();
+    
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    console.error('Delete flow definition proxy error:', error);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: 'Failed to delete flow definition' },
       { status: 500 }
     );
   }
