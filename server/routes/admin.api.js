@@ -1151,7 +1151,7 @@ const adminApiRoutes = async function (fastify, options) {
   fastify.put('/users/:id', async (request, reply) => {
     try {
       const { id } = request.params;
-      const { password, role, email, isActive } = request.body;
+      const { username, password, role, email, isActive } = request.body;
       
       // 检查用户是否存在
       const existingUser = await userManager.getUserById(id);
@@ -1162,7 +1162,18 @@ const adminApiRoutes = async function (fastify, options) {
         });
       }
       
-      // 检查邮箱是否已被其他用户使用
+      // 如果要修改用户名，检查用户名是否已被其他用户使用
+      if (username && username !== existingUser.username) {
+        const existingUsername = await userManager.getUserByUsername(username);
+        if (existingUsername) {
+          return reply.status(400).send({
+            success: false,
+            error: '用户名已被其他用户使用'
+          });
+        }
+      }
+      
+      // 如果要修改邮箱，检查邮箱是否已被其他用户使用
       if (email && email !== existingUser.email) {
         const existingEmail = await userManager.getUserByEmail(email);
         if (existingEmail) {
@@ -1182,6 +1193,16 @@ const adminApiRoutes = async function (fastify, options) {
       }
       
       const updateData = {};
+      // 更新用户名
+      if (username !== undefined && username !== existingUser.username) {
+        if (!username || !username.trim()) {
+          return reply.status(400).send({
+            success: false,
+            error: '用户名不能为空'
+          });
+        }
+        updateData.username = username.trim();
+      }
       // 只有在 password 存在且非空时才更新密码
       if (password && password.trim()) {
         updateData.password = password;
@@ -1194,6 +1215,11 @@ const adminApiRoutes = async function (fastify, options) {
       }
       if (isActive !== undefined) {
         updateData.isActive = isActive;
+      }
+      
+      // 如果没有任何字段需要更新，直接返回成功
+      if (Object.keys(updateData).length === 0) {
+        return { success: true, data: existingUser };
       }
       
       const updatedUser = await userManager.updateUser(id, updateData);
