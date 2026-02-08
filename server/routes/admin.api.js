@@ -459,12 +459,11 @@ const adminApiRoutes = async function (fastify, options) {
 
     try {
       const sessions = await sessionService.getActiveSessions(parseInt(limit));
-      return { code: 0, message: 'success', data: sessions };
+      return { success: true, data: sessions };
     } catch (error) {
       return reply.status(500).send({
-        code: -1,
-        message: error.message,
-        data: []
+        success: false,
+        error: error.message
       });
     }
   });

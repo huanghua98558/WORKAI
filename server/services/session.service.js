@@ -338,36 +338,28 @@ class SessionService {
   async getActiveSessions(options = {}) {
     try {
       const db = await getDb();
-      const { sessionMessages } = require('../database/schema');
       const { limit = 50 } = options;
 
-      // 获取最近活跃的会话（基于 sessionMessages 表）
-      // 使用子查询获取每个会话的最新消息时间和消息数量
-      const result = await db.execute(sql`
-        SELECT DISTINCT
-          session_id as "sessionId",
-          user_id as "userId",
-          group_id as "groupId",
-          user_name as "userName",
-          group_name as "groupName",
-          MAX(timestamp) as "lastActiveTime",
-          COUNT(*)::integer as "messageCount",
-          (
-            SELECT content
-            FROM session_messages sm2
-            WHERE sm2.session_id = session_messages.session_id
-            ORDER BY timestamp DESC
-            LIMIT 1
-          ) as "lastMessage",
-          CASE WHEN MAX(CASE WHEN is_human = true THEN timestamp END) IS NOT NULL THEN 'human' ELSE 'auto' END as "status"
-        FROM session_messages
-        WHERE timestamp > NOW() - INTERVAL '24 hours'
-        GROUP BY session_id, user_id, group_id, user_name, group_name
-        ORDER BY "lastActiveTime" DESC
-        LIMIT ${limit}
-      `);
+      const sessions = await db
+        .select()
+        .from(userSessions)
+        .where(eq(userSessions.isActive, true))
+        .orderBy(userSessions.lastActivityAt)
+        .limit(limit);
 
-      return result.rows || [];
+      // 清理过期的会话
+      const now = new Date();
+      for (const session of sessions) {
+        if (new Date(session.expiresAt) < now) {
+          await db
+            .update(userSessions)
+            .set({ isActive: false })
+            .where(eq(userSessions.id, session.id));
+        }
+      }
+
+      // 返回活跃会话
+      return sessions.filter(s => new Date(s.expiresAt) > now);
     } catch (error) {
       this.logger.error('获取活跃会话失败', { error: error.message });
       return [];
