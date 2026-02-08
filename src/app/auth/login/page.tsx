@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Eye, EyeOff, Shield, Lock, User } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function LoginPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -42,12 +44,16 @@ export default function LoginPage() {
       const result = await response.json();
 
       if (result.code === 0) {
-        // 保存 tokens
+        // 保存 tokens 到 localStorage（兼容性）
         localStorage.setItem('access_token', result.data.accessToken);
         localStorage.setItem('refresh_token', result.data.refreshToken);
 
         // 保存用户信息
         localStorage.setItem('user', JSON.stringify(result.data.user));
+
+        // 设置 cookies（用于 middleware 认证）
+        document.cookie = `access_token=${result.data.accessToken}; path=/; max-age=${60 * 60}; SameSite=lax`;
+        document.cookie = `refresh_token=${result.data.refreshToken}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=lax`;
 
         // 跳转到首页
         router.push('/');
@@ -81,32 +87,48 @@ export default function LoginPage() {
 
             <div className="space-y-2">
               <Label htmlFor="username">用户名</Label>
-              <Input
-                id="username"
-                name="username"
-                type="text"
-                placeholder="请输入用户名"
-                value={formData.username}
-                onChange={handleChange}
-                disabled={loading}
-                required
-                autoComplete="username"
-              />
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  id="username"
+                  name="username"
+                  type="text"
+                  placeholder="请输入用户名"
+                  value={formData.username}
+                  onChange={handleChange}
+                  disabled={loading}
+                  required
+                  autoComplete="username"
+                  className="pl-10"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password">密码</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="请输入密码"
-                value={formData.password}
-                onChange={handleChange}
-                disabled={loading}
-                required
-                autoComplete="current-password"
-              />
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="请输入密码"
+                  value={formData.password}
+                  onChange={handleChange}
+                  disabled={loading}
+                  required
+                  autoComplete="current-password"
+                  className="pl-10 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={loading}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
 
             <div className="flex justify-end">
@@ -123,17 +145,33 @@ export default function LoginPage() {
               className="w-full"
               disabled={loading}
             >
-              {loading ? '登录中...' : '登录'}
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  登录中...
+                </>
+              ) : (
+                <>
+                  <Shield className="h-4 w-4 mr-2" />
+                  安全登录
+                </>
+              )}
             </Button>
 
-            <div className="text-center text-sm">
-              还没有账号？
-              <a
-                href="/auth/register"
-                className="ml-1 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-              >
-                立即注册
-              </a>
+            <div className="text-center text-sm space-y-2">
+              <div>
+                还没有账号？
+                <a
+                  href="/auth/register"
+                  className="ml-1 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                >
+                  立即注册
+                </a>
+              </div>
+              <div className="flex items-center justify-center space-x-2 text-xs text-muted-foreground">
+                <Shield className="h-3 w-3" />
+                <span>登录即表示同意服务条款和隐私政策</span>
+              </div>
             </div>
           </form>
         </CardContent>

@@ -9,7 +9,7 @@ interface AuthContextType {
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  refreshTokens: () => Promise<void>;
+  refreshTokens: () => Promise<boolean>;
   isAuthenticated: boolean;
 }
 
@@ -91,6 +91,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (result.code === 0) {
         localStorage.setItem('access_token', result.data.accessToken);
         localStorage.setItem('refresh_token', result.data.refreshToken);
+
+        // 更新 cookies
+        document.cookie = `access_token=${result.data.accessToken}; path=/; max-age=${60 * 60}; SameSite=lax`;
+        document.cookie = `refresh_token=${result.data.refreshToken}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=lax`;
+
         return true;
       } else {
         clearAuth();
@@ -116,13 +121,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const result = await response.json();
 
     if (result.code === 0) {
-      // 保存 tokens
+      // 保存 tokens 到 localStorage
       localStorage.setItem('access_token', result.data.accessToken);
       localStorage.setItem('refresh_token', result.data.refreshToken);
 
       // 保存用户信息
       setUser(result.data.user);
       localStorage.setItem('user', JSON.stringify(result.data.user));
+
+      // 设置 cookies（用于 middleware 认证）
+      document.cookie = `access_token=${result.data.accessToken}; path=/; max-age=${60 * 60}; SameSite=lax`;
+      document.cookie = `refresh_token=${result.data.refreshToken}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=lax`;
 
       // 跳转到首页
       router.push('/');
@@ -157,6 +166,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
     setUser(null);
+
+    // 清除 cookies
+    document.cookie = 'access_token=; path=/; max-age=0';
+    document.cookie = 'refresh_token=; path=/; max-age=0';
   };
 
   // 初始化时检查认证
