@@ -4,9 +4,21 @@ const { users, insertUserSchema, updateUserSchema } = require("./schema");
 const { getLogger } = require("../lib/logger");
 const { hashPassword, verifyPassword, checkPasswordStrength } = require("../lib/password");
 
+// 模块加载时诊断日志
+console.log('[userManager] module init diagnostics:', {
+  insertUserSchemaType: typeof insertUserSchema,
+  insertUserSchemaKeys: insertUserSchema ? Object.keys(insertUserSchema).slice(0, 5) : [],
+  parseType: typeof insertUserSchema?.parse
+});
+
 class UserManager {
   constructor() {
     this.logger = getLogger('DB_USER');
+    this.logger.info('UserManager 初始化', {
+      insertUserSchema: typeof insertUserSchema,
+      updateUserSchema: typeof updateUserSchema,
+      parse: typeof insertUserSchema?.parse
+    });
   }
 
   async createUser(data) {
@@ -42,11 +54,24 @@ class UserManager {
       passwordChangedAt: new Date(), // 记录密码修改时间
     };
 
-    const validated = insertUserSchema.parse(userData);
-    const [user] = await db.insert(users).values(validated).returning();
+    try {
+      this.logger.info('开始验证用户数据', { insertUserSchema: typeof insertUserSchema, parse: typeof insertUserSchema?.parse });
+      const validated = insertUserSchema.parse(userData);
+      this.logger.info('验证成功', { validated });
+      const [user] = await db.insert(users).values(validated).returning();
 
-    this.logger.info('创建用户成功', { userId: user.id, username: user.username });
-    return user;
+      this.logger.info('创建用户成功', { userId: user.id, username: user.username });
+      return user;
+    } catch (error) {
+      this.logger.error('创建用户失败', {
+        error: error.message,
+        stack: error.stack,
+        insertUserSchema: typeof insertUserSchema,
+        parse: typeof insertUserSchema?.parse,
+        userData: JSON.stringify(userData)
+      });
+      throw error;
+    }
   }
 
   /**

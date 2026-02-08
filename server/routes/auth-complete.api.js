@@ -265,6 +265,18 @@ async function authRoutes(fastify, options) {
         }
       });
     } catch (error) {
+      logger.error('[Auth] 注册失败（完整错误堆栈）', {
+        username,
+        email,
+        ip: clientIp,
+        error: error.message,
+        stack: error.stack,
+        details: {
+          name: error.name,
+          code: error.code
+        }
+      });
+
       // 记录审计日志
       logAudit({
         userId: null,
@@ -276,13 +288,6 @@ async function authRoutes(fastify, options) {
         errorMessage: error.message,
         ipAddress: clientIp,
         userAgent
-      });
-
-      logger.error('[Auth] 注册失败', {
-        username,
-        email,
-        ip: clientIp,
-        error: error.message
       });
 
       // 返回具体的错误信息

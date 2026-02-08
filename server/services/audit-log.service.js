@@ -7,6 +7,8 @@ const { getDb } = require('coze-coding-dev-sdk');
 const { userAuditLogs } = require('../database/schema');
 const { getLogger } = require('../lib/logger');
 const { v4: uuidv4 } = require('uuid');
+const { eq } = require('drizzle-orm');
+const { sql } = require('drizzle-orm');
 
 class AuditLogService {
   constructor() {

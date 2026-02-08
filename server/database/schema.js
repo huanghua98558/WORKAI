@@ -194,6 +194,63 @@ exports.users = pgTable(
   })
 );
 
+// 用户表 Zod Schema
+exports.insertUserSchema = z.object({
+  username: z.string().min(3).max(64),
+  email: z.string().email().optional().nullable(),
+  password: z.string().min(8),
+  role: z.enum(['admin', 'operator', 'viewer']).default('operator'),
+  isActive: z.boolean().default(true),
+  fullName: z.string().optional().nullable(),
+  avatarUrl: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+});
+
+exports.updateUserSchema = z.object({
+  username: z.string().min(3).max(64).optional(),
+  email: z.string().email().optional().nullable(),
+  password: z.string().min(8).optional(),
+  role: z.enum(['admin', 'operator', 'viewer']).optional(),
+  isActive: z.boolean().optional(),
+  fullName: z.string().optional().nullable(),
+  avatarUrl: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+});
+
+// 用户审计日志表
+exports.userAuditLogs = pgTable(
+  "user_audit_logs",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: varchar("user_id", { length: 36 }), // 用户ID
+    action: varchar("action", { length: 100 }).notNull(), // 操作动作: login, logout, register, update, delete, create, view, export
+    actionType: varchar("action_type", { length: 50 }).notNull(), // 操作类型: auth, user, robot, session, system, export
+    resourceType: varchar("resource_type", { length: 50 }), // 资源类型: user, robot, session, system, alert
+    resourceId: varchar("resource_id", { length: 36 }), // 资源ID
+    resourceName: varchar("resource_name", { length: 255 }), // 资源名称（冗余，便于查询）
+    details: jsonb("details").default("{}"), // 操作详情（JSON格式）
+    status: varchar("status", { length: 20 }).notNull().default("success"), // 状态: success, failed
+    errorMessage: text("error_message"), // 错误信息
+    ipAddress: varchar("ip_address", { length: 45 }), // IP地址（支持IPv6）
+    userAgent: text("user_agent"), // 用户代理
+    sessionId: varchar("session_id", { length: 255 }), // 会话ID
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    userIdIdx: index("user_audit_logs_user_id_idx").on(table.userId),
+    actionIdx: index("user_audit_logs_action_idx").on(table.action),
+    actionTypeIdx: index("user_audit_logs_action_type_idx").on(table.actionType),
+    resourceTypeIdx: index("user_audit_logs_resource_type_idx").on(table.resourceType),
+    resourceIdIdx: index("user_audit_logs_resource_id_idx").on(table.resourceId),
+    statusIdx: index("user_audit_logs_status_idx").on(table.status),
+    createdAtIdx: index("user_audit_logs_created_at_idx").on(table.createdAt),
+  })
+);
+
 // 系统设置表
 exports.systemSettings = pgTable(
   "system_settings",
