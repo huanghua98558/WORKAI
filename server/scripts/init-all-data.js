@@ -18,6 +18,11 @@ async function runAllSeedScripts() {
         functionName: 'seedData'
       },
       { 
+        name: '机器人和机器人角色', 
+        file: './seed-robot-role-data.js', 
+        functionName: 'seedRobotAndRoleData'
+      },
+      { 
         name: '意图配置和告警规则', 
         file: './seed-intent-alert.js', 
         functionName: 'seedIntentAndAlertData'
