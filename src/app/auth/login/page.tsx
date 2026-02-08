@@ -68,13 +68,17 @@ export default function LoginPage() {
 
         console.log('[Login] 登录成功，保存数据完成');
 
+        // 等待 cookies 被保存
+        console.log('[Login] 等待 cookies 保存...');
+        await new Promise(resolve => setTimeout(resolve, 200));
+
         // 尝试自动跳转
         console.log('[Login] 即将自动跳转到首页...');
 
-        // 使用 window.location.replace 替代 href
+        // 使用 router.push 替代 window.location.replace
         try {
-          console.log('[Login] 执行跳转命令：window.location.replace("/")');
-          window.location.replace('/');
+          console.log('[Login] 执行跳转命令：router.push("/")');
+          router.push('/');
         } catch (err) {
           console.error('[Login] 自动跳转失败:', err);
           // 如果自动跳转失败，显示手动跳转按钮

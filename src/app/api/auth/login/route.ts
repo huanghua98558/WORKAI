@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
         sameSite: 'lax',
         maxAge: accessTokenExpiry,
         path: '/',
+        domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost',
       });
 
       console.log('[Login API] 已设置 access_token cookie, expiry:', accessTokenExpiry);
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
         sameSite: 'lax',
         maxAge: refreshTokenExpiry,
         path: '/',
+        domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost',
       });
 
       console.log('[Login API] 已设置 refresh_token cookie, expiry:', refreshTokenExpiry);
