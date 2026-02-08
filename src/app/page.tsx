@@ -42,7 +42,6 @@ const AIInteractionMonitor = lazy(() => import('@/components/ai-interaction-moni
 const AIModule = lazy(() => import('@/components/ai-module'));
 const FlowEngineManage = lazy(() => import('@/components/flow-engine-manage'));
 const CollabAnalytics = lazy(() => import('@/app/collab-analytics/page'));
-const VideoChannelTab = lazy(() => import('@/components/video-channel-tab'));
 
 // Token统计组件
 import { TokenStatsCard } from '@/components/token-stats';
@@ -130,8 +129,7 @@ import {
   Building2,
   Send,
   BookOpen,
-  MonitorPlay,
-  Video
+  MonitorPlay
 } from 'lucide-react';
 
 import { MessageBubble } from '@/components/ui/message-bubble';
@@ -2744,13 +2742,6 @@ ${callbacks.robotStatus}
               <span className="font-semibold text-base sm:text-base">协同分析</span>
             </TabsTrigger>
             <TabsTrigger
-              value="video-channel"
-              className="gap-2.5 py-5 px-3.5 min-w-[75px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-600/30 border-2 border-slate-200/70 hover:border-blue-400/80 hover:bg-blue-50/90 hover:shadow-lg hover:shadow-blue-400/20 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 rounded-xl"
-            >
-              <Video className="h-5 w-5" />
-              <span className="font-semibold text-base sm:text-base">视频号转化</span>
-            </TabsTrigger>
-            <TabsTrigger
               value="settings"
               className="gap-2.5 py-5 px-3.5 min-w-[75px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-600/30 border-2 border-slate-200/70 hover:border-blue-400/80 hover:bg-blue-50/90 hover:shadow-lg hover:shadow-blue-400/20 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 rounded-xl"
             >
@@ -2818,12 +2809,6 @@ ${callbacks.robotStatus}
           <TabsContent value="collab-analytics" className="space-y-6">
             <Suspense fallback={<LoadingSpinner />}>
               <CollabAnalytics />
-            </Suspense>
-          </TabsContent>
-
-          <TabsContent value="video-channel" className="space-y-6">
-            <Suspense fallback={<LoadingSpinner />}>
-              <VideoChannelTab />
             </Suspense>
           </TabsContent>
 
