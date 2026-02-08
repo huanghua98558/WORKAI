@@ -379,9 +379,30 @@ class UserManager {
       }
     }
 
+    // 如果包含密码，需要加密
+    const updateData = { ...data };
+    if (updateData.password && updateData.password.trim() !== '') {
+      // 检查密码强度
+      const strength = checkPasswordStrength(updateData.password);
+      if (!strength.isValid) {
+        throw new Error('密码强度不足: ' + strength.issues.join(', '));
+      }
+
+      // 加密新密码
+      updateData.password = await hashPassword(updateData.password);
+      updateData.passwordChangedAt = new Date(); // 更新密码修改时间
+
+      // 重置失败登录次数
+      updateData.failedLoginAttempts = 0;
+      updateData.lockedUntil = null;
+    } else {
+      // 过滤掉空字符串的 password 字段
+      delete updateData.password;
+    }
+
     const [user] = await db
       .update(users)
-      .set(data)
+      .set(updateData)
       .where(eq(users.id, userId))
       .returning();
 
