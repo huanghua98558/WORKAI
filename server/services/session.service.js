@@ -330,6 +330,43 @@ class SessionService {
   }
 
   /**
+   * 获取所有活跃会话（管理员功能）
+   * @param {Object} options - 查询选项
+   * @param {number} options.limit - 限制数量
+   * @returns {Promise<Array>} 活跃会话列表
+   */
+  async getActiveSessions(options = {}) {
+    try {
+      const db = await getDb();
+      const { limit = 50 } = options;
+
+      const sessions = await db
+        .select()
+        .from(userSessions)
+        .where(eq(userSessions.isActive, true))
+        .orderBy(userSessions.lastActivityAt)
+        .limit(limit);
+
+      // 清理过期的会话
+      const now = new Date();
+      for (const session of sessions) {
+        if (new Date(session.expiresAt) < now) {
+          await db
+            .update(userSessions)
+            .set({ isActive: false })
+            .where(eq(userSessions.id, session.id));
+        }
+      }
+
+      // 返回活跃会话
+      return sessions.filter(s => new Date(s.expiresAt) > now);
+    } catch (error) {
+      this.logger.error('获取活跃会话失败', { error: error.message });
+      return [];
+    }
+  }
+
+  /**
    * 获取Token过期时间（秒）
    * @returns {number}
    */
