@@ -636,7 +636,7 @@ export default function NewDashboardTab({
                 {activeGroups.length > 0 ? (
                   activeGroups.map((group, index) => (
                     <div
-                      key={group.groupId}
+                      key={`${group.groupId}-${index}`}
                       className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded-lg"
                     >
                       <div className="flex items-center gap-2">
@@ -683,7 +683,7 @@ export default function NewDashboardTab({
                 {activeUsers.length > 0 ? (
                   activeUsers.map((user, index) => (
                     <div
-                      key={user.userId}
+                      key={`${user.userId}-${index}`}
                       className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded-lg"
                     >
                       <div className="flex items-center gap-2">
