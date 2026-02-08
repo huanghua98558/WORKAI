@@ -27,10 +27,10 @@ export async function GET(request: NextRequest) {
     // 构建过滤条件
     const conditions = [];
     if (startTime) {
-      conditions.push(gte(keywordTriggers.createdAt, new Date(startTime)));
+      conditions.push(gte(keywordTriggers.createdAt, new Date(startTime).toISOString()));
     }
     if (endTime) {
-      conditions.push(lte(keywordTriggers.createdAt, new Date(endTime)));
+      conditions.push(lte(keywordTriggers.createdAt, new Date(endTime).toISOString()));
     }
     if (robotId) {
       conditions.push(eq(keywordTriggers.robotId, robotId));
@@ -64,10 +64,10 @@ export async function GET(request: NextRequest) {
       .orderBy(desc(count(keywordTriggers.id)));
 
     // 2. 获取业务角色详细信息
-    const allBusinessRoles = await db.query.businessRoles.findMany();
+    const allBusinessRoles = await db.select().from(businessRoles);
 
     // 3. 获取机器人信息
-    const allRobots = await db.query.robots.findMany();
+    const allRobots = await db.select().from(robots);
 
     // 4. 构建完整的结果
     const keywordAnalysis = keywordStats.map(stat => {

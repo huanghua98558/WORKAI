@@ -54,9 +54,13 @@ export async function PATCH(
     const body = await request.json();
 
     // 获取当前机器人配置
-    const currentRobot = await db.query.robots.findFirst({
-      where: eq(robots.id, id),
-    });
+    const robotResult = await db
+      .select()
+      .from(robots)
+      .where(eq(robots.id, id))
+      .limit(1);
+
+    const currentRobot = robotResult[0] || null;
 
     if (!currentRobot) {
       return NextResponse.json({

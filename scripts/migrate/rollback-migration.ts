@@ -3,7 +3,7 @@
  * 删除添加的字段和表
  */
 
-import { getDb } from '@coze-coding-dev-sdk/postgres';
+import { getDb } from 'coze-coding-dev-sdk';
 import { sql } from 'drizzle-orm';
 
 async function rollbackMigration() {

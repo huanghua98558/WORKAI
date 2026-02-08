@@ -3,9 +3,12 @@
  * 在迁移前备份关键表
  */
 
-import { getDb } from '@coze-coding-dev-sdk/postgres';
+import { getDb } from 'coze-coding-dev-sdk';
 import { sql } from 'drizzle-orm';
-import { execShell } from '@/lib/utils/exec-shell';
+import { exec as execCb } from 'child_process';
+import { promisify } from 'util';
+
+const exec = promisify(execCb);
 
 interface BackupResult {
   success: boolean;
@@ -27,7 +30,7 @@ async function backupDatabase(): Promise<BackupResult> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupDir = `/tmp/backups/staff-type-migration/${timestamp}`;
     
-    await execShell(`mkdir -p ${backupDir}`, false);
+    await exec(`mkdir -p ${backupDir}`);
     console.log(`[Backup] 备份目录: ${backupDir}`);
 
     // 获取数据库连接信息
@@ -45,13 +48,12 @@ async function backupDatabase(): Promise<BackupResult> {
       
       try {
         const backupFile = `${backupDir}/${table}.sql`;
-        const { stdout, stderr } = await execShell(
-          `pg_dump -t ${table} --data-only --disable-triggers > ${backupFile}`,
-          false
+        await exec(
+          `pg_dump -t ${table} --data-only --disable-triggers > ${backupFile}`
         );
 
         // 检查文件大小
-        const { stdout: fileSize } = await execShell(`wc -c < ${backupFile}`, false);
+        const { stdout: fileSize } = await exec(`wc -c < ${backupFile}`);
         const size = parseInt(fileSize.trim(), 10);
         
         console.log(`[Backup] ✅ ${table} 备份成功 (大小: ${size} bytes)`);
@@ -71,11 +73,11 @@ async function backupDatabase(): Promise<BackupResult> {
       `备份原因: 工作人员类型迁移`,
     ].join('\n');
 
-    await execShell(`cat > ${summaryFile} << 'EOF'\n${summary}\nEOF`, false);
+    await exec(`cat > ${summaryFile} << 'EOF'\n${summary}\nEOF`);
     console.log('[Backup] ✅ 备份摘要创建成功');
 
     // 获取备份总大小
-    const { stdout: totalSize } = await execShell(`du -sh ${backupDir}`, false);
+    const { stdout: totalSize } = await exec(`du -sh ${backupDir}`);
     console.log(`[Backup] 总备份大小: ${totalSize.trim()}`);
 
     result.backupPath = backupDir;
@@ -108,10 +110,7 @@ async function restoreDatabase(backupPath: string): Promise<boolean> {
       console.log(`[Restore] 恢复表: ${table}...`);
       
       try {
-        await execShell(
-          `psql < ${backupFile}`,
-          false
-        );
+        await exec(`psql < ${backupFile}`);
         console.log(`[Restore] ✅ ${table} 恢复成功`);
       } catch (error) {
         console.error(`[Restore] ❌ ${table} 恢复失败:`, error);

@@ -3,7 +3,7 @@
  * 检查所有字段和表是否正确创建
  */
 
-import { getDb } from '@coze-coding-dev-sdk/postgres';
+import { getDb } from 'coze-coding-dev-sdk';
 import { sql } from 'drizzle-orm';
 
 interface ValidationResult {
@@ -44,12 +44,13 @@ async function verifyMigration(): Promise<ValidationResult> {
 
     // 1. 检查 staff.staff_type 字段
     console.log('[Verification] 检查 staff.staff_type 字段...');
-    const staffColumn = await db.execute(sql`
+    const staffColumnResult = await db.execute(sql`
       SELECT column_name, data_type, column_default
       FROM information_schema.columns 
       WHERE table_name = 'staff' 
       AND column_name = 'staff_type'
     `);
+    const staffColumn = staffColumnResult.rows || [];
     if (staffColumn.length > 0) {
       result.checks.staff_type_in_staff = true;
       console.log('[Verification] ✅ staff.staff_type 字段存在');
@@ -60,12 +61,13 @@ async function verifyMigration(): Promise<ValidationResult> {
 
     // 2. 检查 interventions.staff_type 字段
     console.log('[Verification] 检查 interventions.staff_type 字段...');
-    const interventionColumn = await db.execute(sql`
+    const interventionColumnResult = await db.execute(sql`
       SELECT column_name, data_type, column_default
       FROM information_schema.columns 
       WHERE table_name = 'interventions' 
       AND column_name = 'staff_type'
     `);
+    const interventionColumn = interventionColumnResult.rows || [];
     if (interventionColumn.length > 0) {
       result.checks.staff_type_in_interventions = true;
       console.log('[Verification] ✅ interventions.staff_type 字段存在');
@@ -76,22 +78,24 @@ async function verifyMigration(): Promise<ValidationResult> {
 
     // 3. 检查 after_sales_tasks 表
     console.log('[Verification] 检查 after_sales_tasks 表...');
-    const taskTable = await db.execute(sql`
+    const taskTableResult = await db.execute(sql`
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_name = 'after_sales_tasks'
     `);
+    const taskTable = taskTableResult.rows || [];
     if (taskTable.length > 0) {
       result.checks.after_sales_tasks_table = true;
       console.log('[Verification] ✅ after_sales_tasks 表存在');
 
       // 检查关键字段
-      const taskColumns = await db.execute(sql`
+      const taskColumnsResult = await db.execute(sql`
         SELECT column_name 
         FROM information_schema.columns 
         WHERE table_name = 'after_sales_tasks'
         ORDER BY ordinal_position
       `);
+      const taskColumns = taskColumnsResult.rows || [];
       console.log(`[Verification] after_sales_tasks 表有 ${taskColumns.length} 个字段`);
     } else {
       result.errors.push('after_sales_tasks 表不存在');
@@ -100,11 +104,12 @@ async function verifyMigration(): Promise<ValidationResult> {
 
     // 4. 检查 staff_identification_logs 表
     console.log('[Verification] 检查 staff_identification_logs 表...');
-    const logTable = await db.execute(sql`
+    const logTableResult = await db.execute(sql`
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_name = 'staff_identification_logs'
     `);
+    const logTable = logTableResult.rows || [];
     if (logTable.length > 0) {
       result.checks.staff_identification_logs_table = true;
       console.log('[Verification] ✅ staff_identification_logs 表存在');
@@ -115,12 +120,13 @@ async function verifyMigration(): Promise<ValidationResult> {
 
     // 5. 检查 alert_history 表的新字段
     console.log('[Verification] 检查 alert_history 表新字段...');
-    const alertColumns = await db.execute(sql`
+    const alertColumnsResult = await db.execute(sql`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'alert_history' 
       AND column_name IN ('related_task_id', 'source')
     `);
+    const alertColumns = alertColumnsResult.rows || [];
     if (alertColumns.length === 2) {
       result.checks.related_task_id_in_alert_history = true;
       result.checks.source_in_alert_history = true;
@@ -136,12 +142,13 @@ async function verifyMigration(): Promise<ValidationResult> {
 
     // 6. 检查 collaboration_decision_logs 表的新字段
     console.log('[Verification] 检查 collaboration_decision_logs 表新字段...');
-    const decisionColumns = await db.execute(sql`
+    const decisionColumnsResult = await db.execute(sql`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'collaboration_decision_logs' 
       AND column_name IN ('staff_type', 'message_type')
     `);
+    const decisionColumns = decisionColumnsResult.rows || [];
     if (decisionColumns.length === 2) {
       result.checks.staff_type_in_collaboration_logs = true;
       result.checks.message_type_in_collaboration_logs = true;
@@ -157,21 +164,24 @@ async function verifyMigration(): Promise<ValidationResult> {
 
     // 7. 检查索引
     console.log('[Verification] 检查索引...');
-    const indexes = await db.execute(sql`
+    const indexesResult = await db.execute(sql`
       SELECT indexname 
       FROM pg_indexes 
       WHERE tablename IN ('after_sales_tasks', 'staff_identification_logs')
     `);
+    const indexes = indexesResult.rows || [];
     console.log(`[Verification] 找到 ${indexes.length} 个索引`);
 
     // 8. 数据采样检查
     console.log('[Verification] 数据采样检查...');
-    const staffCount = await db.execute(sql`SELECT COUNT(*) as count FROM staff`);
+    const staffCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM staff`);
+    const staffCount = staffCountResult.rows || [];
     console.log(`[Verification] staff 表有 ${staffCount[0]?.count || 0} 条记录`);
 
-    const staffWithDefaultType = await db.execute(sql`
+    const staffWithDefaultTypeResult = await db.execute(sql`
       SELECT COUNT(*) as count FROM staff WHERE staff_type = 'management'
     `);
+    const staffWithDefaultType = staffWithDefaultTypeResult.rows || [];
     console.log(`[Verification] staff_type 默认值为 'management' 的记录: ${staffWithDefaultType[0]?.count || 0}`);
 
     if (result.success) {

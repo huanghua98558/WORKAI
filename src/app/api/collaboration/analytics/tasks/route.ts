@@ -29,10 +29,10 @@ export async function GET(request: NextRequest) {
     // 构建过滤条件
     const conditions = [];
     if (startTime) {
-      conditions.push(gte(tasks.createdAt, new Date(startTime)));
+      conditions.push(gte(tasks.createdAt, new Date(startTime).toISOString()));
     }
     if (endTime) {
-      conditions.push(lte(tasks.createdAt, new Date(endTime)));
+      conditions.push(lte(tasks.createdAt, new Date(endTime).toISOString()));
     }
     if (robotId) {
       conditions.push(eq(tasks.robotId, robotId));
@@ -68,13 +68,13 @@ export async function GET(request: NextRequest) {
       .orderBy(desc(count(tasks.id)));
 
     // 2. 获取业务角色详细信息
-    const allBusinessRoles = await db.query.businessRoles.findMany();
+    const allBusinessRoles = await db.select().from(businessRoles);
 
     // 3. 获取机器人信息
-    const allRobots = await db.query.robots.findMany();
+    const allRobots = await db.select().from(robots);
 
     // 4. 获取工作人员信息
-    const allStaff = await db.query.staff.findMany();
+    const allStaff = await db.select().from(staff);
 
     // 5. 构建业务角色分析结果
     const taskAnalysis = businessRoleStats.map(stat => {
@@ -124,11 +124,12 @@ export async function GET(request: NextRequest) {
     };
 
     // 7. 获取最近的任务列表
-    const recentTasks = await db.query.tasks.findMany({
-      where: conditions.length > 0 ? and(...conditions) : undefined,
-      orderBy: [desc(tasks.createdAt)],
-      limit: 10,
-    });
+    const recentTasks = await db
+      .select()
+      .from(tasks)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(tasks.createdAt))
+      .limit(10);
 
     const recentTasksWithDetails = recentTasks.map(task => {
       const roleInfo = allBusinessRoles.find(r => r.id === task.businessRoleId);

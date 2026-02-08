@@ -64,11 +64,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: result.tasks,
+      data: result.tasks || [],
       pagination: {
         limit: params.limit || 100,
         offset: params.offset || 0,
-        count: result.tasks.length,
+        count: result.tasks?.length || 0,
       },
     });
   } catch (error) {
@@ -116,13 +116,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const result = await afterSalesTaskService.createTask(body);
+    const taskId = await afterSalesTaskService.createTask(body);
 
-    if (!result.success) {
+    if (!taskId) {
       return NextResponse.json(
         {
           success: false,
-          error: result.error,
+          error: '创建任务失败',
         },
         { status: 500 }
       );
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: result.task,
+      data: { taskId },
       message: '售后任务创建成功',
     });
   } catch (error) {

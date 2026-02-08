@@ -3,7 +3,7 @@
  * 为新表和新字段创建索引以提高查询性能
  */
 
-import { getDb } from '@coze-coding-dev-sdk/postgres';
+import { getDb } from 'coze-coding-dev-sdk';
 import { sql } from 'drizzle-orm';
 
 interface IndexResult {

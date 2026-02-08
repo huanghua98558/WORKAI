@@ -3,7 +3,7 @@
  * 为现有工作人员添加 staff_type 字段
  */
 
-import { getDb } from '@coze-coding-dev-sdk/postgres';
+import { getDb } from 'coze-coding-dev-sdk';
 import { sql } from 'drizzle-orm';
 
 async function migrateStaffType() {
@@ -13,12 +13,14 @@ async function migrateStaffType() {
     const db = await getDb();
 
     // 1. 检查 staff_type 字段是否已存在
-    const checkColumn = await db.execute(sql`
+    const checkColumnResult = await db.execute(sql`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'staff' 
       AND column_name = 'staff_type'
     `);
+
+    const checkColumn = checkColumnResult.rows || [];
 
     if (checkColumn.length > 0) {
       console.log('[Migration] staff_type 字段已存在，跳过创建');
@@ -33,12 +35,14 @@ async function migrateStaffType() {
     }
 
     // 3. 检查 interventions 表的 staff_type 字段
-    const checkInterventionColumn = await db.execute(sql`
+    const checkInterventionResult = await db.execute(sql`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'interventions' 
       AND column_name = 'staff_type'
     `);
+
+    const checkInterventionColumn = checkInterventionResult.rows || [];
 
     if (checkInterventionColumn.length > 0) {
       console.log('[Migration] interventions.staff_type 字段已存在，跳过创建');
@@ -110,12 +114,14 @@ async function migrateStaffType() {
     console.log('[Migration] ✅ 工作人员识别日志表创建成功');
 
     // 7. 添加 alertHistory 表的新字段
-    const checkAlertRelatedTask = await db.execute(sql`
+    const checkAlertRelatedTaskResult = await db.execute(sql`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'alert_history' 
       AND column_name = 'related_task_id'
     `);
+
+    const checkAlertRelatedTask = checkAlertRelatedTaskResult.rows || [];
 
     if (checkAlertRelatedTask.length > 0) {
       console.log('[Migration] alert_history.related_task_id 字段已存在，跳过创建');
@@ -130,12 +136,14 @@ async function migrateStaffType() {
     }
 
     // 8. 添加 collaborationDecisionLogs 表的新字段
-    const checkDecisionStaffType = await db.execute(sql`
+    const checkDecisionStaffTypeResult = await db.execute(sql`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'collaboration_decision_logs' 
       AND column_name = 'staff_type'
     `);
+
+    const checkDecisionStaffType = checkDecisionStaffTypeResult.rows || [];
 
     if (checkDecisionStaffType.length > 0) {
       console.log('[Migration] collaboration_decision_logs.staff_type 字段已存在，跳过创建');

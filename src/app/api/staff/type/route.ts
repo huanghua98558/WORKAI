@@ -210,11 +210,11 @@ export async function PUT(request: NextRequest) {
           staffUserId: item.staffUserId,
           staffType: item.staffType,
           success: false,
-          error: result.error,
+          error: '设置工作人员类型失败',
         });
         errors.push({
           staffUserId: item.staffUserId,
-          error: result.error,
+          error: '设置工作人员类型失败',
         });
       }
     }
