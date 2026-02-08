@@ -325,16 +325,16 @@ MESSAGE_ENTRY → SMART_ANALYZE → FLOW_DECISION
 ### 1. 加载默认流程
 
 ```javascript
-// 加载默认流程（标准客服流程）
-const defaultFlow = await loadFlow('flow_v4_standard_customer_service');
+// 加载默认流程（统一消息处理流程）
+const defaultFlow = await loadFlow('flow_unified_message_handling');
 ```
 
 ### 2. 创建自定义流程
 
 基于默认流程克隆并修改：
 ```javascript
-// 克隆标准客服流程
-const customFlow = cloneFlow('flow_v4_standard_customer_service');
+// 克隆统一消息处理流程
+const customFlow = cloneFlow('flow_unified_message_handling');
 
 // 修改配置
 customFlow.name = "我的客服流程";
@@ -348,10 +348,10 @@ await saveFlow(customFlow);
 
 ```javascript
 // 启用流程
-await enableFlow('flow_v4_standard_customer_service');
+await enableFlow('flow_unified_message_handling');
 
 // 禁用流程
-await disableFlow('flow_v4_standard_customer_service');
+await disableFlow('flow_unified_message_handling');
 ```
 
 ---
