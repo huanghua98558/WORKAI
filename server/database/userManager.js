@@ -2,6 +2,7 @@ const { eq, and, like, sql } = require("drizzle-orm");
 const { getDb } = require("coze-coding-dev-sdk");
 const { users, insertUserSchema, updateUserSchema } = require("./schema");
 const { getLogger } = require("../lib/logger");
+const { hashPassword, verifyPassword, checkPasswordStrength } = require("../lib/password");
 
 class UserManager {
   constructor() {
@@ -10,8 +11,40 @@ class UserManager {
 
   async createUser(data) {
     const db = await getDb();
-    const validated = insertUserSchema.parse(data);
+
+    // 检查用户名是否已存在
+    const existingUser = await this.getUserByUsername(data.username);
+    if (existingUser) {
+      throw new Error('用户名已存在');
+    }
+
+    // 检查邮箱是否已存在
+    if (data.email) {
+      const existingEmail = await this.getUserByEmail(data.email);
+      if (existingEmail) {
+        throw new Error('邮箱已被使用');
+      }
+    }
+
+    // 检查密码强度
+    const strength = checkPasswordStrength(data.password);
+    if (!strength.isValid) {
+      throw new Error('密码强度不足: ' + strength.issues.join(', '));
+    }
+
+    // 加密密码
+    const hashedPassword = await hashPassword(data.password);
+
+    // 创建用户
+    const userData = {
+      ...data,
+      password: hashedPassword,
+      passwordChangedAt: new Date(), // 记录密码修改时间
+    };
+
+    const validated = insertUserSchema.parse(userData);
     const [user] = await db.insert(users).values(validated).returning();
+
     this.logger.info('创建用户成功', { userId: user.id, username: user.username });
     return user;
   }
@@ -67,11 +100,28 @@ class UserManager {
 
   async updateUser(id, data) {
     const db = await getDb();
-    // 过滤掉空字符串的 password 字段
+
+    // 如果包含密码，需要加密
     const updateData = { ...data };
-    if (updateData.password === "" || updateData.password?.trim() === "") {
+    if (updateData.password && updateData.password.trim() !== '') {
+      // 检查密码强度
+      const strength = checkPasswordStrength(updateData.password);
+      if (!strength.isValid) {
+        throw new Error('密码强度不足: ' + strength.issues.join(', '));
+      }
+
+      // 加密新密码
+      updateData.password = await hashPassword(updateData.password);
+      updateData.passwordChangedAt = new Date(); // 更新密码修改时间
+
+      // 重置失败登录次数
+      updateData.failedLoginAttempts = 0;
+      updateData.lockedUntil = null;
+    } else {
+      // 过滤掉空字符串的 password 字段
       delete updateData.password;
     }
+
     const validated = updateUserSchema.parse(updateData);
     const [user] = await db
       .update(users)
@@ -96,17 +146,77 @@ class UserManager {
       .select()
       .from(users)
       .where(and(eq(users.username, username), eq(users.isActive, true)));
-    
+
     if (!user) {
       return null;
     }
 
-    // 这里应该使用密码哈希比较，暂时简单比较
-    if (user.password === password) {
-      return user;
+    // 检查账户是否被锁定
+    if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
+      this.logger.warn('账户已被锁定', {
+        userId: user.id,
+        username: user.username,
+        lockedUntil: user.lockedUntil
+      });
+      throw new Error('账户已被锁定，请稍后再试');
     }
-    
-    return null;
+
+    // 使用bcrypt验证密码
+    const isMatch = await verifyPassword(password, user.password);
+
+    if (isMatch) {
+      // 登录成功，重置失败次数
+      if (user.failedLoginAttempts > 0) {
+        await db
+          .update(users)
+          .set({
+            failedLoginAttempts: 0,
+            lockedUntil: null
+          })
+          .where(eq(users.id, user.id));
+      }
+
+      return user;
+    } else {
+      // 登录失败，增加失败次数
+      const newFailedAttempts = (user.failedLoginAttempts || 0) + 1;
+      const maxFailedAttempts = 5;
+
+      if (newFailedAttempts >= maxFailedAttempts) {
+        // 锁定账户30分钟
+        const lockedUntil = new Date(Date.now() + 30 * 60 * 1000);
+        await db
+          .update(users)
+          .set({
+            failedLoginAttempts: newFailedAttempts,
+            lockedUntil: lockedUntil
+          })
+          .where(eq(users.id, user.id));
+
+        this.logger.warn('账户因多次登录失败被锁定', {
+          userId: user.id,
+          username: user.username,
+          failedAttempts: newFailedAttempts,
+          lockedUntil: lockedUntil
+        });
+
+        throw new Error('密码错误次数过多，账户已被锁定30分钟');
+      } else {
+        // 更新失败次数
+        await db
+          .update(users)
+          .set({ failedLoginAttempts: newFailedAttempts })
+          .where(eq(users.id, user.id));
+
+        this.logger.warn('登录密码错误', {
+          userId: user.id,
+          username: user.username,
+          failedAttempts: newFailedAttempts
+        });
+      }
+
+      return null;
+    }
   }
 
   /**

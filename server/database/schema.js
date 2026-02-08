@@ -150,13 +150,43 @@ exports.users = pgTable(
     username: varchar("username", { length: 64 }).notNull().unique(),
     email: varchar("email", { length: 255 }).unique(),
     password: text("password").notNull(),
-    role: varchar("role", { length: 20 }).notNull().default("admin"), // admin, operator
+    role: varchar("role", { length: 20 }).notNull().default("admin"), // admin, operator, viewer
     isActive: boolean("is_active").default(true).notNull(),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }),
+
+    // 扩展字段
+    avatarUrl: varchar("avatar_url", { length: 500 }), // 头像URL
+    phone: varchar("phone", { length: 20 }), // 手机号
+    fullName: varchar("full_name", { length: 255 }), // 全名
+
+    // 两步验证字段
+    mfaEnabled: boolean("mfa_enabled").default(false), // 两步验证启用
+    mfaSecret: varchar("mfa_secret", { length: 32 }), // 两步验证密钥
+    mfaBackupCodes: jsonb("mfa_backup_codes").default("[]"), // 两步验证备用码
+
+    // 账户锁定字段
+    failedLoginAttempts: integer("failed_login_attempts").default(0), // 失败登录次数
+    lockedUntil: timestamp("locked_until", { withTimezone: true }), // 锁定到期时间
+
+    // 密码过期字段
+    passwordChangedAt: timestamp("password_changed_at", { withTimezone: true }), // 密码修改时间
+    passwordExpiresAt: timestamp("password_expires_at", { withTimezone: true }), // 密码过期时间
+
+    // 邮箱验证字段
+    emailVerified: boolean("email_verified").default(false), // 邮箱验证状态
+    emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }), // 邮箱验证时间
+    emailVerificationToken: varchar("email_verification_token", { length: 255 }), // 邮箱验证令牌
+
+    // 最后活跃字段
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true }), // 最后活跃时间
+    lastLoginIp: varchar("last_login_ip", { length: 45 }), // 最后登录IP
+
+    // 元数据字段
+    metadata: jsonb("metadata").default("{}"), // 元数据
   },
   (table) => ({
     usernameIdx: index("users_username_idx").on(table.username),
@@ -238,6 +268,9 @@ exports.robots = pgTable(
     robotGroup: varchar("robot_group", { length: 50 }), // 机器人分组（如：营销、服务、技术支持等）
     robotType: varchar("robot_type", { length: 50 }), // 机器人类型（如：角色、助手、客服等）
     extraData: jsonb("extra_data"), // 额外数据（JSON格式，存储其他WorkTool返回的信息）
+    ownerId: varchar("owner_id", { length: 36 }), // 创建者ID（用户ID）
+    ownerName: varchar("owner_name", { length: 255 }), // 创建者名称
+    isSystem: boolean("is_system").default(false), // 是否为系统机器人（超管分配，不可删除）
 
     // 回调地址（5个）
     messageCallbackUrl: varchar("message_callback_url", { length: 500 }), // 消息回调地址
@@ -270,6 +303,8 @@ exports.robots = pgTable(
     isValidIdx: index("robots_is_valid_idx").on(table.isValid),
     expiresAtIdx: index("robots_expires_at_idx").on(table.expiresAt),
     companyIdx: index("robots_company_idx").on(table.company),
+    ownerIdIdx: index("robots_owner_id_idx").on(table.ownerId),
+    isSystemIdx: index("robots_is_system_idx").on(table.isSystem),
   })
 );
 
@@ -1165,6 +1200,45 @@ exports.execution_tracking = pgTable(
     sessionIdIdx: index("execution_tracking_session_id_idx").on(table.sessionId),
     statusIdx: index("execution_tracking_status_idx").on(table.status),
     createdAtIdx: index("execution_tracking_created_at_idx").on(table.createdAt),
+  })
+);
+
+// ============================================
+// 机器人权限表
+// ============================================
+
+// 机器人权限表（管理用户对机器人的访问权限）
+exports.robotPermissions = pgTable(
+  "robot_permissions",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: varchar("user_id", { length: 36 }).notNull(), // 用户ID
+    robotId: varchar("robot_id", { length: 36 }).notNull(), // 机器人ID
+    robotName: varchar("robot_name", { length: 255 }), // 机器人名称（冗余，便于查询）
+    permissionType: varchar("permission_type", { length: 20 }).notNull().default("read"), // 权限类型: read, write, admin
+    canView: boolean("can_view").default(true).notNull(), // 是否可以查看
+    canEdit: boolean("can_edit").default(false).notNull(), // 是否可以编辑
+    canDelete: boolean("can_delete").default(false).notNull(), // 是否可以删除
+    canSendMessage: boolean("can_send_message").default(true).notNull(), // 是否可以发送消息
+    canViewSessions: boolean("can_view_sessions").default(true).notNull(), // 是否可以查看会话
+    canViewMessages: boolean("can_view_messages").default(true).notNull(), // 是否可以查看消息
+    assignedBy: varchar("assigned_by", { length: 36 }), // 分配者ID
+    assignedByName: varchar("assigned_by_name", { length: 255 }), // 分配者名称
+    assignedAt: timestamp("assigned_at", { withTimezone: true }).defaultNow().notNull(), // 分配时间
+    isActive: boolean("is_active").default(true).notNull(), // 是否激活
+    notes: text("notes"), // 备注
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdIdx: index("robot_permissions_user_id_idx").on(table.userId),
+    robotIdIdx: index("robot_permissions_robot_id_idx").on(table.robotId),
+    permissionTypeIdx: index("robot_permissions_permission_type_idx").on(table.permissionType),
+    isActiveIdx: index("robot_permissions_is_active_idx").on(table.isActive),
+    assignedByIdx: index("robot_permissions_assigned_by_idx").on(table.assignedBy),
+    uniqueUserRobot: index("robot_permissions_user_robot_idx").on(table.userId, table.robotId),
   })
 );
 
