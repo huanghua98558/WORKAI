@@ -571,8 +571,8 @@ export default function NewDashboardTab({
               {/* 告警级别分布 */}
               <div className="space-y-2 pt-2">
                 <div className="text-sm font-medium text-slate-700 dark:text-slate-300">级别分布</div>
-                {alertOverview?.levelDistribution.map((item) => (
-                  <div key={item.level} className="space-y-1">
+                {alertOverview?.levelDistribution.map((item, index) => (
+                  <div key={`level-${item.level}-${index}`} className="space-y-1">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-slate-600 dark:text-slate-400 capitalize">{item.level}</span>
                       <span className="text-slate-900 dark:text-slate-100 font-medium">
