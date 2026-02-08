@@ -331,11 +331,146 @@ export default function AdminDashboard() {
   const [replyContent, setReplyContent] = useState('');
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [replyResult, setReplyResult] = useState<{ success: boolean; message: string; timestamp?: Date } | null>(null);
+  
+  // 登录状态相关
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showRegisterDialog, setShowRegisterDialog] = useState(false);
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [registerForm, setRegisterForm] = useState({ username: '', password: '', email: '', fullName: '' });
+  const [authError, setAuthError] = useState('');
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+  // 检查登录状态
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+    if (token && userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setIsLoggedIn(true);
+        setCurrentUser(user);
+      } catch (e) {
+        console.error('解析用户信息失败:', e);
+      }
+    }
+  }, []);
+
+  // 登录处理
+  const handleLogin = async () => {
+    setIsAuthLoading(true);
+    setAuthError('');
+    
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginForm)
+      });
+      
+      const data = await res.json();
+      
+      if (data.code === 0) {
+        localStorage.setItem('token', data.data.token);
+        localStorage.setItem('user', JSON.stringify(data.data.user));
+        setIsLoggedIn(true);
+        setCurrentUser(data.data.user);
+        setShowLoginDialog(false);
+        setLoginForm({ username: '', password: '' });
+      } else {
+        setAuthError(data.message || '登录失败');
+      }
+    } catch (error) {
+      setAuthError('登录失败，请稍后重试');
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  // 注册处理
+  const handleRegister = async () => {
+    setIsAuthLoading(true);
+    setAuthError('');
+    
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(registerForm)
+      });
+      
+      const data = await res.json();
+      
+      if (data.code === 0) {
+        setShowRegisterDialog(false);
+        setShowLoginDialog(true);
+        setRegisterForm({ username: '', password: '', email: '', fullName: '' });
+        setAuthError('');
+      } else {
+        setAuthError(data.message || '注册失败');
+      }
+    } catch (error) {
+      setAuthError('注册失败，请稍后重试');
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  // 登出处理
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setIsLoggedIn(false);
+    setCurrentUser(null);
+  };
+
+  // 辅助函数：添加认证 header 的 fetch
+  const authenticatedFetch = async (url: string, options: RequestInit = {}) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      options.headers = {
+        ...options.headers,
+        'Authorization': `Bearer ${token}`
+      };
+    }
+    return fetch(url, options);
+  };
+
+  // 添加超时的fetch包装器（支持认证）
+  const authenticatedFetchWithTimeout = async (url: string, timeoutMs: number = 3000, options: RequestInit = {}): Promise<Response> => {
+    const token = localStorage.getItem('token');
+    const headers = {
+      ...(options.headers || {}),
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.warn(`API请求超时: ${url}`);
+        // 返回一个假的响应
+        return { ok: false, json: async () => ({}) } as Response;
+      }
+      throw error;
+    }
+  };
 
   // 加载机器人列表（使用新接口）
   const loadRobots = async () => {
     try {
-      const res = await fetch('/api/monitoring/robots-status');
+      const res = await authenticatedFetch('/api/monitoring/robots-status');
       if (res.ok) {
         const data = await res.json();
         if (data.code === 0 && data.data && data.data.robots) {
@@ -374,6 +509,13 @@ export default function AdminDashboard() {
   };
 
   const loadData = async () => {
+    // 检查登录状态
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('[数据加载] 用户未登录，跳过数据加载');
+      return;
+    }
+
     const startTime = Date.now();
     
     try {
@@ -382,14 +524,14 @@ export default function AdminDashboard() {
 
       // 监控相关数据（重要数据）
       const importantPromises = [
-        fetchWithTimeout('/api/monitoring/summary', 3000),
-        fetchWithTimeout('/api/proxy/admin/callbacks', 3000), // 回调配置，保留
+        authenticatedFetchWithTimeout('/api/monitoring/summary', 3000),
+        authenticatedFetchWithTimeout('/api/proxy/admin/callbacks', 3000), // 回调配置，保留
       ];
       
       // 可选数据：即使失败也不影响主要功能
       const optionalPromises = [
-        fetchWithTimeout('/api/proxy/health', 2000),
-        fetchWithTimeout('/api/alerts/analytics/overview', 3000), // 使用新接口
+        authenticatedFetchWithTimeout('/api/proxy/health', 2000),
+        authenticatedFetchWithTimeout('/api/alerts/analytics/overview', 3000), // 使用新接口
       ];
 
       console.log('[数据加载] 开始加载监控数据...');
@@ -2652,7 +2794,51 @@ ${callbacks.robotStatus}
             </div>
 
             {/* 右侧状态信息 */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              {/* 登录/注册按钮 - 未登录时显示 */}
+              {!isLoggedIn && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowLoginDialog(true)}
+                    className="text-sm hover:text-primary hover:bg-primary/10 transition-all duration-300"
+                  >
+                    <User className="h-4 w-4 mr-1" />
+                    登录
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => setShowRegisterDialog(true)}
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-300"
+                  >
+                    <UserCheck className="h-4 w-4 mr-1" />
+                    注册
+                  </Button>
+                </>
+              )}
+
+              {/* 用户信息 - 已登录时显示 */}
+              {isLoggedIn && currentUser && (
+                <div className="flex items-center gap-3">
+                  <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-background/50 rounded-lg border border-primary/20">
+                    <User className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium text-foreground">{currentUser.username}</span>
+                    <Badge variant="outline" className="text-xs">{currentUser.role}</Badge>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleLogout}
+                    className="text-sm hover:text-red-500 hover:bg-red-500/10 transition-all duration-300"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    登出
+                  </Button>
+                </div>
+              )}
+
               {/* 服务器地址 */}
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-background/50 rounded-lg border border-primary/20">
                 <Globe className="h-4 w-4 text-primary" />
@@ -3400,6 +3586,184 @@ ${callbacks.robotStatus}
               setShowRobotDetail(false);
             }}>
               管理机器人
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 登录对话框 */}
+      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              用户登录
+            </DialogTitle>
+            <DialogDescription>
+              登录以访问 WorkTool AI 中枢系统
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {authError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>登录失败</AlertTitle>
+                <AlertDescription>{authError}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="login-username">用户名</Label>
+              <Input
+                id="login-username"
+                value={loginForm.username}
+                onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+                placeholder="请输入用户名"
+                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="login-password">密码</Label>
+              <Input
+                id="login-password"
+                type="password"
+                value={loginForm.password}
+                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                placeholder="请输入密码"
+                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+              />
+            </div>
+
+            <div className="text-sm text-muted-foreground">
+              还没有账号？
+              <Button
+                variant="link"
+                className="p-0 h-auto text-sm"
+                onClick={() => {
+                  setShowLoginDialog(false);
+                  setShowRegisterDialog(true);
+                }}
+              >
+                立即注册
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLoginDialog(false)}>
+              取消
+            </Button>
+            <Button onClick={handleLogin} disabled={isAuthLoading || !loginForm.username || !loginForm.password}>
+              {isAuthLoading ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  登录中...
+                </>
+              ) : (
+                '登录'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 注册对话框 */}
+      <Dialog open={showRegisterDialog} onOpenChange={setShowRegisterDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCheck className="h-5 w-5" />
+              用户注册
+            </DialogTitle>
+            <DialogDescription>
+              注册新账号以使用 WorkTool AI 中枢系统
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {authError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>注册失败</AlertTitle>
+                <AlertDescription>{authError}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="register-username">用户名</Label>
+              <Input
+                id="register-username"
+                value={registerForm.username}
+                onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })}
+                placeholder="3-20个字符，只能包含字母、数字和下划线"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="register-email">邮箱</Label>
+              <Input
+                id="register-email"
+                type="email"
+                value={registerForm.email}
+                onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                placeholder="请输入邮箱地址"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="register-fullname">姓名</Label>
+              <Input
+                id="register-fullname"
+                value={registerForm.fullName}
+                onChange={(e) => setRegisterForm({ ...registerForm, fullName: e.target.value })}
+                placeholder="请输入真实姓名"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="register-password">密码</Label>
+              <Input
+                id="register-password"
+                type="password"
+                value={registerForm.password}
+                onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                placeholder="至少8个字符，包含大小写字母、数字和特殊字符"
+              />
+            </div>
+
+            <div className="text-sm text-muted-foreground">
+              已有账号？
+              <Button
+                variant="link"
+                className="p-0 h-auto text-sm"
+                onClick={() => {
+                  setShowRegisterDialog(false);
+                  setShowLoginDialog(true);
+                }}
+              >
+                立即登录
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRegisterDialog(false)}>
+              取消
+            </Button>
+            <Button
+              onClick={handleRegister}
+              disabled={isAuthLoading || !registerForm.username || !registerForm.password || !registerForm.email}
+            >
+              {isAuthLoading ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  注册中...
+                </>
+              ) : (
+                '注册'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
