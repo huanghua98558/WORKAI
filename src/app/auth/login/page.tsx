@@ -81,6 +81,9 @@ export default function LoginPage() {
 
         console.log('[Login] 登录成功，保存数据完成');
         console.log('[Login] 已手动设置 cookies 到浏览器');
+        console.log('[Login] Document cookies:', document.cookie);
+        console.log('[Login] Access token 在 cookies 中:', document.cookie.includes('access_token'));
+        console.log('[Login] Refresh token 在 cookies 中:', document.cookie.includes('refresh_token'));
 
         // 等待 cookies 被浏览器处理
         console.log('[Login] 等待 cookies 被浏览器处理...');

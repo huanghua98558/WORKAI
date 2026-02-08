@@ -47,10 +47,16 @@ export function middleware(request: NextRequest) {
 
   if (isProtectedRoute) {
     const token = request.cookies.get('access_token')?.value;
+    const refreshToken = request.cookies.get('refresh_token')?.value;
 
     console.log('[Middleware] 受保护路由:', pathname);
     console.log('[Middleware] Token存在:', !!token);
-    console.log('[Middleware] 所有Cookies:', request.cookies.getAll().map(c => c.name));
+    console.log('[Middleware] RefreshToken存在:', !!refreshToken);
+    console.log('[Middleware] 所有Cookies:', request.cookies.getAll().map(c => ({
+      name: c.name,
+      value: c.value ? `${c.value.substring(0, 20)}...` : '(empty)',
+      httpOnly: c.httpOnly
+    })));
 
     // 如果没有 token，重定向到登录页
     if (!token) {
