@@ -28,34 +28,63 @@ const robotProtectedRoutes = async function (fastify, options) {
   // ========== GET 请求 ==========
 
   /**
-   * 获取所有机器人（带权限过滤）
-   * 用户只能看到自己创建的机器人或被授权的机器人
+   * 获取机器人列表（智能权限判断）
+   * - 管理员：可以看到所有机器人
+   * - 普通用户：只能看到自己创建或被授权的机器人
    */
   fastify.get('/robots', {
-    onRequest: [filterAccessibleRobots],
+    onRequest: [verifyAuth],
   }, async (request, reply) => {
     try {
       const { isActive, status, search } = request.query;
-      const { accessibleRobotIds } = request;
+      const { user } = request;
 
       logger.info('[ROBOT] 获取机器人列表', {
-        userId: request.user.id,
-        accessibleCount: accessibleRobotIds.length
+        userId: user.id,
+        role: user.role
       });
 
-      // 使用robotService，传入accessibleRobotIds进行过滤
-      const robotList = await robotService.getAllRobots({
-        isActive,
-        status,
-        search,
-        accessibleRobotIds // 添加权限过滤
-      });
+      // 判断用户角色
+      const isAdmin = user.role === 'admin' || user.role === 'superAdmin';
 
-      return reply.send({
-        code: 0,
-        message: 'success',
-        data: robotList
-      });
+      if (isAdmin) {
+        // 管理员：返回所有机器人，不进行权限过滤
+        logger.info('[ROBOT] 管理员请求，返回所有机器人');
+        const robotList = await robotService.getAllRobots({
+          isActive,
+          status,
+          search
+          // 不传入 accessibleRobotIds，返回所有机器人
+        });
+
+        return reply.send({
+          code: 0,
+          message: 'success',
+          data: robotList
+        });
+      } else {
+        // 普通用户：获取用户可访问的机器人列表
+        const accessibleRobotIds = await permissionService.getAccessibleRobotIds(user.id);
+
+        logger.info('[ROBOT] 普通用户请求，返回可访问的机器人', {
+          userId: user.id,
+          accessibleCount: accessibleRobotIds.length
+        });
+
+        // 传入 accessibleRobotIds 进行过滤
+        const robotList = await robotService.getAllRobots({
+          isActive,
+          status,
+          search,
+          accessibleRobotIds
+        });
+
+        return reply.send({
+          code: 0,
+          message: 'success',
+          data: robotList
+        });
+      }
     } catch (error) {
       logger.error('[ROBOT] 获取机器人列表失败', {
         userId: request.user?.id,

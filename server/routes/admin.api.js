@@ -15,6 +15,11 @@ const adminApiRoutes = async function (fastify, options) {
   // 数据库管理器
   const { userManager, systemSettingManager } = require('../database');
 
+  // 权限钩子
+  const { requireAdmin, requireSuperAdmin } = require('../hooks/auth.hook');
+  const { getLogger } = require('../lib/logger');
+  const logger = getLogger('ADMIN_API');
+
   /**
    * 获取系统配置
    */
