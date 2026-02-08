@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const options = {
       hostname: backendHost,
       port: backendPort,
-      path: `/api/ai/personas${searchParams.toString() ? '?' + searchParams.toString() : ''}`,
+      path: `/api/proxy/ai/personas${searchParams.toString() ? '?' + searchParams.toString() : ''}`,
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     const options = {
       hostname: backendHost,
       port: backendPort,
-      path: '/api/ai/personas',
+      path: '/api/proxy/ai/personas',
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
