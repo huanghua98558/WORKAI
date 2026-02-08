@@ -32,9 +32,11 @@ import {
   Network,
   Globe,
   Clock,
-  Info
+  Info,
+  Users
 } from 'lucide-react';
 import SystemLogs from '@/components/system-logs';
+import UserManagement from '@/components/user-management';
 
 interface SettingsTabProps {
   aiConfig: any;
@@ -386,7 +388,7 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
       </div>
 
       <Tabs defaultValue="autoreply" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 h-14 bg-white/90 backdrop-blur-md border-2 border-slate-200/80 shadow-lg shadow-slate-200/50 rounded-2xl p-1.5 mb-6">
+        <TabsList className="grid w-full grid-cols-5 h-14 bg-white/90 backdrop-blur-md border-2 border-slate-200/80 shadow-lg shadow-slate-200/50 rounded-2xl p-1.5 mb-6">
           <TabsTrigger value="autoreply" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all duration-300">
             <MessageSquare className="h-5 w-5" />
             自动回复
@@ -398,6 +400,10 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
           <TabsTrigger value="flow" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all duration-300">
             <Zap className="h-5 w-5" />
             流程配置
+          </TabsTrigger>
+          <TabsTrigger value="users" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all duration-300">
+            <Users className="h-5 w-5" />
+            用户管理
           </TabsTrigger>
           <TabsTrigger value="logs" className="gap-2.5 h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all duration-300">
             <Server className="h-5 w-5" />
@@ -1234,6 +1240,11 @@ export default function SettingsTab({ aiConfig, isLoadingAiConfig }: SettingsTab
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* 用户管理 */}
+        <TabsContent value="users" className="space-y-4">
+          <UserManagement />
         </TabsContent>
 
         {/* 系统日志 */}
