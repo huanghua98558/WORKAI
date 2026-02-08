@@ -86,7 +86,7 @@ export default function FlowCanvas({
         return; // 不允许重复连接
       }
 
-      setEdges((eds) => addEdge({ ...params, type: 'smoothstep', animated: true }, eds));
+      setEdges((eds) => addEdge({ ...params, type: 'bezier', animated: true }, eds));
     },
     [setEdges, edges]
   );
