@@ -698,7 +698,8 @@ const adminApiRoutes = async function (fastify, options) {
     const { sessionId } = request.params;
 
     try {
-      const messages = await sessionService.getSessionMessages(sessionId);
+      const sessionMessageService = require('../services/session-message.service');
+      const messages = await sessionMessageService.getSessionMessages(sessionId);
       return { success: true, data: messages };
     } catch (error) {
       return reply.status(500).send({
