@@ -617,17 +617,27 @@ export default function CommandSender() {
                         <div className="flex items-center justify-center p-4">
                           <span className="text-sm text-muted-foreground">加载中...</span>
                         </div>
-                      ) : robots.filter(r => r.isActive).length === 0 ? (
+                      ) : robots.length === 0 ? (
                         <div className="flex items-center justify-center p-4">
-                          <span className="text-sm text-muted-foreground">暂无可用的机器人</span>
+                          <span className="text-sm text-muted-foreground">暂无机器人</span>
                         </div>
                       ) : (
-                        robots.filter(r => r.isActive).map((robot, idx) => (
-                          <SelectItem key={`robot-select-${robot.id || robot.robotId || idx}`} value={robot.robotId} className="py-3">
+                        robots.map((robot, idx) => (
+                          <SelectItem 
+                            key={`robot-select-${robot.id || robot.robotId || idx}`} 
+                            value={robot.robotId} 
+                            className="py-3"
+                            disabled={!robot.isActive}
+                          >
                             <div className="flex items-center gap-3">
                               <div className="flex-1">
                                 <div className="font-semibold text-sm">
                                   {robot.name || robot.nickname || '未命名机器人'}
+                                  {!robot.isActive && (
+                                    <Badge variant="outline" className="ml-2 text-xs">
+                                      未激活
+                                    </Badge>
+                                  )}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
                                   {robot.company && robot.nickname
