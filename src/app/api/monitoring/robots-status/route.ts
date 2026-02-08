@@ -16,14 +16,7 @@ export async function GET(request: NextRequest) {
     // 从数据库获取机器人详细信息（包括状态）
     const db = await getDb();
     const robotDetails = await db
-      .select({
-        id: robots.id,
-        robotId: robots.robotId,
-        name: robots.name,
-        nickname: robots.nickname,
-        status: robots.status,
-        isActive: robots.isActive
-      })
+      .select()
       .from(robots)
       .where(robots.isActive);
 
@@ -36,12 +29,7 @@ export async function GET(request: NextRequest) {
       };
 
       return {
-        id: robot.id,
-        robotId: robot.robotId,
-        name: robot.name,
-        nickname: robot.nickname || robot.name,
-        status: robot.status,
-        isActive: robot.isActive,
+        ...robot, // 返回所有字段
         messagesProcessed: summary.messagesProcessed,
         errors: summary.errors,
         successRate: parseFloat(summary.successRate),

@@ -3315,9 +3315,9 @@ ${callbacks.robotStatus}
                     </div>
                   ) : (
                     <div className="space-y-4 overflow-y-auto" style={{ maxHeight: '600px' }}>
-                      {sessionMessages.map((msg: any) => (
+                      {sessionMessages.map((msg: any, index: number) => (
                         <MessageBubble
-                          key={msg.id || msg.timestamp || Math.random()}
+                          key={msg.id || msg.timestamp || `msg-${index}`}
                           content={msg.content}
                           isFromUser={msg.isFromUser}
                           isHuman={msg.isHuman}

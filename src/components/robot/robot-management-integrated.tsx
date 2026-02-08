@@ -166,14 +166,15 @@ export default function RobotManagement() {
   const loadRobots = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/admin/robots');
+      // 使用 /api/monitoring/robots-status API，与首页保持一致
+      const res = await fetch('/api/monitoring/robots-status');
       if (res.ok) {
         const data = await res.json();
-        if (data.code === 0) {
+        if (data.code === 0 && data.data && data.data.robots) {
           // 加载业务角色信息
           const businessRolesRes = await fetch('/api/robots/business-roles');
           let businessRolesMap: Record<string, any[]> = {};
-          
+
           if (businessRolesRes.ok) {
             const businessRolesData = await businessRolesRes.json();
             if (businessRolesData.success) {
@@ -195,7 +196,7 @@ export default function RobotManagement() {
           }
 
           // 将业务角色信息附加到机器人数据
-          const robotsWithRoles = (data.data || []).map((robot: Robot) => ({
+          const robotsWithRoles = (data.data.robots || []).map((robot: Robot) => ({
             ...robot,
             businessRoles: businessRolesMap[robot.id] || [],
           }));
