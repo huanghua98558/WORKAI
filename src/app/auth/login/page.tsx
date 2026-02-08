@@ -62,12 +62,15 @@ export default function LoginPage() {
         // 保存用户信息
         localStorage.setItem('user', JSON.stringify(result.data.user));
 
-        // 设置 cookies（用于 middleware 认证）
-        document.cookie = `access_token=${result.data.accessToken}; path=/; max-age=${accessTokenExpiry}; SameSite=lax`;
-        document.cookie = `refresh_token=${result.data.refreshToken}; path=/; max-age=${refreshTokenExpiry}; SameSite=lax`;
+        // 注意：cookies 由后端 API 路由自动设置（httpOnly），无需前端手动设置
+        // document.cookie 设置的 cookie 不是 httpOnly，服务端中间件无法读取
 
-        // 跳转到首页
-        router.push('/');
+        console.log('[Login] 准备跳转到首页，使用 window.location.href');
+
+        // 使用 window.location.href 而不是 router.push，确保浏览器已处理 cookie 设置
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 100);
       } else {
         console.log('[Login] 登录失败', result);
         setError(result.message || '登录失败');

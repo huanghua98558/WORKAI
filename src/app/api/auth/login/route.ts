@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
     const result = await response.json();
 
     if (result.code === 0) {
+      console.log('[Login API] 登录成功，设置 cookies');
       // 创建响应并设置 cookies
       const res = NextResponse.json(result);
 
@@ -30,6 +31,8 @@ export async function POST(request: NextRequest) {
         path: '/',
       });
 
+      console.log('[Login API] 已设置 access_token cookie, expiry:', accessTokenExpiry);
+
       // 设置 refresh_token cookie (httpOnly, secure, sameSite)
       const refreshTokenExpiry = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24 * 7; // 30天或7天
       res.cookies.set('refresh_token', result.data.refreshToken, {
@@ -39,6 +42,8 @@ export async function POST(request: NextRequest) {
         maxAge: refreshTokenExpiry,
         path: '/',
       });
+
+      console.log('[Login API] 已设置 refresh_token cookie, expiry:', refreshTokenExpiry);
 
       return res;
     }

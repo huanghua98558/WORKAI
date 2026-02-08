@@ -37,6 +37,7 @@ export function middleware(request: NextRequest) {
   // 检查是否是公开路由
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
   if (isPublicRoute) {
+    console.log('[Middleware] 公开路由，放行:', pathname);
     return NextResponse.next();
   }
 
@@ -46,15 +47,18 @@ export function middleware(request: NextRequest) {
   if (isProtectedRoute) {
     const token = request.cookies.get('access_token')?.value;
 
+    console.log('[Middleware] 受保护路由:', pathname, 'Token存在:', !!token);
+
     // 如果没有 token，重定向到登录页
     if (!token) {
-      const loginUrl = new URL('/auth/login', request.url);
-      loginUrl.searchParams.set('callbackUrl', pathname);
-      return NextResponse.redirect(loginUrl);
+      // 避免无限重定向循环
+      if (!pathname.startsWith('/auth/login')) {
+        const loginUrl = new URL('/auth/login', request.url);
+        loginUrl.searchParams.set('callbackUrl', pathname);
+        console.log('[Middleware] 无 token，重定向到登录页');
+        return NextResponse.redirect(loginUrl);
+      }
     }
-
-    // 验证 token（可选，可以通过后端 API 验证）
-    // 这里我们依赖后端 API 的认证机制
   }
 
   return NextResponse.next();
