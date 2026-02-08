@@ -29,6 +29,11 @@ const publicRoutes = [
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // 跳过 API 路由（不需要中间件认证）
+  if (pathname.startsWith('/api/')) {
+    return NextResponse.next();
+  }
+
   // 检查是否是公开路由
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
   if (isPublicRoute) {
