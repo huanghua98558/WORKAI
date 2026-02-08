@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import AvatarUpload from '@/components/avatar-upload';
 
 interface User {
   id: string;
@@ -17,6 +18,7 @@ interface User {
   fullName?: string;
   role: string;
   avatarUrl?: string;
+  avatarKey?: string;
   createdAt: string;
   lastActivityAt?: string;
 }
@@ -209,7 +211,7 @@ export default function ProfilePage() {
             <CardDescription>查看和更新您的个人资料</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleUpdateProfile} className="space-y-4">
+            <form onSubmit={handleUpdateProfile} className="space-y-6">
               {error && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
@@ -221,6 +223,17 @@ export default function ProfilePage() {
                   <AlertDescription>{success}</AlertDescription>
                 </Alert>
               )}
+
+              {/* 头像上传 */}
+              <div className="flex justify-center py-4">
+                <AvatarUpload
+                  currentAvatar={user.avatarUrl}
+                  username={user.fullName || user.username}
+                  onAvatarChange={(avatarUrl) => {
+                    setUser({ ...user, avatarUrl });
+                  }}
+                />
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">

@@ -130,6 +130,25 @@ export const api = {
     configCallback: (id: string, data: any) =>
       apiClient.post(`/robots/${id}/config-callback`, data),
   },
+
+  // 头像相关
+  avatar: {
+    upload: (file: File) => {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      return fetch('/api/avatar/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+        body: formData,
+      }).then(res => res.json());
+    },
+    delete: () =>
+      apiClient.delete('/avatar/delete'),
+    refreshUrl: () =>
+      apiClient.post('/avatar/refresh-url', {}),
+  },
 };
 
 export default apiClient;
