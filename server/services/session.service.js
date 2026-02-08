@@ -1,637 +1,356 @@
 /**
  * 会话管理服务
- * 负责会话状态、上下文、人工接管等
+ * 管理用户会话和Token
  */
 
-const redisClient = require('../lib/redis');
-const sessionMessageService = require('./session-message.service');
-const { formatDate, generateRequestId } = require('../lib/utils');
+const { eq, and, sql } = require('drizzle-orm');
+const { getDb } = require('coze-coding-dev-sdk');
+const { userSessions, users } = require('../database/schema');
+const { getLogger } = require('./logger');
+const { verifyToken, generateTokenPair } = require('./jwt');
 
 class SessionService {
   constructor() {
-    // 不再缓存 redis 客户端，每次都重新获取
-    this.sessionPrefix = 'session:';
-    this.sessionTTL = 3600 * 24; // 24小时过期
-    this.contextPrefix = 'context:';
-  }
-
-  // 获取 Redis 客户端（每次都重新获取）
-  async getRedis() {
-    return await redisClient.getClient();
+    this.logger = getLogger('SESSION');
   }
 
   /**
-   * 创建或获取会话
+   * 创建会话
+   * @param {Object} user - 用户信息
+   * @param {Object} sessionData - 会话数据
+   * @returns {Promise<Object>} 会话信息和Token
    */
-  async getOrCreateSession(userId, groupId, userInfo = {}) {
-    const redis = await this.getRedis();
-    
-    // 生成 sessionId：使用哈希确保长度不超过限制
-    // 原始格式：${groupId}_${userId} 可能会超过 255 字符
-    // 新格式：hash(${groupId}_${userId})
-    const originalSessionId = `${groupId}_${userId}`;
-    const sessionId = this.hashSessionId(originalSessionId);
-    
-    const key = `${this.sessionPrefix}${sessionId}`;
+  async createSession(user, sessionData = {}) {
+    const db = await getDb();
+    const { v4: uuidv4 } = require('uuid');
 
-    const existing = await redis.get(key);
-    if (existing) {
-      const session = JSON.parse(existing);
-      // 存储原始 sessionId 用于调试
-      session.originalSessionId = originalSessionId;
+    // 生成Token对
+    const tokens = generateTokenPair({
+      userId: user.id,
+      username: user.username,
+      role: user.role
+    });
 
-      // 确保工作人员状态存在（向后兼容）
-      if (!session.staffStatus) {
-        session.staffStatus = {
-          hasStaffParticipated: false,
-          currentStaff: null,
-          joinTime: null,
-          messageCount: 0
-        };
-      }
+    // 计算过期时间
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7天后过期
 
-      // 确保协同配置存在（向后兼容）
-      if (session.collaborationMode === undefined) {
-        session.collaborationMode = 'adaptive';
-      }
-      if (session.aiReplyStrategy === undefined) {
-        session.aiReplyStrategy = 'normal';
-      }
-
-      return session;
-    }
-
+    // 创建会话记录
     const session = {
-      sessionId,
-      originalSessionId, // 存储原始 ID
-      userId,
-      groupId,
-      userInfo,
-      startTime: new Date().toISOString(),
-      lastActiveTime: new Date().toISOString(),
-      messageCount: 0,
-      replyCount: 0,
-      aiReplyCount: 0,
-      humanReplyCount: 0,
-      status: 'auto', // auto | human | closed
-      context: [],
-      tags: [],
-
-      // 【新增】工作人员状态
-      staffStatus: {
-        hasStaffParticipated: false,
-        currentStaff: null,
-        joinTime: null,
-        messageCount: 0
-      },
-
-      // 【新增】协同配置
-      collaborationMode: 'adaptive', // adaptive/priority_to_staff/priority_to_ai
-      aiReplyStrategy: 'normal' // normal/low/paused
+      id: uuidv4(),
+      userId: user.id,
+      token: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      ip_address: sessionData.ip || null,
+      user_agent: sessionData.userAgent || null,
+      device_type: sessionData.deviceType || 'unknown',
+      location: sessionData.location || null,
+      is_active: true,
+      expires_at: expiresAt,
+      created_at: now,
+      last_activity_at: now
     };
 
-    await redis.setex(key, this.sessionTTL, JSON.stringify(session));
-    return session;
+    const [createdSession] = await db.insert(userSessions).values(session).returning();
+
+    this.logger.info('创建会话成功', {
+      sessionId: createdSession.id,
+      userId: user.id,
+      username: user.username,
+      ip: session.ip_address,
+      device: session.device_type
+    });
+
+    return {
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        fullName: user.fullName,
+        avatarUrl: user.avatarUrl
+      },
+      session: {
+        id: createdSession.id,
+        expiresAt: expiresAt,
+        deviceType: session.device_type,
+        ipAddress: session.ip_address
+      },
+      ...tokens
+    };
   }
 
   /**
-   * 生成 sessionId 的哈希值（确保长度不超过限制）
+   * 验证会话
+   * @param {string} token - 访问令牌
+   * @returns {Promise<Object|null>} 会话信息，验证失败返回null
    */
-  hashSessionId(originalId) {
-    // 简单的哈希算法：将字符串转换为数字，然后转换为 36 进制
-    let hash = 0;
-    for (let i = 0; i < originalId.length; i++) {
-      const char = originalId.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
-    }
-    
-    // 转换为正数并添加前缀
-    const hashStr = Math.abs(hash).toString(36);
-    return `sess_${hashStr}`;
-  }
+  async verifySession(token) {
+    try {
+      // 验证Token
+      const decoded = verifyToken(token);
+      if (!decoded) {
+        return null;
+      }
 
-  /**
-   * 更新会话
-   */
-  async updateSession(sessionId, updates) {
-    const redis = await this.getRedis();
-    const key = `${this.sessionPrefix}${sessionId}`;
-    const session = await this.getSession(sessionId);
+      const db = await getDb();
 
-    if (!session) {
+      // 查询会话
+      const [session] = await db
+        .select()
+        .from(userSessions)
+        .where(
+          and(
+            eq(userSessions.token, token),
+            eq(userSessions.isActive, true)
+          )
+        );
+
+      if (!session) {
+        return null;
+      }
+
+      // 检查是否过期
+      if (new Date() > new Date(session.expiresAt)) {
+        // 标记会话为非活跃
+        await db
+          .update(userSessions)
+          .set({ isActive: false })
+          .where(eq(userSessions.id, session.id));
+
+        this.logger.warn('会话已过期', { sessionId: session.id });
+        return null;
+      }
+
+      // 获取用户信息
+      const [user] = await db.select().from(users).where(eq(users.id, session.userId));
+      if (!user || !user.isActive) {
+        return null;
+      }
+
+      // 更新最后活跃时间
+      await db
+        .update(userSessions)
+        .set({ lastActivityAt: new Date() })
+        .where(eq(userSessions.id, session.id));
+
+      return {
+        session,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          fullName: user.fullName,
+          avatarUrl: user.avatarUrl
+        },
+        decoded
+      };
+    } catch (error) {
+      this.logger.error('验证会话失败', { error: error.message });
       return null;
     }
-
-    const updated = {
-      ...session,
-      ...updates,
-      lastActiveTime: new Date().toISOString()
-    };
-
-    await redis.setex(key, this.sessionTTL, JSON.stringify(updated));
-    return updated;
   }
 
   /**
-   * 获取会话
+   * 刷新Token
+   * @param {string} refreshToken - 刷新令牌
+   * @returns {Promise<Object|null>} 新的Token对，验证失败返回null
    */
-  async getSession(sessionId) {
-    const redis = await this.getRedis();
-    const key = `${this.sessionPrefix}${sessionId}`;
-    const data = await redis.get(key);
-    return data ? JSON.parse(data) : null;
-  }
-
-  /**
-   * 添加上下文
-   */
-  async addContext(sessionId, message) {
-    const redis = await this.getRedis();
-    const session = await this.getSession(sessionId);
-    if (!session) return null;
-
-    session.context.push({
-      role: message.from_type === 'robot' ? 'assistant' : 'user',
-      content: message.content,
-      timestamp: message.timestamp || new Date().toISOString()
-    });
-
-    // 只保留最近 10 条上下文
-    if (session.context.length > 10) {
-      session.context = session.context.slice(-10);
-    }
-
-    return await this.updateSession(sessionId, {
-      context: session.context,
-      messageCount: session.messageCount + 1
-    });
-  }
-
-  /**
-   * 人工接管
-   */
-  async takeOverByHuman(sessionId, operator) {
-    console.log(`[会话服务] 开始人工接管: sessionId=${sessionId}, operator=${operator}`);
-    let session = await this.getSession(sessionId);
-
-    // 如果 Redis 中没有会话数据，从数据库中创建一个
-    if (!session) {
-      console.log(`[会话服务] Redis 中没有会话，从数据库查询: sessionId=${sessionId}`);
-      const { getDb } = require('coze-coding-dev-sdk');
-      const { sql } = require('drizzle-orm');
-      const { sessionMessages } = require('../database/schema');
-      const db = await getDb();
-
-      // 查询该会话的最新信息
-      const result = await db.execute(sql`
-        SELECT DISTINCT ON (session_id)
-          session_id as "sessionId",
-          COALESCE(user_name, user_id) as "userName",
-          COALESCE(group_name, group_id) as "groupName",
-          robot_id as "robotId",
-          robot_name as "robotName",
-          created_at as "lastActiveTime",
-          COUNT(*) OVER (PARTITION BY session_id) as "messageCount",
-          SUM(CASE WHEN is_from_user = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "userMessages",
-          SUM(CASE WHEN is_from_bot = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "aiReplyCount",
-          SUM(CASE WHEN is_human = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "humanReplyCount",
-          MAX(intent) OVER (PARTITION BY session_id) as "lastIntent"
-        FROM session_messages
-        WHERE session_id = ${sessionId}
-        ORDER BY session_id, created_at DESC
-        LIMIT 1
-      `);
-
-      if (result.rows && result.rows.length > 0) {
-        const row = result.rows[0];
-        session = {
-          sessionId: row.sessionId,
-          userName: row.userName || '未知用户',
-          groupName: row.groupName || '未知群组',
-          robotId: row.robotId,
-          robotName: row.robotName || '未知机器人',
-          lastActiveTime: row.lastActiveTime,
-          messageCount: parseInt(row.messageCount) || 0,
-          userMessages: parseInt(row.userMessages) || 0,
-          aiReplyCount: parseInt(row.aiReplyCount) || 0,
-          humanReplyCount: parseInt(row.humanReplyCount) || 0,
-          replyCount: (parseInt(row.aiReplyCount) || 0) + (parseInt(row.humanReplyCount) || 0),
-          lastIntent: row.lastIntent,
-          status: 'auto', // 默认为自动模式
-          startTime: row.lastActiveTime,
-          context: [] // 初始化空上下文
-        };
-
-        console.log(`[会话服务] 从数据库创建会话: sessionId=${sessionId}, status=${session.status}`);
-
-        // 将会话保存到 Redis
-        await redisClient.getClient().then(client => {
-          const key = `${this.sessionPrefix}${sessionId}`;
-          return client.setex(key, this.sessionTTL, JSON.stringify(session));
-        });
-      } else {
-        console.log(`[会话服务] 数据库中也找不到会话: sessionId=${sessionId}`);
-        throw new Error('会话不存在');
-      }
-    }
-
-    if (session.status === 'human') {
-      console.log(`[会话服务] 会话已经是人工模式: sessionId=${sessionId}`);
-      // 填充机器人信息
-      await this.enrichSessionWithRobotInfo(session);
-      return session;
-    }
-
-    console.log(`[会话服务] 切换到人工模式: sessionId=${sessionId}`);
-    const updated = await this.updateSession(sessionId, {
-      status: 'human',
-      humanOperator: operator,
-      humanTakeoverTime: new Date().toISOString()
-    });
-
-    // 填充机器人信息
-    await this.enrichSessionWithRobotInfo(updated);
-    console.log(`[会话服务] 人工接管完成: sessionId=${sessionId}, newStatus=${updated.status}`);
-    return updated;
-  }
-
-  /**
-   * 切换回自动模式
-   */
-  async switchToAuto(sessionId) {
-    console.log(`[会话服务] 开始切换到自动模式: sessionId=${sessionId}`);
-    let session = await this.getSession(sessionId);
-
-    // 如果 Redis 中没有会话数据，从数据库中创建一个
-    if (!session) {
-      console.log(`[会话服务] Redis 中没有会话，从数据库查询: sessionId=${sessionId}`);
-      const { getDb } = require('coze-coding-dev-sdk');
-      const { sql } = require('drizzle-orm');
-      const { sessionMessages } = require('../database/schema');
-      const db = await getDb();
-
-      // 查询该会话的最新信息
-      const result = await db.execute(sql`
-        SELECT DISTINCT ON (session_id)
-          session_id as "sessionId",
-          COALESCE(user_name, user_id) as "userName",
-          COALESCE(group_name, group_id) as "groupName",
-          robot_id as "robotId",
-          robot_name as "robotName",
-          created_at as "lastActiveTime",
-          COUNT(*) OVER (PARTITION BY session_id) as "messageCount",
-          SUM(CASE WHEN is_from_user = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "userMessages",
-          SUM(CASE WHEN is_from_bot = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "aiReplyCount",
-          SUM(CASE WHEN is_human = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "humanReplyCount",
-          MAX(intent) OVER (PARTITION BY session_id) as "lastIntent"
-        FROM session_messages
-        WHERE session_id = ${sessionId}
-        ORDER BY session_id, created_at DESC
-        LIMIT 1
-      `);
-
-      if (result.rows && result.rows.length > 0) {
-        const row = result.rows[0];
-        session = {
-          sessionId: row.sessionId,
-          userName: row.userName || '未知用户',
-          groupName: row.groupName || '未知群组',
-          robotId: row.robotId,
-          robotName: row.robotName || '未知机器人',
-          lastActiveTime: row.lastActiveTime,
-          messageCount: parseInt(row.messageCount) || 0,
-          userMessages: parseInt(row.userMessages) || 0,
-          aiReplyCount: parseInt(row.aiReplyCount) || 0,
-          humanReplyCount: parseInt(row.humanReplyCount) || 0,
-          replyCount: (parseInt(row.aiReplyCount) || 0) + (parseInt(row.humanReplyCount) || 0),
-          lastIntent: row.lastIntent,
-          status: 'auto', // 默认为自动模式
-          startTime: row.lastActiveTime,
-          context: [] // 初始化空上下文
-        };
-
-        console.log(`[会话服务] 从数据库创建会话: sessionId=${sessionId}, status=${session.status}`);
-
-        // 将会话保存到 Redis
-        await redisClient.getClient().then(client => {
-          const key = `${this.sessionPrefix}${sessionId}`;
-          return client.setex(key, this.sessionTTL, JSON.stringify(session));
-        });
-      } else {
-        console.log(`[会话服务] 数据库中也找不到会话: sessionId=${sessionId}`);
-        throw new Error('会话不存在');
-      }
-    }
-
-    console.log(`[会话服务] 切换到自动模式: sessionId=${sessionId}`);
-    const updated = await this.updateSession(sessionId, {
-      status: 'auto',
-      humanOperator: null
-    });
-
-    // 填充机器人信息
-    await this.enrichSessionWithRobotInfo(updated);
-    console.log(`[会话服务] 自动模式切换完成: sessionId=${sessionId}, newStatus=${updated.status}`);
-    return updated;
-  }
-
-  /**
-   * 标记为风险会话
-   */
-  async markAsRisky(sessionId, reason = '') {
-    return await this.updateSession(sessionId, {
-      status: 'human',
-      isRisky: true,
-      riskReason: reason
-    });
-  }
-
-  /**
-   * 获取今日会话统计
-   */
-  async getTodayStats() {
-    const redis = await this.getRedis();
-    const pattern = `${this.sessionPrefix}*`;
-    const keys = await redis.keys(pattern);
-    
-    let stats = {
-      totalSessions: 0,
-      autoSessions: 0,
-      humanSessions: 0,
-      riskySessions: 0,
-      totalMessages: 0,
-      aiReplies: 0,
-      humanReplies: 0,
-      avgMessagesPerSession: 0
-    };
-
-    const today = formatDate();
-
-    for (const key of keys) {
-      const session = JSON.parse(await redis.get(key));
-      const sessionDate = formatDate(session.startTime);
-      
-      if (sessionDate === today) {
-        stats.totalSessions++;
-        
-        if (session.status === 'auto') {
-          stats.autoSessions++;
-        } else if (session.status === 'human') {
-          stats.humanSessions++;
-        }
-        
-        if (session.isRisky) {
-          stats.riskySessions++;
-        }
-        
-        stats.totalMessages += session.messageCount;
-        stats.aiReplies += session.aiReplyCount;
-        stats.humanReplies += session.humanReplyCount;
-      }
-    }
-
-    if (stats.totalSessions > 0) {
-      stats.avgMessagesPerSession = (
-        stats.totalMessages / stats.totalSessions
-      ).toFixed(2);
-    }
-
-    return stats;
-  }
-
-  /**
-   * 获取活跃会话
-   */
-  async getActiveSessions(limit = 100) {
-    const sessions = [];
-    const oneHourAgo = new Date(Date.now() - 24 * 3600 * 1000); // 扩大到24小时
-
-    // 1. 从 Redis 获取活跃会话
+  async refreshTokens(refreshToken) {
     try {
-      const client = await redisClient.getClient();
-      const pattern = `${this.sessionPrefix}*`;
-      const keys = await client.keys(pattern);
-
-      for (const key of keys) {
-        const session = JSON.parse(await client.get(key));
-        const lastActive = new Date(session.lastActiveTime);
-
-        if (lastActive > oneHourAgo) {
-          // 从数据库查询最新的机器人信息
-          await this.enrichSessionWithRobotInfo(session);
-          sessions.push(session);
-        }
-      }
-    } catch (error) {
-      console.error('[会话服务] 从 Redis 获取会话失败:', error);
-    }
-
-    // 2. 从数据库查询会话（主要查询逻辑）
-    try {
-      const { getDb } = require('coze-coding-dev-sdk');
-      const { sql } = require('drizzle-orm');
-      const { sessionMessages } = require('../database/schema');
       const db = await getDb();
 
-      // 使用 DISTINCT ON 查询每个会话的最新消息
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
-      const result = await db.execute(sql`
-        SELECT DISTINCT ON (session_id)
-          session_id as "sessionId",
-          COALESCE(user_name, user_id) as "userName",
-          COALESCE(group_name, group_id) as "groupName",
-          robot_id as "robotId",
-          robot_name as "robotName",
-          robot_nickname as "robotNickname",
-          content as "lastMessage",
-          is_from_user as "isFromUser",
-          is_from_bot as "isFromBot",
-          is_human as "isHuman",
-          created_at as "lastActiveTime",
-          COUNT(*) OVER (PARTITION BY session_id) as "messageCount",
-          SUM(CASE WHEN is_from_user = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "userMessages",
-          SUM(CASE WHEN is_from_bot = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "aiReplyCount",
-          SUM(CASE WHEN is_human = true THEN 1 ELSE 0 END) OVER (PARTITION BY session_id) as "humanReplyCount",
-          MAX(intent) OVER (PARTITION BY session_id) as "lastIntent"
-        FROM session_messages
-        WHERE created_at > ${sevenDaysAgo.toISOString()}
-        ORDER BY session_id, created_at DESC
-        LIMIT ${limit}
-      `);
+      // 查找刷新令牌对应的会话
+      const [session] = await db
+        .select()
+        .from(userSessions)
+        .where(
+          and(
+            eq(userSessions.refreshToken, refreshToken),
+            eq(userSessions.isActive, true)
+          )
+        );
 
-      if (result.rows && result.rows.length > 0) {
-        console.log(`[会话服务] 从数据库查询到 ${result.rows.length} 个会话`);
-        
-        for (const row of result.rows) {
-          const session = {
-            sessionId: row.sessionId,
-            userName: row.userName || '未知用户',
-            groupName: row.groupName || '未知群组',
-            robotId: row.robotId,
-            robotName: row.robotName || '未知机器人',
-            robotNickname: row.robotNickname || null,
-            lastMessage: row.lastMessage || null, // 最新消息内容
-            isFromUser: row.isFromUser || false, // 是否来自用户
-            isFromBot: row.isFromBot || false, // 是否来自机器人
-            isHuman: row.isHuman || false, // 是否人工回复
-            lastActiveTime: row.lastActiveTime,
-            messageCount: parseInt(row.messageCount),
-            userMessages: parseInt(row.userMessages),
-            aiReplyCount: parseInt(row.aiReplyCount),
-            humanReplyCount: parseInt(row.humanReplyCount),
-            replyCount: parseInt(row.aiReplyCount) + parseInt(row.humanReplyCount),
-            lastIntent: row.lastIntent,
-            status: 'auto', // 数据库中的会话默认为自动模式
-            startTime: row.lastActiveTime // 使用最后消息时间作为开始时间
-          };
-
-          // 尝试从数据库获取更准确的机器人信息
-          await this.enrichSessionWithRobotInfo(session);
-
-          sessions.push(session);
-        }
-      } else {
-        console.log('[会话服务] 数据库中没有查询到会话数据');
+      if (!session) {
+        return null;
       }
-    } catch (error) {
-      console.error('[会话服务] 从数据库获取会话失败:', error);
-      console.error('[会话服务] 错误堆栈:', error.stack);
-    }
 
-    console.log(`[会话服务] 总共返回 ${sessions.length} 个会话`);
-    
-    return sessions.sort((a, b) => 
-      new Date(b.lastActiveTime) - new Date(a.lastActiveTime)
-    );
+      // 检查是否过期
+      if (new Date() > new Date(session.expiresAt)) {
+        await db
+          .update(userSessions)
+          .set({ isActive: false })
+          .where(eq(userSessions.id, session.id));
+
+        return null;
+      }
+
+      // 获取用户信息
+      const [user] = await db.select().from(users).where(eq(users.id, session.userId));
+      if (!user || !user.isActive) {
+        return null;
+      }
+
+      // 生成新的Token对
+      const newTokens = generateTokenPair({
+        userId: user.id,
+        username: user.username,
+        role: user.role
+      });
+
+      // 更新会话
+      await db
+        .update(userSessions)
+        .set({
+          token: newTokens.accessToken,
+          refreshToken: newTokens.refreshToken,
+          lastActivityAt: new Date()
+        })
+        .where(eq(userSessions.id, session.id));
+
+      this.logger.info('刷新Token成功', { sessionId: session.id, userId: user.id });
+
+      return {
+        ...newTokens,
+        expiresIn: this.getTokenExpiresIn()
+      };
+    } catch (error) {
+      this.logger.error('刷新Token失败', { error: error.message });
+      return null;
+    }
   }
 
   /**
-   * 用数据库中的机器人信息丰富会话数据
+   * 销毁会话（登出）
+   * @param {string} token - 访问令牌
+   * @returns {Promise<boolean>} 是否成功
    */
-  async enrichSessionWithRobotInfo(session) {
+  async destroySession(token) {
     try {
-      const { getDb } = require('coze-coding-dev-sdk');
-      const { sql } = require('drizzle-orm');
-      const { sessionMessages, robots } = require('../database/schema');
       const db = await getDb();
 
-      console.log(`[会话服务] 开始 enrichSessionWithRobotInfo for session ${session.sessionId}`);
+      const result = await db
+        .update(userSessions)
+        .set({ isActive: false })
+        .where(eq(userSessions.token, token));
 
-      // 首先尝试从 sessionMessages 表获取机器人信息
-      const robotMessage = await db.execute(sql`
-        SELECT robot_id as "robotId", robot_name as "robotName", robot_nickname as "robotNickname"
-        FROM session_messages
-        WHERE session_id = ${session.sessionId}
-          AND (robot_id IS NOT NULL OR robot_name IS NOT NULL)
-          AND (robot_name != '' AND robot_name IS NOT NULL)
-        ORDER BY created_at DESC
-        LIMIT 1
-      `);
-
-      if (robotMessage.rows && robotMessage.rows.length > 0) {
-        session.robotId = robotMessage.rows[0].robotId;
-        session.robotName = robotMessage.rows[0].robotName;
-        session.robotNickname = robotMessage.rows[0].robotNickname;
-        console.log(`[会话服务] 会话 ${session.sessionId} 从 session_messages 获取机器人信息: robotId=${session.robotId}, robotName=${session.robotName}, robotNickname=${session.robotNickname}`);
-      } else {
-        console.warn(`[会话服务] 会话 ${session.sessionId} 从 session_messages 未找到机器人信息`);
+      const success = result.rowCount > 0;
+      if (success) {
+        this.logger.info('销毁会话成功', { token: token.substring(0, 20) + '...' });
       }
 
-      // 无论 sessionMessages 中是否有机器人信息，都尝试从 robots 表查询 company 字段
-      if (session.robotId) {
-        console.log(`[会话服务] 会话 ${session.sessionId} 尝试从 robots 表查询 robotId=${session.robotId}`);
+      return success;
+    } catch (error) {
+      this.logger.error('销毁会话失败', { error: error.message });
+      return false;
+    }
+  }
 
-        const robot = await db.execute(sql`
-          SELECT robot_id as "robotId", name, nickname, company
-          FROM robots
-          WHERE robot_id = ${session.robotId}
-          LIMIT 1
-        `);
+  /**
+   * 销毁用户的所有会话（强制登出）
+   * @param {string} userId - 用户ID
+   * @returns {Promise<number>} 销毁的会话数量
+   */
+  async destroyAllSessions(userId) {
+    try {
+      const db = await getDb();
 
-        if (robot.rows && robot.rows.length > 0) {
-          const robotRow = robot.rows[0];
-          // 如果 sessionMessages 中没有 robotName，才从 robots 表设置
-          if (!session.robotName) {
-            session.robotName = robotRow.nickname || robotRow.name || robotRow.robotId || '未知机器人';
-          }
-          // 如果 sessionMessages 中没有 robotNickname，才从 robots 表设置
-          if (!session.robotNickname) {
-            session.robotNickname = robotRow.nickname || null;
-          }
-          // 始终设置 company 字段
-          session.company = robotRow.company || null;
-          console.log(`[会话服务] 会话 ${session.sessionId} 从 robots 表获取机器人信息: name=${robotRow.name}, nickname=${robotRow.nickname}, company=${robotRow.company}, robotName=${session.robotName}, robotNickname=${session.robotNickname}, company=${session.company}`);
-        } else {
-          console.warn(`[会话服务] 会话 ${session.sessionId} 在 robots 表中未找到 robotId=${session.robotId}`);
+      const result = await db
+        .update(userSessions)
+        .set({ isActive: false })
+        .where(eq(userSessions.userId, userId));
+
+      this.logger.info('销毁所有会话成功', { userId, count: result.rowCount });
+      return result.rowCount || 0;
+    } catch (error) {
+      this.logger.error('销毁所有会话失败', { error: error.message });
+      return 0;
+    }
+  }
+
+  /**
+   * 获取用户的所有活跃会话
+   * @param {string} userId - 用户ID
+   * @returns {Promise<Array>} 会话列表
+   */
+  async getUserSessions(userId) {
+    try {
+      const db = await getDb();
+
+      const sessions = await db
+        .select()
+        .from(userSessions)
+        .where(
+          and(
+            eq(userSessions.userId, userId),
+            eq(userSessions.isActive, true)
+          )
+        )
+        .orderBy(userSessions.lastActivityAt);
+
+      // 清理过期的会话
+      const now = new Date();
+      for (const session of sessions) {
+        if (new Date(session.expiresAt) < now) {
+          await db
+            .update(userSessions)
+            .set({ isActive: false })
+            .where(eq(userSessions.id, session.id));
         }
       }
 
-      // 如果还是没有 robotName，使用 robotId 作为 fallback
-      if (!session.robotName && session.robotId) {
-        session.robotName = session.robotId;
-        console.log(`[会话服务] 会话 ${session.sessionId} 使用 robotId 作为 robotName: ${session.robotName}`);
-      }
-
-      // 填充用户信息
-      if (!session.userName && session.userInfo?.userName) {
-        session.userName = session.userInfo.userName;
-      }
-      if (!session.groupName && session.userInfo?.groupName) {
-        session.groupName = session.userInfo.groupName;
-      }
+      // 返回活跃会话
+      return sessions.filter(s => new Date(s.expiresAt) > now);
     } catch (error) {
-      console.error(`[会话服务] 获取会话 ${session.sessionId} 机器人信息失败:`, error);
-      console.error(`[会话服务] 错误堆栈:`, error.stack);
+      this.logger.error('获取用户会话失败', { error: error.message });
+      return [];
     }
   }
 
   /**
-   * 关闭会话
+   * 清理过期会话
+   * @returns {Promise<number>} 清理的会话数量
    */
-  async closeSession(sessionId) {
-    const key = `${this.sessionPrefix}${sessionId}`;
-    await this.redis.del(key);
-  }
+  async cleanExpiredSessions() {
+    try {
+      const db = await getDb();
 
-  /**
-   * 批量清理过期会话
-   */
-  async cleanupExpiredSessions() {
-    // Redis 会自动清理过期键，这里只是统计
-    const pattern = `${this.sessionPrefix}*`;
-    // 确保客户端是最新的
-    const client = await redisClient.getClient();
-    const keys = await client.keys(pattern);
-    return keys.length;
-  }
+      const result = await db
+        .update(userSessions)
+        .set({ isActive: false })
+        .where(sql`${userSessions.expiresAt} < NOW()`);
 
-  /**
-   * 获取会话消息记录
-   */
-  async getSessionMessages(sessionId) {
-    // 从数据库查询消息记录
-    const messages = await sessionMessageService.getSessionMessages(sessionId);
-
-    // 如果数据库没有消息，回退到从 Redis context 中获取（兼容旧数据）
-    if (messages.length === 0) {
-      const session = await this.getSession(sessionId);
-      if (session && session.context && session.context.length > 0) {
-        console.log(`[会话服务] 数据库无消息，从 Redis context 获取 ${session.context.length} 条消息`);
-        return session.context.map((ctx, index) => ({
-          id: `${sessionId}_msg_${index}`,
-          content: ctx.content,
-          isFromUser: ctx.role === 'user',
-          isFromBot: ctx.role === 'assistant',
-          isHuman: false,
-          timestamp: ctx.timestamp,
-          intent: session.lastIntent || null
-        }));
-      }
+      this.logger.info('清理过期会话完成', { count: result.rowCount });
+      return result.rowCount || 0;
+    } catch (error) {
+      this.logger.error('清理过期会话失败', { error: error.message });
+      return 0;
     }
+  }
 
-    return messages;
+  /**
+   * 获取Token过期时间（秒）
+   * @returns {number}
+   */
+  getTokenExpiresIn() {
+    const expiresIn = process.env.JWT_ACCESS_TOKEN_EXPIRES_IN || '1h';
+    const match = expiresIn.match(/^(\d+)([smhd])$/);
+    if (!match) return 3600;
+
+    const value = parseInt(match[1]);
+    const unit = match[2];
+
+    switch (unit) {
+      case 's': return value;
+      case 'm': return value * 60;
+      case 'h': return value * 3600;
+      case 'd': return value * 86400;
+      default: return 3600;
+    }
   }
 }
 
-module.exports = new SessionService();
+const sessionService = new SessionService();
+
+module.exports = sessionService;

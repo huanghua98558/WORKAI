@@ -171,6 +171,13 @@ class RobotService {
 
   /**
    * 获取所有机器人（带缓存）
+   * @param {Object} options - 查询选项
+   * @param {boolean} options.isActive - 是否激活
+   * @param {string} options.status - 状态
+   * @param {string} options.search - 搜索关键词
+   * @param {number} options.limit - 限制数量
+   * @param {number} options.offset - 偏移量
+   * @param {Array<string>} options.accessibleRobotIds - 可访问的机器人ID列表（权限过滤）
    */
   async getAllRobots(options = {}) {
     // 生成缓存键
@@ -185,18 +192,21 @@ class RobotService {
 
     // 从数据库查询
     const db = await getDb();
-    const { isActive, status, search, limit = 100, offset = 0 } = options;
+    const { isActive, status, search, limit = 100, offset = 0, accessibleRobotIds } = options;
 
     let whereConditions = [];
-    
+
+    // 添加激活状态过滤
     if (isActive !== undefined) {
       whereConditions.push(eq(robots.isActive, isActive));
     }
-    
+
+    // 添加状态过滤
     if (status) {
       whereConditions.push(eq(robots.status, status));
     }
-    
+
+    // 添加搜索过滤
     if (search) {
       whereConditions.push(
         or(
@@ -204,6 +214,12 @@ class RobotService {
           like(robots.robotId, `%${search}%`)
         )
       );
+    }
+
+    // 添加权限过滤（只返回可访问的机器人）
+    if (accessibleRobotIds && Array.isArray(accessibleRobotIds) && accessibleRobotIds.length > 0) {
+      const { sql } = require('drizzle-orm');
+      whereConditions.push(sql`${robots.id} IN ${accessibleRobotIds}`);
     }
 
     const results = await db
