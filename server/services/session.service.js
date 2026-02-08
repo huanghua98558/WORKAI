@@ -12,28 +12,44 @@ const { verifyToken, generateTokenPair } = require('../lib/jwt');
 class SessionService {
   constructor() {
     this.logger = getLogger('SESSION');
+    this.MAX_CONCURRENT_SESSIONS = 5; // 最大并发会话数
+    this.DEFAULT_SESSION_EXPIRY_DAYS = 7; // 默认会话过期天数
+    this.REMEMBER_ME_SESSION_EXPIRY_DAYS = 30; // 记住我会话过期天数
   }
 
   /**
    * 创建会话
    * @param {Object} user - 用户信息
    * @param {Object} sessionData - 会话数据
+   * @param {boolean} rememberMe - 是否记住登录
    * @returns {Promise<Object>} 会话信息和Token
    */
-  async createSession(user, sessionData = {}) {
+  async createSession(user, sessionData = {}, rememberMe = false) {
     const db = await getDb();
     const { v4: uuidv4 } = require('uuid');
 
-    // 生成Token对
+    // 检查并强制执行会话并发限制
+    await this.enforceSessionLimit(user.id);
+
+    // 生成Token对（支持记住登录）
+    this.logger.info('[createSession] rememberMe参数', { rememberMe, userId: user.id });
     const tokens = generateTokenPair({
       userId: user.id,
       username: user.username,
       role: user.role
-    });
+    }, { rememberMe });
 
-    // 计算过期时间
+    // 计算过期时间（记住登录则延长到30天）
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7天后过期
+    const expiryDays = rememberMe ? this.REMEMBER_ME_SESSION_EXPIRY_DAYS : this.DEFAULT_SESSION_EXPIRY_DAYS;
+    const expiresAt = new Date(now.getTime() + expiryDays * 24 * 60 * 60 * 1000);
+
+    this.logger.info('[createSession] 会话过期时间计算', {
+      rememberMe,
+      expiryDays,
+      expiresAt: expiresAt.toISOString(),
+      createdAt: now.toISOString()
+    });
 
     // 创建会话记录
     const session = {
@@ -425,6 +441,165 @@ class SessionService {
       case 'h': return value * 3600;
       case 'd': return value * 86400;
       default: return 3600;
+    }
+  }
+
+  /**
+   * 强制执行会话并发限制
+   * 如果用户活跃会话数超过限制，则销毁最早的会话
+   * @param {string} userId - 用户ID
+   * @returns {Promise<number>} 被销毁的会话数量
+   */
+  async enforceSessionLimit(userId) {
+    try {
+      const activeSessions = await this.getUserSessions(userId);
+      const currentCount = activeSessions.length;
+
+      if (currentCount < this.MAX_CONCURRENT_SESSIONS) {
+        return 0;
+      }
+
+      // 计算需要销毁的会话数量
+      const sessionsToDestroy = currentCount - this.MAX_CONCURRENT_SESSIONS + 1;
+
+      // 按 lastActivityAt 排序，销毁最早的会话
+      const sortedSessions = [...activeSessions].sort((a, b) =>
+        new Date(a.lastActivityAt) - new Date(b.lastActivityAt)
+      );
+
+      const sessionsToDestroyIds = sortedSessions.slice(0, sessionsToDestroy).map(s => s.id);
+      let destroyedCount = 0;
+
+      for (const sessionId of sessionsToDestroyIds) {
+        const success = await this.destroySessionById(sessionId);
+        if (success) {
+          destroyedCount++;
+        }
+      }
+
+      if (destroyedCount > 0) {
+        this.logger.info('强制执行会话限制', {
+          userId,
+          destroyedCount,
+          limit: this.MAX_CONCURRENT_SESSIONS
+        });
+      }
+
+      return destroyedCount;
+    } catch (error) {
+      this.logger.error('强制执行会话限制失败', { error: error.message, userId });
+      return 0;
+    }
+  }
+
+  /**
+   * 销毁其他设备的所有会话（保留当前会话）
+   * @param {string} userId - 用户ID
+   * @param {string} currentSessionId - 当前会话ID（不销毁）
+   * @returns {Promise<number>} 被销毁的会话数量
+   */
+  async destroyOtherSessions(userId, currentSessionId) {
+    try {
+      const db = await getDb();
+
+      const result = await db
+        .update(userLoginSessions)
+        .set({ isActive: false })
+        .where(
+          and(
+            eq(userLoginSessions.userId, userId),
+            sql`${userLoginSessions.id} != ${currentSessionId}`
+          )
+        );
+
+      this.logger.info('销毁其他会话成功', {
+        userId,
+        currentSessionId,
+        count: result.rowCount
+      });
+
+      return result.rowCount || 0;
+    } catch (error) {
+      this.logger.error('销毁其他会话失败', { error: error.message });
+      return 0;
+    }
+  }
+
+  /**
+   * 按ID销毁会话
+   * @param {string} sessionId - 会话ID
+   * @returns {Promise<boolean>} 是否成功
+   */
+  async destroySessionById(sessionId) {
+    try {
+      const db = await getDb();
+
+      const result = await db
+        .update(userLoginSessions)
+        .set({ isActive: false })
+        .where(eq(userLoginSessions.id, sessionId));
+
+      const success = result.rowCount > 0;
+      if (success) {
+        this.logger.info('按ID销毁会话成功', { sessionId });
+      }
+
+      return success;
+    } catch (error) {
+      this.logger.error('按ID销毁会话失败', { error: error.message, sessionId });
+      return false;
+    }
+  }
+
+  /**
+   * 获取会话统计信息
+   * @param {string} userId - 用户ID
+   * @returns {Promise<Object>} 统计信息
+   */
+  async getSessionStats(userId) {
+    try {
+      const activeSessions = await this.getUserSessions(userId);
+
+      // 按设备类型分组
+      const deviceTypeStats = {};
+      activeSessions.forEach(session => {
+        const deviceType = session.deviceType || 'unknown';
+        deviceTypeStats[deviceType] = (deviceTypeStats[deviceType] || 0) + 1;
+      });
+
+      // 检查是否有过期会话
+      const now = new Date();
+      const expiringSoon = activeSessions.filter(
+        s => new Date(s.expiresAt) - now < 24 * 60 * 60 * 1000 // 24小时内过期
+      ).length;
+
+      return {
+        totalSessions: activeSessions.length,
+        maxAllowedSessions: this.MAX_CONCURRENT_SESSIONS,
+        canCreateMore: activeSessions.length < this.MAX_CONCURRENT_SESSIONS,
+        deviceTypeStats,
+        expiringSoon,
+        sessions: activeSessions.map(s => ({
+          id: s.id,
+          deviceType: s.deviceType,
+          ipAddress: s.ipAddress,
+          location: s.location,
+          createdAt: s.createdAt,
+          lastActivityAt: s.lastActivityAt,
+          expiresAt: s.expiresAt,
+          isCurrentSession: false // 由调用方设置
+        }))
+      };
+    } catch (error) {
+      this.logger.error('获取会话统计信息失败', { error: error.message });
+      return {
+        totalSessions: 0,
+        maxAllowedSessions: this.MAX_CONCURRENT_SESSIONS,
+        canCreateMore: true,
+        deviceTypeStats: {},
+        expiringSoon: 0,
+        sessions: []
+      };
     }
   }
 }

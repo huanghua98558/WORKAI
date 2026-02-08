@@ -31,11 +31,11 @@ async function authRoutes(fastify, options) {
    */
   fastify.post('/login', async (request, reply) => {
     const startTime = Date.now();
-    const { username, password } = request.body;
+    const { username, password, rememberMe = false } = request.body;
     const clientIp = request.ip;
     const userAgent = request.headers['user-agent'];
 
-    logger.info('[Auth] 登录请求', { username, ip: clientIp });
+    logger.info('[Auth] 登录请求', { username, ip: clientIp, rememberMe });
 
     try {
       // 验证输入
@@ -108,12 +108,12 @@ async function authRoutes(fastify, options) {
         });
       }
 
-      // 创建会话
+      // 创建会话（支持记住登录）
       const sessionResult = await sessionService.createSession(user, {
         ip: clientIp,
         userAgent,
         deviceType: parseDeviceType(userAgent)
-      });
+      }, rememberMe);
 
       // 记录审计日志
       // 记录审计日志
@@ -832,6 +832,214 @@ async function authRoutes(fastify, options) {
       return reply.status(500).send({
         code: 500,
         message: '修改密码失败',
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 获取用户的活跃会话列表
+   */
+  fastify.get('/sessions', {
+    onRequest: [async (request, reply) => {
+      const authHeader = request.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return reply.status(401).send({
+          code: 401,
+          message: '未授权',
+          error: 'Unauthorized'
+        });
+      }
+
+      const token = authHeader.substring(7);
+      const sessionData = await sessionService.verifySession(token);
+
+      if (!sessionData) {
+        return reply.status(401).send({
+          code: 401,
+          message: '令牌无效或已过期',
+          error: 'Unauthorized'
+        });
+      }
+
+      request.user = sessionData.user;
+      request.session = sessionData.session;
+    }]
+  }, async (request, reply) => {
+    try {
+      const { user, session } = request;
+      const stats = await sessionService.getSessionStats(user.id);
+
+      // 标记当前会话
+      stats.sessions.forEach(s => {
+        if (s.id === session.id) {
+          s.isCurrentSession = true;
+        }
+      });
+
+      return reply.send({
+        code: 0,
+        message: '获取成功',
+        data: stats
+      });
+    } catch (error) {
+      logger.error('[Auth] 获取会话列表失败', {
+        userId: request.user?.id,
+        error: error.message
+      });
+
+      return reply.status(500).send({
+        code: 500,
+        message: '获取会话列表失败',
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 销毁指定会话
+   */
+  fastify.delete('/sessions/:sessionId', {
+    onRequest: [async (request, reply) => {
+      const authHeader = request.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return reply.status(401).send({
+          code: 401,
+          message: '未授权',
+          error: 'Unauthorized'
+        });
+      }
+
+      const token = authHeader.substring(7);
+      const sessionData = await sessionService.verifySession(token);
+
+      if (!sessionData) {
+        return reply.status(401).send({
+          code: 401,
+          message: '令牌无效或已过期',
+          error: 'Unauthorized'
+        });
+      }
+
+      request.user = sessionData.user;
+      request.session = sessionData.session;
+    }]
+  }, async (request, reply) => {
+    try {
+      const { user, session } = request;
+      const { sessionId } = request.params;
+
+      // 不允许销毁当前会话
+      if (sessionId === session.id) {
+        return reply.status(400).send({
+          code: 400,
+          message: '不能销毁当前会话',
+          error: 'Bad Request'
+        });
+      }
+
+      // 验证会话是否属于当前用户
+      const userSessions = await sessionService.getUserSessions(user.id);
+      const targetSession = userSessions.find(s => s.id === sessionId);
+
+      if (!targetSession) {
+        return reply.status(404).send({
+          code: 404,
+          message: '会话不存在',
+          error: 'Not Found'
+        });
+      }
+
+      // 销毁会话
+      const success = await sessionService.destroySessionById(sessionId);
+
+      if (success) {
+        logger.info('[Auth] 销毁会话成功', {
+          userId: user.id,
+          sessionId,
+          ipAddress: request.ip
+        });
+
+        return reply.send({
+          code: 0,
+          message: '会话已销毁'
+        });
+      } else {
+        return reply.status(500).send({
+          code: 500,
+          message: '销毁会话失败',
+          error: 'Internal Server Error'
+        });
+      }
+    } catch (error) {
+      logger.error('[Auth] 销毁会话失败', {
+        userId: request.user?.id,
+        error: error.message
+      });
+
+      return reply.status(500).send({
+        code: 500,
+        message: '销毁会话失败',
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 销毁其他所有会话（保留当前会话）
+   */
+  fastify.delete('/sessions/others', {
+    onRequest: [async (request, reply) => {
+      const authHeader = request.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return reply.status(401).send({
+          code: 401,
+          message: '未授权',
+          error: 'Unauthorized'
+        });
+      }
+
+      const token = authHeader.substring(7);
+      const sessionData = await sessionService.verifySession(token);
+
+      if (!sessionData) {
+        return reply.status(401).send({
+          code: 401,
+          message: '令牌无效或已过期',
+          error: 'Unauthorized'
+        });
+      }
+
+      request.user = sessionData.user;
+      request.session = sessionData.session;
+    }]
+  }, async (request, reply) => {
+    try {
+      const { user, session } = request;
+
+      const destroyedCount = await sessionService.destroyOtherSessions(user.id, session.id);
+
+      logger.info('[Auth] 销毁其他会话成功', {
+        userId: user.id,
+        currentSessionId: session.id,
+        destroyedCount,
+        ipAddress: request.ip
+      });
+
+      return reply.send({
+        code: 0,
+        message: '其他会话已销毁',
+        data: { destroyedCount }
+      });
+    } catch (error) {
+      logger.error('[Auth] 销毁其他会话失败', {
+        userId: request.user?.id,
+        error: error.message
+      });
+
+      return reply.status(500).send({
+        code: 500,
+        message: '销毁其他会话失败',
         error: error.message
       });
     }

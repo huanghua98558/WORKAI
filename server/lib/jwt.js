@@ -34,11 +34,12 @@ function generateAccessToken(payload) {
 /**
  * 生成刷新令牌
  * @param {Object} payload - 令牌负载
+ * @param {string} expiresIn - 过期时间（可选，默认使用 JWT_REFRESH_TOKEN_EXPIRES_IN）
  * @returns {string} JWT Token
  */
-function generateRefreshToken(payload) {
+function generateRefreshToken(payload, expiresIn) {
   return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: JWT_REFRESH_TOKEN_EXPIRES_IN,
+    expiresIn: expiresIn || JWT_REFRESH_TOKEN_EXPIRES_IN,
     issuer: 'worktool-ai',
     audience: 'worktool-users'
   });
@@ -113,18 +114,24 @@ function refreshToken(refreshToken) {
  * @param {string} user.userId - 用户ID
  * @param {string} user.username - 用户名
  * @param {string} user.role - 用户角色
+ * @param {Object} options - 可选参数
+ * @param {boolean} options.rememberMe - 是否记住登录（延长 refresh token 过期时间）
  * @returns {Object} 令牌对
  */
-function generateTokenPair(user) {
+function generateTokenPair(user, options = {}) {
+  const { rememberMe = false } = options;
   const payload = {
     userId: user.userId,
     username: user.username,
     role: user.role || 'user'
   };
 
+  // 计算刷新令牌的过期时间
+  const refreshTokenExpiresIn = rememberMe ? '30d' : JWT_REFRESH_TOKEN_EXPIRES_IN;
+
   return {
     accessToken: generateAccessToken(payload),
-    refreshToken: generateRefreshToken(payload),
+    refreshToken: generateRefreshToken(payload, refreshTokenExpiresIn),
     expiresIn: JWT_ACCESS_TOKEN_EXPIRES_IN
   };
 }

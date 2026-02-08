@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [formData, setFormData] = useState({
     username: '',
     password: '',
+    rememberMe: false, // 添加记住我选项
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -44,16 +45,21 @@ export default function LoginPage() {
       const result = await response.json();
 
       if (result.code === 0) {
+        // 记住我功能：设置不同的 cookie 过期时间
+        const accessTokenExpiry = formData.rememberMe ? 60 * 60 * 24 * 30 : 60 * 60; // 30天或1小时
+        const refreshTokenExpiry = formData.rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24 * 7; // 30天或7天
+
         // 保存 tokens 到 localStorage（兼容性）
         localStorage.setItem('access_token', result.data.accessToken);
         localStorage.setItem('refresh_token', result.data.refreshToken);
+        localStorage.setItem('remember_me', formData.rememberMe.toString()); // 保存记住我设置
 
         // 保存用户信息
         localStorage.setItem('user', JSON.stringify(result.data.user));
 
         // 设置 cookies（用于 middleware 认证）
-        document.cookie = `access_token=${result.data.accessToken}; path=/; max-age=${60 * 60}; SameSite=lax`;
-        document.cookie = `refresh_token=${result.data.refreshToken}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=lax`;
+        document.cookie = `access_token=${result.data.accessToken}; path=/; max-age=${accessTokenExpiry}; SameSite=lax`;
+        document.cookie = `refresh_token=${result.data.refreshToken}; path=/; max-age=${refreshTokenExpiry}; SameSite=lax`;
 
         // 跳转到首页
         router.push('/');
@@ -131,7 +137,25 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="rememberMe"
+                  name="rememberMe"
+                  checked={formData.rememberMe}
+                  onChange={(e) => setFormData({ ...formData, rememberMe: e.target.checked })}
+                  disabled={loading}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label
+                  htmlFor="rememberMe"
+                  className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer select-none"
+                >
+                  记住我
+                </label>
+              </div>
+
               <a
                 href="/auth/forgot-password"
                 className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
