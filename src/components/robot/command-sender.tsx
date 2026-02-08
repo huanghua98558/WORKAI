@@ -299,7 +299,7 @@ export default function CommandSender() {
   // 重试指令
   const handleRetryCommand = async (commandId: string) => {
     try {
-      const response = await fetch(`/api/admin/robot-commands/${commandId}`, {
+      const response = await fetch(`/api/admin/robot-commands/${commandId}/retry`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
