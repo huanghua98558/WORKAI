@@ -61,6 +61,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+// 导入API工具类
+import { adminRobotApi, ResponseHelper, type Robot as ApiRobot } from '@/lib/api';
+
 // 导入新的组件
 import RobotGroupManager from '@/components/robot/robot-group-manager';
 import RobotRoleManager from '@/components/robot/robot-role-manager';
@@ -133,12 +136,15 @@ export default function RobotManagement() {
   const loadRobots = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/admin/robots');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.code === 0) {
-          setRobots(data.data || []);
-        }
+      // 使用新的API工具类
+      const response = await adminRobotApi.getList();
+
+      if (ResponseHelper.isSuccess(response)) {
+        // 类型断言，因为api-robot的Robot类型和组件的Robot类型有差异
+        setRobots((response.data || []) as Robot[]);
+        console.log('[loadRobots] 加载成功，机器人数量:', response.data?.length || 0);
+      } else {
+        console.error('[loadRobots] 加载失败:', response.message);
       }
     } catch (error) {
       console.error('加载机器人列表失败:', error);

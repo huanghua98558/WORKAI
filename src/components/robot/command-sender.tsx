@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+
+// 导入API工具类
+import { robotApi, ResponseHelper } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -152,14 +155,16 @@ export default function CommandSender() {
   const fetchRobots = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/robots');
-      const result = await response.json();
 
-      if (result.code === 0) {
-        console.log('加载到的机器人数据:', result.data);
-        setRobots(result.data);
+      // 使用新的API工具类
+      const response = await robotApi.getList();
+
+      if (ResponseHelper.isSuccess(response)) {
+        console.log('加载到的机器人数据:', response.data);
+        // 类型断言，因为api-robot的Robot类型和组件的Robot类型有差异
+        setRobots((response.data || []) as Robot[]);
       } else {
-        toast.error(result.message || '加载机器人列表失败');
+        toast.error(response.message || '加载机器人列表失败');
       }
     } catch (error) {
       console.error('加载机器人列表失败:', error);

@@ -49,6 +49,9 @@ import { TokenStatsCard } from '@/components/token-stats';
 // 引入新的仪表盘组件
 const NewDashboardTab = lazy(() => import('@/components/dashboard/NewDashboardTab'));
 
+// 导入API工具类
+import { monitoringApi, adminRobotApi, robotApi, ResponseHelper } from '@/lib/api';
+
 import { cn } from '@/lib/utils';
 
 // 加载组件
@@ -471,16 +474,22 @@ export default function AdminDashboard() {
   // 加载机器人列表（使用新接口）
   const loadRobots = async () => {
     try {
-      const res = await authenticatedFetch('/api/monitoring/robots-status');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.code === 0 && data.data && data.data.robots) {
-          const robotsList = data.data.robots || [];
-          setRobots(robotsList);
-          // 筛选出在线的机器人
-          const online = robotsList.filter((r: Robot) => r.isActive && r.status === 'online');
-          setOnlineRobots(online);
-        }
+      // 使用新的API工具类
+      const response = await monitoringApi.getRobotsStatus();
+
+      if (ResponseHelper.isSuccess(response)) {
+        const robotsList = response.data?.robots || [];
+
+        // 类型断言，因为api-robot的Robot类型和页面的Robot类型有差异
+        setRobots(robotsList as Robot[]);
+
+        // 筛选出在线的机器人
+        const online = robotsList.filter((r) => r.isActive && r.status === 'online');
+        setOnlineRobots(online as Robot[]);
+
+        console.log('[loadRobots] 加载成功，机器人数量:', robotsList.length, '在线数量:', online.length);
+      } else {
+        console.error('[loadRobots] 加载失败:', response.message);
       }
     } catch (error) {
       console.error('加载机器人列表失败:', error);
