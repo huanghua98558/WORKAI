@@ -75,7 +75,7 @@ export default function RobotBusinessRoleManager() {
   useEffect(() => {
     const fetchRobots = async () => {
       try {
-        const response = await fetch('/api/proxy/admin/robots');
+        const response = await fetch('/api/admin/robots');
         const result = await response.json();
         if (result.code === 0 && result.data) {
           // 确保 id 字段是字符串类型

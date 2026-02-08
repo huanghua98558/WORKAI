@@ -152,9 +152,9 @@ export default function CommandSender() {
   const fetchRobots = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/proxy/admin/robots');
+      const response = await fetch('/api/admin/robots');
       const result = await response.json();
-      
+
       if (result.code === 0) {
         console.log('加载到的机器人数据:', result.data);
         setRobots(result.data);
