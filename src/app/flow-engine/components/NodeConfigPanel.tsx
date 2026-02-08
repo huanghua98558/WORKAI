@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { X, Settings } from 'lucide-react';
 import { NODE_TYPES, NODE_METADATA } from '../types';
+import DecisionConfig from './DecisionConfig';
 
 type FlowNode = Node;
 
@@ -468,61 +469,8 @@ const MemoizedIntentConfig = React.memo(function IntentConfig({ config, onChange
   );
 });
 
-const MemoizedDecisionConfig = React.memo(function DecisionConfig({ config, onChange }: any) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-sm font-medium text-slate-700">决策条件</Label>
-        <div className="space-y-2 mt-2">
-          <div>
-            <Label htmlFor="conditionField" className="text-sm">
-              条件字段
-            </Label>
-            <Input
-              id="conditionField"
-              value={config.conditionField || 'intent'}
-              onChange={(e) => onChange('conditionField', e.target.value)}
-              placeholder="intent"
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label htmlFor="conditionOperator" className="text-sm">
-              条件操作符
-            </Label>
-            <Select
-              value={config.conditionOperator || 'equals'}
-              onValueChange={(value) => onChange('conditionOperator', value)}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="选择操作符" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="equals">等于</SelectItem>
-                <SelectItem value="not_equals">不等于</SelectItem>
-                <SelectItem value="contains">包含</SelectItem>
-                <SelectItem value="not_contains">不包含</SelectItem>
-                <SelectItem value="greater_than">大于</SelectItem>
-                <SelectItem value="less_than">小于</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="conditionValue" className="text-sm">
-              条件值
-            </Label>
-            <Input
-              id="conditionValue"
-              value={config.conditionValue || ''}
-              onChange={(e) => onChange('conditionValue', e.target.value)}
-              placeholder="service"
-              className="mt-1"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+const MemoizedDecisionConfig = React.memo(function DecisionConfigWrapper({ config, onChange }: any) {
+  return <DecisionConfig config={config} onChange={onChange} />;
 });
 
 const MemoizedAiReplyConfig = React.memo(function AiReplyConfig({ config, onChange }: any) {
