@@ -72,21 +72,14 @@ export default function LoginPage() {
         // 保存用户信息
         localStorage.setItem('user', JSON.stringify(result.data.user));
 
-        // 注意：cookies 由后端 API 路由自动设置（httpOnly），无需前端手动设置
-        // document.cookie 设置的 cookie 不是 httpOnly，服务端中间件无法读取
-
-        console.log('[Login] 登录成功，保存数据完成');
-
         // 手动设置 cookies（客户端方式，不是 httpOnly，但可以验证功能）
-        const accessTokenExpiry = formData.rememberMe ? 60 * 60 * 24 * 30 : 60 * 60; // 30天或1小时
-        const refreshTokenExpiry = formData.rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24 * 7; // 30天或7天
-
         const expiresDate = new Date(Date.now() + accessTokenExpiry * 1000);
         const refreshExpiresDate = new Date(Date.now() + refreshTokenExpiry * 1000);
 
         document.cookie = `access_token=${result.data.accessToken}; expires=${expiresDate.toUTCString()}; path=/; SameSite=lax`;
         document.cookie = `refresh_token=${result.data.refreshToken}; expires=${refreshExpiresDate.toUTCString()}; path=/; SameSite=lax`;
 
+        console.log('[Login] 登录成功，保存数据完成');
         console.log('[Login] 已手动设置 cookies 到浏览器');
 
         // 等待 cookies 被浏览器处理
