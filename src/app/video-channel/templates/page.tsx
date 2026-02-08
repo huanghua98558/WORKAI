@@ -314,7 +314,7 @@ export default function VideoChannelTemplatesPage() {
                   rows={4}
                 />
                 <p className="text-xs text-muted-foreground">
-                  支持使用 {{变量名}} 格式的变量，如 {{userName}}
+                  支持使用 &lbrace;变量名&rbrace; 格式的变量，如 &lbrace;userName&rbrace;
                 </p>
               </div>
 

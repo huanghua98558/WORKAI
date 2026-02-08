@@ -330,7 +330,6 @@ export default function RobotBusinessRoleManager() {
                 : '创建一个新的业务角色'}
             </DialogDescription>
           </DialogHeader>
-          {console.log('[RobotBusinessRoleManager] 渲染 BusinessRoleForm，robots:', robots.length, '个')}
           <BusinessRoleForm
             robots={robots}
             initialData={editingRole}

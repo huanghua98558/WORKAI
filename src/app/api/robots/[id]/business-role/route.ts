@@ -27,8 +27,8 @@ export async function GET(
     return NextResponse.json({
       success: true,
       data: {
-        businessRole: result.businessConfig.businessRole,
-        businessConfig: result.businessConfig.businessConfig,
+        businessRole: result.businessConfig?.businessRole,
+        businessConfig: result.businessConfig?.businessConfig,
         businessRoleName: result.businessRole?.name,
       },
     });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,7 @@ interface AuditData {
   error?: string;
 }
 
-export default function VideoChannelAuditPage() {
+function VideoChannelAuditContent() {
   const searchParams = useSearchParams();
   const userId = searchParams.get('userId');
 
@@ -275,5 +275,30 @@ export default function VideoChannelAuditPage() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+export default function VideoChannelAuditPage() {
+  return (
+    <Suspense fallback={
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold">人工审核</h2>
+          <p className="text-muted-foreground mt-2">
+            审核视频号页面截图，检查是否符合规定
+          </p>
+        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-8">
+              <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground">加载中...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <VideoChannelAuditContent />
+    </Suspense>
   );
 }

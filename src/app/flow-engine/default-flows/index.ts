@@ -3,6 +3,11 @@
  * 导出所有默认流程定义，方便使用
  */
 
+import { standardMessageReceiveFlow } from './standard-message-receive';
+import { collaborativeAnalysisFlow } from './collaborative-analysis';
+import { riskHandlingFlow } from './risk-handling';
+import { smartCustomerServiceFlow } from './smart-customer-service';
+
 export { standardMessageReceiveFlow } from './standard-message-receive';
 export { collaborativeAnalysisFlow } from './collaborative-analysis';
 export { riskHandlingFlow } from './risk-handling';

@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const businessConfigResult = await robotBusinessRoleService.getBusinessConfigByRobotId(body.robotId);
-      if (businessConfigResult.success) {
+      if (businessConfigResult.success && businessConfigResult.businessConfig) {
         businessRoleCode = businessConfigResult.businessConfig.businessRole;
         businessRoleName = businessConfigResult.businessRole?.name || null;
 
@@ -163,8 +163,7 @@ export async function POST(request: NextRequest) {
             ? `${businessRoleName}：${shouldAiReply ? 'AI回复' : 'AI不回复'}用户消息`
             : '用户消息已接收',
           strategy: businessRoleName ? `${businessRoleName}策略` : (shouldAiReply ? 'AI优先' : '等待人工'),
-          staffType: null,  // 用户消息无工作人员类型
-          messageType: 'user_message',
+          messageType: 'user',
         });
       } 
       // 如果是AI回复，更新决策
@@ -173,7 +172,6 @@ export async function POST(request: NextRequest) {
           aiAction: 'replied',
           priority: 'low',
           reason: 'AI已回复',
-          messageType: 'ai_reply',
         });
       }
       // 如果是工作人员回复，更新决策
@@ -185,7 +183,7 @@ export async function POST(request: NextRequest) {
         try {
           const identifyResult = await robotBusinessRoleService.shouldIdentifyStaff(
             body.robotId,
-            staffType || 'unknown'
+            staffType ? String(staffType) : 'unknown'
           );
           if (identifyResult.success) {
             shouldIdentify = identifyResult.shouldIdentify;
@@ -196,12 +194,25 @@ export async function POST(request: NextRequest) {
           // 默认识别工作人员
         }
 
+        // 将 staffType 映射到决策日志接受的格式
+        let decisionStaffType: 'management' | 'community' | 'after_sales' | 'conversion' | null = null;
+        if (staffType) {
+          const staffTypeStr = String(staffType);
+          if (staffTypeStr.includes('management')) {
+            decisionStaffType = 'management';
+          } else if (staffTypeStr.includes('community')) {
+            decisionStaffType = 'community';
+          } else if (staffTypeStr.includes('after_sales')) {
+            decisionStaffType = 'after_sales';
+          } else if (staffTypeStr.includes('conversion')) {
+            decisionStaffType = 'conversion';
+          }
+        }
+
         await collaborationDecisionService.updateDecision(body.parentMessageId, {
           staffAction: shouldIdentify ? 'replied' : 'ignored',
           priority: 'low',
           reason: identifyReason || `员工 ${senderInfo.staffName} (${staffType}) 已回复`,
-          staffType: staffType || 'unknown',
-          messageType: shouldIdentify ? 'staff_reply' : 'staff_message_ignored',
         });
 
         // 如果识别为工作人员，记录上下文
@@ -212,7 +223,7 @@ export async function POST(request: NextRequest) {
               sessionId,
               staffUserId: senderInfo.staffId,
               staffName: senderInfo.staffName || '',
-              staffType: staffType || 'unknown',
+              staffType: staffType || StaffType.MANAGEMENT,
               content: body.content,
               relatedUserId: body.relatedUserId,  // 如果有 @用户
               isMention: body.isMention || false,
@@ -227,7 +238,7 @@ export async function POST(request: NextRequest) {
             try {
               // 从业务角色配置获取关键词
               const businessConfig = await robotBusinessRoleService.getBusinessConfigByRobotId(body.robotId);
-              const keywords = businessConfig.success && businessConfig.businessConfig.businessConfig.keywords
+              const keywords = businessConfig.success && businessConfig.businessConfig && businessConfig.businessConfig.businessConfig
                 ? businessConfig.businessConfig.businessConfig.keywords
                 : getKeywordsByScenario('after_sales');
 
@@ -247,7 +258,7 @@ export async function POST(request: NextRequest) {
                   userId: body.relatedUserId || body.senderId,
                   userName: body.relatedUserName || body.senderName,
                   taskType: 'general',
-                  priority: businessConfig.success && businessConfig.businessConfig.businessConfig.defaultTaskPriority
+                  priority: businessConfig.success && businessConfig.businessConfig && businessConfig.businessConfig.businessConfig?.defaultTaskPriority
                     ? businessConfig.businessConfig.businessConfig.defaultTaskPriority as any
                     : 'normal',
                   status: 'pending',
@@ -255,7 +266,6 @@ export async function POST(request: NextRequest) {
                   description: body.content,
                   messageId: savedMessage.id,
                   keyword: matchedKeyword,
-                  businessRole: businessRoleCode,  // 记录业务角色
                 });
                 console.log('[POST /api/messages] 售后任务已创建');
               }

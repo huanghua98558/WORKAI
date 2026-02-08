@@ -285,7 +285,7 @@ export class AfterSalesTaskService {
       };
 
       if (status === AfterSalesTaskStatus.COMPLETED) {
-        updateData.completedAt = new Date();
+        updateData.completedAt = new Date().toISOString();
         updateData.completionNote = note;
       }
 

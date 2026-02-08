@@ -272,27 +272,29 @@ interface Session {
   sessionId: string;
   userId?: string;
   groupId?: string;
-  userName?: string;
-  groupName?: string;
-  robotId?: string;
-  robotName?: string;
+  userName: string; // BusinessMessageMonitor 要求必需
+  groupName: string; // BusinessMessageMonitor 要求必需
+  robotId: string; // BusinessMessageMonitor 要求必需
+  robotName: string; // BusinessMessageMonitor 要求必需
   robotNickname?: string;
   company?: string; // 企业名称
   userInfo?: {
     userName?: string;
     groupName?: string;
   };
-  lastMessage?: string; // 最新消息内容
-  isFromUser?: boolean; // 最新消息是否来自用户
-  isFromBot?: boolean; // 最新消息是否来自机器人
-  isHuman?: boolean; // 最新消息是否人工回复
+  lastMessage: string; // BusinessMessageMonitor 要求必需
+  isFromUser: boolean; // BusinessMessageMonitor 要求必需
+  isFromBot: boolean; // BusinessMessageMonitor 要求必需
+  isHuman: boolean; // BusinessMessageMonitor 要求必需
   status: 'auto' | 'human';
+  startTime: string; // BusinessMessageMonitor 要求必需
   lastActiveTime: string;
   messageCount: number;
-  replyCount?: number;
+  userMessages: number; // BusinessMessageMonitor 要求必需
   aiReplyCount: number;
   humanReplyCount: number;
-  lastIntent?: string;
+  replyCount: number; // BusinessMessageMonitor 要求必需
+  lastIntent: string; // BusinessMessageMonitor 要求必需
 }
 
 export default function AdminDashboard() {

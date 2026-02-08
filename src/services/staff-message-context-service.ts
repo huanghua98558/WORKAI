@@ -4,6 +4,9 @@ import { collaborationDecisionLogs } from '../storage/database/shared/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { StaffType } from './staff-type-service';
 
+// 确保 crypto 可用
+const crypto = require('crypto');
+
 /**
  * 工作人员消息上下文接口
  */
@@ -44,15 +47,15 @@ export class StaffMessageContextService {
   }): Promise<{ success: boolean; error?: string }> {
     try {
       await db.insert(staffMessages).values({
-        messageId: data.messageId,
+        id: crypto.randomUUID(),
         sessionId: data.sessionId,
+        messageId: data.messageId,
         staffUserId: data.staffUserId,
         staffName: data.staffName,
         content: data.content,
-        isMention: data.isMention || false,
-        metadata: data.metadata || {},
-        timestamp: new Date(),
-        createdAt: new Date(),
+        messageType: 'reply',
+        isHandlingCommand: false,
+        timestamp: new Date().toISOString(),
       });
 
       return {
@@ -96,9 +99,9 @@ export class StaffMessageContextService {
         messageContent: targetMessage.content,
         timestamp: new Date(targetMessage.createdAt || targetMessage.timestamp || Date.now()),
         staffUserId: targetMessage.staffUserId,
-        staffName: targetMessage.staffName || '',
-        messageType: targetMessage.messageType,
-        isHandlingCommand: targetMessage.isHandlingCommand || false,
+        staffName: targetMessage.staffName ?? '',
+        messageType: targetMessage.messageType || 'reply',
+        isHandlingCommand: targetMessage.isHandlingCommand ?? false,
         nearbyMessages: [],
       };
 
@@ -133,8 +136,11 @@ export class StaffMessageContextService {
         .orderBy(desc(sql`COALESCE(${staffMessages.timestamp}, ${staffMessages.createdAt})`));
 
       return messages.map(m => ({
-        ...m,
-        timestamp: new Date(m.timestamp),
+        messageId: m.messageId,
+        staffUserId: m.staffUserId,
+        staffName: m.staffName ?? '',
+        content: m.content,
+        timestamp: new Date(m.timestamp || Date.now()),
       }));
     } catch (error) {
       console.error('[StaffMessageContextService] 获取会话工作人员消息失败:', error);
@@ -188,8 +194,11 @@ export class StaffMessageContextService {
       }
 
       return {
-        ...message,
-        timestamp: new Date(message.timestamp),
+        messageId: message.messageId,
+        staffUserId: message.staffUserId,
+        staffName: message.staffName ?? '',
+        content: message.content,
+        timestamp: new Date(message.timestamp || Date.now()),
       };
     } catch (error) {
       console.error('[StaffMessageContextService] 获取最后一次工作人员操作失败:', error);

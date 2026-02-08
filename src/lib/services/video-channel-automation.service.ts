@@ -295,7 +295,7 @@ class VideoChannelAutomationService {
 
       // 禁用图片加载（只加载必要的资源，加快速度）
       await page.setRequestInterception(true);
-      page.on('request', (req) => {
+      page.on('request', (req: any) => {
         const resourceType = req.resourceType();
         // 只加载文档、脚本和必要的样式，跳过图片、字体等
         if (['image', 'font', 'media'].includes(resourceType)) {
@@ -365,7 +365,7 @@ class VideoChannelAutomationService {
           console.log('[获取二维码] 登录页面URL:', page.url());
 
           // 检查页面是否自动跳转（防止登录页面跳转到其他页面）
-          const currentUrl = page.url();
+          const currentUrl = await page.url();
           if (!currentUrl.includes('/talent') || currentUrl.includes('/talent/home')) {
             console.log('[获取二维码] 页面自动跳转，重新访问登录页面');
             // 清除Cookie后重新访问
@@ -591,7 +591,7 @@ class VideoChannelAutomationService {
       console.log('[检测登录] 当前页面URL:', page.url());
 
       // 不刷新页面，直接检查当前状态（避免破坏登录状态）
-      const currentUrl = page.url();
+      const currentUrl = await page.url();
       console.log('[检测登录] 当前页面URL:', currentUrl);
 
       console.log('[检测登录] 开始检查页面元素...');
