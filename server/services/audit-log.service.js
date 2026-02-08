@@ -5,7 +5,7 @@
 
 const { getDb } = require('coze-coding-dev-sdk');
 const { userAuditLogs } = require('../database/schema');
-const { getLogger } = require('./logger');
+const { getLogger } = require('../lib/logger');
 const { v4: uuidv4 } = require('uuid');
 
 class AuditLogService {

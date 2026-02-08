@@ -3,9 +3,10 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera, Upload, Trash2 } from 'lucide-react';
+import { Camera, Upload, Trash2, Grid } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { api } from '@/lib/api-client';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DEFAULT_AVATARS } from '@/lib/default-avatars';
 
 interface AvatarUploadProps {
   currentAvatar?: string;
@@ -16,6 +17,7 @@ interface AvatarUploadProps {
 export default function AvatarUpload({ currentAvatar, username, onAvatarChange }: AvatarUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+  const [showDefaultDialog, setShowDefaultDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = () => {
@@ -26,14 +28,12 @@ export default function AvatarUpload({ currentAvatar, username, onAvatarChange }
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 验证文件类型
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
     if (!allowedTypes.includes(file.type)) {
       setError('不支持的文件类型，仅支持 JPG、PNG、WebP、GIF');
       return;
     }
 
-    // 验证文件大小（5MB）
     if (file.size > 5 * 1024 * 1024) {
       setError('文件大小超过限制，最大允许 5MB');
       return;
@@ -43,11 +43,9 @@ export default function AvatarUpload({ currentAvatar, username, onAvatarChange }
     setUploading(true);
 
     try {
-      // 创建 FormData
       const formData = new FormData();
       formData.append('avatar', file);
 
-      // 上传头像
       const response = await fetch('/api/avatar/upload', {
         method: 'POST',
         headers: {
@@ -68,7 +66,6 @@ export default function AvatarUpload({ currentAvatar, username, onAvatarChange }
       console.error('上传头像失败:', err);
     } finally {
       setUploading(false);
-      // 清空文件输入
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -83,7 +80,12 @@ export default function AvatarUpload({ currentAvatar, username, onAvatarChange }
     setUploading(true);
 
     try {
-      await api.post('/avatar/delete', {});
+      await fetch('/api/avatar/delete', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+      });
 
       onAvatarChange('');
     } catch (err) {
@@ -92,6 +94,11 @@ export default function AvatarUpload({ currentAvatar, username, onAvatarChange }
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleSelectDefault = (avatar: string) => {
+    onAvatarChange(avatar);
+    setShowDefaultDialog(false);
   };
 
   const getInitials = (name?: string) => {
@@ -114,7 +121,7 @@ export default function AvatarUpload({ currentAvatar, username, onAvatarChange }
           </AvatarFallback>
         </Avatar>
 
-        {/* 上传按钮 */}
+        {/* 操作按钮 */}
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full">
           <div className="flex space-x-2">
             <Button
@@ -123,8 +130,20 @@ export default function AvatarUpload({ currentAvatar, username, onAvatarChange }
               onClick={handleFileSelect}
               disabled={uploading}
               className="rounded-full"
+              title="上传头像"
             >
-              {currentAvatar ? <Upload className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
+              <Upload className="h-4 w-4" />
+            </Button>
+
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setShowDefaultDialog(true)}
+              disabled={uploading}
+              className="rounded-full"
+              title="选择默认头像"
+            >
+              <Grid className="h-4 w-4" />
             </Button>
 
             {currentAvatar && (
@@ -134,6 +153,7 @@ export default function AvatarUpload({ currentAvatar, username, onAvatarChange }
                 onClick={handleDelete}
                 disabled={uploading}
                 className="rounded-full"
+                title="删除头像"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -158,15 +178,43 @@ export default function AvatarUpload({ currentAvatar, username, onAvatarChange }
 
       {!currentAvatar && !uploading && (
         <p className="text-sm text-muted-foreground">
-          点击上传头像（支持 JPG、PNG、WebP、GIF，最大 5MB）
+          上传自定义头像或选择默认头像
         </p>
       )}
 
       {currentAvatar && (
         <p className="text-xs text-muted-foreground">
-          头像链接有效期 7 天，过期后系统会自动刷新
+          头像链接有效期 7 天
         </p>
       )}
+
+      {/* 默认头像选择对话框 */}
+      <Dialog open={showDefaultDialog} onOpenChange={setShowDefaultDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>选择默认头像</DialogTitle>
+            <DialogDescription>
+              从预设头像中选择一个作为您的头像
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-4 gap-4 py-4">
+            {DEFAULT_AVATARS.map((avatar) => (
+              <button
+                key={avatar.id}
+                onClick={() => handleSelectDefault(avatar.preview)}
+                className="flex flex-col items-center space-y-2 p-2 hover:bg-accent rounded-lg transition-colors"
+              >
+                <Avatar className="h-16 w-16 border-2 border-border">
+                  <AvatarImage src={avatar.preview} alt={avatar.name} />
+                  <AvatarFallback>{avatar.name[0]}</AvatarFallback>
+                </Avatar>
+                <span className="text-xs text-muted-foreground">{avatar.name}</span>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

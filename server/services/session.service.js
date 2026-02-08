@@ -6,8 +6,8 @@
 const { eq, and, sql } = require('drizzle-orm');
 const { getDb } = require('coze-coding-dev-sdk');
 const { userSessions, users } = require('../database/schema');
-const { getLogger } = require('./logger');
-const { verifyToken, generateTokenPair } = require('./jwt');
+const { getLogger } = require('../lib/logger');
+const { verifyToken, generateTokenPair } = require('../lib/jwt');
 
 class SessionService {
   constructor() {

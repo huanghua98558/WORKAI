@@ -6,7 +6,7 @@
 const { eq, and, or, inArray, sql } = require('drizzle-orm');
 const { getDb } = require('coze-coding-dev-sdk');
 const { robots, users, robotPermissions } = require('../database/schema');
-const { getLogger } = require('./logger');
+const { getLogger } = require('../lib/logger');
 
 class PermissionService {
   constructor() {

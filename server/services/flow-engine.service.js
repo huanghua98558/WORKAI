@@ -53,7 +53,7 @@ const NodeType = {
   // 协同分析相关节点
   COLLABORATION_ANALYZE: 'collaboration_analyze', // 协同分析节点
   STAFF_MESSAGE: 'staff_message', // 工作人员消息节点
-  SMART_ANALYZE: 'smart_analyze' // 智能分析节点（意图+情绪合并）
+  SMART_ANALYZE: 'smart_analyze', // 智能分析节点（意图+情绪合并）
 
   // HTTP 和任务相关节点
   HTTP_REQUEST: 'http_request', // HTTP请求节点
