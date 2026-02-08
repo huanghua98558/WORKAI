@@ -31,6 +31,7 @@ export function middleware(request: NextRequest) {
 
   // 跳过 API 路由（不需要中间件认证）
   if (pathname.startsWith('/api/')) {
+    console.log('[Middleware] API 路由，跳过认证检查:', pathname);
     return NextResponse.next();
   }
 
@@ -47,7 +48,9 @@ export function middleware(request: NextRequest) {
   if (isProtectedRoute) {
     const token = request.cookies.get('access_token')?.value;
 
-    console.log('[Middleware] 受保护路由:', pathname, 'Token存在:', !!token);
+    console.log('[Middleware] 受保护路由:', pathname);
+    console.log('[Middleware] Token存在:', !!token);
+    console.log('[Middleware] 所有Cookies:', request.cookies.getAll().map(c => c.name));
 
     // 如果没有 token，重定向到登录页
     if (!token) {
@@ -55,9 +58,13 @@ export function middleware(request: NextRequest) {
       if (!pathname.startsWith('/auth/login')) {
         const loginUrl = new URL('/auth/login', request.url);
         loginUrl.searchParams.set('callbackUrl', pathname);
-        console.log('[Middleware] 无 token，重定向到登录页');
+        console.log('[Middleware] ⚠️ 无 token，重定向到登录页:', loginUrl.toString());
         return NextResponse.redirect(loginUrl);
+      } else {
+        console.log('[Middleware] 已经在登录页，不再重定向');
       }
+    } else {
+      console.log('[Middleware] ✓ Token 存在，允许访问:', pathname);
     }
   }
 

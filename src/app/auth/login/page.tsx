@@ -19,6 +19,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showManualRedirect, setShowManualRedirect] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -65,12 +66,28 @@ export default function LoginPage() {
         // 注意：cookies 由后端 API 路由自动设置（httpOnly），无需前端手动设置
         // document.cookie 设置的 cookie 不是 httpOnly，服务端中间件无法读取
 
-        console.log('[Login] 准备跳转到首页，使用 window.location.href');
+        console.log('[Login] 登录成功，保存数据完成');
 
-        // 使用 window.location.href 而不是 router.push，确保浏览器已处理 cookie 设置
+        // 尝试自动跳转
+        console.log('[Login] 即将自动跳转到首页...');
+
+        // 使用 window.location.replace 替代 href
+        try {
+          console.log('[Login] 执行跳转命令：window.location.replace("/")');
+          window.location.replace('/');
+        } catch (err) {
+          console.error('[Login] 自动跳转失败:', err);
+          // 如果自动跳转失败，显示手动跳转按钮
+          setShowManualRedirect(true);
+        }
+
+        // 3秒后如果还没有跳转，显示手动跳转按钮
         setTimeout(() => {
-          window.location.href = '/';
-        }, 100);
+          if (window.location.pathname === '/auth/login') {
+            console.log('[Login] 自动跳转超时，显示手动跳转按钮');
+            setShowManualRedirect(true);
+          }
+        }, 3000);
       } else {
         console.log('[Login] 登录失败', result);
         setError(result.message || '登录失败');
@@ -207,6 +224,28 @@ export default function LoginPage() {
                 <span>登录即表示同意服务条款和隐私政策</span>
               </div>
             </div>
+
+            {showManualRedirect && (
+              <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm font-semibold text-green-800 mb-3 text-center">
+                  ✓ 登录成功！点击下方按钮跳转到首页
+                </p>
+                <div className="space-y-2">
+                  <a href="/" className="block">
+                    <Button className="w-full" variant="default">
+                      跳转到首页
+                    </Button>
+                  </a>
+                  <Button
+                    onClick={() => window.location.href = '/'}
+                    className="w-full"
+                    variant="outline"
+                  >
+                    强制刷新并跳转
+                  </Button>
+                </div>
+              </div>
+            )}
           </form>
         </CardContent>
       </Card>
