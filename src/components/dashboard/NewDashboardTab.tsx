@@ -219,20 +219,22 @@ export default function NewDashboardTab({
 
   // 获取健康状态图标
   const getHealthStatusIcon = (status: string) => {
+    const key = `health-icon-${status}`;
     switch (status) {
-      case 'healthy': return <CheckCircle className="h-4 w-4" />;
-      case 'warning': return <AlertTriangle className="h-4 w-4" />;
-      case 'critical': return <AlertCircle className="h-4 w-4" />;
-      default: return <Minus className="h-4 w-4" />;
+      case 'healthy': return <CheckCircle key={key} className="h-4 w-4" />;
+      case 'warning': return <AlertTriangle key={key} className="h-4 w-4" />;
+      case 'critical': return <AlertCircle key={key} className="h-4 w-4" />;
+      default: return <Minus key={key} className="h-4 w-4" />;
     }
   };
 
   // 获取机器人状态图标
   const getRobotStatusIcon = (status: string) => {
+    const key = `robot-icon-${status}`;
     switch (status) {
-      case 'online': return <Wifi className="h-4 w-4 text-green-500" />;
-      case 'offline': return <WifiOff className="h-4 w-4 text-red-500" />;
-      default: return <Minus className="h-4 w-4 text-gray-500" />;
+      case 'online': return <Wifi key={key} className="h-4 w-4 text-green-500" />;
+      case 'offline': return <WifiOff key={key} className="h-4 w-4 text-red-500" />;
+      default: return <Minus key={key} className="h-4 w-4 text-gray-500" />;
     }
   };
 
@@ -496,9 +498,9 @@ export default function NewDashboardTab({
             </CardHeader>
             <CardContent className="flex-1 space-y-3 px-6 pb-6">
               <div className="space-y-3">
-                {onlineRobots.slice(0, 4).map((robot) => (
+                {onlineRobots.slice(0, 4).map((robot, index) => (
                   <div
-                    key={robot.id}
+                    key={`robot-${robot.id || index}`}
                     className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
                   >
                     <div className="flex items-center gap-3">
@@ -571,8 +573,8 @@ export default function NewDashboardTab({
               {/* 告警级别分布 */}
               <div className="space-y-2 pt-2">
                 <div className="text-sm font-medium text-slate-700 dark:text-slate-300">级别分布</div>
-                {alertOverview?.levelDistribution.map((item, index) => (
-                  <div key={`level-${item.level}-${index}`} className="space-y-1">
+                {alertOverview?.levelDistribution.map((item) => (
+                  <div key={`alert-level-${item.level}`} className="space-y-1">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-slate-600 dark:text-slate-400 capitalize">{item.level}</span>
                       <span className="text-slate-900 dark:text-slate-100 font-medium">
@@ -636,7 +638,7 @@ export default function NewDashboardTab({
                 {activeGroups.length > 0 ? (
                   activeGroups.map((group, index) => (
                     <div
-                      key={`${group.groupId}-${index}`}
+                      key={`group-${group.groupId || index}-${index}`}
                       className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded-lg"
                     >
                       <div className="flex items-center gap-2">
@@ -683,7 +685,7 @@ export default function NewDashboardTab({
                 {activeUsers.length > 0 ? (
                   activeUsers.map((user, index) => (
                     <div
-                      key={`${user.userId}-${index}`}
+                      key={`user-${user.userId || index}-${index}`}
                       className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded-lg"
                     >
                       <div className="flex items-center gap-2">
@@ -735,9 +737,9 @@ export default function NewDashboardTab({
         <CardContent>
           <div className="space-y-2">
             {sessions.length > 0 ? (
-              sessions.slice(0, 5).map((session) => (
+              sessions.slice(0, 5).map((session, index) => (
                 <div
-                  key={session.sessionId}
+                  key={`session-${session.sessionId || index}`}
                   className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                   onClick={() => setActiveTab('sessions')}
                 >
