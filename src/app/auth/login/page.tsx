@@ -47,8 +47,17 @@ export default function LoginPage() {
       });
 
       console.log('[Login] 收到响应', { status: response.status, ok: response.ok });
-      const result = await response.json();
-      console.log('[Login] 响应数据', result);
+
+      // 尝试解析 JSON
+      let result;
+      try {
+        result = await response.json();
+        console.log('[Login] 响应数据', result);
+      } catch (jsonError) {
+        console.error('[Login] JSON 解析失败', jsonError);
+        console.error('[Login] 响应文本:', await response.text());
+        throw new Error('服务器返回的数据格式错误');
+      }
 
       if (result.code === 0) {
         // 记住我功能：设置不同的 cookie 过期时间
@@ -68,9 +77,9 @@ export default function LoginPage() {
 
         console.log('[Login] 登录成功，保存数据完成');
 
-        // 等待 cookies 被保存
-        console.log('[Login] 等待 cookies 保存...');
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // 等待 cookies 被浏览器处理和保存
+        console.log('[Login] 等待 cookies 被浏览器处理...');
+        await new Promise(resolve => setTimeout(resolve, 1000)); // 等待 1 秒
 
         // 使用 window.location.href 强制刷新页面，确保 cookies 被正确发送到中间件
         console.log('[Login] 执行跳转命令：window.location.href="/"');
@@ -89,7 +98,12 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error('[Login] 捕获错误', err);
-      setError('网络错误，请稍后重试');
+      console.error('[Login] 错误详情:', {
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        name: err instanceof Error ? err.name : undefined,
+      });
+      setError(err instanceof Error ? err.message : '网络错误，请稍后重试');
     } finally {
       console.log('[Login] 登录流程结束');
       setLoading(false);
