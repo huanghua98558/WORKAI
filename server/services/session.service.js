@@ -5,7 +5,7 @@
 
 const { eq, and, sql } = require('drizzle-orm');
 const { getDb } = require('coze-coding-dev-sdk');
-const { userSessions, users } = require('../database/schema');
+const { userLoginSessions, users } = require('../database/schema');
 const { getLogger } = require('../lib/logger');
 const { verifyToken, generateTokenPair } = require('../lib/jwt');
 
@@ -41,43 +41,84 @@ class SessionService {
       userId: user.id,
       token: tokens.accessToken,
       refreshToken: tokens.refreshToken,
-      ip_address: sessionData.ip || null,
-      user_agent: sessionData.userAgent || null,
-      device_type: sessionData.deviceType || 'unknown',
+      ipAddress: sessionData.ip || null,
+      userAgent: sessionData.userAgent || null,
+      deviceType: sessionData.deviceType || 'unknown',
       location: sessionData.location || null,
-      is_active: true,
-      expires_at: expiresAt,
-      created_at: now,
-      last_activity_at: now
+      isActive: true,
+      expiresAt: expiresAt,
+      createdAt: now,
+      lastActivityAt: now
     };
 
-    const [createdSession] = await db.insert(userSessions).values(session).returning();
-
-    this.logger.info('创建会话成功', {
-      sessionId: createdSession.id,
+    this.logger.info('准备插入会话记录', {
+      sessionId: session.id,
       userId: user.id,
       username: user.username,
-      ip: session.ip_address,
-      device: session.device_type
+      token: session.token.substring(0, 20) + '...',
+      expiresAt: session.expiresAt
     });
 
-    return {
-      user: {
-        id: user.id,
+    try {
+      // 使用原始 pg 客户端插入，绕过 Drizzle ORM 的 .insert() 方法问题
+      const pgClient = db.session.client;
+      const result = await pgClient.query(
+        `INSERT INTO user_login_sessions (id, user_id, token, refresh_token, ip_address, user_agent, device_type, location, is_active, expires_at, created_at, last_activity_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         RETURNING id, user_id, token, refresh_token, ip_address, user_agent, device_type, location, is_active, expires_at, created_at, last_activity_at`,
+        [
+          session.id,
+          session.userId,
+          session.token,
+          session.refreshToken,
+          session.ipAddress,
+          session.userAgent,
+          session.deviceType,
+          session.location,
+          session.isActive,
+          session.expiresAt,
+          session.createdAt,
+          session.lastActivityAt
+        ]
+      );
+
+      const createdSession = result.rows[0];
+
+      this.logger.info('创建会话成功', {
+        sessionId: createdSession.id,
+        userId: user.id,
         username: user.username,
-        email: user.email,
-        role: user.role,
-        fullName: user.fullName,
-        avatarUrl: user.avatarUrl
-      },
-      session: {
-        id: createdSession.id,
-        expiresAt: expiresAt,
-        deviceType: session.device_type,
-        ipAddress: session.ip_address
-      },
-      ...tokens
-    };
+        ip: session.ipAddress,
+        device: session.deviceType
+      });
+
+      return {
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          fullName: user.fullName,
+          avatarUrl: user.avatarUrl
+        },
+        session: {
+          id: createdSession.id,
+          expiresAt: expiresAt,
+          deviceType: session.deviceType,
+          ipAddress: session.ipAddress
+        },
+        ...tokens
+      };
+    } catch (error) {
+      this.logger.error('创建会话失败', {
+        error: error.message,
+        stack: error.stack,
+        userId: user.id,
+        username: user.username,
+        sessionId: session.id
+      });
+      throw error;
+    }
   }
 
   /**
@@ -98,11 +139,11 @@ class SessionService {
       // 查询会话
       const [session] = await db
         .select()
-        .from(userSessions)
+        .from(userLoginSessions)
         .where(
           and(
-            eq(userSessions.token, token),
-            eq(userSessions.isActive, true)
+            eq(userLoginSessions.token, token),
+            eq(userLoginSessions.isActive, true)
           )
         );
 
@@ -114,9 +155,9 @@ class SessionService {
       if (new Date() > new Date(session.expiresAt)) {
         // 标记会话为非活跃
         await db
-          .update(userSessions)
+          .update(userLoginSessions)
           .set({ isActive: false })
-          .where(eq(userSessions.id, session.id));
+          .where(eq(userLoginSessions.id, session.id));
 
         this.logger.warn('会话已过期', { sessionId: session.id });
         return null;
@@ -130,9 +171,9 @@ class SessionService {
 
       // 更新最后活跃时间
       await db
-        .update(userSessions)
+        .update(userLoginSessions)
         .set({ lastActivityAt: new Date() })
-        .where(eq(userSessions.id, session.id));
+        .where(eq(userLoginSessions.id, session.id));
 
       return {
         session,
@@ -164,11 +205,11 @@ class SessionService {
       // 查找刷新令牌对应的会话
       const [session] = await db
         .select()
-        .from(userSessions)
+        .from(userLoginSessions)
         .where(
           and(
-            eq(userSessions.refreshToken, refreshToken),
-            eq(userSessions.isActive, true)
+            eq(userLoginSessions.refreshToken, refreshToken),
+            eq(userLoginSessions.isActive, true)
           )
         );
 
@@ -179,9 +220,9 @@ class SessionService {
       // 检查是否过期
       if (new Date() > new Date(session.expiresAt)) {
         await db
-          .update(userSessions)
+          .update(userLoginSessions)
           .set({ isActive: false })
-          .where(eq(userSessions.id, session.id));
+          .where(eq(userLoginSessions.id, session.id));
 
         return null;
       }
@@ -201,13 +242,13 @@ class SessionService {
 
       // 更新会话
       await db
-        .update(userSessions)
+        .update(userLoginSessions)
         .set({
           token: newTokens.accessToken,
           refreshToken: newTokens.refreshToken,
           lastActivityAt: new Date()
         })
-        .where(eq(userSessions.id, session.id));
+        .where(eq(userLoginSessions.id, session.id));
 
       this.logger.info('刷新Token成功', { sessionId: session.id, userId: user.id });
 
@@ -231,9 +272,9 @@ class SessionService {
       const db = await getDb();
 
       const result = await db
-        .update(userSessions)
+        .update(userLoginSessions)
         .set({ isActive: false })
-        .where(eq(userSessions.token, token));
+        .where(eq(userLoginSessions.token, token));
 
       const success = result.rowCount > 0;
       if (success) {
@@ -257,9 +298,9 @@ class SessionService {
       const db = await getDb();
 
       const result = await db
-        .update(userSessions)
+        .update(userLoginSessions)
         .set({ isActive: false })
-        .where(eq(userSessions.userId, userId));
+        .where(eq(userLoginSessions.userId, userId));
 
       this.logger.info('销毁所有会话成功', { userId, count: result.rowCount });
       return result.rowCount || 0;
@@ -280,23 +321,23 @@ class SessionService {
 
       const sessions = await db
         .select()
-        .from(userSessions)
+        .from(userLoginSessions)
         .where(
           and(
-            eq(userSessions.userId, userId),
-            eq(userSessions.isActive, true)
+            eq(userLoginSessions.userId, userId),
+            eq(userLoginSessions.isActive, true)
           )
         )
-        .orderBy(userSessions.lastActivityAt);
+        .orderBy(userLoginSessions.lastActivityAt);
 
       // 清理过期的会话
       const now = new Date();
       for (const session of sessions) {
         if (new Date(session.expiresAt) < now) {
           await db
-            .update(userSessions)
+            .update(userLoginSessions)
             .set({ isActive: false })
-            .where(eq(userSessions.id, session.id));
+            .where(eq(userLoginSessions.id, session.id));
         }
       }
 
@@ -317,9 +358,9 @@ class SessionService {
       const db = await getDb();
 
       const result = await db
-        .update(userSessions)
+        .update(userLoginSessions)
         .set({ isActive: false })
-        .where(sql`${userSessions.expiresAt} < NOW()`);
+        .where(sql`${userLoginSessions.expiresAt} < NOW()`);
 
       this.logger.info('清理过期会话完成', { count: result.rowCount });
       return result.rowCount || 0;
@@ -342,9 +383,9 @@ class SessionService {
 
       const sessions = await db
         .select()
-        .from(userSessions)
-        .where(eq(userSessions.isActive, true))
-        .orderBy(userSessions.lastActivityAt)
+        .from(userLoginSessions)
+        .where(eq(userLoginSessions.isActive, true))
+        .orderBy(userLoginSessions.lastActivityAt)
         .limit(limit);
 
       // 清理过期的会话
@@ -352,9 +393,9 @@ class SessionService {
       for (const session of sessions) {
         if (new Date(session.expiresAt) < now) {
           await db
-            .update(userSessions)
+            .update(userLoginSessions)
             .set({ isActive: false })
-            .where(eq(userSessions.id, session.id));
+            .where(eq(userLoginSessions.id, session.id));
         }
       }
 

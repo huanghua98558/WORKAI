@@ -251,6 +251,37 @@ exports.userAuditLogs = pgTable(
   })
 );
 
+// 用户登录会话表（用于存储用户登录状态和Token）
+exports.userLoginSessions = pgTable(
+  "user_login_sessions",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: varchar("user_id", { length: 36 }).notNull(), // 用户ID
+    token: varchar("token", { length: 255 }).notNull().unique(), // 会话令牌
+    refreshToken: varchar("refresh_token", { length: 255 }).unique(), // 刷新令牌
+    ipAddress: varchar("ip_address", { length: 45 }), // IP地址（支持IPv6）
+    userAgent: text("user_agent"), // 用户代理
+    deviceType: varchar("device_type", { length: 50 }), // 设备类型
+    location: varchar("location", { length: 100 }), // 位置信息
+    isActive: boolean("is_active").notNull().default(true), // 是否激活
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(), // 过期时间
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).defaultNow().notNull(), // 最后活跃时间
+  },
+  (table) => ({
+    userIdIdx: index("user_login_sessions_user_id_idx").on(table.userId),
+    tokenIdx: index("user_login_sessions_token_idx").on(table.token),
+    refreshTokenIdx: index("user_login_sessions_refresh_token_idx").on(table.refreshToken),
+    isActiveIdx: index("user_login_sessions_is_active_idx").on(table.isActive),
+    expiresAtIdx: index("user_login_sessions_expires_at_idx").on(table.expiresAt),
+    lastActivityAtIdx: index("user_login_sessions_last_activity_at_idx").on(table.lastActivityAt),
+  })
+);
+
 // 系统设置表
 exports.systemSettings = pgTable(
   "system_settings",

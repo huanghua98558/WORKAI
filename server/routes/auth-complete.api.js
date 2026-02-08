@@ -175,7 +175,7 @@ async function authRoutes(fastify, options) {
       return reply.status(500).send({
         code: 500,
         message: '登录失败，请稍后重试',
-        error: error.message
+        error: error.stack || error.message
       });
     }
   });
