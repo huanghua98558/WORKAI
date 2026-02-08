@@ -1615,7 +1615,18 @@ class FlowEngine {
 
     try {
       const { data } = node;
-      const { messageSource, saveToDatabase, validateMessage } = data || {};
+      const { config } = data || {};
+      const { messageSource, saveToDatabase, saveToInfoCenter, validateMessage } = config || {};
+
+      // 记录配置值
+      logger.info('消息接收节点配置', {
+        messageSource,
+        saveToDatabase,
+        saveToInfoCenter,
+        validateMessage,
+        hasMessage: !!context.message,
+        hasTriggerData: !!context.triggerData
+      });
 
       // 从context中获取消息数据
       const messageData = context.message || context.triggerData || {};
@@ -1627,28 +1638,48 @@ class FlowEngine {
 
       let savedMessage = null;
 
-      // 如果需要保存到数据库
-      if (saveToDatabase) {
+      // 如果需要保存到数据库（同时支持 saveToDatabase 和 saveToInfoCenter 配置项）
+      if (saveToDatabase || saveToInfoCenter) {
         const db = await this.getDb();
-        const { messages } = require('../database/schema');
+        const { sessionMessages } = require('../database/schema');
+
+        // 从消息数据中提取 userId 和 sessionId
+        // 优先使用 context 中的值，如果没有则从 messageData 中提取
+        const userId = context.userId || messageData.fromName || messageData.senderId || 'unknown';
+        const sessionId = context.sessionId || `session_${messageData.groupName || messageData.fromName || 'default'}`;
 
         const messageId = uuidv4();
+        // 处理 timestamp，确保是有效的日期
+        let timestamp = new Date();
+        if (messageData.timestamp) {
+          const parsedDate = new Date(messageData.timestamp);
+          if (!isNaN(parsedDate.getTime())) {
+            timestamp = parsedDate;
+          }
+        }
+
         const messageRecord = {
           id: messageId,
-          userId: context.userId,
-          sessionId: context.sessionId,
-          senderType: messageData.senderType || 'user',
-          senderId: messageData.senderId || context.userId,
+          sessionId: sessionId,
+          messageId: messageData.messageId || requestId,
+          userId: userId,
+          groupId: messageData.groupName || null,
+          userName: messageData.fromName || userId,
+          groupName: messageData.groupName || null,
+          robotId: context.robot?.robotId || null,
+          robotName: context.robot?.name || null,
           content: messageData.content || messageData.spoken || '',
-          messageType: messageData.messageType || 'text',
-          metadata: messageData.metadata || {},
-          createdAt: new Date()
+          isFromUser: true,
+          isFromBot: false,
+          isHuman: false,
+          timestamp: timestamp,
+          extraData: messageData.metadata || {}
         };
 
-        await db.insert(messages).values(messageRecord);
+        await db.insert(sessionMessages).values(messageRecord);
         savedMessage = messageRecord;
 
-        logger.info('消息已保存到数据库', { messageId, contentLength: messageRecord.content.length });
+        logger.info('消息已保存到数据库', { messageId, userId, sessionId, contentLength: messageRecord.content.length });
       }
 
       return {
