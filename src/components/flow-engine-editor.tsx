@@ -182,6 +182,26 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
     // 不需要手动更新 selectedNode，因为它是从 flow.nodes 派生的
   }, []);
 
+  // 删除节点
+  const handleDeleteNode = useCallback((nodeId: string) => {
+    setFlow(prev => ({
+      ...prev,
+      nodes: prev.nodes.filter(node => node.id !== nodeId),
+      edges: prev.edges.filter(edge => edge.source !== nodeId && edge.target !== nodeId)
+    }));
+    if (selectedNodeId === nodeId) {
+      setSelectedNodeId(null);
+    }
+  }, [selectedNodeId]);
+
+  // 复制节点
+  const handleCopyNode = useCallback((newNode: FlowNode) => {
+    setFlow(prev => ({
+      ...prev,
+      nodes: [...prev.nodes, newNode]
+    }));
+  }, []);
+
   // JSON 编辑校验：防止非法 JSON 破坏流程
   const validateFlowStructure = (flowToValidate: FlowDefinition): { valid: boolean; error?: string } => {
     // 校验名称
@@ -451,6 +471,8 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
                   onNodeSelect={(node) => setSelectedNodeId(node?.id ?? null)}
                   onNodeUpdate={handleUpdateNode}
                   selectedNodeId={selectedNodeId}
+                  onDeleteNode={handleDeleteNode}
+                  onCopyNode={handleCopyNode}
                 />
 
                 {/* 浮动的测试面板 (不占空间，悬浮在底部) */}
