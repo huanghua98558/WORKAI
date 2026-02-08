@@ -2,7 +2,7 @@
  * 流程引擎类型定义 - 12种节点类型
  */
 
-// 基础节点类型（14种）
+// 基础节点类型（15种）
 export const NODE_TYPES = {
   // 消息接收节点：接收WorkTool消息并保存到数据库（支持业务角色提取、优先级智能检测、工作人员状态记录）
   MESSAGE_RECEIVE: 'message_receive',
@@ -12,6 +12,9 @@ export const NODE_TYPES = {
 
   // 决策节点：根据条件判断后续流程分支（支持表达式和规则匹配）
   DECISION: 'decision',
+
+  // 上下文增强器节点：提取上下文信息，补充AI提示词（支持模板和动态变量）
+  CONTEXT_ENHANCER: 'context_enhancer',
 
   // AI回复节点：使用大语言模型生成智能客服回复
   AI_REPLY: 'ai_reply',
@@ -73,6 +76,15 @@ export const NODE_METADATA = {
     icon: '🔀',
     color: 'bg-orange-500',
     category: 'logic',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.CONTEXT_ENHANCER]: {
+    name: '上下文增强器',
+    description: '提取上下文信息，生成AI提示词补充内容（支持模板和动态变量）',
+    icon: '🔮',
+    color: 'bg-indigo-600',
+    category: 'ai',
     hasInputs: true,
     hasOutputs: true,
   },

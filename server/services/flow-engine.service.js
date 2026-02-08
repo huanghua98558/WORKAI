@@ -71,7 +71,10 @@ const NodeType = {
 
   // 图片识别相关节点（新增）
   IMAGE_PROCESS: 'image_process', // 图片处理复合节点（检测+下载+识别+分析+决策）
-  AI_REPLY_ENHANCED: 'ai_reply_enhanced' // 增强AI回复节点（支持图片上下文）
+  AI_REPLY_ENHANCED: 'ai_reply_enhanced', // 增强AI回复节点（支持图片上下文）
+  
+  // 上下文增强器节点
+  CONTEXT_ENHANCER: 'context_enhancer' // 上下文增强器节点（提取上下文变量并生成补充提示词）
 };
 
 // 流程状态枚举
@@ -153,7 +156,10 @@ class FlowEngine {
 
       // 图片识别相关节点处理器（新增）
       [NodeType.IMAGE_PROCESS]: this.handleImageProcessNode.bind(this),
-      [NodeType.AI_REPLY_ENHANCED]: this.handleAIReplyEnhancedNode.bind(this)
+      [NodeType.AI_REPLY_ENHANCED]: this.handleAIReplyEnhancedNode.bind(this),
+      
+      // 上下文增强器节点处理器
+      [NodeType.CONTEXT_ENHANCER]: this.handleContextEnhancerNode.bind(this)
     };
 
     // 模板缓存
@@ -5357,6 +5363,338 @@ class FlowEngine {
         keywords: []
       };
     }
+  }
+
+  /**
+   * 处理上下文增强器节点
+   * 功能：提取流程上下文变量并生成补充提示词，写入流程上下文供AI节点使用
+   */
+  async handleContextEnhancerNode(node, context) {
+    logger.info('执行上下文增强器节点', { node, context });
+    try {
+      const { data } = node;
+      const { config } = data || {};
+      
+      const {
+        modelId,
+        contextVariables = [],
+        outputVariable = 'contextEnhancement',
+        customPrompt = '',
+        promptTemplate = '',
+        includeAllContext = false
+      } = config || {};
+      
+      // 1. 提取上下文变量
+      const extractedContext = {};
+      
+      if (includeAllContext) {
+        // 包含所有上下文变量
+        Object.assign(extractedContext, context);
+      } else {
+        // 只提取指定的变量
+        for (const varConfig of contextVariables) {
+          const { name, source, defaultValue, format } = varConfig;
+          let value;
+          
+          if (source && typeof source === 'string') {
+            // 从源路径获取值（支持嵌套属性，如 user.name）
+            value = this.getNestedValue(context, source);
+          } else if (name) {
+            // 从上下文中直接获取
+            value = context[name];
+          }
+          
+          // 应用格式化
+          if (format && value !== undefined) {
+            value = this.formatContextValue(value, format);
+          }
+          
+          // 使用默认值
+          if (value === undefined && defaultValue !== undefined) {
+            value = defaultValue;
+          }
+          
+          if (value !== undefined) {
+            extractedContext[name] = value;
+          }
+        }
+      }
+      
+      logger.info('提取的上下文变量', {
+        variableCount: Object.keys(extractedContext).length,
+        variables: Object.keys(extractedContext)
+      });
+      
+      // 2. 生成补充提示词
+      let enhancedPrompt = '';
+      
+      if (customPrompt) {
+        // 使用自定义提示词
+        enhancedPrompt = this.renderTemplate(customPrompt, extractedContext);
+      } else if (promptTemplate) {
+        // 使用提示词模板
+        enhancedPrompt = this.renderTemplate(promptTemplate, extractedContext);
+      } else {
+        // 自动生成提示词
+        enhancedPrompt = this.generateContextPrompt(extractedContext, config);
+      }
+      
+      logger.info('生成的上下文增强提示词', {
+        promptLength: enhancedPrompt.length,
+        preview: enhancedPrompt.substring(0, 100)
+      });
+      
+      // 3. 使用AI优化提示词（如果指定了模型）
+      let optimizedPrompt = enhancedPrompt;
+      if (modelId && config.useAIForOptimization) {
+        try {
+          const aiService = await AIServiceFactory.createServiceByModelId(modelId);
+          const optimizationResult = await aiService.chat({
+            messages: [
+              {
+                role: 'system',
+                content: '你是一个专业的提示词优化助手。请优化用户提供的上下文提示词，使其更加清晰、简洁、易于AI理解。返回优化后的提示词。'
+              },
+              {
+                role: 'user',
+                content: `请优化以下上下文提示词：\n\n${enhancedPrompt}`
+              }
+            ],
+            temperature: 0.3,
+            maxTokens: 500
+          });
+          
+          optimizedPrompt = optimizationResult.content;
+          logger.info('提示词优化完成', {
+            originalLength: enhancedPrompt.length,
+            optimizedLength: optimizedPrompt.length
+          });
+        } catch (error) {
+          logger.warn('提示词优化失败，使用原始提示词', { error: error.message });
+          optimizedPrompt = enhancedPrompt;
+        }
+      }
+      
+      // 4. 写入流程上下文
+      const updatedContext = {
+        ...context,
+        [outputVariable]: optimizedPrompt,
+        [`${outputVariable}_raw`]: enhancedPrompt,
+        [`${outputVariable}_variables`]: extractedContext,
+        lastNodeType: 'context_enhancer'
+      };
+      
+      logger.info('上下文增强器节点执行成功', {
+        outputVariable,
+        promptLength: optimizedPrompt.length,
+        variableCount: Object.keys(extractedContext).length
+      });
+      
+      return {
+        success: true,
+        enhancedPrompt: optimizedPrompt,
+        extractedContext,
+        outputVariable,
+        context: updatedContext
+      };
+      
+    } catch (error) {
+      logger.error('上下文增强器节点执行失败', { error: error.message });
+      
+      // 返回错误但不中断流程
+      return {
+        success: false,
+        enhancedPrompt: '',
+        extractedContext: {},
+        error: error.message,
+        context: {
+          ...context,
+          lastNodeType: 'context_enhancer',
+          contextEnhancerError: error.message
+        }
+      };
+    }
+  }
+  
+  /**
+   * 从嵌套对象中获取值
+   * @param {Object} obj - 源对象
+   * @param {string} path - 属性路径（如 'user.name' 或 'message.content'）
+   * @returns {*} - 获取到的值
+   */
+  getNestedValue(obj, path) {
+    if (!path || typeof path !== 'string') {
+      return undefined;
+    }
+    
+    const keys = path.split('.');
+    let current = obj;
+    
+    for (const key of keys) {
+      if (current === null || current === undefined) {
+        return undefined;
+      }
+      current = current[key];
+    }
+    
+    return current;
+  }
+  
+  /**
+   * 格式化上下文值
+   * @param {*} value - 原始值
+   * @param {string} format - 格式化类型
+   * @returns {*} - 格式化后的值
+   */
+  formatContextValue(value, format) {
+    switch (format) {
+      case 'string':
+        return String(value);
+      case 'number':
+        return Number(value);
+      case 'boolean':
+        return Boolean(value);
+      case 'json':
+        return JSON.stringify(value);
+      case 'date':
+        if (value instanceof Date) {
+          return value.toISOString();
+        }
+        return new Date(value).toISOString();
+      case 'datetime':
+        if (value instanceof Date) {
+          return value.toLocaleString();
+        }
+        return new Date(value).toLocaleString();
+      case 'truncate':
+        if (typeof value === 'string' && value.length > 100) {
+          return value.substring(0, 100) + '...';
+        }
+        return String(value);
+      default:
+        return value;
+    }
+  }
+  
+  /**
+   * 渲染模板字符串
+   * @param {string} template - 模板字符串，支持 {{variable}} 语法
+   * @param {Object} context - 上下文对象
+   * @returns {string} - 渲染后的字符串
+   */
+  renderTemplate(template, context) {
+    if (!template || typeof template !== 'string') {
+      return '';
+    }
+    
+    // 替换 {{variable}} 占位符
+    return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+      const value = context[key];
+      return value !== undefined ? String(value) : match;
+    });
+  }
+  
+  /**
+   * 自动生成上下文提示词
+   * @param {Object} extractedContext - 提取的上下文
+   * @param {Object} config - 配置对象
+   * @returns {string} - 生成的提示词
+   */
+  generateContextPrompt(extractedContext, config) {
+    const sections = [];
+    
+    // 1. 用户信息
+    if (extractedContext.userName || extractedContext.userId) {
+      sections.push(`用户信息：${extractedContext.userName || extractedContext.userId}`);
+    }
+    
+    // 2. 意图信息
+    if (extractedContext.intent) {
+      sections.push(`用户意图：${extractedContext.intent}`);
+      if (extractedContext.confidence) {
+        sections.push(`置信度：${(extractedContext.confidence * 100).toFixed(1)}%`);
+      }
+    }
+    
+    // 3. 情绪信息
+    if (extractedContext.emotion) {
+      const emotionMap = {
+        positive: '积极',
+        neutral: '中性',
+        negative: '消极',
+        angry: '愤怒',
+        sad: '悲伤',
+        happy: '开心'
+      };
+      const emotionText = emotionMap[extractedContext.emotion] || extractedContext.emotion;
+      sections.push(`用户情绪：${emotionText}`);
+      if (extractedContext.emotionConfidence) {
+        sections.push(`情绪置信度：${(extractedContext.emotionConfidence * 100).toFixed(1)}%`);
+      }
+    }
+    
+    // 4. 会话信息
+    if (extractedContext.sessionId) {
+      sections.push(`会话ID：${extractedContext.sessionId}`);
+    }
+    if (extractedContext.history && Array.isArray(extractedContext.history)) {
+      sections.push(`历史对话轮数：${extractedContext.history.length}`);
+    }
+    
+    // 5. 时间信息
+    if (extractedContext.timestamp || extractedContext.lastActivityAt) {
+      const timestamp = extractedContext.timestamp || extractedContext.lastActivityAt;
+      const date = new Date(timestamp);
+      sections.push(`时间：${date.toLocaleString()}`);
+    }
+    
+    // 6. 优先级信息
+    if (extractedContext.priority) {
+      sections.push(`优先级：${extractedContext.priority}`);
+    }
+    
+    // 7. 消息内容
+    if (extractedContext.message?.content || extractedContext.userMessage) {
+      const message = extractedContext.message?.content || extractedContext.userMessage;
+      sections.push(`用户消息：${message}`);
+    }
+    
+    // 8. 其他自定义字段
+    const reservedKeys = [
+      'userName', 'userId', 'intent', 'confidence', 'emotion', 'emotionConfidence',
+      'sessionId', 'history', 'timestamp', 'lastActivityAt', 'priority', 'message',
+      'userMessage', 'robotId', 'robotName', 'groupId', 'groupName', 'source'
+    ];
+    
+    const customFields = Object.keys(extractedContext).filter(
+      key => !reservedKeys.includes(key)
+    );
+    
+    if (customFields.length > 0) {
+      sections.push('其他信息：');
+      customFields.forEach(key => {
+        sections.push(`  - ${key}：${JSON.stringify(extractedContext[key])}`);
+      });
+    }
+    
+    // 组合成最终提示词
+    let prompt = '';
+    
+    if (config.promptPrefix) {
+      prompt += config.promptPrefix + '\n\n';
+    }
+    
+    if (sections.length > 0) {
+      prompt += sections.join('\n');
+    } else {
+      prompt += '未提取到上下文信息';
+    }
+    
+    if (config.promptSuffix) {
+      prompt += '\n\n' + config.promptSuffix;
+    }
+    
+    return prompt;
   }
 }
 
