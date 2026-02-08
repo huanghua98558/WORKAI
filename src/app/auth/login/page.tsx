@@ -70,20 +70,11 @@ export default function LoginPage() {
 
         // 等待 cookies 被保存
         console.log('[Login] 等待 cookies 保存...');
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 500));
 
-        // 尝试自动跳转
-        console.log('[Login] 即将自动跳转到首页...');
-
-        // 使用 router.push 替代 window.location.replace
-        try {
-          console.log('[Login] 执行跳转命令：router.push("/")');
-          router.push('/');
-        } catch (err) {
-          console.error('[Login] 自动跳转失败:', err);
-          // 如果自动跳转失败，显示手动跳转按钮
-          setShowManualRedirect(true);
-        }
+        // 使用 window.location.href 强制刷新页面，确保 cookies 被正确发送到中间件
+        console.log('[Login] 执行跳转命令：window.location.href="/"');
+        window.location.href = '/';
 
         // 3秒后如果还没有跳转，显示手动跳转按钮
         setTimeout(() => {
