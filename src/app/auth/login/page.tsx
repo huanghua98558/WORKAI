@@ -33,7 +33,10 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
+    console.log('[Login] 开始登录', { username: formData.username, rememberMe: formData.rememberMe });
+
     try {
+      console.log('[Login] 发送请求到 /api/auth/login');
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -42,7 +45,9 @@ export default function LoginPage() {
         body: JSON.stringify(formData),
       });
 
+      console.log('[Login] 收到响应', { status: response.status, ok: response.ok });
       const result = await response.json();
+      console.log('[Login] 响应数据', result);
 
       if (result.code === 0) {
         // 记住我功能：设置不同的 cookie 过期时间
@@ -64,12 +69,14 @@ export default function LoginPage() {
         // 跳转到首页
         router.push('/');
       } else {
+        console.log('[Login] 登录失败', result);
         setError(result.message || '登录失败');
       }
     } catch (err) {
+      console.error('[Login] 捕获错误', err);
       setError('网络错误，请稍后重试');
-      console.error('登录错误:', err);
     } finally {
+      console.log('[Login] 登录流程结束');
       setLoading(false);
     }
   };
