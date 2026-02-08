@@ -155,22 +155,30 @@ export default function CommandSender() {
   const fetchRobots = async () => {
     try {
       setLoading(true);
+      console.log('[CommandSender] 开始加载机器人列表...');
 
       // 使用新的API工具类
       const response = await robotApi.getList();
+      console.log('[CommandSender] API响应:', response);
 
       if (ResponseHelper.isSuccess(response)) {
-        console.log('加载到的机器人数据:', response.data);
+        console.log('[CommandSender] 加载到的机器人数据:', response.data);
+        console.log('[CommandSender] 机器人数量:', response.data?.length || 0);
         // 类型断言，因为api-robot的Robot类型和组件的Robot类型有差异
         setRobots((response.data || []) as Robot[]);
+        console.log('[CommandSender] 设置robots状态完成');
       } else {
+        console.error('[CommandSender] 加载机器人列表失败:', response.message, response);
         toast.error(response.message || '加载机器人列表失败');
+        setRobots([]);
       }
     } catch (error) {
-      console.error('加载机器人列表失败:', error);
+      console.error('[CommandSender] 加载机器人列表异常:', error);
       toast.error('加载机器人列表失败');
+      setRobots([]);
     } finally {
       setLoading(false);
+      console.log('[CommandSender] 加载机器人列表完成, loading状态:', false);
     }
   };
 
@@ -225,10 +233,16 @@ export default function CommandSender() {
 
   // 初始化加载数据
   useEffect(() => {
+    console.log('[CommandSender] 初始化加载数据...');
     fetchRobots();
     fetchCommands();
     fetchMessageHistory(true);
   }, [fetchMessageHistory]);
+
+  // 监听 robots 和 loading 状态变化
+  useEffect(() => {
+    console.log('[CommandSender] 状态变化 - robots数量:', robots.length, 'loading:', loading, 'selectedRobot:', selectedRobot);
+  }, [robots, loading, selectedRobot]);
 
   // 定时刷新
   useEffect(() => {
@@ -604,7 +618,14 @@ export default function CommandSender() {
                 {/* 机器人选择 */}
                 <div className="space-y-2">
                   <Label htmlFor="robot" className="text-base font-semibold">机器人</Label>
+                  {/* 调试信息 */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <div className="text-xs text-muted-foreground">
+                      调试: robots数量={robots.length}, loading={loading}, selectedRobot={selectedRobot}
+                    </div>
+                  )}
                   <Select value={selectedRobot} onValueChange={(value) => {
+                    console.log('[CommandSender] 选择机器人:', value);
                     setSelectedRobot(value);
                     const robot = robots.find(r => r.robotId === value);
                     setSelectedRobotDisplay(robot?.name || robot?.nickname || '');
