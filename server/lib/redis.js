@@ -20,6 +20,7 @@ class RedisClient {
     this.memoryClient = null; // 缓存内存客户端
     this.useRestApi = false; // 是否使用 REST API
     this.logger = getLogger('REDIS');
+    this.connectingPromise = null; // 连接 Promise，防止重复连接
   }
 
   async connect() {
@@ -30,14 +31,49 @@ class RedisClient {
       return this.getMemoryClient();
     }
 
+    // 如果已经连接中，返回现有的 Promise
+    if (this.connectingPromise) {
+      this.logger.debug('连接正在进行中，返回现有 Promise');
+      return this.connectingPromise;
+    }
+
+    // 如果已经连接，直接返回
+    if (this.client && !this.useMemoryMode) {
+      this.logger.debug('Redis 客户端已连接，直接返回');
+      return this.client;
+    }
+
+    // 开始连接
+    this.connectingPromise = this._doConnect();
+
+    try {
+      const client = await this.connectingPromise;
+      this.connectingPromise = null;
+      return client;
+    } catch (error) {
+      this.connectingPromise = null;
+      throw error;
+    }
+  }
+
+  async _doConnect() {
     // 优先使用 Upstash REST API（如果配置了 REST URL）
+    this.logger.info('检查 Upstash REST API 配置', {
+      hasUrl: !!process.env.UPSTASH_REDIS_REST_URL,
+      hasToken: !!process.env.UPSTASH_REDIS_REST_TOKEN,
+      url: process.env.UPSTASH_REDIS_REST_URL
+    });
+
     if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
       try {
+        this.logger.info('尝试连接 Upstash REST API...');
         return await this.connectRestApi();
       } catch (error) {
-        this.logger.error('Upstash REST API 连接失败，尝试 ioredis', { error: error.message });
+        this.logger.error('Upstash REST API 连接失败，尝试 ioredis', { error: error.message, stack: error.stack });
         // 继续尝试 ioredis
       }
+    } else {
+      this.logger.warn('未配置 Upstash REST API，尝试使用 ioredis');
     }
 
     // 尝试使用 ioredis 连接 Redis
@@ -55,31 +91,63 @@ class RedisClient {
    * 使用 @upstash/redis REST API 连接
    */
   async connectRestApi() {
-    const { Redis } = require('@upstash/redis');
-    this.useRestApi = true;
+    try {
+      // 如果已经连接，直接返回
+      if (this.client && this.useRestApi) {
+        this.logger.debug('Upstash Redis REST API 客户端已存在，直接返回');
+        return this.client;
+      }
 
-    this.client = new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    });
+      this.logger.info('开始初始化 Upstash Redis REST API 客户端...');
+      const { Redis } = require('@upstash/redis');
+      this.useRestApi = true;
 
-    // 测试连接
-    await this.client.ping();
-    this.logger.info('✅ Upstash Redis REST API 已连接', {
-      url: process.env.UPSTASH_REDIS_REST_URL
-    });
+      this.logger.info('创建 Redis REST API 客户端...', {
+        url: process.env.UPSTASH_REDIS_REST_URL,
+        tokenLength: process.env.UPSTASH_REDIS_REST_TOKEN?.length || 0
+      });
 
-    // 复用 client 连接
-    this.publisher = this.client;
-    this.subscriber = this.client;
+      this.client = new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN,
+      });
 
-    return this.client;
+      this.logger.info('执行 ping 测试...');
+      // 测试连接
+      const result = await this.client.ping();
+      this.logger.info('Ping 结果', { result });
+
+      this.logger.info('✅ Upstash Redis REST API 已连接', {
+        url: process.env.UPSTASH_REDIS_REST_URL,
+        useRestApi: this.useRestApi
+      });
+
+      // 复用 client 连接
+      this.publisher = this.client;
+      this.subscriber = this.client;
+
+      return this.client;
+    } catch (error) {
+      this.logger.error('Upstash REST API 连接失败', {
+        error: error.message,
+        stack: error.stack,
+        name: error.name,
+        code: error.code
+      });
+      throw error;
+    }
   }
 
   /**
    * 使用 ioredis 连接 Redis
    */
   async connectIoredis() {
+    // 如果已经连接，直接返回
+    if (this.client && !this.useRestApi && !this.useMemoryMode) {
+      this.logger.debug('Redis ioredis 客户端已存在，直接返回');
+      return this.client;
+    }
+
     const Redis = require('ioredis');
     let config;
 

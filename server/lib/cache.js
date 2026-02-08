@@ -28,6 +28,8 @@ class CacheService {
     this.l2TTL = 300; // L2 Redis 缓存默认过期时间 5 分钟
     this.client = null;
     this.logger = require('./logger').getLogger('CACHE');
+    this.initializing = false; // 初始化状态
+    this.initialized = false; // 是否已初始化
 
     // L1 内存缓存
     this.l1Cache = new Map();
@@ -46,8 +48,30 @@ class CacheService {
    * 初始化缓存客户端
    */
   async init() {
-    this.client = await redisClient.connect();
-    this.logger.info('缓存服务初始化完成 (L1: 内存 + L2: Redis)');
+    // 如果已经初始化，直接返回
+    if (this.initialized) {
+      this.logger.debug('缓存服务已初始化，跳过');
+      return;
+    }
+
+    // 如果正在初始化，等待初始化完成
+    if (this.initializing) {
+      this.logger.debug('缓存服务正在初始化中，等待...');
+      return;
+    }
+
+    // 开始初始化
+    this.initializing = true;
+    try {
+      this.client = await redisClient.connect();
+      this.initialized = true;
+      this.logger.info('缓存服务初始化完成 (L1: 内存 + L2: Redis)');
+    } catch (error) {
+      this.logger.error('缓存服务初始化失败', { error: error.message });
+      throw error;
+    } finally {
+      this.initializing = false;
+    }
   }
 
   /**

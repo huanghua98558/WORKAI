@@ -63,16 +63,20 @@ const prometheusService = require('./lib/prometheus');
 const cacheService = require('./lib/cache');
 const cacheWarmupService = require('./services/cache-warmup.service');
 
-// 初始化缓存服务
-cacheService.init().catch((error) => {
-  logger.warn('缓存服务初始化失败', { error: error.message });
-});
+// 获取主模块日志
+const logger = getLogger('APP');
 
 const robotService = require('./services/robot.service');
 const robotCommandService = require('./services/robot-command.service');
 
-// 获取主模块日志
-const logger = getLogger('APP');
+// 初始化缓存服务（同步等待，确保在服务启动前完成）
+let cacheInitialized = false;
+cacheService.init().then(() => {
+  cacheInitialized = true;
+  logger.info('缓存服务初始化成功');
+}).catch((error) => {
+  logger.warn('缓存服务初始化失败', { error: error.message });
+});
 
 // 初始化 Fastify 实例
 const fastify = Fastify({
@@ -237,9 +241,23 @@ prometheusService.startCacheMetricsUpdater(cacheService, 30000);
 
 logger.info('[Prometheus] 缓存指标更新器已启动');
 
-// 执行缓存预热（异步执行，不阻塞服务启动）
+// 执行缓存预热（等待缓存服务初始化完成后执行）
 (async () => {
   try {
+    // 等待缓存服务初始化完成（最多等待 30 秒）
+    const maxWaitTime = 30000;
+    const startTime = Date.now();
+
+    while (!cacheInitialized && (Date.now() - startTime) < maxWaitTime) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    if (!cacheInitialized) {
+      logger.error('[启动] 缓存服务初始化超时，跳过缓存预热');
+      return;
+    }
+
+    // 执行缓存预热
     await cacheWarmupService.warmup();
   } catch (error) {
     logger.error('[启动] 缓存预热失败', { error: error.message });
