@@ -913,7 +913,10 @@ class FlowEngine {
     logger.info('执行意图识别节点', { node, context });
 
     const { data } = node;
-    const { supportedIntents, modelId } = data || {};
+    const { supportedIntents, modelId, config } = data || {};
+
+    // 检查是否应该跳过直接回复
+    const skipDirectReply = config?.skipDirectReply || false;
 
     // 如果context中已经有intent，直接返回
     if (context.intent) {
@@ -922,6 +925,7 @@ class FlowEngine {
         success: true,
         intent: context.intent,
         confidence: 100,
+        needReply: skipDirectReply ? true : context.needReply, // 如果 skipDirectReply，则强制需要回复
         context: {
           ...context,
           lastNodeType: 'intent'
@@ -939,7 +943,7 @@ class FlowEngine {
           success: true,
           intent: 'chat',
           confidence: 50,
-          needReply: false,
+          needReply: skipDirectReply ? true : false, // 如果 skipDirectReply，则强制需要回复
           needHuman: false,
           context: {
             ...context,
@@ -965,11 +969,15 @@ class FlowEngine {
         history: context.history || []
       });
 
+      // 如果 skipDirectReply 为 true，则强制需要回复，确保消息经过 AI 回复节点
+      const needReply = skipDirectReply ? true : result.needReply;
+
       logger.info('意图识别节点执行成功', {
         intent: result.intent,
         confidence: result.confidence,
-        needReply: result.needReply,
+        needReply: needReply,
         needHuman: result.needHuman,
+        skipDirectReply: skipDirectReply,
         userMessage: userMessage.substring(0, 50)
       });
 
@@ -978,13 +986,13 @@ class FlowEngine {
         success: true,
         intent: result.intent,
         confidence: result.confidence,
-        needReply: result.needReply,
+        needReply: needReply,
         needHuman: result.needHuman,
         reason: result.reason,
         context: {
           ...context,
           intent: result.intent,
-          needReply: result.needReply,
+          needReply: needReply,
           needHuman: result.needHuman,
           lastNodeType: 'intent'
         }
@@ -1000,7 +1008,7 @@ class FlowEngine {
         success: false,
         intent: 'chat',
         confidence: 50,
-        needReply: false,
+        needReply: skipDirectReply ? true : false, // 如果 skipDirectReply，则强制需要回复
         needHuman: false,
         error: error.message,
         context: {
