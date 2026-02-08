@@ -6,7 +6,22 @@
 const { userManager } = require('../database/userManager');
 const sessionService = require('../services/session.service');
 const { getLogger } = require('../lib/logger');
-const { auditLogService } = require('../services/audit-log.service');
+const auditLogService = require('../services/audit-log.service');
+
+/**
+ * 安全地记录审计日志
+ * 如果审计日志服务不可用，不会影响主功能
+ */
+async function logAudit(action) {
+  try {
+    if (auditLogService && typeof auditLogService.logAction === 'function') {
+      await auditLogService.logAction(action);
+    }
+  } catch (error) {
+    // 静默处理审计日志错误，不影响主功能
+    console.error('[Auth] 审计日志记录失败', { error: error.message });
+  }
+}
 
 async function authRoutes(fastify, options) {
   const logger = getLogger('AUTH_API');
@@ -25,7 +40,8 @@ async function authRoutes(fastify, options) {
     try {
       // 验证输入
       if (!username || !password) {
-        await auditLogService.logAction({
+        // 记录审计日志
+      logAudit({
           userId: null,
           action: 'login_failed',
           actionType: 'auth',
@@ -48,7 +64,8 @@ async function authRoutes(fastify, options) {
       const user = await userManager.validatePassword(username, password);
 
       if (!user) {
-        await auditLogService.logAction({
+        // 记录审计日志
+      logAudit({
           userId: null,
           action: 'login_failed',
           actionType: 'auth',
@@ -70,7 +87,8 @@ async function authRoutes(fastify, options) {
 
       // 检查用户是否激活
       if (!user.isActive) {
-        await auditLogService.logAction({
+        // 记录审计日志
+      logAudit({
           userId: user.id,
           action: 'login_failed',
           actionType: 'auth',
@@ -98,7 +116,8 @@ async function authRoutes(fastify, options) {
       });
 
       // 记录审计日志
-      await auditLogService.logAction({
+      // 记录审计日志
+      logAudit({
         userId: user.id,
         action: 'login_success',
         actionType: 'auth',
@@ -132,7 +151,8 @@ async function authRoutes(fastify, options) {
     } catch (error) {
       const responseTime = Date.now() - startTime;
 
-      await auditLogService.logAction({
+      // 记录审计日志
+      logAudit({
         userId: null,
         action: 'login_failed',
         actionType: 'auth',
@@ -210,7 +230,8 @@ async function authRoutes(fastify, options) {
       });
 
       // 记录审计日志
-      await auditLogService.logAction({
+      // 记录审计日志
+      logAudit({
         userId: user.id,
         action: 'register',
         actionType: 'auth',
@@ -244,7 +265,8 @@ async function authRoutes(fastify, options) {
         }
       });
     } catch (error) {
-      await auditLogService.logAction({
+      // 记录审计日志
+      logAudit({
         userId: null,
         action: 'register_failed',
         actionType: 'auth',
@@ -311,7 +333,8 @@ async function authRoutes(fastify, options) {
       // 记录审计日志
       const sessionData = await sessionService.verifySession(token);
       if (sessionData) {
-        await auditLogService.logAction({
+        // 记录审计日志
+      logAudit({
           userId: sessionData.user.id,
           action: 'logout',
           actionType: 'auth',
@@ -602,7 +625,8 @@ async function authRoutes(fastify, options) {
       });
 
       // 记录审计日志
-      await auditLogService.logAction({
+      // 记录审计日志
+      logAudit({
         userId: user.id,
         action: 'password_reset_requested',
         actionType: 'auth',
@@ -674,7 +698,8 @@ async function authRoutes(fastify, options) {
       await userManager.resetPassword(userId, newPassword);
 
       // 记录审计日志
-      await auditLogService.logAction({
+      // 记录审计日志
+      logAudit({
         userId,
         action: 'password_reset_completed',
         actionType: 'auth',
@@ -772,7 +797,8 @@ async function authRoutes(fastify, options) {
       await userManager.resetPassword(user.id, newPassword);
 
       // 记录审计日志
-      await auditLogService.logAction({
+      // 记录审计日志
+      logAudit({
         userId: user.id,
         action: 'password_changed',
         actionType: 'auth',
