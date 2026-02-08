@@ -14,9 +14,26 @@ const logger = getLogger('AUTH_HOOK');
  */
 async function verifyAuth(request, reply) {
   try {
-    const authHeader = request.headers.authorization;
+    let token = null;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // 优先从 Authorization header 获取 token
+    const authHeader = request.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+
+    // 如果 header 中没有，尝试从 Cookie 中获取
+    if (!token) {
+      const cookies = request.headers.cookie;
+      if (cookies) {
+        const match = cookies.match(/auth_token=([^;]+)/);
+        if (match) {
+          token = match[1];
+        }
+      }
+    }
+
+    if (!token) {
       return reply.status(401).send({
         code: 401,
         message: '未授权：缺少认证令牌',
@@ -24,7 +41,6 @@ async function verifyAuth(request, reply) {
       });
     }
 
-    const token = authHeader.substring(7);
     const sessionData = await sessionService.verifySession(token);
 
     if (!sessionData) {
@@ -55,8 +71,7 @@ async function verifyAuth(request, reply) {
       sessionId: request.session.id
     });
 
-    // 更新最后活动时间
-    await sessionService.updateLastActivity(request.session.id);
+    // 更新最后活动时间已在 verifySession 中处理，此处无需重复调用
 
     return;
   } catch (error) {

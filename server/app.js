@@ -48,8 +48,6 @@ const collabApiRoutes = require('./routes/collab.api');
 console.log('[app.js] Attempting to load auth-complete.api...');
 const authCompleteApiRoutes = require('./routes/auth-complete.api');
 console.log('[app.js] auth-complete.api loaded successfully');
-const robotProtectedApiRoutes = require('./routes/robot-protected.api');
-console.log('[app.js] robot-protected.api loaded successfully');
 const avatarApiRoutes = require('./routes/avatar.api');
 console.log('[app.js] avatar.api loaded successfully');
 const permissionApiRoutes = require('./routes/permission.api');
@@ -174,8 +172,6 @@ fastify.register(aiModuleApiRoutes, { prefix: '/api/proxy/ai' });
 fastify.register(collabApiRoutes, { prefix: '/api/collab' });
 // 使用完整的认证API（替换原有的 auth.api）
 fastify.register(authCompleteApiRoutes, { prefix: '/api/auth' });
-// 注册带权限控制的机器人API（普通用户也可以访问）
-fastify.register(robotProtectedApiRoutes, { prefix: '/api/robots' });
 // 注册头像上传API
 fastify.register(avatarApiRoutes, { prefix: '/api/avatar' });
 // 注册权限管理API

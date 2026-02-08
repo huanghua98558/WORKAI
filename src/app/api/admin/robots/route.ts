@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * 机器人管理 API（代理到后端服务）
- *
- * 注意：后端实际路径是 /api/robots
- * 这个前端路径 /api/admin/robots 只是兼容旧代码，实际会转发到 /api/robots
+ * 后端路径：/api/admin/robots
+ * 前端路径：/api/admin/robots
  *
  * 权限逻辑（由后端处理）：
  * - 管理员：可以看到所有机器人
@@ -17,8 +16,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:500
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    // 转发到实际的后端路径 /api/robots
-    const backendUrl = new URL('/api/robots', BACKEND_URL);
+    const backendUrl = new URL('/api/admin/robots', BACKEND_URL);
 
     // 转发查询参数
     searchParams.forEach((value, key) => {
@@ -42,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
 
-    console.log('[Frontend API] GET /api/admin/robots -> /api/robots', {
+    console.log('[Frontend API] GET /api/admin/robots', {
       status: response.status,
       code: data.code,
       dataCount: data.data?.length || 0
@@ -62,8 +60,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    // 转发到实际的后端路径 /api/robots
-    const backendUrl = new URL('/api/robots', BACKEND_URL);
+    const backendUrl = new URL('/api/admin/robots', BACKEND_URL);
 
     const response = await fetch(backendUrl.toString(), {
       method: 'POST',
@@ -83,7 +80,7 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
 
-    console.log('[Frontend API] POST /api/admin/robots -> /api/robots', {
+    console.log('[Frontend API] POST /api/admin/robots', {
       status: response.status,
       code: data.code
     });

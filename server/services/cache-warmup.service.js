@@ -4,7 +4,7 @@
  */
 
 const cacheService = require('../lib/cache');
-const { robotManager } = require('../services/robot.service');
+const robotService = require('../services/robot.service');
 const { userManager } = require('../database/userManager');
 const { getLogger } = require('../lib/logger');
 
@@ -20,15 +20,15 @@ class CacheWarmupService {
   async warmupRobots() {
     try {
       this.logger.info('[缓存预热] 开始预热机器人列表...');
-      
-      const robots = await robotManager.getAllRobots();
-      
+
+      const robots = await robotService.getAllRobots();
+
       // 缓存机器人列表（使用与 getAllRobots 相同的缓存键）
       const cacheKey = 'robots:all';
       await cacheService.set(cacheKey, robots, 300);
-      
+
       this.logger.info('[缓存预热] 机器人列表预热完成', { count: robots.length });
-      
+
       return robots;
     } catch (error) {
       this.logger.error('[缓存预热] 机器人列表预热失败', { error: error.message });

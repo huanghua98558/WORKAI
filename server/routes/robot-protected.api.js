@@ -32,7 +32,7 @@ const robotProtectedRoutes = async function (fastify, options) {
    * - 管理员：可以看到所有机器人
    * - 普通用户：只能看到自己创建或被授权的机器人
    */
-  fastify.get('/robots', {
+  fastify.get('/', {
     onRequest: [verifyAuth],
   }, async (request, reply) => {
     try {
@@ -102,7 +102,7 @@ const robotProtectedRoutes = async function (fastify, options) {
   /**
    * 根据 ID 获取机器人（需要访问权限）
    */
-  fastify.get('/robots/:id', {
+  fastify.get('/:id', {
     onRequest: [requireRobotAccess('id')],
   }, async (request, reply) => {
     try {
@@ -139,7 +139,7 @@ const robotProtectedRoutes = async function (fastify, options) {
   /**
    * 根据 robotId 获取机器人（需要访问权限）
    */
-  fastify.get('/robots/by-robot-id/:robotId', {
+  fastify.get('/by-robot-id/:robotId', {
     onRequest: [verifyAuth],
   }, async (request, reply) => {
     try {
@@ -192,7 +192,7 @@ const robotProtectedRoutes = async function (fastify, options) {
   /**
    * 获取用户的机器人权限列表
    */
-  fastify.get('/robots/:id/permissions', {
+  fastify.get('/:id/permissions', {
     onRequest: [requireRobotAccess('id')],
   }, async (request, reply) => {
     try {
@@ -227,7 +227,7 @@ const robotProtectedRoutes = async function (fastify, options) {
    * 添加机器人（需要认证）
    * 创建的机器人自动属于当前用户
    */
-  fastify.post('/robots', {
+  fastify.post('/', {
     onRequest: [verifyAuth],
   }, async (request, reply) => {
     try {
@@ -328,7 +328,7 @@ const robotProtectedRoutes = async function (fastify, options) {
   /**
    * 验证机器人配置（需要认证）
    */
-  fastify.post('/robots/validate', {
+  fastify.post('/validate', {
     onRequest: [verifyAuth],
   }, async (request, reply) => {
     try {
@@ -365,7 +365,7 @@ const robotProtectedRoutes = async function (fastify, options) {
   /**
    * 测试机器人连接（需要认证）
    */
-  fastify.post('/robots/test', {
+  fastify.post('/test', {
     onRequest: [verifyAuth],
   }, async (request, reply) => {
     try {
@@ -402,7 +402,7 @@ const robotProtectedRoutes = async function (fastify, options) {
   /**
    * 测试机器人连接并保存详细信息（需要访问权限）
    */
-  fastify.post('/robots/:id/test-and-save', {
+  fastify.post('/:id/test-and-save', {
     onRequest: [requireRobotAccess('id')],
   }, async (request, reply) => {
     try {
@@ -448,7 +448,7 @@ const robotProtectedRoutes = async function (fastify, options) {
   /**
    * 配置消息回调（需要访问权限）
    */
-  fastify.post('/robots/:id/config-callback', {
+  fastify.post('/:id/config-callback', {
     onRequest: [requireRobotAccess('id')],
   }, async (request, reply) => {
     try {
@@ -562,7 +562,7 @@ const robotProtectedRoutes = async function (fastify, options) {
   /**
    * 更新机器人（需要访问权限）
    */
-  fastify.put('/robots/:id', {
+  fastify.put('/:id', {
     onRequest: [requireRobotAccess('id')],
   }, async (request, reply) => {
     try {
@@ -691,7 +691,7 @@ const robotProtectedRoutes = async function (fastify, options) {
   /**
    * 删除机器人（需要删除权限）
    */
-  fastify.delete('/robots/:id', {
+  fastify.delete('/:id', {
     onRequest: [requireRobotDelete('id')],
   }, async (request, reply) => {
     try {

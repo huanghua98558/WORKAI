@@ -115,7 +115,8 @@ class SessionService {
           email: user.email,
           role: user.role,
           fullName: user.fullName,
-          avatarUrl: user.avatarUrl
+          avatarUrl: user.avatarUrl,
+          isActive: user.isActive
         },
         session: {
           id: createdSession.id,
@@ -199,7 +200,8 @@ class SessionService {
           email: user.email,
           role: user.role,
           fullName: user.fullName,
-          avatarUrl: user.avatarUrl
+          avatarUrl: user.avatarUrl,
+          isActive: user.isActive
         },
         decoded
       };
