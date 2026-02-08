@@ -47,6 +47,10 @@ const collabApiRoutes = require('./routes/collab.api');
 console.log('[app.js] Attempting to load auth.api...');
 const authApiRoutes = require('./routes/auth.api');
 console.log('[app.js] auth.api loaded successfully');
+const authCompleteApiRoutes = require('./routes/auth-complete.api');
+console.log('[app.js] auth-complete.api loaded successfully');
+const robotProtectedApiRoutes = require('./routes/robot-protected.api');
+console.log('[app.js] robot-protected.api loaded successfully');
 console.log('[app.js] Attempting to load apikey.api...');
 const apiKeyApiRoutes = require('./routes/apikey.api');
 console.log('[app.js] apikey.api loaded successfully');
@@ -164,7 +168,10 @@ fastify.register(flowEngineApiRoutes, { prefix: '/api/flow-engine' });
 fastify.register(riskApiRoutes, { prefix: '/api' });
 fastify.register(aiModuleApiRoutes, { prefix: '/api/ai' });
 fastify.register(collabApiRoutes, { prefix: '/api/collab' });
-fastify.register(authApiRoutes, { prefix: '/api/auth' });
+// 使用完整的认证API（替换原有的 auth.api）
+fastify.register(authCompleteApiRoutes, { prefix: '/api/auth' });
+// 注册带权限控制的机器人API（普通用户也可以访问）
+fastify.register(robotProtectedApiRoutes, { prefix: '/api/robots' });
 fastify.register(apiKeyApiRoutes, { prefix: '/api/apikeys' });
 
 // Prometheus 监控端点

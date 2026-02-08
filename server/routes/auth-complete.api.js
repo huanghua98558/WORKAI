@@ -496,6 +496,315 @@ async function authRoutes(fastify, options) {
       });
     }
   });
+
+  /**
+   * 更新个人资料接口
+   */
+  fastify.put('/profile', {
+    onRequest: [async (request, reply) => {
+      const authHeader = request.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return reply.status(401).send({
+          code: 401,
+          message: '未授权',
+          error: 'Unauthorized'
+        });
+      }
+
+      const token = authHeader.substring(7);
+      const sessionData = await sessionService.verifySession(token);
+
+      if (!sessionData) {
+        return reply.status(401).send({
+          code: 401,
+          message: '令牌无效或已过期',
+          error: 'Unauthorized'
+        });
+      }
+
+      request.user = sessionData.user;
+      request.session = sessionData.session;
+    }]
+  }, async (request, reply) => {
+    try {
+      const { user } = request;
+      const { fullName, email } = request.body;
+
+      // 更新用户信息
+      const updatedUser = await userManager.updateUser(user.id, {
+        fullName,
+        email
+      });
+
+      logger.info('[Auth] 更新个人资料成功', {
+        userId: user.id,
+        username: user.username
+      });
+
+      return reply.send({
+        code: 0,
+        message: '更新成功',
+        data: updatedUser
+      });
+    } catch (error) {
+      logger.error('[Auth] 更新个人资料失败', {
+        error: error.message
+      });
+
+      return reply.status(500).send({
+        code: 500,
+        message: '更新失败',
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 请求密码重置（发送重置邮件）
+   */
+  fastify.post('/reset-password/request', async (request, reply) => {
+    try {
+      const { email } = request.body;
+      const clientIp = request.ip;
+
+      if (!email) {
+        return reply.status(400).send({
+          code: 400,
+          message: '邮箱不能为空',
+          error: 'Bad Request'
+        });
+      }
+
+      // 查找用户
+      const user = await userManager.getUserByEmail(email);
+
+      if (!user) {
+        // 即使用户不存在也返回成功，避免邮箱枚举攻击
+        logger.info('[Auth] 密码重置请求（用户不存在）', { email, ip: clientIp });
+        return reply.send({
+          code: 0,
+          message: '如果该邮箱已注册，重置链接已发送到您的邮箱'
+        });
+      }
+
+      // 生成重置令牌
+      const resetToken = await userManager.createPasswordResetToken(user.id);
+
+      // TODO: 发送邮件（需要配置邮件服务）
+      // 这里只是模拟，实际应该发送包含重置链接的邮件
+      const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5000'}/auth/reset-password?token=${resetToken}`;
+
+      logger.info('[Auth] 密码重置令牌已生成', {
+        userId: user.id,
+        email: user.email,
+        resetLink,
+        ip: clientIp
+      });
+
+      // 记录审计日志
+      await auditLogService.logAction({
+        userId: user.id,
+        action: 'password_reset_requested',
+        actionType: 'auth',
+        resourceType: 'user',
+        resourceName: user.username,
+        status: 'success',
+        ipAddress: clientIp,
+        userAgent: request.headers['user-agent']
+      });
+
+      return reply.send({
+        code: 0,
+        message: '如果该邮箱已注册，重置链接已发送到您的邮箱'
+      });
+    } catch (error) {
+      logger.error('[Auth] 请求密码重置失败', { error: error.message });
+      return reply.status(500).send({
+        code: 500,
+        message: '请求失败，请稍后重试',
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 重置密码
+   */
+  fastify.post('/reset-password/confirm', async (request, reply) => {
+    try {
+      const { token, newPassword, confirmPassword } = request.body;
+      const clientIp = request.ip;
+
+      if (!token || !newPassword || !confirmPassword) {
+        return reply.status(400).send({
+          code: 400,
+          message: '缺少必要参数',
+          error: 'Bad Request'
+        });
+      }
+
+      if (newPassword !== confirmPassword) {
+        return reply.status(400).send({
+          code: 400,
+          message: '两次输入的密码不一致',
+          error: 'Bad Request'
+        });
+      }
+
+      if (newPassword.length < 8) {
+        return reply.status(400).send({
+          code: 400,
+          message: '密码长度至少8位',
+          error: 'Bad Request'
+        });
+      }
+
+      // 验证重置令牌
+      const userId = await userManager.verifyPasswordResetToken(token);
+
+      if (!userId) {
+        return reply.status(400).send({
+          code: 400,
+          message: '重置令牌无效或已过期',
+          error: 'Bad Request'
+        });
+      }
+
+      // 重置密码
+      await userManager.resetPassword(userId, newPassword);
+
+      // 记录审计日志
+      await auditLogService.logAction({
+        userId,
+        action: 'password_reset_completed',
+        actionType: 'auth',
+        resourceType: 'user',
+        status: 'success',
+        ipAddress: clientIp,
+        userAgent: request.headers['user-agent']
+      });
+
+      logger.info('[Auth] 密码重置成功', { userId, ip: clientIp });
+
+      return reply.send({
+        code: 0,
+        message: '密码重置成功，请使用新密码登录'
+      });
+    } catch (error) {
+      logger.error('[Auth] 重置密码失败', { error: error.message });
+      return reply.status(500).send({
+        code: 500,
+        message: '重置密码失败，请稍后重试',
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 修改密码（已登录用户）
+   */
+  fastify.post('/change-password', {
+    onRequest: [async (request, reply) => {
+      const authHeader = request.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return reply.status(401).send({
+          code: 401,
+          message: '未授权',
+          error: 'Unauthorized'
+        });
+      }
+
+      const token = authHeader.substring(7);
+      const sessionData = await sessionService.verifySession(token);
+
+      if (!sessionData) {
+        return reply.status(401).send({
+          code: 401,
+          message: '令牌无效或已过期',
+          error: 'Unauthorized'
+        });
+      }
+
+      request.user = sessionData.user;
+      request.session = sessionData.session;
+    }]
+  }, async (request, reply) => {
+    try {
+      const { user } = request;
+      const { currentPassword, newPassword, confirmPassword } = request.body;
+
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        return reply.status(400).send({
+          code: 400,
+          message: '缺少必要参数',
+          error: 'Bad Request'
+        });
+      }
+
+      if (newPassword !== confirmPassword) {
+        return reply.status(400).send({
+          code: 400,
+          message: '两次输入的密码不一致',
+          error: 'Bad Request'
+        });
+      }
+
+      if (newPassword.length < 8) {
+        return reply.status(400).send({
+          code: 400,
+          message: '密码长度至少8位',
+          error: 'Bad Request'
+        });
+      }
+
+      // 验证当前密码
+      const isValid = await userManager.validatePassword(user.username, currentPassword);
+
+      if (!isValid) {
+        return reply.status(400).send({
+          code: 400,
+          message: '当前密码不正确',
+          error: 'Bad Request'
+        });
+      }
+
+      // 修改密码
+      await userManager.resetPassword(user.id, newPassword);
+
+      // 记录审计日志
+      await auditLogService.logAction({
+        userId: user.id,
+        action: 'password_changed',
+        actionType: 'auth',
+        resourceType: 'user',
+        resourceName: user.username,
+        status: 'success',
+        ipAddress: request.ip,
+        userAgent: request.headers['user-agent']
+      });
+
+      logger.info('[Auth] 密码修改成功', {
+        userId: user.id,
+        username: user.username
+      });
+
+      return reply.send({
+        code: 0,
+        message: '密码修改成功'
+      });
+    } catch (error) {
+      logger.error('[Auth] 修改密码失败', {
+        userId: request.user?.id,
+        error: error.message
+      });
+
+      return reply.status(500).send({
+        code: 500,
+        message: '修改密码失败',
+        error: error.message
+      });
+    }
+  });
 }
 
 /**

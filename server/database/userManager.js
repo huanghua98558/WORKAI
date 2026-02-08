@@ -241,6 +241,128 @@ class UserManager {
       email: users.email
     }).from(users).orderBy(users.username);
   }
+
+  /**
+   * 根据邮箱获取用户
+   */
+  async getUserByEmail(email) {
+    const db = await getDb();
+    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    return user || null;
+  }
+
+  /**
+   * 创建密码重置令牌
+   */
+  async createPasswordResetToken(userId) {
+    const db = await getDb();
+    const { passwordResetTokens } = require('./schema');
+    const crypto = require('crypto');
+
+    // 生成随机令牌
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1小时后过期
+
+    // 删除该用户的旧令牌
+    await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, userId));
+
+    // 创建新令牌
+    const [resetToken] = await db.insert(passwordResetTokens).values({
+      userId,
+      token,
+      expiresAt
+    }).returning();
+
+    this.logger.info('创建密码重置令牌', { userId, token: token.substring(0, 8) + '...' });
+    return token;
+  }
+
+  /**
+   * 验证密码重置令牌
+   */
+  async verifyPasswordResetToken(token) {
+    const db = await getDb();
+    const { passwordResetTokens } = require('./schema');
+
+    const [resetToken] = await db
+      .select()
+      .from(passwordResetTokens)
+      .where(eq(passwordResetTokens.token, token))
+      .limit(1);
+
+    if (!resetToken) {
+      return null;
+    }
+
+    // 检查是否过期
+    if (new Date(resetToken.expiresAt) < new Date()) {
+      // 删除过期的令牌
+      await db.delete(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+      return null;
+    }
+
+    this.logger.info('密码重置令牌验证成功', { userId: resetToken.userId });
+    return resetToken.userId;
+  }
+
+  /**
+   * 重置用户密码
+   */
+  async resetPassword(userId, newPassword) {
+    const db = await getDb();
+
+    // 检查密码强度
+    const strength = checkPasswordStrength(newPassword);
+    if (!strength.isValid) {
+      throw new Error('密码强度不足: ' + strength.issues.join(', '));
+    }
+
+    // 加密新密码
+    const hashedPassword = await hashPassword(newPassword);
+
+    // 更新密码
+    const [user] = await db
+      .update(users)
+      .set({
+        password: hashedPassword,
+        passwordChangedAt: new Date(),
+        failedLoginAttempts: 0,
+        lockedUntil: null
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    // 删除该用户的密码重置令牌
+    const { passwordResetTokens } = require('./schema');
+    await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, userId));
+
+    this.logger.info('密码重置成功', { userId, username: user.username });
+    return user;
+  }
+
+  /**
+   * 更新用户信息
+   */
+  async updateUser(userId, data) {
+    const db = await getDb();
+
+    // 如果更新邮箱，检查邮箱是否已被使用
+    if (data.email) {
+      const existingUser = await this.getUserByEmail(data.email);
+      if (existingUser && existingUser.id !== userId) {
+        throw new Error('邮箱已被使用');
+      }
+    }
+
+    const [user] = await db
+      .update(users)
+      .set(data)
+      .where(eq(users.id, userId))
+      .returning();
+
+    this.logger.info('更新用户信息', { userId, username: user.username });
+    return user;
+  }
 }
 
 exports.userManager = new UserManager();
