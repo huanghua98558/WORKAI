@@ -22,8 +22,7 @@ import {
   History,
   Link2,
   Copy,
-  Trash2,
-  X
+  Trash2
 } from 'lucide-react';
 
 interface Robot {
@@ -131,7 +130,7 @@ export default function CommandSender() {
   const [formData, setFormData] = useState({
     groupName: '',
     groupContent: '',
-    groupAtList: [] as string[], // 改为数组，支持多选技能人
+    groupAtList: '',
     userName: '',
     privateContent: '',
     batchMessages: [{ recipient: '', content: '' }],
@@ -149,16 +148,13 @@ export default function CommandSender() {
     profileDepartment: ''
   });
 
-  // 技能人列表
-  const [personas, setPersonas] = useState<any[]>([]);
-
   // 加载机器人列表
   const fetchRobots = async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/proxy/admin/robots');
       const result = await response.json();
-
+      
       if (result.code === 0) {
         console.log('加载到的机器人数据:', result.data);
         setRobots(result.data);
@@ -170,21 +166,6 @@ export default function CommandSender() {
       toast.error('加载机器人列表失败');
     } finally {
       setLoading(false);
-    }
-  };
-
-  // 加载技能人列表
-  const fetchPersonas = async () => {
-    try {
-      const response = await fetch('/api/proxy/ai/personas');
-      const result = await response.json();
-
-      if (result.success || result.code === 0) {
-        console.log('加载到的技能人数据:', result.data);
-        setPersonas(result.data || []);
-      }
-    } catch (error) {
-      console.error('加载技能人列表失败:', error);
     }
   };
 
@@ -240,7 +221,6 @@ export default function CommandSender() {
   // 初始化加载数据
   useEffect(() => {
     fetchRobots();
-    fetchPersonas();
     fetchCommands();
     fetchMessageHistory(true);
   }, [fetchMessageHistory]);
@@ -347,8 +327,9 @@ export default function CommandSender() {
         if (!formData.groupName || !formData.groupContent) {
           throw new Error('请填写群名称和消息内容');
         }
-        // groupAtList 现在是数组，直接使用
-        const atList = Array.isArray(formData.groupAtList) ? formData.groupAtList : [];
+        const atList = formData.groupAtList
+          ? formData.groupAtList.split(/[,，]/).map(s => s.trim()).filter(s => s)
+          : [];
         return {
           socketType: 2,
           list: [
@@ -567,7 +548,7 @@ export default function CommandSender() {
     setFormData({
       groupName: '',
       groupContent: '',
-      groupAtList: [], // 重置为空数组
+      groupAtList: '',
       userName: '',
       privateContent: '',
       batchMessages: [{ recipient: '', content: '' }],
@@ -772,58 +753,14 @@ export default function CommandSender() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>@技能人（可选）</Label>
-                            <div className="space-y-2">
-                              <div className="flex flex-wrap gap-2">
-                                {formData.groupAtList.map((personaId, index) => {
-                                  const persona = personas.find(p => p.id === personaId);
-                                  return (
-                                    <Badge key={`selected-persona-${index}`} variant="secondary" className="px-3 py-1">
-                                      {persona?.name || persona?.id}
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const newList = formData.groupAtList.filter((_, i) => i !== index);
-                                          setFormData({ ...formData, groupAtList: newList });
-                                        }}
-                                        className="ml-2 hover:text-red-500"
-                                      >
-                                        <X className="h-3 w-3" />
-                                      </button>
-                                    </Badge>
-                                  );
-                                })}
-                              </div>
-                              <Select
-                                value=""
-                                onValueChange={(value) => {
-                                  if (!formData.groupAtList.includes(value)) {
-                                    setFormData({
-                                      ...formData,
-                                      groupAtList: [...formData.groupAtList, value]
-                                    });
-                                  }
-                                }}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="选择技能人" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {personas.length === 0 ? (
-                                    <div className="px-4 py-2 text-sm text-muted-foreground">
-                                      暂无技能人数据
-                                    </div>
-                                  ) : (
-                                    personas.filter(p => !formData.groupAtList.includes(p.id)).map((persona) => (
-                                      <SelectItem key={`persona-${persona.id}`} value={persona.id}>
-                                        {persona.name || persona.id}
-                                      </SelectItem>
-                                    ))
-                                  )}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1">支持@群内技能人，可多选</p>
+                            <Label htmlFor="groupAtList">@成员（可选）</Label>
+                            <Input
+                              id="groupAtList"
+                              value={formData.groupAtList}
+                              onChange={(e) => setFormData({ ...formData, groupAtList: e.target.value })}
+                              placeholder="使用逗号分隔，例如：张三,李四,王五"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">支持@群内成员，用逗号分隔多个昵称</p>
                           </div>
                         </>
                       )}
