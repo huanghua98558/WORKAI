@@ -344,7 +344,7 @@ export default function AdminDashboard() {
 
   // 检查登录状态
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
     if (token && userStr) {
       try {
@@ -372,7 +372,8 @@ export default function AdminDashboard() {
       const data = await res.json();
       
       if (data.code === 0) {
-        localStorage.setItem('token', data.data.token);
+        localStorage.setItem('access_token', data.data.accessToken || data.data.token);
+        localStorage.setItem('refresh_token', data.data.refreshToken);
         localStorage.setItem('user', JSON.stringify(data.data.user));
         setIsLoggedIn(true);
         setCurrentUser(data.data.user);
@@ -510,7 +511,7 @@ export default function AdminDashboard() {
 
   const loadData = async () => {
     // 检查登录状态
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
     if (!token) {
       console.log('[数据加载] 用户未登录，跳过数据加载');
       return;

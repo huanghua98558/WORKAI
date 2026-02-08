@@ -89,10 +89,24 @@ export default function UserManagement() {
 
     try {
       setIsLoading(true);
+
+      // 准备更新数据，过滤掉空密码
+      const updateData: any = {
+        username: editingUser.username,
+        role: editingUser.role,
+        email: editingUser.email,
+        isActive: editingUser.isActive
+      };
+
+      // 只有在密码非空时才添加密码字段
+      if (editingUser.password && editingUser.password.trim()) {
+        updateData.password = editingUser.password;
+      }
+
       const res = await fetch(`/api/admin/users/${editingUser.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingUser)
+        body: JSON.stringify(updateData)
       });
 
       if (res.ok) {
@@ -102,10 +116,11 @@ export default function UserManagement() {
         loadUsers();
       } else {
         const data = await res.json();
-        alert(`❌ 更新失败: ${data.message || '未知错误'}`);
+        alert(`❌ 更新失败: ${data.error || data.message || '未知错误'}`);
       }
     } catch (error) {
-      alert('❌ 更新失败');
+      console.error('更新用户失败:', error);
+      alert('❌ 更新失败，请稍后重试');
     } finally {
       setIsLoading(false);
     }
