@@ -50,6 +50,11 @@ const NodeType = {
   ALERT_NOTIFY: 'alert_notify', // 告警通知节点
   ALERT_ESCALATE: 'alert_escalate', // 告警升级节点
 
+  // 协同分析相关节点
+  COLLABORATION_ANALYZE: 'collaboration_analyze', // 协同分析节点
+  STAFF_MESSAGE: 'staff_message', // 工作人员消息节点
+  SMART_ANALYZE: 'smart_analyze' // 智能分析节点（意图+情绪合并）
+
   // HTTP 和任务相关节点
   HTTP_REQUEST: 'http_request', // HTTP请求节点
   TASK_ASSIGN: 'task_assign', // 任务分配节点
@@ -126,6 +131,11 @@ class FlowEngine {
       [NodeType.LOG_SAVE]: this.handleLogSaveNode.bind(this),
       [NodeType.ALERT_NOTIFY]: this.handleAlertNotifyNode.bind(this),
       [NodeType.ALERT_ESCALATE]: this.handleAlertEscalateNode.bind(this),
+
+      // 协同分析相关节点处理器
+      [NodeType.COLLABORATION_ANALYZE]: this.handleCollaborationAnalyzeNode.bind(this),
+      [NodeType.STAFF_MESSAGE]: this.handleStaffMessageNode.bind(this),
+      [NodeType.SMART_ANALYZE]: this.handleSmartAnalyzeNode.bind(this),
 
       // HTTP 和任务相关节点处理器
       [NodeType.HTTP_REQUEST]: this.handleHttpRequestNode.bind(this),
@@ -717,11 +727,78 @@ class FlowEngine {
    */
   async handleStartNode(node, context) {
     logger.info('执行开始节点', { node, context });
-    return {
-      success: true,
-      message: '流程开始',
-      context
-    };
+
+    try {
+      const { data } = node;
+      const { config } = data || {};
+      const { initialVariables = {} } = config || {};
+
+      // 生成流程执行ID和全局追踪ID
+      const flowExecutionId = uuidv4();
+      const traceId = uuidv4();
+
+      // 处理初始变量中的动态值
+      const processedVariables = {};
+      for (const [key, value] of Object.entries(initialVariables)) {
+        if (typeof value === 'string') {
+          // 处理 {{now}} 占位符
+          if (value.includes('{{now}}')) {
+            processedVariables[key] = new Date().toISOString();
+          }
+          // 处理 {{uuid}} 占位符
+          else if (value.includes('{{uuid}}')) {
+            processedVariables[key] = uuidv4();
+          }
+          // 处理 {{timestamp}} 占位符
+          else if (value.includes('{{timestamp}}')) {
+            processedVariables[key] = Date.now().toString();
+          }
+          else {
+            processedVariables[key] = value;
+          }
+        } else {
+          processedVariables[key] = value;
+        }
+      }
+
+      // 将初始变量和追踪信息注入到context中
+      const enhancedContext = {
+        ...context,
+        ...processedVariables,
+        flowExecutionId,
+        traceId,
+        flowStartTime: processedVariables.flowStartTime || new Date().toISOString(),
+        flowVersion: processedVariables.flowVersion || '1.0.0',
+        environment: processedVariables.environment || process.env.NODE_ENV || 'development'
+      };
+
+      logger.info('流程开始，变量已注入', {
+        flowExecutionId,
+        traceId,
+        flowVersion: enhancedContext.flowVersion,
+        environment: enhancedContext.environment,
+        variableCount: Object.keys(processedVariables).length
+      });
+
+      return {
+        success: true,
+        message: '流程开始',
+        flowExecutionId,
+        traceId,
+        context: enhancedContext
+      };
+    } catch (error) {
+      logger.error('开始节点执行失败', { error: error.message });
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          lastNodeType: 'start',
+          startError: error.message
+        }
+      };
+    }
   }
 
   /**
@@ -1624,7 +1701,19 @@ class FlowEngine {
     try {
       const { data } = node;
       const { config } = data || {};
-      const { messageSource, saveToDatabase, saveToInfoCenter, validateMessage } = config || {};
+      const {
+        messageSource,
+        saveToDatabase,
+        saveToInfoCenter,
+        validateMessage,
+        messageDeduplication,
+        dedupWindow = 60,  // 默认60秒
+        senderIdentification,
+        messageSizeLimit = 10240,  // 默认10KB
+        rateLimiting,
+        rateLimitWindow = 60,
+        rateLimitMax = 10
+      } = config || {};
 
       // 记录配置值
       logger.info('消息接收节点配置', {
@@ -1632,6 +1721,13 @@ class FlowEngine {
         saveToDatabase,
         saveToInfoCenter,
         validateMessage,
+        messageDeduplication,
+        dedupWindow,
+        senderIdentification,
+        messageSizeLimit,
+        rateLimiting,
+        rateLimitWindow,
+        rateLimitMax,
         hasMessage: !!context.message,
         hasTriggerData: !!context.triggerData
       });
@@ -1639,20 +1735,113 @@ class FlowEngine {
       // 从context中获取消息数据
       const messageData = context.message || context.triggerData || {};
 
-      // 如果需要验证消息
-      if (validateMessage && !messageData.content) {
-        throw new Error('消息内容不能为空');
+      // 1. 改进消息格式验证
+      if (validateMessage) {
+        const content = messageData.content || messageData.spoken;
+
+        if (!content) {
+          throw new Error('消息内容不能为空');
+        }
+
+        if (typeof content !== 'string') {
+          throw new Error('消息内容格式错误，必须是字符串');
+        }
+
+        const trimmedContent = content.trim();
+        if (trimmedContent.length === 0) {
+          throw new Error('消息内容不能为空或纯空白字符');
+        }
       }
 
-      let savedMessage = null;
+      // 2. 消息大小限制检查
+      const content = messageData.content || messageData.spoken || '';
+      if (messageSizeLimit && content && content.length > messageSizeLimit) {
+        throw new Error(`消息内容超过大小限制 (${messageSizeLimit} 字符)，当前长度: ${content.length}`);
+      }
 
-      // 如果需要保存到数据库（同时支持 saveToDatabase 和 saveToInfoCenter 配置项）
+      // 3. 消息去重（如果启用）
+      if (messageDeduplication && content) {
+        const db = await this.getDb();
+        const { sessionMessages } = require('../database/schema');
+
+        const userId = context.userId || messageData.fromName || messageData.senderId || 'unknown';
+        const dedupThreshold = new Date(Date.now() - dedupWindow * 1000);
+
+        const duplicateMessage = await db.select()
+          .from(sessionMessages)
+          .where(
+            and(
+              eq(sessionMessages.content, content),
+              eq(sessionMessages.userId, userId),
+              gt(sessionMessages.timestamp, dedupThreshold)
+            )
+          )
+          .limit(1);
+
+        if (duplicateMessage.length > 0) {
+          logger.warn('检测到重复消息，跳过处理', {
+            content: content.substring(0, 50) + (content.length > 50 ? '...' : ''),
+            originalMessageId: duplicateMessage[0].id,
+            timeDiff: Date.now() - new Date(duplicateMessage[0].timestamp).getTime()
+          });
+
+          return {
+            success: true,
+            isDuplicate: true,
+            message: null,
+            context: {
+              ...context,
+              lastNodeType: 'message_receive',
+              isDuplicate: true,
+              duplicateMessageId: duplicateMessage[0].id
+            }
+          };
+        }
+      }
+
+      // 4. 发送者识别（如果启用）
+      let senderInfo = {
+        type: 'user',
+        trustLevel: 'normal',
+        tags: []
+      };
+
+      if (senderIdentification) {
+        senderInfo = this.identifySender(messageData);
+        logger.info('发送者识别结果', {
+          senderType: senderInfo.type,
+          trustLevel: senderInfo.trustLevel,
+          tags: senderInfo.tags,
+          sender: messageData.fromName
+        });
+      }
+
+      // 5. 限流保护（如果启用）
+      if (rateLimiting) {
+        const userId = context.userId || messageData.fromName || messageData.senderId || 'unknown';
+        const isRateLimited = await this.checkRateLimit(
+          userId,
+          rateLimitWindow,
+          rateLimitMax
+        );
+
+        if (isRateLimited) {
+          logger.warn('触发限流保护', {
+            userId,
+            window: rateLimitWindow,
+            max: rateLimitMax
+          });
+          throw new Error(`发送频率过高，请在 ${rateLimitWindow} 秒后重试`);
+        }
+      }
+
+      // 6. 保存到数据库
+      let savedMessage = null;
       if (saveToDatabase || saveToInfoCenter) {
         const db = await this.getDb();
         const { sessionMessages } = require('../database/schema');
 
         // 从消息数据中提取 userId 和 sessionId
-        // 优先使用 context 中的值，如果没有则从 messageData 中提取
         const userId = context.userId || messageData.fromName || messageData.senderId || 'unknown';
         const sessionId = context.sessionId || `session_${messageData.groupName || messageData.fromName || 'default'}`;
 
@@ -1676,29 +1865,44 @@ class FlowEngine {
           groupName: messageData.groupName || null,
           robotId: context.robot?.robotId || null,
           robotName: context.robot?.name || null,
-          content: messageData.content || messageData.spoken || '',
+          content: content,
           isFromUser: true,
           isFromBot: false,
-          isHuman: false,
+          isHuman: senderInfo.type === 'staff',
           timestamp: timestamp,
-          extraData: messageData.metadata || {}
+          extraData: {
+            ...messageData.metadata,
+            senderInfo,
+            flowExecutionId: context.flowExecutionId,
+            traceId: context.traceId
+          }
         };
 
         await db.insert(sessionMessages).values(messageRecord);
         savedMessage = messageRecord;
 
-        logger.info('消息已保存到数据库', { messageId, userId, sessionId, contentLength: messageRecord.content.length });
+        logger.info('消息已保存到数据库', {
+          messageId,
+          userId,
+          sessionId,
+          contentLength: messageRecord.content.length,
+          senderType: senderInfo.type
+        });
       }
 
       return {
         success: true,
         message: savedMessage || messageData,
         messageId: savedMessage?.id || messageData.id,
+        senderInfo,
         context: {
           ...context,
           message: savedMessage || messageData,
           messageId: savedMessage?.id || messageData.id,
-          lastNodeType: 'message_receive'
+          lastNodeType: 'message_receive',
+          senderInfo,
+          isStaff: senderInfo.type === 'staff',
+          isDuplicate: false
         }
       };
     } catch (error) {
@@ -1716,31 +1920,153 @@ class FlowEngine {
   }
 
   /**
-   * 处理创建会话节点
+   * 辅助函数：发送者识别
+   */
+  identifySender(messageData) {
+    const senderInfo = {
+      type: 'user',      // user, staff, system, bot
+      trustLevel: 'normal',  // low, normal, high
+      tags: []
+    };
+
+    const companyName = messageData.companyName || '';
+    const remark = messageData.remark || '';
+    const nickname = messageData.fromName || messageData.senderName || '';
+    const specialId = messageData.senderId || '';
+    const groupId = messageData.groupName || '';
+
+    // 工作人员识别关键词
+    const staffKeywords = [
+      'admin', 'manager', 'staff', 'support', 'operator',
+      '运维', '管理员', '技术支持', '客服主管', '运营专员', '产品经理'
+    ];
+
+    // 特殊企业识别
+    const companyNames = ['WorkTool', '扣子', 'Coze', '测试公司', '演示公司'];
+
+    // 1. 识别工作人员
+    const isStaff = staffKeywords.some(keyword =>
+      nickname.toLowerCase().includes(keyword) ||
+      remark.toLowerCase().includes(keyword) ||
+      specialId.toLowerCase().includes(keyword)
+    );
+
+    if (isStaff) {
+      senderInfo.type = 'staff';
+      senderInfo.trustLevel = 'high';
+      senderInfo.tags.push('staff');
+    }
+
+    // 2. 识别特殊企业用户
+    const isCompany = companyNames.some(name => companyName.includes(name));
+
+    if (isCompany) {
+      senderInfo.trustLevel = 'high';
+      senderInfo.tags.push('company_user');
+    }
+
+    // 3. 识别系统用户（机器人）
+    const botKeywords = ['bot', 'robot', '机器人', '系统'];
+    const isBot = botKeywords.some(keyword =>
+      nickname.toLowerCase().includes(keyword) ||
+      specialId.toLowerCase().includes(keyword)
+    );
+
+    if (isBot) {
+      senderInfo.type = 'bot';
+      senderInfo.tags.push('bot');
+    }
+
+    // 4. 根据群组识别
+    if (groupId && (groupId.includes('staff') || groupId.includes('admin'))) {
+      senderInfo.trustLevel = 'high';
+      senderInfo.tags.push('staff_group');
+    }
+
+    logger.debug('发送者识别详情', {
+      nickname,
+      companyName,
+      remark,
+      specialId,
+      result: senderInfo
+    });
+
+    return senderInfo;
+  }
+
+  /**
+   * 辅助函数：限流检查
+   */
+  async checkRateLimit(userId, windowSeconds, maxRequests) {
+    const db = await this.getDb();
+    const { sessionMessages } = require('../database/schema');
+
+    const threshold = new Date(Date.now() - windowSeconds * 1000);
+
+    const recentMessages = await db.select()
+      .from(sessionMessages)
+      .where(
+        and(
+          eq(sessionMessages.userId, userId),
+          eq(sessionMessages.isFromUser, true),
+          gt(sessionMessages.timestamp, threshold)
+        )
+      );
+
+    const isLimited = recentMessages.length >= maxRequests;
+
+    if (isLimited) {
+      logger.warn('限流触发', {
+        userId,
+        windowSeconds,
+        maxRequests,
+        actualCount: recentMessages.length
+      });
+    }
+
+    return isLimited;
+  }
+
+  /**
+   * 处理创建会话节点（优化版）
+   * 支持会话复用、超时管理、TTL管理、并发合并
    */
   async handleSessionCreateNode(node, context) {
     logger.info('执行创建会话节点', { node, context });
 
     try {
       const { data } = node;
-      const { sessionType = 'chat', autoAssignStaff = false, queueId } = data || {};
+      const { config = {} } = data;
+      const {
+        sessionType = 'chat',
+        autoCreate = true,
+        sessionTimeout = 1800000,  // 30分钟
+        sessionTTL = 86400000,      // 24小时
+        mergeConcurrentSessions = false,
+        autoAssignStaff = false,
+        queueId,
+        priority = 'normal'
+      } = config;
 
       const db = await this.getDb();
       const { sessions, users } = require('../database/schema');
 
-      // 查询用户是否存在
+      // 获取或创建用户
       let user = null;
-      if (context.userId) {
+      let userId = context.userId || context.message?.fromName || context.senderId;
+
+      if (userId) {
+        // 查询用户是否存在
         const usersResult = await db.select()
           .from(users)
-          .where(eq(users.id, context.userId))
+          .where(eq(users.id, userId))
           .limit(1);
         user = usersResult[0] || null;
       }
 
-      // 如果用户不存在，创建用户
       if (!user && context.userName) {
-        const userId = uuidv4();
+        // 创建新用户
+        userId = uuidv4();
         const newUser = {
           id: userId,
           name: context.userName,
@@ -1749,45 +2075,109 @@ class FlowEngine {
           role: 'customer',
           createdAt: new Date()
         };
-
         await db.insert(users).values(newUser);
         user = newUser;
       }
 
-      // 创建会话
+      userId = user?.id || userId;
+
+      // 如果禁用自动创建，尝试获取现有会话
+      if (!autoCreate) {
+        const existingSession = await this.getExistingSession(userId, sessionTimeout);
+        if (existingSession) {
+          logger.info('使用现有会话', { sessionId: existingSession.sessionId });
+          await this.updateSessionActivity(existingSession.sessionId);
+
+          return {
+            success: true,
+            session: existingSession,
+            sessionId: existingSession.sessionId,
+            isExisting: true,
+            isNew: false,
+            context: {
+              ...context,
+              session: existingSession,
+              sessionId: existingSession.sessionId,
+              userId,
+              lastNodeType: 'session_create'
+            }
+          };
+        }
+      }
+
+      // 处理并发会话合并
+      if (mergeConcurrentSessions) {
+        const concurrentSession = await this.getConcurrentSession(userId, sessionType);
+        if (concurrentSession) {
+          logger.info('合并到并发会话', { sessionId: concurrentSession.sessionId });
+          await this.updateSessionActivity(concurrentSession.sessionId);
+
+          return {
+            success: true,
+            session: concurrentSession,
+            sessionId: concurrentSession.sessionId,
+            isMerged: true,
+            isNew: false,
+            context: {
+              ...context,
+              session: concurrentSession,
+              sessionId: concurrentSession.sessionId,
+              userId,
+              lastNodeType: 'session_create'
+            }
+          };
+        }
+      }
+
+      // 清理过期的会话
+      await this.cleanExpiredSessions(userId, sessionTTL);
+
+      // 创建新会话
       const sessionId = uuidv4();
+      const now = new Date();
+
       const session = {
         sessionId,
-        userId: user?.id || context.userId,
+        userId,
         staffId: null,
-        status: autoAssignStaff ? 'assigned' : 'pending',
+        status: autoAssignStaff ? 'assigned' : 'active',
         sessionType,
         queueId,
-        priority: data.priority || 'normal',
+        priority,
         source: context.source || 'web',
-        metadata: data.metadata || {},
-        startedAt: new Date(),
-        createdAt: new Date()
+        metadata: config.metadata || {},
+        startedAt: now,
+        createdAt: now,
+        lastActivityAt: now,
+        expiresAt: new Date(now.getTime() + sessionTTL)
       };
 
       await db.insert(sessions).values(session);
 
-      logger.info('会话创建成功', { sessionId, userId: user?.id, status: session.status });
+      logger.info('会话创建成功', {
+        sessionId,
+        userId,
+        status: session.status,
+        sessionType,
+        isExisting: false
+      });
 
       return {
         success: true,
         session,
         sessionId,
+        isExisting: false,
+        isNew: true,
         context: {
           ...context,
           session,
           sessionId,
-          userId: user?.id || context.userId,
+          userId,
           lastNodeType: 'session_create'
         }
       };
     } catch (error) {
-      logger.error('创建会话节点执行失败', { error: error.message });
+      logger.error('创建会话节点执行失败', { error: error.message, stack: error.stack });
       return {
         success: false,
         error: error.message,
@@ -1798,6 +2188,94 @@ class FlowEngine {
         }
       };
     }
+  }
+
+  /**
+   * 获取现有活跃会话
+   */
+  async getExistingSession(userId, timeout) {
+    const db = await this.getDb();
+    const { sessions } = require('../database/schema');
+
+    const timeoutThreshold = new Date(Date.now() - timeout);
+
+    const existingSessions = await db.select()
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.userId, userId),
+          inArray(sessions.status, ['active', 'assigned']),
+          gt(sessions.lastActivityAt, timeoutThreshold),
+          gt(sessions.expiresAt, new Date())
+        )
+      )
+      .orderBy(desc(sessions.lastActivityAt))
+      .limit(1);
+
+    return existingSessions[0] || null;
+  }
+
+  /**
+   * 获取并发会话
+   */
+  async getConcurrentSession(userId, sessionType) {
+    const db = await this.getDb();
+    const { sessions } = require('../database/schema');
+
+    const activeThreshold = new Date(Date.now() - 300000); // 5分钟内活跃
+
+    const concurrentSessions = await db.select()
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.userId, userId),
+          eq(sessions.sessionType, sessionType),
+          inArray(sessions.status, ['active', 'assigned']),
+          gt(sessions.lastActivityAt, activeThreshold),
+          gt(sessions.expiresAt, new Date())
+        )
+      )
+      .orderBy(desc(sessions.lastActivityAt))
+      .limit(1);
+
+    return concurrentSessions[0] || null;
+  }
+
+  /**
+   * 更新会话活跃时间
+   */
+  async updateSessionActivity(sessionId) {
+    const db = await this.getDb();
+    const { sessions } = require('../database/schema');
+
+    await db.update(sessions)
+      .set({
+        lastActivityAt: new Date()
+      })
+      .where(eq(sessions.sessionId, sessionId));
+  }
+
+  /**
+   * 清理过期的会话
+   */
+  async cleanExpiredSessions(userId, ttl) {
+    const db = await this.getDb();
+    const { sessions } = require('../database/schema');
+
+    const expiredThreshold = new Date(Date.now() - ttl);
+
+    await db.update(sessions)
+      .set({
+        status: 'expired',
+        lastActivityAt: new Date()
+      })
+      .where(
+        and(
+          eq(sessions.userId, userId),
+          lt(sessions.expiresAt, new Date()),
+          inArray(sessions.status, ['active', 'assigned', 'pending'])
+        )
+      );
   }
 
   /**
@@ -2094,6 +2572,8 @@ class FlowEngine {
 
     try {
       const { data } = node;
+      const { config = {} } = data;
+
       const {
         modelId,
         prompt,
@@ -2101,8 +2581,17 @@ class FlowEngine {
         temperature = 0.7,
         maxTokens = 1000,
         useContextHistory = true,
-        systemPrompt
-      } = data || {};
+        systemPrompt,
+        useHistory = true,
+        useContext = true,
+        useDocuments = true,
+        useTemplate = true,
+        responseStyle = 'professional',
+        templateMapping = {},
+        historyLength = 10,
+        enableKBMatch = true,
+        kbConfig = {}
+      } = config;
 
       // 协同分析：检查工作人员状态，决定是否应该由AI回复
       try {
@@ -2131,7 +2620,7 @@ class FlowEngine {
 
             return {
               success: true,
-              aiReply: null, // 不生成回复
+              aiReply: null,
               skipped: true,
               skipReason: aiDecision.reason,
               strategy: aiDecision.strategy,
@@ -2150,7 +2639,6 @@ class FlowEngine {
           error: error.message,
           sessionId: context.sessionId
         });
-        // 协同分析失败不影响主流程，继续执行AI回复
       }
 
       // 获取AI服务实例
@@ -2163,17 +2651,35 @@ class FlowEngine {
       if (systemPrompt) {
         messages.push({ role: 'system', content: systemPrompt });
       } else if (personaId) {
-        // 如果指定了角色，加载角色提示词
         const role = await this.getRoleById(personaId);
         if (role) {
           messages.push({ role: 'system', content: role.system_prompt });
           logger.info('使用角色提示词', { personaId, roleName: role.name });
         }
+      } else {
+        const defaultSystemPrompt = this.buildDefaultSystemPrompt(responseStyle);
+        messages.push({ role: 'system', content: defaultSystemPrompt });
+      }
+
+      // 添加知识库匹配结果（如果启用）
+      let kbMatchResult = null;
+      if (enableKBMatch) {
+        kbMatchResult = await this.matchKnowledgeBase(context, kbConfig);
+        if (kbMatchResult && kbMatchResult.matches.length > 0) {
+          logger.info('知识库匹配成功', {
+            matchCount: kbMatchResult.matches.length,
+            topMatch: kbMatchResult.matches[0]?.question?.substring(0, 50)
+          });
+
+          const kbContext = this.buildKnowledgeBaseContext(kbMatchResult);
+          messages[0].content += '\n\n' + kbContext;
+        }
       }
 
       // 添加历史对话
-      if (useContextHistory && context.history && Array.isArray(context.history)) {
-        messages.push(...context.history);
+      if (useHistory && context.history && Array.isArray(context.history)) {
+        const historyToUse = context.history.slice(-historyLength);
+        messages.push(...historyToUse);
       }
 
       // 添加当前用户消息
@@ -2198,6 +2704,7 @@ class FlowEngine {
       logger.info('AI回复节点执行成功', {
         model: modelId,
         responseLength: result.content.length,
+        kbMatch: kbMatchResult?.matches.length > 0,
         usage: result.usage
       });
 
@@ -2210,6 +2717,7 @@ class FlowEngine {
         aiOutput: result.content,
         modelId,
         requestDuration: result.usage?.duration || 0,
+        kbMatchUsed: kbMatchResult?.matches.length > 0,
         status: 'success'
       });
 
@@ -2218,16 +2726,17 @@ class FlowEngine {
         aiReply: result.content,
         model: modelId,
         usage: result.usage,
+        kbMatchResult,
         context: {
           ...context,
           aiReply: result.content,
+          kbMatchResult,
           lastNodeType: 'ai_reply'
         }
       };
     } catch (error) {
       logger.error('AI回复节点执行失败', { error: error.message });
 
-      // 返回默认回复，避免中断流程
       return {
         success: false,
         aiReply: '抱歉，我暂时无法回复您的消息，请稍后再试。',
@@ -2239,6 +2748,69 @@ class FlowEngine {
         }
       };
     }
+  }
+
+  /**
+   * 构建默认系统提示词
+   */
+  buildDefaultSystemPrompt(responseStyle) {
+    const stylePrompts = {
+      professional: '你是一个专业的智能客服助手。请用专业、礼貌的语言回答用户问题，提供准确、有用的信息。',
+      friendly: '你是一个友好的智能客服助手。请用亲切、温暖的语言与用户交流，让用户感受到关怀。',
+      concise: '你是一个简洁的智能客服助手。请用简明扼要的语言回答用户问题，避免冗长。',
+      detailed: '你是一个详细的智能客服助手。请提供详细、全面的解答，帮助用户深入理解问题。'
+    };
+
+    return stylePrompts[responseStyle] || stylePrompts.professional;
+  }
+
+  /**
+   * 匹配知识库
+   */
+  async matchKnowledgeBase(context, kbConfig) {
+    try {
+      const { kbIds = [], similarityThreshold = 0.8, maxResults = 3 } = kbConfig;
+      const userMessage = context.message?.content || context.userMessage;
+
+      if (!userMessage || kbIds.length === 0) {
+        return null;
+      }
+
+      const mockMatches = [];
+
+      logger.info('知识库匹配（模拟）', {
+        kbIds,
+        userMessage: userMessage.substring(0, 50),
+        threshold: similarityThreshold,
+        maxResults
+      });
+
+      return {
+        matches: mockMatches,
+        query: userMessage,
+        threshold: similarityThreshold
+      };
+    } catch (error) {
+      logger.error('知识库匹配失败', { error: error.message });
+      return null;
+    }
+  }
+
+  /**
+   * 构建知识库上下文
+   */
+  buildKnowledgeBaseContext(kbMatchResult) {
+    if (!kbMatchResult || kbMatchResult.matches.length === 0) {
+      return '';
+    }
+
+    let context = '参考知识库：\n';
+    kbMatchResult.matches.forEach((match, index) => {
+      context += `${index + 1}. 问题：${match.question}\n`;
+      context += `   答案：${match.answer}\n\n`;
+    });
+
+    return context;
   }
 
   /**
@@ -4280,6 +4852,511 @@ class FlowEngine {
     };
 
     return contextMap[scene] || `用户发送了图片，识别结果：${JSON.stringify(imageAnalysis)}。`;
+  }
+
+  // ============================================
+  // 协同分析相关节点处理器
+  // ============================================
+
+  /**
+   * 处理协同分析节点
+   * 识别工作人员、记录工作人员消息、检测工作人员回复
+   */
+  async handleCollaborationAnalyzeNode(node, context) {
+    logger.info('执行协同分析节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { config } = data || {};
+      const {
+        enableStaffIdentification = true,
+        enableStaffMessageRecording = true,
+        enableActivityTracking = true,
+        enableStaffReplyDetection = true,
+        staffFeatures = {}
+      } = config || {};
+
+      const {
+        companyNames = [],
+        remarkNames = [],
+        nicknames = [],
+        specialIds = []
+      } = staffFeatures;
+
+      const messageData = context.message || {};
+
+      // 1. 工作人员识别
+      let senderInfo = {
+        type: 'user',
+        trustLevel: 'normal',
+        tags: []
+      };
+
+      if (enableStaffIdentification) {
+        const companyName = messageData.companyName || '';
+        const remark = messageData.remark || '';
+        const nickname = messageData.fromName || messageData.senderName || '';
+        const specialId = messageData.senderId || '';
+
+        // 综合识别（使用流程配置的特征）
+        const isStaffByConfig = nicknames.some(name =>
+          nickname.includes(name)
+        ) || remarkNames.some(name =>
+          remark.includes(name)
+        ) || specialIds.some(id =>
+          specialId.includes(id)
+        ) || companyNames.some(company =>
+          companyName.includes(company)
+        );
+
+        if (isStaffByConfig) {
+          senderInfo.type = 'staff';
+          senderInfo.trustLevel = 'high';
+          senderInfo.tags.push('staff');
+        }
+
+        logger.info('工作人员识别结果', {
+          nickname,
+          isStaff: senderInfo.type === 'staff',
+          matchType: isStaffByConfig ? 'config' : 'none'
+        });
+      }
+
+      // 2. 工作人员回复检测（基于上下文）
+      let hasStaffReplied = false;
+      let staffReplyInfo = null;
+
+      if (enableStaffReplyDetection && context.sessionId) {
+        staffReplyInfo = await this.detectStaffReply(context);
+
+        hasStaffReplied = staffReplyInfo.hasReplied;
+
+        if (hasStaffReplied) {
+          logger.info('检测到工作人员已回复', {
+            sessionId: context.sessionId,
+            replyTime: staffReplyInfo.replyTime,
+            replyContent: staffReplyInfo.replyContent?.substring(0, 50)
+          });
+        }
+      }
+
+      // 3. 活动跟踪
+      if (enableActivityTracking && senderInfo.type === 'staff') {
+        await this.trackStaffActivity(context, senderInfo);
+      }
+
+      // 4. 工作人员消息记录
+      if (enableStaffMessageRecording && senderInfo.type === 'staff') {
+        await this.recordStaffMessage(context, senderInfo);
+      }
+
+      return {
+        success: true,
+        senderInfo,
+        hasStaffReplied,
+        staffReplyInfo,
+        context: {
+          ...context,
+          senderInfo,
+          isStaff: senderInfo.type === 'staff',
+          hasStaffReplied,
+          staffReplyInfo,
+          lastNodeType: 'collaboration_analyze'
+        }
+      };
+    } catch (error) {
+      logger.error('协同分析节点执行失败', { error: error.message });
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          lastNodeType: 'collaboration_analyze',
+          collaborationError: error.message
+        }
+      };
+    }
+  }
+
+  /**
+   * 检测工作人员是否已回复（基于上下文）
+   */
+  async detectStaffReply(context) {
+    const { sessionId, message } = context;
+
+    if (!sessionId || !message) {
+      return { hasReplied: false };
+    }
+
+    try {
+      const db = await this.getDb();
+      const { sessionMessages } = require('../database/schema');
+
+      // 查询最近的消息记录（最近5分钟）
+      const timeThreshold = new Date(Date.now() - 5 * 60 * 1000);
+
+      const recentMessages = await db.select()
+        .from(sessionMessages)
+        .where(
+          and(
+            eq(sessionMessages.sessionId, sessionId),
+            eq(sessionMessages.isFromBot, false),
+            eq(sessionMessages.isHuman, true),
+            gt(sessionMessages.timestamp, timeThreshold)
+          )
+        )
+        .orderBy(desc(sessionMessages.timestamp))
+        .limit(10);
+
+      // 分析最近的消息，判断是否有工作人员回复
+      // 回复特征：
+      // 1. 包含关键词：已回复、收到、好的、没问题、稍等、处理中、我会处理
+      // 2. 消息来自工作人员
+      // 3. 消息时间在当前用户消息之后
+
+      const replyKeywords = ['已回复', '收到', '好的', '没问题', '稍等', '处理中', '我会处理', '正在处理'];
+
+      let staffReply = null;
+
+      for (const msg of recentMessages) {
+        const content = msg.content || '';
+
+        // 检查是否包含回复关键词
+        const hasReplyKeyword = replyKeywords.some(keyword => content.includes(keyword));
+
+        if (hasReplyKeyword) {
+          staffReply = msg;
+          break;
+        }
+      }
+
+      return {
+        hasReplied: staffReply !== null,
+        replyTime: staffReply?.timestamp,
+        replyContent: staffReply?.content,
+        replyMessageId: staffReply?.id
+      };
+    } catch (error) {
+      logger.error('工作人员回复检测失败', { error: error.message });
+      return { hasReplied: false };
+    }
+  }
+
+  /**
+   * 跟踪工作人员活动
+   */
+  async trackStaffActivity(context, senderInfo) {
+    try {
+      // 记录活动日志
+      logger.info('工作人员活动跟踪', {
+        sessionId: context.sessionId,
+        staffName: context.userName,
+        activity: 'message_sent',
+        timestamp: new Date()
+      });
+
+      // 这里可以扩展为保存到专门的活动表
+      return { success: true };
+    } catch (error) {
+      logger.error('活动跟踪失败', { error: error.message });
+      return { success: false };
+    }
+  }
+
+  /**
+   * 记录工作人员消息
+   */
+  async recordStaffMessage(context, senderInfo) {
+    try {
+      const db = await this.getDb();
+      const { sessionMessages } = require('../database/schema');
+
+      // 更新消息记录，标记为工作人员消息
+      const messageId = context.messageId;
+
+      if (messageId) {
+        await db.update(sessionMessages)
+          .set({
+            isHuman: true,
+            extraData: {
+              ...context.message?.extraData,
+              senderInfo,
+              isStaffMessage: true
+            }
+          })
+          .where(eq(sessionMessages.id, messageId));
+      }
+
+      logger.info('工作人员消息已记录', { messageId });
+      return { success: true };
+    } catch (error) {
+      logger.error('工作人员消息记录失败', { error: error.message });
+      return { success: false };
+    }
+  }
+
+  /**
+   * 处理工作人员消息节点
+   * 处理工作人员消息，记录活动，不触发AI回复
+   */
+  async handleStaffMessageNode(node, context) {
+    logger.info('执行工作人员消息节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { config } = data || {};
+      const {
+        enableActivityTracking = true,
+        skipAIReply = true,
+        enableNotification = true
+      } = config || {};
+
+      // 1. 记录活动
+      if (enableActivityTracking) {
+        await this.trackStaffActivity(context, {
+          type: 'staff',
+          trustLevel: 'high',
+          tags: ['staff', 'message_processed']
+        });
+      }
+
+      // 2. 发送通知（如果启用）
+      if (enableNotification) {
+        logger.info('工作人员消息通知', {
+          sessionId: context.sessionId,
+          staffName: context.userName
+        });
+        // 这里可以扩展为发送通知给其他工作人员
+      }
+
+      // 3. 设置不触发AI回复
+      const result = {
+        success: true,
+        skipAIReply: skipAIReply,
+        message: '工作人员消息已处理',
+        context: {
+          ...context,
+          skipAIReply: skipAIReply,
+          lastNodeType: 'staff_message',
+          staffMessageProcessed: true
+        }
+      };
+
+      logger.info('工作人员消息处理完成', {
+        skipAIReply: result.skipAIReply,
+        sessionId: context.sessionId
+      });
+
+      return result;
+    } catch (error) {
+      logger.error('工作人员消息节点执行失败', { error: error.message });
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          lastNodeType: 'staff_message',
+          staffMessageError: error.message
+        }
+      };
+    }
+  }
+
+  /**
+   * 处理智能分析节点
+   * 同时进行意图识别和情绪分析（一次AI调用）
+   */
+  async handleSmartAnalyzeNode(node, context) {
+    logger.info('执行智能分析节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { config } = data || {};
+      const {
+        modelId,
+        enableIntentRecognition = true,
+        enableEmotionAnalysis = true,
+        intentConfig = {},
+        emotionConfig = {},
+        skipDirectReply = false
+      } = config || {};
+
+      const messageContent = context.message?.content ||
+                             context.message?.spoken ||
+                             context.userMessage;
+
+      if (!messageContent) {
+        logger.warn('智能分析节点没有可用的消息内容');
+        return {
+          success: true,
+          intent: intentConfig.fallbackIntent || '咨询',
+          emotion: 'neutral',
+          confidence: 0.5,
+          context: {
+            ...context,
+            intent: intentConfig.fallbackIntent || '咨询',
+            emotion: 'neutral',
+            confidence: 0.5,
+            needReply: true,
+            lastNodeType: 'smart_analyze'
+          }
+        };
+      }
+
+      // 获取AI服务实例
+      const aiService = await AIServiceFactory.createServiceByModelId(modelId);
+
+      // 构建智能分析提示词（同时识别意图和情绪）
+      const prompt = this.buildSmartAnalyzePrompt(
+        messageContent,
+        enableIntentRecognition,
+        enableEmotionAnalysis,
+        intentConfig,
+        emotionConfig
+      );
+
+      // 调用AI进行智能分析
+      const aiResponse = await aiService.chat({
+        messages: [
+          {
+            role: 'system',
+            content: prompt
+          },
+          {
+            role: 'user',
+            content: messageContent
+          }
+        ],
+        temperature: 0.3,
+        maxTokens: 500
+      });
+
+      // 解析AI响应
+      const analysisResult = this.parseSmartAnalyzeResponse(aiResponse.content);
+
+      logger.info('智能分析完成', {
+        intent: analysisResult.intent,
+        emotion: analysisResult.emotion,
+        confidence: analysisResult.confidence,
+        reasoning: analysisResult.reasoning
+      });
+
+      // 根据 skipDirectReply 配置决定是否需要回复
+      const needReply = skipDirectReply ? true :
+                        analysisResult.intent !== '其他' &&
+                        analysisResult.confidence > 0.5;
+
+      return {
+        success: true,
+        intent: analysisResult.intent,
+        emotion: analysisResult.emotion,
+        confidence: analysisResult.confidence,
+        reasoning: analysisResult.reasoning,
+        keywords: analysisResult.keywords,
+        needReply,
+        context: {
+          ...context,
+          intent: analysisResult.intent,
+          emotion: analysisResult.emotion,
+          confidence: analysisResult.confidence,
+          reasoning: analysisResult.reasoning,
+          keywords: analysisResult.keywords,
+          needReply,
+          lastNodeType: 'smart_analyze'
+        }
+      };
+    } catch (error) {
+      logger.error('智能分析节点执行失败', { error: error.message });
+      return {
+        success: false,
+        error: error.message,
+        intent: '咨询',
+        emotion: 'neutral',
+        needReply: true,
+        context: {
+          ...context,
+          intent: '咨询',
+          emotion: 'neutral',
+          needReply: true,
+          lastNodeType: 'smart_analyze',
+          analyzeError: error.message
+        }
+      };
+    }
+  }
+
+  /**
+   * 构建智能分析提示词
+   */
+  buildSmartAnalyzePrompt(messageContent, enableIntent, enableEmotion, intentConfig, emotionConfig) {
+    let prompt = '你是一个智能客服分析助手。请分析用户的消息，返回JSON格式结果。\n\n';
+
+    if (enableIntent) {
+      const intents = intentConfig.supportedIntents || ['咨询', '投诉', '售后', '互动', '购买', '预约', '查询', '其他'];
+      prompt += `支持的意图类型：${intents.join('、')}\n`;
+      prompt += `置信度阈值：${intentConfig.confidenceThreshold || 0.7}\n`;
+      prompt += `默认意图：${intentConfig.fallbackIntent || '咨询'}\n\n`;
+    }
+
+    if (enableEmotion) {
+      const emotions = emotionConfig.emotionTypes || ['positive', 'neutral', 'negative', 'angry', 'sad', 'happy'];
+      prompt += `支持的情绪类型：${emotions.join('、')}\n`;
+      prompt += `情绪阈值：${emotionConfig.emotionThreshold || 0.6}\n\n`;
+    }
+
+    prompt += `请返回以下JSON格式：\n`;
+    prompt += `{\n`;
+    if (enableIntent) {
+      prompt += `  "intent": "意图类型",\n`;
+      prompt += `  "intentConfidence": 意图置信度,\n`;
+    }
+    if (enableEmotion) {
+      prompt += `  "emotion": "情绪类型",\n`;
+      prompt += `  "emotionConfidence": 情绪置信度,\n`;
+    }
+    prompt += `  "reasoning": "分析理由",\n`;
+    prompt += `  "keywords": ["关键词1", "关键词2"]\n`;
+    prompt += `}\n\n`;
+    prompt += `消息内容：${messageContent}`;
+
+    return prompt;
+  }
+
+  /**
+   * 解析智能分析响应
+   */
+  parseSmartAnalyzeResponse(response) {
+    try {
+      // 提取JSON部分
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('响应中未找到JSON格式');
+      }
+
+      const result = JSON.parse(jsonMatch[0]);
+
+      // 综合置信度（取意图和情绪的平均值）
+      const confidence = result.intentConfidence && result.emotionConfidence
+        ? (result.intentConfidence + result.emotionConfidence) / 2
+        : (result.intentConfidence || result.emotionConfidence || 0.5);
+
+      return {
+        intent: result.intent || '咨询',
+        emotion: result.emotion || 'neutral',
+        confidence,
+        reasoning: result.reasoning || '',
+        keywords: result.keywords || []
+      };
+    } catch (error) {
+      logger.error('解析智能分析响应失败', { error: error.message, response });
+      return {
+        intent: '咨询',
+        emotion: 'neutral',
+        confidence: 0.5,
+        reasoning: '解析失败，使用默认值',
+        keywords: []
+      };
+    }
   }
 }
 
