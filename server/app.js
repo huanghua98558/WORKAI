@@ -24,7 +24,7 @@ const worktoolSendOssImageApiRoutes = require('./routes/worktool-send-oss-image.
 const worktoolConversionRobotApiRoutes = require('./routes/worktool-conversion-robot.api');
 const adminApiRoutes = require('./routes/admin.api');
 const qaApiRoutes = require('./routes/qa.api');
-const robotApiRoutes = require('./routes/robot.api');
+// robot.api.js 已删除，使用 robot-protected.api.js 替代（更安全，带权限控制）
 const robotCommandApiRoutes = require('./routes/robot-command.api');
 const debugApiRoutes = require('./routes/debug.api');
 const executionTrackerApiRoutes = require('./routes/execution-tracker.api');
@@ -44,9 +44,8 @@ const intentConfigApiRoutes = require('./routes/intent-config.api');
 const flowEngineApiRoutes = require('./routes/flow-engine.api');
 const riskApiRoutes = require('./routes/risk.api');
 const collabApiRoutes = require('./routes/collab.api');
-console.log('[app.js] Attempting to load auth.api...');
-const authApiRoutes = require('./routes/auth.api');
-console.log('[app.js] auth.api loaded successfully');
+// auth.api.js 已删除，使用 auth-complete.api.js 替代（功能更完整，包含审计日志和会话管理）
+console.log('[app.js] Attempting to load auth-complete.api...');
 const authCompleteApiRoutes = require('./routes/auth-complete.api');
 console.log('[app.js] auth-complete.api loaded successfully');
 const robotProtectedApiRoutes = require('./routes/robot-protected.api');
@@ -151,7 +150,7 @@ fastify.register(worktoolSendOssImageApiRoutes, { prefix: '/api/worktool' });
 fastify.register(worktoolConversionRobotApiRoutes, { prefix: '/api/worktool' });
 fastify.register(adminApiRoutes, { prefix: '/api/admin' });
 fastify.register(qaApiRoutes, { prefix: '/api/admin' });
-fastify.register(robotApiRoutes, { prefix: '/api/admin' });
+// robot.api.js 已删除，使用 robot-protected.api.js 替代
 fastify.register(robotCommandApiRoutes, { prefix: '/api/admin' });
 fastify.register(debugApiRoutes, { prefix: '/api/admin' });
 fastify.register(executionTrackerApiRoutes, { prefix: '/api/admin/execution' });
@@ -170,7 +169,8 @@ fastify.register(notificationApiRoutes, { prefix: '/api' });
 fastify.register(intentConfigApiRoutes, { prefix: '/api/ai/intents' });
 fastify.register(flowEngineApiRoutes, { prefix: '/api/flow-engine' });
 fastify.register(riskApiRoutes, { prefix: '/api' });
-fastify.register(aiModuleApiRoutes, { prefix: '/api/ai' });
+// AI 模块 API（使用 /proxy 前缀以匹配前端调用）
+fastify.register(aiModuleApiRoutes, { prefix: '/api/proxy/ai' });
 fastify.register(collabApiRoutes, { prefix: '/api/collab' });
 // 使用完整的认证API（替换原有的 auth.api）
 fastify.register(authCompleteApiRoutes, { prefix: '/api/auth' });
