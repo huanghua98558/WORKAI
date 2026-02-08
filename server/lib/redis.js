@@ -57,6 +57,11 @@ class RedisClient {
   }
 
   async _doConnect() {
+    // 检查是否禁用 ioredis
+    if (process.env.DISABLE_IOREDIS === 'true') {
+      this.logger.info('ioredis 已禁用（DISABLE_IOREDIS=true），仅使用 Upstash REST API');
+    }
+
     // 优先使用 Upstash REST API（如果配置了 REST URL）
     this.logger.info('检查 Upstash REST API 配置', {
       hasUrl: !!process.env.UPSTASH_REDIS_REST_URL,
@@ -69,11 +74,29 @@ class RedisClient {
         this.logger.info('尝试连接 Upstash REST API...');
         return await this.connectRestApi();
       } catch (error) {
-        this.logger.error('Upstash REST API 连接失败，尝试 ioredis', { error: error.message, stack: error.stack });
-        // 继续尝试 ioredis
+        this.logger.error('Upstash REST API 连接失败', { error: error.message, stack: error.stack });
+
+        // 如果禁用 ioredis，直接切换到内存模式
+        if (process.env.DISABLE_IOREDIS === 'true') {
+          this.logger.warn('ioredis 已禁用，切换到内存模式');
+          this.useMemoryMode = true;
+          this.client = this.publisher = this.subscriber = null;
+          return this.getMemoryClient();
+        }
+
+        // 否则继续尝试 ioredis
+        this.logger.info('尝试使用 ioredis...');
       }
     } else {
-      this.logger.warn('未配置 Upstash REST API，尝试使用 ioredis');
+      // 如果禁用 ioredis，直接切换到内存模式
+      if (process.env.DISABLE_IOREDIS === 'true') {
+        this.logger.warn('未配置 Upstash REST API 且 ioredis 已禁用，切换到内存模式');
+        this.useMemoryMode = true;
+        this.client = this.publisher = this.subscriber = null;
+        return this.getMemoryClient();
+      }
+
+      this.logger.info('未配置 Upstash REST API，尝试使用 ioredis');
     }
 
     // 尝试使用 ioredis 连接 Redis
@@ -142,84 +165,13 @@ class RedisClient {
    * 使用 ioredis 连接 Redis
    */
   async connectIoredis() {
-    // 如果已经连接，直接返回
-    if (this.client && !this.useRestApi && !this.useMemoryMode) {
-      this.logger.debug('Redis ioredis 客户端已存在，直接返回');
-      return this.client;
-    }
-
-    const Redis = require('ioredis');
-    let config;
-
-    // 优先使用 REDIS_URL（支持 Upstash Redis）
-    if (process.env.REDIS_URL) {
-      config = process.env.REDIS_URL;
-      this.logger.info('使用 REDIS_URL 连接 Redis');
-    } else {
-      // 使用传统配置方式
-      config = {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || 6379),
-        db: parseInt(process.env.REDIS_DB || 0),
-        connectTimeout: 5000,
-        maxRetriesPerRequest: 3
-      };
-
-      if (process.env.REDIS_PASSWORD) {
-        config.password = process.env.REDIS_PASSWORD;
-      }
-    }
-
-    // 配置 Redis 连接选项（支持自动重连）
-    const options = typeof config === 'string' ? {
-      connectTimeout: 15000, // 增加连接超时时间到 15 秒
-      maxRetriesPerRequest: 5, // 增加重试次数到 5 次
-      retryStrategy: (times) => Math.min(times * 200, 5000), // 优化重试策略
-      lazyConnect: false, // 立即连接
-      keepAlive: 30000, // 保持连接
-      enableReadyCheck: true, // 启用就绪检查
-    } : {
-      ...config,
-      connectTimeout: 15000,
-      maxRetriesPerRequest: 5,
-      retryStrategy: (times) => Math.min(times * 200, 5000),
-      lazyConnect: false,
-      keepAlive: 30000,
-      enableReadyCheck: true,
-    };
-
-    this.client = new Redis(typeof config === 'string' ? config : '', options);
-
-    // 复用 client 连接，减少连接数（Upstash Redis 有连接限制）
-    this.publisher = this.client;
-    this.subscriber = this.client;
-
-    // 错误处理
-    this.client.on('error', (err) => {
-      if (err.message) {
-        this.logger.error('Redis 连接错误', { error: err.message });
-      }
+    // 抛出错误，禁止使用 ioredis
+    const error = new Error('ioredis 已禁用（DISABLE_IOREDIS=true），请使用 Upstash REST API');
+    this.logger.error('尝试使用 ioredis，但已禁用', {
+      error: error.message,
+      stack: error.stack
     });
-
-    // 监听连接状态
-    this.client.on('connect', () => {
-      this.logger.info('Redis 客户端已连接');
-    });
-    this.client.on('close', () => {
-      this.logger.warn('Redis 客户端连接已关闭');
-    });
-    this.client.on('reconnecting', (delay) => {
-      this.logger.info(`Redis 客户端正在重连... (延迟: ${delay}ms)`);
-    });
-
-    // 测试连接
-    await this.client.ping();
-    this.logger.info('✅ Redis 客户端已连接', {
-      mode: process.env.REDIS_URL ? 'URL' : 'Config',
-      config: process.env.REDIS_URL ? 'Upstash Redis' : `${config.host}:${config.port}`
-    });
-
-    return this.client;
+    throw error;
   }
 
   getMemoryClient() {
