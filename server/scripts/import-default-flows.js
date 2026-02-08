@@ -20,28 +20,28 @@ const logger = getLogger('IMPORT_DEFAULT_FLOWS');
 // 默认流程列表
 const DEFAULT_FLOWS = [
   {
-    file: 'standard-customer-service.json',
+    file: '01-standard-customer-service.json',
     name: '标准客服流程'
   },
   {
-    file: 'risk-monitoring.json',
-    name: '风险监控流程'
+    file: '02-risk-handling.json',
+    name: '风险处理流程'
   },
   {
-    file: 'alert-escalation.json',
-    name: '告警处理流程'
+    file: '03-human-handover.json',
+    name: '人工转接流程'
   },
   {
-    file: 'group-collaboration.json',
-    name: '群组协作流程'
+    file: '04-alert-escalation.json',
+    name: '告警升级流程'
   },
   {
-    file: 'data-sync.json',
-    name: '数据同步流程'
+    file: '05-smart-monitor.json',
+    name: '智能监控流程'
   },
   {
-    file: 'satisfaction-survey.json',
-    name: '满意度调查流程'
+    file: '06-complete-flow.json',
+    name: '完整流程'
   }
 ];
 
@@ -168,16 +168,27 @@ async function importAllFlows() {
   };
 }
 
+// 导出函数供其他模块使用
+module.exports = {
+  importFlow,
+  importAllFlows,
+  DEFAULT_FLOWS
+};
+
 /**
- * 主函数
+ * 主函数（仅当直接运行此脚本时执行）
  */
 async function main() {
   try {
-    await importAllFlows();
+    const result = await importAllFlows();
+    console.log('✅ 默认流程导入完成');
+    console.log(`  - 成功: ${result.imported}`);
+    console.log(`  - 跳过: ${result.skipped}`);
+    console.log(`  - 失败: ${result.failed}`);
     process.exit(0);
   } catch (error) {
     logger.error('导入默认流程失败', { error: error.message });
-    console.error(error);
+    console.error('❌ 导入默认流程失败:', error);
     process.exit(1);
   }
 }
@@ -186,10 +197,3 @@ async function main() {
 if (require.main === module) {
   main();
 }
-
-// 导出函数供其他模块使用
-module.exports = {
-  importFlow,
-  importAllFlows,
-  DEFAULT_FLOWS
-};

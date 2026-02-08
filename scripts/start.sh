@@ -84,6 +84,28 @@ fi
 
 echo "✅ Backend started (PID: ${BACKEND_PID})"
 
+# 等待数据库连接就绪
+sleep 3
+
+# 执行数据初始化
+echo "🔍 检查并初始化种子数据..."
+if [ -f "server/scripts/init-all-data.js" ]; then
+    if [ "$IS_READONLY_FILESYSTEM" = true ]; then
+        # 只读文件系统：不重定向日志
+        node server/scripts/init-all-data.js
+    else
+        # 可写文件系统：重定向日志
+        node server/scripts/init-all-data.js >> logs/data-init.log 2>&1
+    fi
+    if [ $? -eq 0 ]; then
+        echo "✅ 数据初始化完成"
+    else
+        echo "⚠️  数据初始化遇到问题，但服务将继续运行"
+    fi
+else
+    echo "⚠️  未找到数据初始化脚本，跳过"
+fi
+
 # 启动前端服务
 echo "Starting frontend service on port ${FRONTEND_PORT}..."
 npx next start --port ${FRONTEND_PORT} &

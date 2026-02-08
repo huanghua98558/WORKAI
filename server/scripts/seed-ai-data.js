@@ -311,11 +311,29 @@ async function seedData() {
     console.log(`  - AI模型: ${builtInModels.length}`);
     console.log(`  - AI角色: ${builtInPersonas.length}`);
     
+    return {
+      providers: 3,
+      models: builtInModels.length,
+      personas: builtInPersonas.length
+    };
   } catch (error) {
     console.error('❌ 数据初始化失败:', error);
-    process.exit(1);
+    throw error;
   }
 }
 
-// 运行初始化
-seedData();
+// 如果直接运行此脚本，执行初始化
+if (require.main === module) {
+  seedData()
+    .then(() => {
+      console.log('✅ AI模块数据初始化成功');
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('❌ AI模块数据初始化失败:', error);
+      process.exit(1);
+    });
+}
+
+// 导出函数供其他模块使用
+module.exports = { seedData };
