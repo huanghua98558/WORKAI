@@ -1667,6 +1667,60 @@ const adminApiRoutes = async function (fastify, options) {
       });
     }
   });
+
+  /**
+   * 检查机器人状态（刷新机器人信息）
+   * POST /api/admin/robots/check-status/:robotId
+   */
+  fastify.post('/robots/check-status/:robotId', {
+    onRequest: [verifyAuth],
+  }, async (request, reply) => {
+    try {
+      const { robotId } = request.params;
+      const { user } = request;
+
+      logger.info('[ADMIN_ROBOT] 检查机器人状态', {
+        robotId,
+        userId: user.id
+      });
+
+      // 检查 robotService 是否存在
+      if (!robotService || typeof robotService.checkRobotStatus !== 'function') {
+        logger.error('[ADMIN_ROBOT] robotService.checkRobotStatus 方法不存在');
+        return reply.status(500).send({
+          code: -1,
+          message: '机器人服务未正确加载'
+        });
+      }
+
+      // 检查机器人状态
+      const result = await robotService.checkRobotStatus(robotId);
+
+      logger.info('[ADMIN_ROBOT] 机器人状态检查完成', {
+        robotId,
+        status: result.status
+      });
+
+      return reply.send({
+        code: 0,
+        message: 'success',
+        data: result
+      });
+    } catch (error) {
+      logger.error('[ADMIN_ROBOT] 检查机器人状态失败', {
+        robotId: request.params?.robotId,
+        userId: request.user?.id,
+        error: error.message,
+        stack: error.stack
+      });
+
+      return reply.status(500).send({
+        code: -1,
+        message: '检查机器人状态失败',
+        error: error.message
+      });
+    }
+  });
 };
 
 /**

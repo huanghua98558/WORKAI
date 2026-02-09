@@ -469,7 +469,7 @@ export default function RobotManagement() {
   const handleCheckStatus = async (robot: Robot) => {
     setRefreshingRobotId(robot.robotId);
     try {
-      const res = await fetch(`/api/proxy/admin/robots/check-status/${robot.robotId}`, {
+      const res = await fetch(`/api/admin/robots/check-status/${robot.robotId}`, {
         method: 'POST'
       });
 
