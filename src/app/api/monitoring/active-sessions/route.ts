@@ -22,44 +22,28 @@ export async function GET(request: NextRequest) {
     activeThreshold.setHours(activeThreshold.getHours() - activeHours);
 
     // 查询活跃会话
-    // 逻辑：按sessionId分组，获取每个会话的最后消息时间、消息数、最后消息内容
+    // 逻辑：按sessionId分组，获取每个会话的最后消息时间、消息数
     const activeSessionsQuery = sql`
-      WITH session_stats AS (
-        SELECT
-          sm.session_id as "sessionId",
-          sm.user_id as "userId",
-          sm.group_ref as "groupId",
-          sm.user_name as "userName",
-          sm.group_name as "groupName",
-          sm.robot_id as "robotId",
-          sm.is_human as "isHuman",
-          COUNT(*) as "messageCount",
-          MAX(sm.timestamp) as "lastActiveTime",
-          MAX(sm.content) FILTER (WHERE sm.timestamp = (
-            SELECT MAX(timestamp) FROM session_messages WHERE session_id = sm.session_id
-          )) as "lastMessage"
-        FROM session_messages sm
-        WHERE sm.timestamp >= ${activeThreshold.toISOString()}
-        GROUP BY sm.session_id, sm.user_id, sm.group_ref, sm.user_name, sm.group_name, sm.robot_id, sm.is_human
-        ORDER BY MAX(sm.timestamp) DESC
-        LIMIT ${limit}
-      )
       SELECT
-        ss."sessionId",
-        ss."userId",
-        ss."groupId",
-        ss."userName",
-        ss."groupName",
-        ss."robotId",
-        ss."isHuman",
-        ss."messageCount",
-        ss."lastActiveTime",
-        ss."lastMessage",
+        sm.session_id as "sessionId",
+        sm.user_id as "userId",
+        sm.group_ref as "groupId",
+        sm.user_name as "userName",
+        sm.group_name as "groupName",
+        sm.robot_id as "robotId",
+        sm.is_human as "isHuman",
+        COUNT(*) as "messageCount",
+        MAX(sm.timestamp) as "lastActiveTime",
+        MAX(sm.content) as "lastMessage",
         r.name as "robotName",
         r.nickname as "robotNickname",
-        CASE WHEN ss."isHuman" = true THEN 'human' ELSE 'auto' END as "status"
-      FROM session_stats ss
-      LEFT JOIN robots r ON ss."robotId" = r.robot_id
+        CASE WHEN sm.is_human = true THEN 'human' ELSE 'auto' END as "status"
+      FROM session_messages sm
+      LEFT JOIN robots r ON sm.robot_id = r.robot_id
+      WHERE sm.timestamp >= ${activeThreshold.toISOString()}
+      GROUP BY sm.session_id, sm.user_id, sm.group_ref, sm.user_name, sm.group_name, sm.robot_id, sm.is_human, r.name, r.nickname
+      ORDER BY MAX(sm.timestamp) DESC
+      LIMIT ${limit}
     `;
 
     const sessions = await db.execute(activeSessionsQuery);
