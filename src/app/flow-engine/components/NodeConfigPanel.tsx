@@ -479,27 +479,51 @@ const MemoizedDecisionConfig = React.memo(function DecisionConfigWrapper({ confi
 });
 
 const MemoizedAiReplyConfig = React.memo(function AiReplyConfig({ config, onChange }: any) {
+  const [models, setModels] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  // 加载模型列表
+  React.useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const response = await fetch('/api/ai-models?enabled=true');
+        const result = await response.json();
+        if (result.success) {
+          setModels(result.data);
+        }
+      } catch (error) {
+        console.error('加载模型列表失败:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchModels();
+  }, []);
+
   return (
     <div className="space-y-4">
       <div>
         <Label className="text-sm font-medium text-slate-700">AI 回复配置</Label>
         <div className="space-y-2 mt-2">
           <div>
-            <Label htmlFor="model" className="text-sm">
+            <Label htmlFor="modelId" className="text-sm">
               使用的模型
             </Label>
             <Select
-              value={config.model || 'gpt-4'}
-              onValueChange={(value) => onChange('model', value)}
+              value={config.modelId || ''}
+              onValueChange={(value) => onChange('modelId', value)}
+              disabled={loading}
             >
               <SelectTrigger className="mt-1">
-                <SelectValue placeholder="选择模型" />
+                <SelectValue placeholder={loading ? "加载中..." : "选择模型"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="gpt-4">GPT-4</SelectItem>
-                <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
-                <SelectItem value="claude-3">Claude-3</SelectItem>
-                <SelectItem value="doubao-pro">Doubao Pro</SelectItem>
+                {models.map((model) => (
+                  <SelectItem key={model.id} value={model.id}>
+                    {model.displayName}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

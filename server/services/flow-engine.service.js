@@ -5,7 +5,7 @@
 
 const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('coze-coding-dev-sdk');
-const { flowDefinitions, flowInstances, flowExecutionLogs, aiRoles, sessions, promptTemplates, aiIoLogs } = require('../database/schema');
+const { flowDefinitions, flowInstances, flowExecutionLogs, aiRoles, aiModels, sessions, promptTemplates, aiIoLogs } = require('../database/schema');
 const { eq, and, or, desc, lt, gt, inArray } = require('drizzle-orm');
 const { getLogger } = require('../lib/logger');
 const AIServiceFactory = require('./ai/AIServiceFactory'); // AI服务工厂
@@ -724,6 +724,51 @@ class FlowEngine {
     return nodes.find(node => node.id === targetNodeId);
   }
 
+  /**
+   * 解析模型 ID
+   * 如果输入的是 UUID 格式，直接返回
+   * 如果输入的是模型名称，从数据库查找对应的模型 ID
+   */
+  async resolveModelId(modelIdentifier) {
+    if (!modelIdentifier) {
+      logger.error('模型标识符为空');
+      throw new Error('模型标识符不能为空');
+    }
+
+    // 检查是否为 UUID 格式
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(modelIdentifier)) {
+      logger.info('使用 UUID 格式的模型 ID', { modelId: modelIdentifier });
+      return modelIdentifier;
+    }
+
+    // 如果不是 UUID，尝试从数据库根据名称查找模型
+    try {
+      const db = await this.getDb();
+      const models = await db
+        .select()
+        .from(aiModels)
+        .where(eq(aiModels.name, modelIdentifier))
+        .limit(1);
+
+      if (models && models.length > 0) {
+        const model = models[0];
+        logger.info('通过模型名称找到模型', {
+          modelName: modelIdentifier,
+          modelId: model.id,
+          displayName: model.displayName
+        });
+        return model.id;
+      } else {
+        logger.error('未找到模型', { modelName: modelIdentifier });
+        throw new Error(`未找到模型: ${modelIdentifier}`);
+      }
+    } catch (error) {
+      logger.error('解析模型 ID 失败', { error: error.message, modelIdentifier });
+      throw error;
+    }
+  }
+
   // ============================================
   // 节点处理器实现 (Mock版本)
   // ============================================
@@ -1040,7 +1085,7 @@ class FlowEngine {
       }
 
       // 获取AI服务实例
-      const aiService = await AIServiceFactory.createServiceByModelId(modelId);
+      const aiService = await AIServiceFactory.createServiceByModelId(resolvedModelId);
 
       // 调用意图识别
       const result = await aiService.recognizeIntent(userMessage, {
@@ -2595,11 +2640,25 @@ class FlowEngine {
    * 处理AI回复节点
    */
   async handleAIReplyNode(node, context) {
-    logger.info('执行AI回复节点', { node, context });
+    logger.info('执行AI回复节点', { 
+      nodeId: node.id,
+      nodeType: node.type,
+      nodeDataKeys: Object.keys(node.data || {}),
+      nodeData: node.data
+    });
 
     try {
       const { data } = node;
       const { config = {} } = data;
+
+      logger.info('AI回复节点配置', {
+        nodeId: node.id,
+        nodeName: node.data?.name,
+        configKeys: Object.keys(config),
+        hasModelId: !!config.modelId,
+        modelIdValue: config.modelId,
+        configFull: config
+      });
 
       const {
         modelId,
@@ -2619,6 +2678,35 @@ class FlowEngine {
         enableKBMatch = true,
         kbConfig = {}
       } = config;
+
+      logger.info('AI回复节点解析后的配置', {
+        modelId,
+        modelIdType: typeof modelId
+      });
+
+      // 解析模型 ID（支持 UUID 和模型名称）
+      let resolvedModelId = modelId;
+      if (modelId) {
+        try {
+          resolvedModelId = await this.resolveModelId(modelId);
+          logger.info('模型 ID 解析成功', {
+            input: modelId,
+            resolved: resolvedModelId
+          });
+        } catch (error) {
+          logger.error('模型 ID 解析失败', {
+            input: modelId,
+            error: error.message
+          });
+          // 使用默认模型
+          resolvedModelId = '1ddd764b-33f3-44c4-afe7-a4da981cfe0a'; // doubao-pro-32k-general
+          logger.warn('使用默认模型', { modelId: resolvedModelId });
+        }
+      } else {
+        // 如果没有配置 modelId，使用默认模型
+        resolvedModelId = '1ddd764b-33f3-44c4-afe7-a4da981cfe0a'; // doubao-pro-32k-general
+        logger.warn('未配置模型 ID，使用默认模型', { modelId: resolvedModelId });
+      }
 
       // 协同分析：检查工作人员状态，决定是否应该由AI回复
       try {
