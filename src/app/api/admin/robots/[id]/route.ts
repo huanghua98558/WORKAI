@@ -18,11 +18,19 @@ export async function GET(
     const { id } = await params;
     const backendUrl = new URL(`/api/admin/robots/${id}`, BACKEND_URL);
 
+    // 构建请求头，传递认证令牌
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    const authHeader = request.headers.get('authorization');
+    if (authHeader) {
+      headers['authorization'] = authHeader;
+    }
+
     const response = await fetch(backendUrl.toString(), {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
     });
 
     const data = await response.json();
@@ -47,11 +55,19 @@ export async function PUT(
     const body = await request.json();
     const backendUrl = new URL(`/api/admin/robots/${id}`, BACKEND_URL);
 
+    // 构建请求头，传递认证令牌
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    const authHeader = request.headers.get('authorization');
+    if (authHeader) {
+      headers['authorization'] = authHeader;
+    }
+
     const response = await fetch(backendUrl.toString(), {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(body),
     });
 
@@ -76,8 +92,17 @@ export async function DELETE(
     const { id } = await params;
     const backendUrl = new URL(`/api/admin/robots/${id}`, BACKEND_URL);
 
+    // 构建请求头，传递认证令牌
+    const headers: Record<string, string> = {};
+
+    const authHeader = request.headers.get('authorization');
+    if (authHeader) {
+      headers['authorization'] = authHeader;
+    }
+
     const response = await fetch(backendUrl.toString(), {
       method: 'DELETE',
+      headers,
     });
 
     const text = await response.text();
@@ -111,11 +136,19 @@ export async function PATCH(
     const body = await request.json();
     const backendUrl = new URL(`/api/admin/robots/${id}`, BACKEND_URL);
 
+    // 构建请求头，传递认证令牌
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    const authHeader = request.headers.get('authorization');
+    if (authHeader) {
+      headers['authorization'] = authHeader;
+    }
+
     const response = await fetch(backendUrl.toString(), {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(body),
     });
 

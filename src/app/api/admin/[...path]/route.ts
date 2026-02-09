@@ -21,6 +21,15 @@ export async function GET(
       'Content-Type': 'application/json',
     };
 
+    // 传递认证令牌
+    const authHeader = request.headers.get('authorization');
+    if (authHeader) {
+      headers['authorization'] = authHeader;
+      console.log('[API Proxy] Forwarding auth header:', authHeader.substring(0, 20) + '...');
+    } else {
+      console.log('[API Proxy] No auth header found in request');
+    }
+
     // 传递原始的 host 和协议信息，让后端能获取真实的前端部署地址
     const host = request.headers.get('host');
 
@@ -73,6 +82,15 @@ export async function POST(
       'Content-Type': 'application/json',
     };
 
+    // 传递认证令牌
+    const authHeader = request.headers.get('authorization');
+    if (authHeader) {
+      headers['authorization'] = authHeader;
+      console.log('[API Proxy] Forwarding auth header:', authHeader.substring(0, 20) + '...');
+    } else {
+      console.log('[API Proxy] No auth header found in request');
+    }
+
     // 传递原始的 host 和协议信息，让后端能获取真实的前端部署地址
     const host = request.headers.get('host');
 
@@ -122,6 +140,15 @@ export async function PUT(
       'Content-Type': 'application/json',
     };
 
+    // 传递认证令牌
+    const authHeader = request.headers.get('authorization');
+    if (authHeader) {
+      headers['authorization'] = authHeader;
+      console.log('[API Proxy] Forwarding auth header:', authHeader.substring(0, 20) + '...');
+    } else {
+      console.log('[API Proxy] No auth header found in request');
+    }
+
     // 传递原始的 host 和协议信息，让后端能获取真实的前端部署地址
     const host = request.headers.get('host');
     const proto = request.headers.get('x-forwarded-proto') ||
@@ -167,9 +194,16 @@ export async function DELETE(
     const url = new URL(`/api/admin/${path}`, BACKEND_URL);
 
     // 构建请求头，传递原始请求头信息
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
+    const headers: Record<string, string> = {};
+
+    // 传递认证令牌
+    const authHeader = request.headers.get('authorization');
+    if (authHeader) {
+      headers['authorization'] = authHeader;
+      console.log('[API Proxy] Forwarding auth header:', authHeader.substring(0, 20) + '...');
+    } else {
+      console.log('[API Proxy] No auth header found in request');
+    }
 
     // 传递原始的 host 和协议信息，让后端能获取真实的前端部署地址
     const host = request.headers.get('host');
