@@ -371,25 +371,81 @@ class SessionMessageService {
   /**
    * 获取活跃会话列表（用于前端显示）
    * 从 session_messages 表聚合数据
+   * 符合消息中心与上下文管理完整指南 v1.0 规范
    */
   async getActiveSessions(options = {}) {
     const { limit = 50, hours = 24 } = options;
     const db = await getDb();
 
+    console.log('[会话消息] 获取活跃会话，参数:', { limit, hours });
+
     // 查询最近活跃的会话
     // 注意：使用 sql.raw() 避免参数化问题
     const sessions = await db.execute(sql`
       SELECT 
-        session_id as sessionId,
-        user_id as userId,
-        user_name as userName,
-        group_id as groupId,
-        group_name as groupName,
-        robot_id as robotId,
-        robot_name as robotName,
-        robot_nickname as robotNickname,
+        s.session_id as sessionId,
+        s.user_id as userId,
+        s.user_name as userName,
+        s.group_id as groupId,
+        s.group_name as groupName,
+        s.robot_id as robotId,
+        s.robot_name as robotName,
+        s.robot_nickname as robotNickname,
         COUNT(*) as messageCount,
-        MAX(timestamp) as lastActivityTime,
+        MAX(s.timestamp) as lastActivityTime,
+        MIN(s.timestamp) as startTime,
+        
+        -- 统计各类消息数量
+        SUM(CASE WHEN s.is_from_user = true THEN 1 ELSE 0 END) as userMessages,
+        SUM(CASE WHEN s.is_from_bot = true THEN 1 ELSE 0 END) as aiReplyCount,
+        SUM(CASE WHEN s.is_human = true THEN 1 ELSE 0 END) as humanReplyCount,
+        (SUM(CASE WHEN s.is_from_user = true THEN 1 ELSE 0 END) + 
+         SUM(CASE WHEN s.is_from_bot = true THEN 1 ELSE 0 END) + 
+         SUM(CASE WHEN s.is_human = true THEN 1 ELSE 0 END)) as replyCount,
+        
+        -- 最后一条消息内容（用于显示）
+        (
+          SELECT content 
+          FROM session_messages 
+          WHERE session_id = s.session_id 
+          ORDER BY timestamp DESC 
+          LIMIT 1
+        ) as lastMessage,
+        
+        -- 最后一条消息的类型（用于判断来源）
+        (
+          SELECT is_from_user 
+          FROM session_messages 
+          WHERE session_id = s.session_id 
+          ORDER BY timestamp DESC 
+          LIMIT 1
+        ) as isFromUser,
+        (
+          SELECT is_from_bot 
+          FROM session_messages 
+          WHERE session_id = s.session_id 
+          ORDER BY timestamp DESC 
+          LIMIT 1
+        ) as isFromBot,
+        (
+          SELECT is_human 
+          FROM session_messages 
+          WHERE session_id = s.session_id 
+          ORDER BY timestamp DESC 
+          LIMIT 1
+        ) as isHuman,
+        
+        -- 最后意图
+        (
+          SELECT intent 
+          FROM session_messages 
+          WHERE session_id = s.session_id 
+            AND intent IS NOT NULL 
+          ORDER BY timestamp DESC 
+          LIMIT 1
+        ) as lastIntent,
+        
+        -- 兼容文档格式
         (
           SELECT content 
           FROM session_messages 
@@ -421,13 +477,22 @@ class SessionMessageService {
             AND is_from_user = true
           ORDER BY timestamp DESC 
           LIMIT 1
-        ) as lastUserMessageTime
+        ) as lastUserMessageTime,
+        
+        -- 会话状态（默认为 'auto'）
+        'auto' as status
       FROM session_messages s
       WHERE s.timestamp >= NOW() - ${sql.raw(`INTERVAL '${hours} hours'`)}
-      GROUP BY s.session_id, s.user_id, s.user_name, s.group_id, s.group_name, s.robot_id, s.robot_name, s.robot_nickname
+      GROUP BY s.session_id, s.user_id, s.user_name, s.group_id, s.group_name, 
+               s.robot_id, s.robot_name, s.robot_nickname
       ORDER BY MAX(s.timestamp) DESC
       LIMIT ${limit}
     `);
+
+    console.log('[会话消息] 查询结果，行数:', sessions?.rows?.length || 0);
+    if (sessions?.rows?.length > 0) {
+      console.log('[会话消息] 第一行的字段:', Object.keys(sessions.rows[0]));
+    }
 
     return sessions;
   }

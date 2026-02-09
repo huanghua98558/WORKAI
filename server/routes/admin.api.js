@@ -898,9 +898,43 @@ const adminApiRoutes = async function (fastify, options) {
         hours: parseInt(hours)
       });
       
-      // 返回 rows 数组，而不是整个 QueryResult 对象
-      // 这样符合文档规范的数据格式
-      return { success: true, data: sessions.rows || [] };
+      // 转换字段名为驼峰命名
+      const formattedSessions = (sessions.rows || []).map(row => {
+        // 创建一个新对象，使用驼峰命名
+        const formatted = {};
+        
+        // 手动映射所有字段名（PostgreSQL 将驼峰命名转换为小写）
+        formatted.sessionId = row.sessionid;
+        formatted.userId = row.userid;
+        formatted.userName = row.username;
+        formatted.groupId = row.groupid;
+        formatted.groupName = row.groupname;
+        formatted.robotId = row.robotid;
+        formatted.robotName = row.robotname;
+        formatted.robotNickname = row.robotnickname;
+        formatted.messageCount = parseInt(row.messagecount) || 0;
+        formatted.lastActivityTime = row.lastactivitytime;
+        formatted.startTime = row.starttime;
+        formatted.userMessages = parseInt(row.usermessages) || 0;
+        formatted.aiReplyCount = parseInt(row.aireplycount) || 0;
+        formatted.humanReplyCount = parseInt(row.humanreplycount) || 0;
+        formatted.replyCount = parseInt(row.replycount) || 0;
+        formatted.lastMessage = row.lastmessage;
+        formatted.isFromUser = Boolean(row.isfromuser);
+        formatted.isFromBot = Boolean(row.isfrombot);
+        formatted.isHuman = Boolean(row.ishuman);
+        formatted.lastIntent = row.lastintent || '';
+        formatted.lastUserMessage = row.lastusermessage;
+        formatted.lastBotReply = row.lastbotreply;
+        formatted.lastBotReplyTime = row.lastbotreplytime;
+        formatted.lastUserMessageTime = row.lastusermessagetime;
+        formatted.status = row.status || 'auto';
+        
+        return formatted;
+      });
+      
+      // 返回格式化后的数据
+      return { success: true, data: formattedSessions };
     } catch (error) {
       logger.error('[ADMIN_API] 获取活跃会话失败', { error: error.message });
       return reply.status(500).send({
