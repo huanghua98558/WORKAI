@@ -325,6 +325,37 @@ class FlowEngine {
       }
 
       const instanceId = uuidv4();
+      
+      // 加载历史消息（如果有的话）
+      let history = [];
+      try {
+        const sessionId = triggerData.message?.groupName 
+          ? `session_${triggerData.message.groupName}` 
+          : triggerData.message?.fromName 
+            ? `session_${triggerData.message.fromName}` 
+            : null;
+        
+        if (sessionId) {
+          const messages = await sessionMessageService.getSessionMessages(sessionId, 10);
+          
+          // 转换为 AI 期望的格式
+          history = messages.map(msg => ({
+            role: msg.isFromUser ? 'user' : 'assistant',
+            content: msg.content
+          }));
+          
+          logger.info('已加载历史消息', {
+            sessionId,
+            messageCount: messages.length,
+            historyLength: history.length
+          });
+        }
+      } catch (error) {
+        logger.warn('加载历史消息失败（不影响流程执行）', {
+          error: error.message
+        });
+      }
+      
       const instance = {
         id: instanceId,
         flowDefinitionId,
@@ -334,7 +365,8 @@ class FlowEngine {
         triggerData,
         context: {
           ...flowDef.variables,
-          ...triggerData
+          ...triggerData,
+          history: history // 添加历史消息
         },
         metadata,
         retryCount: 0
@@ -342,7 +374,7 @@ class FlowEngine {
 
       await (await this.getDb()).insert(flowInstances).values(instance);
 
-      logger.info('流程实例创建成功', { instanceId, flowDefinitionId });
+      logger.info('流程实例创建成功', { instanceId, flowDefinitionId, historyLength: history.length });
       return instance;
     } catch (error) {
       logger.error('创建流程实例失败', { flowDefinitionId, error: error.message });
@@ -1939,56 +1971,53 @@ class FlowEngine {
       // 6. 保存到数据库
       let savedMessage = null;
       if (saveToDatabase || saveToInfoCenter) {
-        const db = await this.getDb();
-        const { sessionMessages } = require('../database/schema');
-
-        // 从消息数据中提取 userId 和 sessionId
-        const userId = context.userId || messageData.fromName || messageData.senderId || 'unknown';
-        const sessionId = context.sessionId || `session_${messageData.groupName || messageData.fromName || 'default'}`;
-
-        const messageId = uuidv4();
-        // 处理 timestamp，确保是有效的日期
-        let timestamp = new Date();
-        if (messageData.timestamp) {
-          const parsedDate = new Date(messageData.timestamp);
-          if (!isNaN(parsedDate.getTime())) {
-            timestamp = parsedDate;
-          }
+        // 使用 SessionMessageService 保存用户消息
+        try {
+          const messageId = messageData.messageId || requestId;
+          
+          await sessionMessageService.saveUserMessage(
+            context.sessionId || `session_${messageData.groupName || messageData.fromName || 'default'}`,
+            {
+              userId: context.userId || messageData.fromName || messageData.senderId || 'unknown',
+              userName: messageData.fromName || context.userId || messageData.senderId || 'unknown',
+              groupId: messageData.groupName || null,
+              groupName: messageData.groupName || null,
+              content: content,
+              timestamp: messageData.timestamp || new Date(),
+              metadata: {
+                ...messageData.metadata,
+                senderInfo,
+                flowExecutionId: context.flowExecutionId,
+                traceId: context.traceId
+              }
+            },
+            messageId,
+            context.robot
+          );
+          
+          savedMessage = {
+            id: messageId,
+            content: content,
+            isFromUser: true,
+            isFromBot: false,
+            isHuman: senderInfo.type === 'staff',
+            timestamp: messageData.timestamp || new Date()
+          };
+          
+          logger.info('消息已保存到数据库', {
+            messageId,
+            userId: context.userId || messageData.fromName,
+            sessionId: context.sessionId,
+            contentLength: content.length,
+            senderType: senderInfo.type
+          });
+        } catch (saveError) {
+          logger.error('保存用户消息失败', {
+            error: saveError.message,
+            sessionId: context.sessionId
+          });
+          // 不阻断流程，继续返回结果
         }
-
-        const messageRecord = {
-          id: messageId,
-          sessionId: sessionId,
-          messageId: messageData.messageId || requestId,
-          userId: userId,
-          groupId: messageData.groupName || null,
-          userName: messageData.fromName || userId,
-          groupName: messageData.groupName || null,
-          robotId: context.robot?.robotId || null,
-          robotName: context.robot?.name || null,
-          content: content,
-          isFromUser: true,
-          isFromBot: false,
-          isHuman: senderInfo.type === 'staff',
-          timestamp: timestamp,
-          extraData: {
-            ...messageData.metadata,
-            senderInfo,
-            flowExecutionId: context.flowExecutionId,
-            traceId: context.traceId
-          }
-        };
-
-        await db.insert(sessionMessages).values(messageRecord);
-        savedMessage = messageRecord;
-
-        logger.info('消息已保存到数据库', {
-          messageId,
-          userId,
-          sessionId,
-          contentLength: messageRecord.content.length,
-          senderType: senderInfo.type
-        });
       }
 
       return {
