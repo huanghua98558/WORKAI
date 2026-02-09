@@ -271,6 +271,14 @@ class RobotService {
   async addRobot(data) {
     const db = await getDb();
 
+    // 检查 robotId 是否已存在
+    const existingRobot = await this.getRobotByRobotId(data.robotId);
+    if (existingRobot) {
+      const error = new Error(`机器人 ID "${data.robotId}" 已存在，请使用不同的机器人 ID`);
+      error.code = 'ROBOT_ID_EXISTS';
+      throw error;
+    }
+
     // 生成回调地址和通讯地址
     const urls = this.generateRobotUrls(
       data.robotId,

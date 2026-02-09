@@ -310,8 +310,17 @@ const adminApiRoutes = async function (fastify, options) {
       logger.error('[ADMIN_ROBOT] 添加机器人失败', {
         userId: request.user?.id,
         error: error.message,
+        code: error.code,
         stack: error.stack
       });
+
+      // 特殊处理 robotId 已存在的错误
+      if (error.code === 'ROBOT_ID_EXISTS' || error.message?.includes('duplicate key') || error.message?.includes('unique constraint')) {
+        return reply.status(409).send({
+          code: -1,
+          message: error.message || '机器人 ID 已存在，请使用不同的机器人 ID'
+        });
+      }
 
       return reply.status(500).send({
         code: -1,
