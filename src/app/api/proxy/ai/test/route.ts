@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     const options = {
       hostname: backendHost,
       port: backendPort,
-      path: '/api/ai/test',
+      path: '/api/proxy/ai/test',
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
