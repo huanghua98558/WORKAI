@@ -326,11 +326,9 @@ const start = async () => {
 
     logger.info('机器人状态检查已配置', { interval: '5min' });
 
-    // 暂时禁用指令队列处理器（修复中）
-    logger.info('指令队列处理器暂时禁用（修复中）');
-    // robotCommandService.startQueueProcessor('main-worker', 3000); // 每3秒处理一次（优化后）
-
-    // logger.info('指令队列处理器已启动');
+    // 启动指令队列处理器
+    robotCommandService.startQueueProcessor('main-worker', 3000); // 每3秒处理一次
+    logger.info('指令队列处理器已启动');
 
   } catch (err) {
     logger.fatal('服务器启动失败', { error: err.message, stack: err.stack });
