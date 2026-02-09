@@ -174,7 +174,8 @@ export default function RobotManagement() {
     setIsLoading(true);
     try {
       // 使用 /api/monitoring/robots-status API，与首页保持一致
-      const res = await fetch('/api/monitoring/robots-status');
+      // 添加时间戳参数防止缓存
+      const res = await fetch(`/api/monitoring/robots-status?t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         if (data.code === 0 && data.data && data.data.robots) {
@@ -630,11 +631,17 @@ export default function RobotManagement() {
 
       const result = await res.json();
 
-      if (res.ok) {
+      if (res.ok && result.code === 0) {
         setSaveSuccess(true);
-        // 刷新机器人列表
+        
+        // 立即将新机器人添加到列表中（乐观更新）
+        const newRobot = result.data;
+        setRobots(prev => [...prev, newRobot]);
+        
+        // 然后刷新完整的机器人列表
         await loadRobots();
-        // 延迟关闭对话框
+        
+        // 延迟关闭对话框，让用户看到成功提示
         setTimeout(() => {
           setShowAddDialog(false);
         }, 1500);
