@@ -157,9 +157,10 @@ export default function RobotManagement() {
   //   }
   // };
 
-  // 刷新机器人列表（先检查状态，然后加载列表）
+  // 刷新机器人列表（注意：checkAllRobotsStatus 功能暂未实现）
   const handleRefresh = async () => {
-    await checkAllRobotsStatus();
+    // 后端路由暂未实现，暂时注释掉
+    // await checkAllRobotsStatus();
     await loadRobots();
   };
 
@@ -213,17 +214,16 @@ export default function RobotManagement() {
   };
 
   useEffect(() => {
-    // 页面加载时先检查一次机器人状态
-    checkAllRobotsStatus();
-    // 然后加载机器人列表
+    // 页面加载时加载机器人列表
     loadRobots();
 
-    // 设置定时刷新：每5分钟检查一次状态并刷新列表
+    // 设置定时刷新：每5分钟刷新列表（注意：checkAllRobotsStatus 功能暂未实现）
     const refreshInterval = setInterval(() => {
       console.log('定时刷新机器人状态...');
-      checkAllRobotsStatus().then(() => {
+      // 后端路由暂未实现，暂时注释掉
+      // checkAllRobotsStatus().then(() => {
         loadRobots();
-      });
+      // });
     }, 5 * 60 * 1000); // 5分钟
 
     // 组件卸载时清除定时器
