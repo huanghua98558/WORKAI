@@ -1004,7 +1004,7 @@ export default function AIModule() {
 
     setIsTesting(true);
     try {
-      const response = await fetch('/api/ai/test', {
+      const response = await fetch('/api/proxy/ai/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
