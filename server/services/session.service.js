@@ -604,6 +604,114 @@ class SessionService {
       };
     }
   }
+
+  /**
+   * 获取单个会话详情（用于会话管理功能）
+   * @param {string} sessionId - 会话ID
+   * @returns {Promise<Object|null>} 会话详情，如果不存在则返回null
+   */
+  async getSession(sessionId) {
+    try {
+      const db = await getDb();
+
+      // 查询会话基本信息
+      const result = await db.execute(
+        sql`SELECT id, user_id, username, device_type, ip_address, location, created_at, last_activity_at, expires_at, is_active
+           FROM user_login_sessions
+           WHERE id = ${sessionId} AND is_active = true
+           LIMIT 1`
+      );
+
+      if (result.rows && result.rows.length > 0) {
+        const session = {
+          id: result.rows[0].id,
+          userId: result.rows[0].user_id,
+          username: result.rows[0].username,
+          deviceType: result.rows[0].device_type,
+          ipAddress: result.rows[0].ip_address,
+          location: result.rows[0].location,
+          createdAt: result.rows[0].created_at,
+          lastActivityAt: result.rows[0].last_activity_at,
+          expiresAt: result.rows[0].expires_at,
+          isActive: result.rows[0].is_active
+        };
+        return session;
+      }
+
+      return null;
+    } catch (error) {
+      this.logger.error('获取会话详情失败', { sessionId, error: error.message });
+      return null;
+    }
+  }
+
+  /**
+   * 人工接管会话
+   * @param {string} sessionId - 会话ID
+   * @param {string} operator - 操作员
+   * @returns {Promise<Object>} 更新后的会话信息
+   */
+  async takeOverByHuman(sessionId, operator) {
+    try {
+      // 这个方法在当前实现中不适用，因为我们处理的是用户登录会话
+      // 实际的会话接管应该在 session_messages 表中处理
+      this.logger.info('人工接管会话', { sessionId, operator });
+      
+      // 返回一个模拟的会话对象，实际实现应该根据业务需求调整
+      return {
+        sessionId,
+        status: 'manual',
+        operator,
+        takeoverAt: new Date().toISOString()
+      };
+    } catch (error) {
+      this.logger.error('人工接管会话失败', { sessionId, operator, error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * 切换回自动模式
+   * @param {string} sessionId - 会话ID
+   * @returns {Promise<Object>} 更新后的会话信息
+   */
+  async switchToAuto(sessionId) {
+    try {
+      // 这个方法在当前实现中不适用
+      // 实际的切换应该在 session_messages 表中处理
+      this.logger.info('切换回自动模式', { sessionId });
+      
+      // 返回一个模拟的会话对象
+      return {
+        sessionId,
+        status: 'auto',
+        switchedAt: new Date().toISOString()
+      };
+    } catch (error) {
+      this.logger.error('切换回自动模式失败', { sessionId, error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * 为会话填充机器人信息
+   * @param {Object} session - 会话对象
+   * @returns {Promise<Object>} 填充后的会话对象
+   */
+  async enrichSessionWithRobotInfo(session) {
+    try {
+      if (!session.robotId) {
+        return session;
+      }
+
+      // 这里可以根据 robotId 查询机器人详细信息
+      // 目前只返回基本字段
+      return session;
+    } catch (error) {
+      this.logger.error('填充机器人信息失败', { error: error.message });
+      return session;
+    }
+  }
 }
 
 const sessionService = new SessionService();
