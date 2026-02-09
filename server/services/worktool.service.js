@@ -64,7 +64,7 @@ class WorkToolService {
         apiBaseUrl: robot.apiBaseUrl
       });
 
-      // 构建请求体
+      // 构建请求体（包含回调地址）
       const requestBody = {
         socketType: 2,
         list: [
@@ -74,12 +74,15 @@ class WorkToolService {
             receivedContent: content,
             ...(atList.length > 0 && { atList })
           }
-        ]
+        ],
+        // 添加回调地址，用于接收发送结果
+        callbackUrl: robot.resultCallbackUrl || robot.messageCallbackUrl
       };
 
       logger.info('WorkTool', '构建请求体', {
         sendId,
-        requestBody: JSON.stringify(requestBody)
+        requestBody: JSON.stringify(requestBody),
+        callbackUrl: robot.resultCallbackUrl
       });
 
       // 从 apiBaseUrl 提取基础地址
@@ -312,7 +315,7 @@ class WorkToolService {
         throw new Error(`机器人不存在: ${robotId}`);
       }
 
-      // 构建批量请求
+      // 构建批量请求（包含回调地址）
       const list = messages.map(msg => ({
         type: 203,
         titleList: [msg.toName],
@@ -322,7 +325,9 @@ class WorkToolService {
 
       const requestBody = {
         socketType: 2,
-        list
+        list,
+        // 添加回调地址，用于接收发送结果
+        callbackUrl: robot.resultCallbackUrl || robot.messageCallbackUrl
       };
 
       // 从 apiBaseUrl 提取基础地址
@@ -431,7 +436,7 @@ class WorkToolService {
         apiBaseUrl: robot.apiBaseUrl
       });
 
-      // 构建请求体（根据WorkTool API文档）
+      // 构建请求体（根据WorkTool API文档，包含回调地址）
       const requestBody = {
         socketType: 2,
         list: [
@@ -443,12 +448,15 @@ class WorkToolService {
             fileType: 'image',
             ...(extraText && { extraText })
           }
-        ]
+        ],
+        // 添加回调地址，用于接收发送结果
+        callbackUrl: robot.resultCallbackUrl || robot.messageCallbackUrl
       };
 
       logger.info('WorkTool', '构建请求体', {
         sendId,
-        requestBody: JSON.stringify(requestBody)
+        requestBody: JSON.stringify(requestBody),
+        callbackUrl: robot.resultCallbackUrl
       });
 
       // 从 apiBaseUrl 提取基础地址
