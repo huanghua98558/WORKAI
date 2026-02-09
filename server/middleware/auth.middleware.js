@@ -181,9 +181,88 @@ function checkAdmin(request, reply) {
   }
 }
 
+/**
+ * 验证 robotId 的 preHandler 函数
+ * 用于 WorkTool API 路由，只验证 robotId 的有效性
+ * @param {Object} request - Fastify 请求对象
+ * @param {Object} reply - Fastify 响应对象
+ */
+async function robotAuthMiddleware(request, reply) {
+  // 跳过 OPTIONS 预检请求
+  if (request.method === 'OPTIONS') {
+    return;
+  }
+
+  // 从请求参数中获取 robotId
+  const robotId = request.body?.robotId || request.query?.robotId;
+
+  if (!robotId) {
+    return reply.status(400).send({
+      code: 400,
+      message: '缺少 robotId 参数',
+      error: 'Bad Request'
+    });
+  }
+
+  // 验证 robotId 是否存在于数据库中
+  try {
+    const { getDb } = require('coze-coding-dev-sdk');
+    const { robots } = require('../database/schema');
+    const { eq } = require('drizzle-orm');
+
+    const db = await getDb();
+    const robot = await db.select()
+      .from(robots)
+      .where(eq(robots.robotId, robotId))
+      .limit(1);
+
+    if (robot.length === 0) {
+      return reply.status(404).send({
+        code: 404,
+        message: `机器人不存在: ${robotId}`,
+        error: 'Not Found'
+      });
+    }
+
+    if (!robot[0].isActive) {
+      return reply.status(403).send({
+        code: 403,
+        message: '机器人已被禁用',
+        error: 'Forbidden'
+      });
+    }
+
+    // 将机器人信息附加到请求对象
+    request.robot = {
+      robotId: robot[0].robotId,
+      name: robot[0].name,
+      apiBaseUrl: robot[0].apiBaseUrl,
+      isActive: robot[0].isActive,
+      status: robot[0].status
+    };
+
+    request.log.info('[RobotAuth] 机器人认证成功', {
+      robotId: robot[0].robotId,
+      name: robot[0].name,
+      path: request.url
+    });
+  } catch (error) {
+    request.log.error('[RobotAuth] 验证 robotId 失败', {
+      robotId,
+      error: error.message
+    });
+    return reply.status(500).send({
+      code: 500,
+      message: '验证机器人失败',
+      error: 'Internal Server Error'
+    });
+  }
+}
+
 module.exports = {
   authMiddleware,
   optionalAuthMiddleware,
   checkRole,
-  checkAdmin
+  checkAdmin,
+  robotAuthMiddleware
 };

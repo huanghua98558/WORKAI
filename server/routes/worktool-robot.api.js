@@ -4,7 +4,7 @@
  */
 
 const worktoolRobotRoutes = async function (fastify, options) {
-  const { authMiddleware, checkAdmin } = require('../middleware/auth.middleware');
+  const { robotAuthMiddleware } = require('../middleware/auth.middleware');
   const worktoolApiService = require('../services/worktool-api.service');
   const robotService = require('../services/robot.service');
 
@@ -25,7 +25,7 @@ const worktoolRobotRoutes = async function (fastify, options) {
    * POST /api/worktool/robot/send-message
    */
   fastify.post('/send-message', {
-    preHandler: [authMiddleware]
+    preHandler: [robotAuthMiddleware]
   }, async (request, reply) => {
     try {
       const { robotId, toName, content, messageType = 1 } = request.body;
@@ -61,7 +61,7 @@ const worktoolRobotRoutes = async function (fastify, options) {
    * GET /api/worktool/robot/info
    */
   fastify.get('/info', {
-    preHandler: [authMiddleware]
+    preHandler: [robotAuthMiddleware]
   }, async (request, reply) => {
     try {
       const { robotId } = request.query;
@@ -85,7 +85,7 @@ const worktoolRobotRoutes = async function (fastify, options) {
    * GET /api/worktool/robot/online-status
    */
   fastify.get('/online-status', {
-    preHandler: [authMiddleware]
+    preHandler: [robotAuthMiddleware]
   }, async (request, reply) => {
     try {
       const { robotId } = request.query;
@@ -109,7 +109,7 @@ const worktoolRobotRoutes = async function (fastify, options) {
    * GET /api/worktool/robot/login-logs
    */
   fastify.get('/login-logs', {
-    preHandler: [authMiddleware]
+    preHandler: [robotAuthMiddleware]
   }, async (request, reply) => {
     try {
       const { robotId, page = 1, pageSize = 10 } = request.query;
@@ -136,7 +136,7 @@ const worktoolRobotRoutes = async function (fastify, options) {
    * GET /api/worktool/robot/command-messages
    */
   fastify.get('/command-messages', {
-    preHandler: [authMiddleware]
+    preHandler: [robotAuthMiddleware]
   }, async (request, reply) => {
     try {
       const { robotId, page = 1, pageSize = 10 } = request.query;
@@ -163,7 +163,7 @@ const worktoolRobotRoutes = async function (fastify, options) {
    * GET /api/worktool/robot/command-results
    */
   fastify.get('/command-results', {
-    preHandler: [authMiddleware]
+    preHandler: [robotAuthMiddleware]
   }, async (request, reply) => {
     try {
       const { robotId, page = 1, pageSize = 10 } = request.query;
@@ -190,7 +190,7 @@ const worktoolRobotRoutes = async function (fastify, options) {
    * GET /api/worktool/robot/message-logs
    */
   fastify.get('/message-logs', {
-    preHandler: [authMiddleware]
+    preHandler: [robotAuthMiddleware]
   }, async (request, reply) => {
     try {
       const { robotId, page = 1, pageSize = 10 } = request.query;
@@ -217,7 +217,7 @@ const worktoolRobotRoutes = async function (fastify, options) {
    * POST /api/worktool/robot/update-info
    */
   fastify.post('/update-info', {
-    preHandler: [authMiddleware]
+    preHandler: [robotAuthMiddleware]
   }, async (request, reply) => {
     try {
       const { robotId, robotInfo } = request.body;

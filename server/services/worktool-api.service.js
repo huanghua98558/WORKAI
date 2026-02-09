@@ -71,7 +71,7 @@ class WorkToolApiService {
 
       const result = await response.json();
 
-      if (result.code !== 0) {
+      if (result.code !== 200) {
         throw new Error(`发送消息失败: ${result.message}`);
       }
 
@@ -106,7 +106,7 @@ class WorkToolApiService {
 
       const result = await response.json();
 
-      if (result.code !== 0) {
+      if (result.code !== 200) {
         throw new Error(`更新机器人信息失败: ${result.message}`);
       }
 
@@ -133,7 +133,7 @@ class WorkToolApiService {
       const response = await fetch(url);
       const result = await response.json();
 
-      if (result.code !== 0) {
+      if (result.code !== 200) {
         throw new Error(`获取机器人信息失败: ${result.message}`);
       }
 
@@ -160,7 +160,7 @@ class WorkToolApiService {
       const response = await fetch(url);
       const result = await response.json();
 
-      if (result.code !== 0) {
+      if (result.code !== 200) {
         throw new Error(`查询机器人在线状态失败: ${result.message}`);
       }
 
@@ -192,7 +192,7 @@ class WorkToolApiService {
       const response = await fetch(url);
       const result = await response.json();
 
-      if (result.code !== 0) {
+      if (result.code !== 200) {
         throw new Error(`查询机器人登录日志失败: ${result.message}`);
       }
 
@@ -223,7 +223,7 @@ class WorkToolApiService {
       const response = await fetch(url);
       const result = await response.json();
 
-      if (result.code !== 0) {
+      if (result.code !== 200) {
         throw new Error(`查询指令消息失败: ${result.message}`);
       }
 
@@ -254,7 +254,7 @@ class WorkToolApiService {
       const response = await fetch(url);
       const result = await response.json();
 
-      if (result.code !== 0) {
+      if (result.code !== 200) {
         throw new Error(`查询指令执行结果失败: ${result.message}`);
       }
 
@@ -285,7 +285,7 @@ class WorkToolApiService {
       const response = await fetch(url);
       const result = await response.json();
 
-      if (result.code !== 0) {
+      if (result.code !== 200) {
         throw new Error(`查询消息回调日志失败: ${result.message}`);
       }
 
