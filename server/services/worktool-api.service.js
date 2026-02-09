@@ -164,7 +164,8 @@ class WorkToolApiService {
         throw new Error(`查询机器人在线状态失败: ${result.message}`);
       }
 
-      const isOnline = result.data?.online === true || result.data?.isOnline === true;
+      // WorkTool API 返回的 data 直接是布尔值 true/false
+      const isOnline = result.data === true;
       logger.info('查询机器人在线状态成功', { robotId, isOnline });
       return isOnline;
     } catch (error) {
