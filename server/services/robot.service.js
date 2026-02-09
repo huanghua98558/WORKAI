@@ -334,6 +334,30 @@ class RobotService {
   }
 
   /**
+   * 更新机器人状态
+   */
+  async updateRobotStatus(robotId, status) {
+    const db = await getDb();
+
+    const result = await db
+      .update(robots)
+      .set({
+        status,
+        lastCheckAt: new Date(),
+        lastError: status === 'offline' ? '机器人离线' : null,
+        updatedAt: new Date()
+      })
+      .where(eq(robots.robotId, robotId))
+      .returning();
+
+    // 清除机器人列表缓存
+    await cacheService.delPattern(`${this.cachePrefix}list:*`);
+    this.logger.info('机器人列表缓存已清除（状态更新）', { robotId });
+
+    return result[0];
+  }
+
+  /**
    * 删除机器人
    */
   async deleteRobot(id) {

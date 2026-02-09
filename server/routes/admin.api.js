@@ -23,6 +23,7 @@ const adminApiRoutes = async function (fastify, options) {
   // 机器人服务
   const robotService = require('../services/robot.service');
   const permissionService = require('../services/permission.service');
+  const worktoolApiService = require('../services/worktool-api.service');
   const { verifyAuth } = require('../hooks/auth.hook');
 
   /**
@@ -31,6 +32,86 @@ const adminApiRoutes = async function (fastify, options) {
    * - 普通用户：只能看到自己创建或被授权的机器人
    */
   fastify.get('/robots', {
+    onRequest: [verifyAuth],
+  }, async (request, reply) => {
+    try {
+      const { isActive, status, search } = request.query;
+      const { user } = request;
+
+      logger.info('[ADMIN_ROBOT] 获取机器人列表', {
+        userId: user.id,
+        role: user.role
+      });
+
+      // 检查 robotService 是否存在
+      if (!robotService || typeof robotService.getAllRobots !== 'function') {
+        logger.error('[ADMIN_ROBOT] robotService 未正确加载');
+        return reply.status(500).send({
+          code: -1,
+          message: '机器人服务未正确加载'
+        });
+      }
+
+      // 判断用户角色
+      const isAdmin = user.role === 'admin' || user.role === 'superAdmin';
+
+      if (isAdmin) {
+        // 管理员：返回所有机器人，不进行权限过滤
+        logger.info('[ADMIN_ROBOT] 管理员请求，返回所有机器人');
+        const robotList = await robotService.getAllRobots({
+          isActive,
+          status,
+          search
+        });
+
+        return reply.send({
+          code: 0,
+          message: 'success',
+          data: robotList
+        });
+      } else {
+        // 普通用户：获取用户可访问的机器人列表
+        const accessibleRobotIds = await permissionService.getAccessibleRobotIds(user.id);
+
+        logger.info('[ADMIN_ROBOT] 普通用户请求，返回可访问的机器人', {
+          userId: user.id,
+          accessibleCount: accessibleRobotIds.length
+        });
+
+        // 传入 accessibleRobotIds 进行过滤
+        const robotList = await robotService.getAllRobots({
+          isActive,
+          status,
+          search,
+          accessibleRobotIds
+        });
+
+        return reply.send({
+          code: 0,
+          message: 'success',
+          data: robotList
+        });
+      }
+    } catch (error) {
+      logger.error('[ADMIN_ROBOT] 获取机器人列表失败', {
+        userId: request.user?.id,
+        error: error.message,
+        stack: error.stack
+      });
+
+      return reply.status(500).send({
+        code: -1,
+        message: '获取机器人列表失败',
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 检查机器人状态
+   * POST /api/admin/robots/check-status/:robotId
+   */
+  fastify.post('/robots/check-status/:robotId', {
     onRequest: [verifyAuth],
   }, async (request, reply) => {
     try {
@@ -1663,60 +1744,6 @@ const adminApiRoutes = async function (fastify, options) {
       console.error('创建测试消息失败:', error);
       return reply.status(500).send({
         success: false,
-        error: error.message
-      });
-    }
-  });
-
-  /**
-   * 检查机器人状态（刷新机器人信息）
-   * POST /api/admin/robots/check-status/:robotId
-   */
-  fastify.post('/robots/check-status/:robotId', {
-    onRequest: [verifyAuth],
-  }, async (request, reply) => {
-    try {
-      const { robotId } = request.params;
-      const { user } = request;
-
-      logger.info('[ADMIN_ROBOT] 检查机器人状态', {
-        robotId,
-        userId: user.id
-      });
-
-      // 检查 robotService 是否存在
-      if (!robotService || typeof robotService.checkRobotStatus !== 'function') {
-        logger.error('[ADMIN_ROBOT] robotService.checkRobotStatus 方法不存在');
-        return reply.status(500).send({
-          code: -1,
-          message: '机器人服务未正确加载'
-        });
-      }
-
-      // 检查机器人状态
-      const result = await robotService.checkRobotStatus(robotId);
-
-      logger.info('[ADMIN_ROBOT] 机器人状态检查完成', {
-        robotId,
-        status: result.status
-      });
-
-      return reply.send({
-        code: 0,
-        message: 'success',
-        data: result
-      });
-    } catch (error) {
-      logger.error('[ADMIN_ROBOT] 检查机器人状态失败', {
-        robotId: request.params?.robotId,
-        userId: request.user?.id,
-        error: error.message,
-        stack: error.stack
-      });
-
-      return reply.status(500).send({
-        code: -1,
-        message: '检查机器人状态失败',
         error: error.message
       });
     }

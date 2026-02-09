@@ -30,14 +30,14 @@ class WorkToolApiService {
         throw new Error(`机器人不存在: ${robotId}`);
       }
 
-      const config = robot[0].config || {};
-      const worktoolConfig = config.worktool || {};
+      // 直接从 apiBaseUrl 字段获取，而不是从 config
+      const apiBaseUrl = robot[0].apiBaseUrl;
 
-      if (!worktoolConfig.apiBaseUrl) {
+      if (!apiBaseUrl) {
         throw new Error(`机器人 ${robotId} 未配置 apiBaseUrl`);
       }
 
-      this.apiBaseUrl = worktoolConfig.apiBaseUrl;
+      this.apiBaseUrl = apiBaseUrl;
       return this.apiBaseUrl;
     } catch (error) {
       logger.error('获取 API Base URL 失败', { robotId, error: error.message });
