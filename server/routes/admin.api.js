@@ -1721,6 +1721,59 @@ const adminApiRoutes = async function (fastify, options) {
       });
     }
   });
+
+  /**
+   * 测试机器人连接
+   * POST /api/admin/robots/test
+   */
+  fastify.post('/robots/test', {
+    onRequest: [verifyAuth],
+  }, async (request, reply) => {
+    try {
+      const { robotId, apiBaseUrl } = request.body;
+      const { user } = request;
+
+      logger.info('[ADMIN_ROBOT] 测试机器人连接', {
+        robotId,
+        userId: user.id
+      });
+
+      // 检查 robotService 是否存在
+      if (!robotService || typeof robotService.testRobotConnection !== 'function') {
+        logger.error('[ADMIN_ROBOT] robotService.testRobotConnection 方法不存在');
+        return reply.status(500).send({
+          code: -1,
+          message: '机器人服务未正确加载'
+        });
+      }
+
+      // 测试机器人连接
+      const result = await robotService.testRobotConnection(robotId, apiBaseUrl);
+
+      logger.info('[ADMIN_ROBOT] 机器人连接测试完成', {
+        robotId,
+        success: result.success
+      });
+
+      return reply.send({
+        code: 0,
+        message: 'success',
+        data: result
+      });
+    } catch (error) {
+      logger.error('[ADMIN_ROBOT] 测试机器人连接失败', {
+        userId: request.user?.id,
+        error: error.message,
+        stack: error.stack
+      });
+
+      return reply.status(500).send({
+        code: -1,
+        message: '测试机器人连接失败',
+        error: error.message
+      });
+    }
+  });
 };
 
 /**

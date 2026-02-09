@@ -85,10 +85,10 @@ export default function MonitoringDashboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/admin/robot-monitoring?period=${period}`);
+      const response = await fetch(`/api/monitoring/robot-monitoring?period=${period}`);
       const result = await response.json();
 
-      if (result.success) {
+      if (result.code === 0 || result.success) {
         setData(result.data);
       }
     } catch (error) {

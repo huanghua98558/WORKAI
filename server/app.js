@@ -59,6 +59,9 @@ console.log('[app.js] apikey.api loaded successfully');
 console.log('[app.js] Attempting to load ai-module.api...');
 const aiModuleApiRoutes = require('./routes/ai-module.api');
 console.log('[app.js] ai-module.api loaded successfully');
+console.log('[app.js] Attempting to load robot-monitoring.api...');
+const robotMonitoringApiRoutes = require('./routes/robot-monitoring.api');
+console.log('[app.js] robot-monitoring.api loaded successfully');
 
 const redisClient = require('./lib/redis');
 const { getLogger, fastifyRequestLogger } = require('./lib/logger');
@@ -172,6 +175,8 @@ fastify.register(riskApiRoutes, { prefix: '/api' });
 // AI 模块 API（使用 /proxy 前缀以匹配前端调用）
 fastify.register(aiModuleApiRoutes, { prefix: '/api/proxy/ai' });
 fastify.register(collabApiRoutes, { prefix: '/api/collab' });
+// 机器人监控 API
+fastify.register(robotMonitoringApiRoutes, { prefix: '/api/monitoring' });
 // 使用完整的认证API（替换原有的 auth.api）
 fastify.register(authCompleteApiRoutes, { prefix: '/api/auth' });
 // 注册头像上传API

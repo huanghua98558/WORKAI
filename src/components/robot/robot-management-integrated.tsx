@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { toast } from 'sonner';
 import {
   Bot,
   Plus,
@@ -44,6 +45,8 @@ import RobotRoleManager from '@/components/robot/robot-role-manager';
 import RobotBusinessRoleManager from '@/components/robot/robot-business-role-manager';
 import CommandSender from '@/components/robot/command-sender';
 import MonitoringDashboard from '@/components/robot/monitoring-dashboard';
+import WorkToolMessageSender from '@/components/robot/worktool-message-sender';
+import WorkToolOnlineStatus from '@/components/robot/worktool-online-status';
 
 interface Robot {
   id: string;
@@ -112,6 +115,7 @@ export default function RobotManagement() {
   
   // 新增：回调对话框状态
   const [showCallbackDialog, setShowCallbackDialog] = useState(false);
+  const [showWorkToolDialog, setShowWorkToolDialog] = useState(false);
   
   // 表单状态
   const [editFormData, setEditFormData] = useState({
@@ -283,6 +287,11 @@ export default function RobotManagement() {
     // 重置测试结果
     setTestResults({});
     setApiLogs([]);
+  };
+
+  const handleWorkTool = (robot: Robot) => {
+    setSelectedRobot(robot);
+    setShowWorkToolDialog(true);
   };
 
   // 同步机器人信息
@@ -471,7 +480,7 @@ export default function RobotManagement() {
     setTestError(null);
 
     try {
-      const res = await fetch('/api/proxy/admin/robots/test', {
+      const res = await fetch('/api/admin/robots/test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -891,6 +900,14 @@ export default function RobotManagement() {
                         >
                           <RefreshCw className="h-4 w-4 mr-2" />
                           同步信息
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleWorkTool(robot)}
+                        >
+                          <MessageCircle className="h-4 w-4 mr-2" />
+                          WorkTool
                         </Button>
                         <Button 
                           variant="destructive" 
@@ -1629,6 +1646,113 @@ export default function RobotManagement() {
             </CardContent>
             <div className="flex justify-end gap-2 p-6 pt-0">
               <Button variant="outline" onClick={() => setShowCallbackDialog(false)}>
+                关闭
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* WorkTool 功能对话框 */}
+      {showWorkToolDialog && selectedRobot && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle>WorkTool 功能 - {selectedRobot.name}</CardTitle>
+              <CardDescription>使用 WorkTool API 发送消息和管理机器人</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="send-message" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="send-message">发送消息</TabsTrigger>
+                  <TabsTrigger value="status">在线状态</TabsTrigger>
+                  <TabsTrigger value="info">机器人信息</TabsTrigger>
+                  <TabsTrigger value="logs">消息日志</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="send-message" className="space-y-4 mt-4">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      发送消息给企业微信用户。支持文本、图片、视频三种类型。
+                    </p>
+                  </div>
+                  <WorkToolMessageSender
+                    robotId={selectedRobot.robotId}
+                    onSendSuccess={() => {
+                      toast.success('消息发送成功');
+                    }}
+                    onSendError={(error) => {
+                      toast.error('消息发送失败: ' + error);
+                    }}
+                  />
+                </TabsContent>
+
+                <TabsContent value="status" className="space-y-4 mt-4">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      实时显示机器人的在线状态。
+                    </p>
+                  </div>
+                  <WorkToolOnlineStatus
+                    robotId={selectedRobot.robotId}
+                    showDetails={true}
+                    autoRefresh={true}
+                    refreshInterval={30000}
+                  />
+                </TabsContent>
+
+                <TabsContent value="info" className="space-y-4 mt-4">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      查看机器人的详细信息。
+                    </p>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">机器人ID</label>
+                      <div className="p-2 border rounded bg-muted text-sm">{selectedRobot.robotId}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">机器人名称</label>
+                      <div className="p-2 border rounded bg-muted text-sm">{selectedRobot.name}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">公司</label>
+                      <div className="p-2 border rounded bg-muted text-sm">{selectedRobot.company || '-'}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">昵称</label>
+                      <div className="p-2 border rounded bg-muted text-sm">{selectedRobot.nickname || '-'}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">IP地址</label>
+                      <div className="p-2 border rounded bg-muted text-sm">{selectedRobot.ipAddress || '-'}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">激活时间</label>
+                      <div className="p-2 border rounded bg-muted text-sm">{selectedRobot.activatedAt ? new Date(selectedRobot.activatedAt).toLocaleString('zh-CN') : '-'}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">过期时间</label>
+                      <div className="p-2 border rounded bg-muted text-sm">{selectedRobot.expiresAt ? new Date(selectedRobot.expiresAt).toLocaleString('zh-CN') : '-'}</div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="logs" className="space-y-4 mt-4">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      查看机器人的消息日志。
+                    </p>
+                  </div>
+                  <div className="p-4 text-center text-muted-foreground">
+                    消息日志功能开发中...
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+            <div className="flex justify-end gap-2 p-6 pt-0">
+              <Button variant="outline" onClick={() => setShowWorkToolDialog(false)}>
                 关闭
               </Button>
             </div>
