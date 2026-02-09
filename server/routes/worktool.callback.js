@@ -701,11 +701,11 @@ const worktoolCallbackRoutes = async function (fastify, options) {
           {
             message,
             robot,
-            requestId
+            requestId,
+            robotId: robot.robotId
           },
           {
             messageId: message.messageId,
-            robotId: robot.robotId,
             groupName: message.groupName
           }
         );
