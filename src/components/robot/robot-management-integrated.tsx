@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getAuthHeaders } from '@/lib/auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -336,9 +337,7 @@ export default function RobotManagement() {
     try {
       const res = await fetch(`/api/admin/robots/${robot.id}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
       });
 
       const result = await res.json();
@@ -364,7 +363,7 @@ export default function RobotManagement() {
     try {
       const response = await fetch(`/api/admin/robots/${selectedRobot.id}/regenerate-urls`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({})
       });
 
@@ -411,9 +410,7 @@ export default function RobotManagement() {
     try {
       const res = await fetch(`/api/admin/robots/${selectedRobot.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(editFormData),
       });
 
@@ -443,9 +440,7 @@ export default function RobotManagement() {
     try {
       const res = await fetch(`/api/admin/robots/${selectedRobot.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(configFormData),
       });
 
@@ -475,9 +470,7 @@ export default function RobotManagement() {
     try {
       const res = await fetch('/api/admin/robots/test', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           robotId: selectedRobot.robotId,
           apiBaseUrl: selectedRobot.apiBaseUrl,
@@ -511,7 +504,7 @@ export default function RobotManagement() {
     try {
       const response = await fetch(`/api/admin/robots/${selectedRobot.id}/api-endpoints/test`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ endpointType })
       });
       
@@ -557,7 +550,8 @@ export default function RobotManagement() {
     setTestingEndpoint('all');
     try {
       const response = await fetch(`/api/admin/robots/${selectedRobot.id}/api-endpoints/test-all`, {
-        method: 'POST'
+        method: 'POST',
+        headers: getAuthHeaders(),
       });
       
       const result = await response.json();
@@ -586,7 +580,9 @@ export default function RobotManagement() {
     
     setLogsLoading(true);
     try {
-      const response = await fetch(`/api/admin/robots/${selectedRobot.id}/api-endpoints/logs?page=1&pageSize=20`);
+      const response = await fetch(`/api/admin/robots/${selectedRobot.id}/api-endpoints/logs?page=1&pageSize=20`, {
+        headers: getAuthHeaders(),
+      });
       const result = await response.json();
       
       if (result.code === 0) {
@@ -628,9 +624,7 @@ export default function RobotManagement() {
     try {
       const res = await fetch('/api/admin/robots', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(addFormData),
       });
 
