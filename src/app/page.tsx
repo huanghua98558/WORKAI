@@ -2234,14 +2234,14 @@ ${callbacks.robotStatus}
       return matchesSearch && matchesStatus && matchesIntent;
     });
 
-    // 计算统计数据
+    // 计算统计数据（添加默认值处理，避免 NaN）
     const stats = {
       total: sessions.length,
       auto: sessions.filter(s => s.status === 'auto').length,
       human: sessions.filter(s => s.status === 'human').length,
-      totalMessages: sessions.reduce((sum, s) => sum + s.messageCount, 0),
-      aiReplies: sessions.reduce((sum, s) => sum + s.aiReplyCount, 0),
-      humanReplies: sessions.reduce((sum, s) => sum + s.humanReplyCount, 0),
+      totalMessages: sessions.reduce((sum, s) => sum + (s.messageCount || 0), 0),
+      aiReplies: sessions.reduce((sum, s) => sum + (s.aiReplyCount || 0), 0),
+      humanReplies: sessions.reduce((sum, s) => sum + (s.humanReplyCount || 0), 0),
     };
 
     return (

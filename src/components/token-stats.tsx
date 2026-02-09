@@ -62,11 +62,14 @@ export function TokenStatsCard() {
   }, []);
 
   const getGrowthRate = () => {
-    if (!stats || stats.yesterday.total === 0) return 0;
-    return ((stats.today.total - stats.yesterday.total) / stats.yesterday.total * 100);
+    if (!stats || !stats.yesterday || stats.yesterday.total === 0 || stats.yesterday.total === undefined || stats.yesterday.total === null) return 0;
+    const growth = ((stats.today.total - stats.yesterday.total) / stats.yesterday.total * 100);
+    // 防止 NaN
+    return isNaN(growth) ? 0 : growth;
   };
 
-  const formatNumber = (num: number) => {
+  const formatNumber = (num: number | undefined | null) => {
+    if (num === undefined || num === null || isNaN(num)) return '0';
     if (num >= 1000000) {
       return `${(num / 1000000).toFixed(1)}M`;
     } else if (num >= 1000) {

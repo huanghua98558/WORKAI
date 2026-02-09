@@ -160,9 +160,6 @@ export default function NewDashboardTab({
   isLoading,
   setActiveTab
 }: NewDashboardTabProps) {
-  // 调试日志：输出加载状态
-  console.log('[NewDashboardTab] isLoading:', isLoading, 'monitorData:', !!monitorData, 'sessions length:', sessions?.length);
-
   // 兼容新旧接口数据结构，转换为 MonitorSummary
   const monitorSummary: MonitorSummary | null = (() => {
     if (!monitorData) return null;

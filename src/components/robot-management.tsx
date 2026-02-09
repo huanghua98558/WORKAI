@@ -488,27 +488,13 @@ export default function RobotManagement() {
   };
 
   // 一键刷新所有机器人
+  // 注意：后端路由暂未实现，暂时禁用批量状态检查
   const handleRefreshAll = async () => {
     setIsRefreshingAll(true);
     try {
-      const res = await fetch('/api/proxy/admin/robots/check-status-all', {
-        method: 'POST'
-      });
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error('批量刷新失败，HTTP状态:', res.status, errorText);
-        alert(`批量刷新失败：HTTP ${res.status} - ${errorText || '未知错误'}`);
-        return;
-      }
-
-      const data = await res.json();
-      if (data.code === 0) {
-        loadRobots();
-        alert(data.message || '批量刷新完成！');
-      } else {
-        alert(`批量刷新失败：${data.message || '未知错误'}`);
-      }
+      // 暂时直接加载机器人列表
+      loadRobots();
+      alert('刷新完成！（批量状态检查功能暂未实现）');
     } catch (error) {
       console.error('批量刷新失败:', error);
       alert('批量刷新失败：网络错误');
