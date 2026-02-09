@@ -163,10 +163,27 @@ const adminApiRoutes = async function (fastify, options) {
         nickname: updateData.nickname
       });
 
+      // 获取机器人在线状态
+      let isOnline = false;
+      try {
+        isOnline = await worktoolApiService.isRobotOnline(robotId);
+      } catch (error) {
+        logger.warn('[ADMIN_ROBOT] 获取机器人在线状态失败', {
+          robotId,
+          error: error.message
+        });
+      }
+
       return reply.send({
         code: 0,
         message: '同步成功',
-        data: result[0]
+        data: {
+          checkResult: {
+            status: isOnline ? 'online' : 'offline',
+            message: isOnline ? '机器人在线，信息已更新' : '机器人离线，但信息已更新',
+            robotInfo: result[0]
+          }
+        }
       });
     } catch (error) {
       logger.error('[ADMIN_ROBOT] 同步机器人信息失败', {

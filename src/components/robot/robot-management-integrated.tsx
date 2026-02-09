@@ -308,18 +308,11 @@ export default function RobotManagement() {
       const result = await res.json();
 
       if (res.ok && result.code === 0) {
-        // 检查真正的同步结果，只有 status 为 online 才算成功
+        // 刷新机器人列表以显示最新信息
+        await loadRobots();
         const checkResult = result.data?.checkResult;
-        if (checkResult?.status === 'online') {
-          // 刷新机器人列表以显示最新信息
-          await loadRobots();
-          alert('机器人信息同步成功！已更新：' + (checkResult.message || ''));
-        } else {
-          // 同步失败，但 API 调用成功
-          alert('同步失败：' + (checkResult?.message || '无法获取机器人详细信息'));
-          // 仍然刷新列表以显示更新后的状态
-          await loadRobots();
-        }
+        // 只要 API 调用成功，就认为同步成功，不管机器人是否在线
+        alert(`机器人信息同步成功！${checkResult?.message || ''}`);
       } else {
         alert('机器人信息同步失败：' + (result.message || '未知错误'));
       }
