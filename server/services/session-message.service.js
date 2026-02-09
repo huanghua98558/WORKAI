@@ -369,6 +369,69 @@ class SessionMessageService {
   }
 
   /**
+   * 获取活跃会话列表（用于前端显示）
+   * 从 session_messages 表聚合数据
+   */
+  async getActiveSessions(options = {}) {
+    const { limit = 50, hours = 24 } = options;
+    const db = await getDb();
+
+    // 查询最近活跃的会话
+    const sessions = await db.execute(sql`
+      SELECT 
+        session_id as sessionId,
+        user_id as userId,
+        user_name as userName,
+        group_id as groupId,
+        group_name as groupName,
+        robot_id as robotId,
+        robot_name as robotName,
+        robot_nickname as robotNickname,
+        COUNT(*) as messageCount,
+        MAX(timestamp) as lastActivityTime,
+        (
+          SELECT content 
+          FROM session_messages 
+          WHERE session_id = s.session_id 
+            AND is_from_user = true
+          ORDER BY timestamp DESC 
+          LIMIT 1
+        ) as lastUserMessage,
+        (
+          SELECT content 
+          FROM session_messages 
+          WHERE session_id = s.session_id 
+            AND is_from_bot = true
+          ORDER BY timestamp DESC 
+          LIMIT 1
+        ) as lastBotReply,
+        (
+          SELECT timestamp 
+          FROM session_messages 
+          WHERE session_id = s.session_id 
+            AND is_from_bot = true
+          ORDER BY timestamp DESC 
+          LIMIT 1
+        ) as lastBotReplyTime,
+        (
+          SELECT timestamp 
+          FROM session_messages 
+          WHERE session_id = s.session_id 
+            AND is_from_user = true
+          ORDER BY timestamp DESC 
+          LIMIT 1
+        ) as lastUserMessageTime
+      FROM session_messages s
+      WHERE s.timestamp >= NOW() - INTERVAL '${hours} hours'
+      GROUP BY s.session_id, s.user_id, s.user_name, s.group_id, s.group_name, s.robot_id, s.robot_name, s.robot_nickname
+      ORDER BY MAX(s.timestamp) DESC
+      LIMIT ${limit}
+    `);
+
+    return sessions;
+  }
+
+  /**
    * 清理过期的消息记录（保留最近90天）
    */
   async cleanup(days = 90) {

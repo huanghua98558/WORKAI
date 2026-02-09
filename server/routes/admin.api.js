@@ -7,6 +7,7 @@ const adminApiRoutes = async function (fastify, options) {
   const monitorService = require('../services/monitor.service');
   const reportService = require('../services/report.service');
   const sessionService = require('../services/session.service');
+  const sessionMessageService = require('../services/session-message.service');
   const alertService = require('../services/alert.service');
   const tencentDocService = require('../services/tencentdoc.service');
   const aiService = require('../services/ai.service');
@@ -884,15 +885,21 @@ const adminApiRoutes = async function (fastify, options) {
   });
 
   /**
-   * 获取活跃会话
+   * 获取活跃会话（消息会话）
+   * 从 session_messages 表聚合数据
    */
   fastify.get('/sessions/active', async (request, reply) => {
-    const { limit = 50 } = request.query;
+    const { limit = 50, hours = 24 } = request.query;
 
     try {
-      const sessions = await sessionService.getActiveSessions(parseInt(limit));
+      // 获取消息会话，而不是用户登录会话
+      const sessions = await sessionMessageService.getActiveSessions({
+        limit: parseInt(limit),
+        hours: parseInt(hours)
+      });
       return { success: true, data: sessions };
     } catch (error) {
+      logger.error('[ADMIN_API] 获取活跃会话失败', { error: error.message });
       return reply.status(500).send({
         success: false,
         error: error.message

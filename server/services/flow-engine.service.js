@@ -12,6 +12,7 @@ const AIServiceFactory = require('./ai/AIServiceFactory'); // AI服务工厂
 const { flowSelector, SelectionStrategy } = require('./flow-selector.service'); // 流程选择器
 const { collaborationService } = require('./collaboration.service'); // 协同分析服务
 const ContextHelper = require('../lib/context-helper'); // Context 工具类
+const sessionMessageService = require('./session-message.service'); // 会话消息服务
 
 const logger = getLogger('FLOW_ENGINE');
 
@@ -2878,6 +2879,32 @@ class FlowEngine {
         totalTokens: result.usage?.totalTokens || 0
       });
 
+      // 保存 AI 回复到数据库
+      try {
+        await sessionMessageService.saveBotMessage(
+          context.sessionId,
+          result.content,
+          {
+            userId: context.userId || context.message?.fromName,
+            userName: context.userName || context.message?.fromName,
+            groupId: context.groupId || context.message?.groupName,
+            groupName: context.groupName || context.message?.groupName,
+          },
+          null, // intent（暂时传 null）
+          context.robot || { robotId, name: robotName }
+        );
+        logger.info('AI 回复已保存到数据库', {
+          sessionId: context.sessionId,
+          contentLength: result.content.length
+        });
+      } catch (saveError) {
+        logger.error('保存 AI 回复失败', {
+          error: saveError.message,
+          sessionId: context.sessionId
+        });
+        // 不阻断流程，继续返回结果
+      }
+
       return {
         success: true,
         aiReply: result.content,
@@ -3138,6 +3165,35 @@ class FlowEngine {
           status: sendResults.every(r => r.success) ? 'success' : 'partial_failure',
           timestamp: new Date()
         });
+      }
+
+      // 如果是 AI 回复消息，保存到数据库
+      const isAIReply = content === context.aiReply || context.lastNodeType === 'ai_reply';
+      if (isAIReply && sendResults.some(r => r.success)) {
+        try {
+          await sessionMessageService.saveBotMessage(
+            context.sessionId,
+            content,
+            {
+              userId: context.userId || context.message?.fromName,
+              userName: context.userName || context.message?.fromName,
+              groupId: context.groupId || context.message?.groupName,
+              groupName: context.groupName || context.message?.groupName,
+            },
+            null, // intent（暂时传 null）
+            context.robot || { robotId: botId }
+          );
+          logger.info('AI 回复已保存到数据库（通过 send_command 节点）', {
+            sessionId: context.sessionId,
+            contentLength: content.length
+          });
+        } catch (saveError) {
+          logger.error('保存 AI 回复失败（通过 send_command 节点）', {
+            error: saveError.message,
+            sessionId: context.sessionId
+          });
+          // 不阻断流程，继续返回结果
+        }
       }
 
       const commandResult = {
