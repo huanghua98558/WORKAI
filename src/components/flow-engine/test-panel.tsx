@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Play, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface TestResult {
   instance: {
@@ -32,24 +33,53 @@ interface TestResult {
   }>;
 }
 
+interface FlowDefinition {
+  id: string;
+  name: string;
+  description: string;
+  isActive: boolean;
+}
+
 export default function TestPanel() {
+  const { toast } = useToast();
   const [flowName, setFlowName] = useState('');
   const [triggerData, setTriggerData] = useState('{\n  "message": "测试数据"\n}');
   const [loading, setLoading] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [polling, setPolling] = useState(false);
   const [selectedFlow, setSelectedFlow] = useState('');
+  const [flows, setFlows] = useState<FlowDefinition[]>([]);
+  const [flowsLoading, setFlowsLoading] = useState(false);
 
-  // 模拟流程列表（实际应该从 API 获取）
-  const flows = [
-    { id: '1', name: '群组协作流程' },
-    { id: '2', name: '视频号流程' },
-    { id: '3', name: 'AI 分析流程' },
-  ];
+  // 从 API 获取流程列表
+  useEffect(() => {
+    fetchFlows();
+  }, []);
+
+  const fetchFlows = async () => {
+    setFlowsLoading(true);
+    try {
+      const response = await fetch('/api/flow-engine/definitions');
+      const result = await response.json();
+      if (result.success && result.data) {
+        // 只显示激活的流程
+        const activeFlows = result.data.filter((flow: FlowDefinition) => flow.isActive);
+        setFlows(activeFlows);
+      }
+    } catch (error) {
+      console.error('Failed to fetch flows:', error);
+    } finally {
+      setFlowsLoading(false);
+    }
+  };
 
   const handleTest = async () => {
     if (!selectedFlow) {
-      alert('请选择流程');
+      toast({
+        variant: 'destructive',
+        title: '未选择流程',
+        description: '请先选择要测试的流程',
+      });
       return;
     }
 
@@ -59,7 +89,11 @@ export default function TestPanel() {
       try {
         parsedTriggerData = JSON.parse(triggerData);
       } catch (e) {
-        alert('触发数据格式错误，请确保是有效的 JSON');
+        toast({
+          variant: 'destructive',
+          title: '格式错误',
+          description: '触发数据格式错误，请确保是有效的 JSON',
+        });
         setLoading(false);
         return;
       }
@@ -70,7 +104,7 @@ export default function TestPanel() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          flowName: selectedFlow,
+          flowDefinitionId: selectedFlow,
           triggerData: parsedTriggerData,
         }),
       });
@@ -83,11 +117,19 @@ export default function TestPanel() {
         setPolling(true);
         pollStatus(result.data.instance.id);
       } else {
-        alert(result.error || '测试启动失败');
+        toast({
+          variant: 'destructive',
+          title: '测试失败',
+          description: result.error || '测试启动失败',
+        });
       }
     } catch (error) {
       console.error('Test failed:', error);
-      alert('测试启动失败');
+      toast({
+        variant: 'destructive',
+        title: '测试失败',
+        description: '测试启动失败，请稍后重试',
+      });
     } finally {
       setLoading(false);
     }
@@ -163,7 +205,7 @@ export default function TestPanel() {
               </SelectTrigger>
               <SelectContent>
                 {flows.map((flow) => (
-                  <SelectItem key={flow.id} value={flow.name}>
+                  <SelectItem key={flow.id} value={flow.id}>
                     {flow.name}
                   </SelectItem>
                 ))}

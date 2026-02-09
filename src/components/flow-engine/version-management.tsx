@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Plus, RotateCcw, CheckCircle, Clock, History } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface FlowVersion {
   id: string;
@@ -22,22 +23,45 @@ interface FlowVersion {
   priority: number;
 }
 
+interface FlowDefinition {
+  id: string;
+  name: string;
+  description: string;
+  isActive: boolean;
+}
+
 export default function VersionManagement() {
+  const { toast } = useToast();
   const [selectedFlow, setSelectedFlow] = useState('');
   const [versions, setVersions] = useState<FlowVersion[]>([]);
   const [loading, setLoading] = useState(false);
+  const [flows, setFlows] = useState<FlowDefinition[]>([]);
+  const [flowsLoading, setFlowsLoading] = useState(false);
 
-  // 模拟流程列表（实际应该从 API 获取）
-  const flows = [
-    { id: '1', name: '群组协作流程' },
-    { id: '2', name: '视频号流程' },
-    { id: '3', name: 'AI 分析流程' },
-  ];
+  // 从 API 获取流程列表
+  useEffect(() => {
+    fetchFlows();
+  }, []);
 
-  const fetchVersions = async (flowName: string) => {
+  const fetchFlows = async () => {
+    setFlowsLoading(true);
+    try {
+      const response = await fetch('/api/flow-engine/definitions');
+      const result = await response.json();
+      if (result.success && result.data) {
+        setFlows(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch flows:', error);
+    } finally {
+      setFlowsLoading(false);
+    }
+  };
+
+  const fetchVersions = async (flowDefinitionId: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/flow-engine/versions?flowName=${flowName}`);
+      const response = await fetch(`/api/flow-engine/versions?flowDefinitionId=${flowDefinitionId}`);
       const result = await response.json();
       if (result.success) {
         setVersions(result.data);
@@ -49,16 +73,20 @@ export default function VersionManagement() {
     }
   };
 
-  const handleFlowChange = (flowName: string) => {
-    setSelectedFlow(flowName);
-    if (flowName) {
-      fetchVersions(flowName);
+  const handleFlowChange = (flowDefinitionId: string) => {
+    setSelectedFlow(flowDefinitionId);
+    if (flowDefinitionId) {
+      fetchVersions(flowDefinitionId);
     }
   };
 
   const handleCreateVersion = async () => {
     if (!selectedFlow) {
-      alert('请先选择流程');
+      toast({
+        variant: 'destructive',
+        title: '错误',
+        description: '请先选择流程',
+      });
       return;
     }
 
@@ -69,20 +97,31 @@ export default function VersionManagement() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          flowName: selectedFlow,
+          flowDefinitionId: selectedFlow,
         }),
       });
 
       const result = await response.json();
       if (result.success) {
-        alert(`成功创建版本 ${result.data.version}`);
+        toast({
+          title: '成功',
+          description: `成功创建版本 ${result.data.version}`,
+        });
         fetchVersions(selectedFlow);
       } else {
-        alert(result.error || '创建版本失败');
+        toast({
+          variant: 'destructive',
+          title: '错误',
+          description: result.error || '创建版本失败',
+        });
       }
     } catch (error) {
       console.error('Create version failed:', error);
-      alert('创建版本失败');
+      toast({
+        variant: 'destructive',
+        title: '错误',
+        description: '创建版本失败',
+      });
     }
   };
 
@@ -94,14 +133,25 @@ export default function VersionManagement() {
 
       const result = await response.json();
       if (result.success) {
-        alert('版本已激活');
+        toast({
+          title: '成功',
+          description: '版本已激活',
+        });
         fetchVersions(selectedFlow);
       } else {
-        alert(result.error || '激活失败');
+        toast({
+          variant: 'destructive',
+          title: '错误',
+          description: result.error || '激活失败',
+        });
       }
     } catch (error) {
       console.error('Activate version failed:', error);
-      alert('激活失败');
+      toast({
+        variant: 'destructive',
+        title: '错误',
+        description: '激活失败',
+      });
     }
   };
 
@@ -113,14 +163,25 @@ export default function VersionManagement() {
 
       const result = await response.json();
       if (result.success) {
-        alert(result.message || '回滚成功');
+        toast({
+          title: '成功',
+          description: result.message || '回滚成功',
+        });
         fetchVersions(selectedFlow);
       } else {
-        alert(result.error || '回滚失败');
+        toast({
+          variant: 'destructive',
+          title: '错误',
+          description: result.error || '回滚失败',
+        });
       }
     } catch (error) {
       console.error('Rollback failed:', error);
-      alert('回滚失败');
+      toast({
+        variant: 'destructive',
+        title: '错误',
+        description: '回滚失败',
+      });
     }
   };
 
@@ -145,7 +206,7 @@ export default function VersionManagement() {
               </SelectTrigger>
               <SelectContent>
                 {flows.map((flow) => (
-                  <SelectItem key={flow.id} value={flow.name}>
+                  <SelectItem key={flow.id} value={flow.id}>
                     {flow.name}
                   </SelectItem>
                 ))}
@@ -171,7 +232,7 @@ export default function VersionManagement() {
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label>流程名称</Label>
-                    <Input value={selectedFlow} disabled />
+                    <Input value={flows.find(f => f.id === selectedFlow)?.name || selectedFlow} disabled />
                   </div>
                   <div className="space-y-2">
                     <Label>版本说明</Label>
@@ -192,7 +253,7 @@ export default function VersionManagement() {
         <Card>
           <CardHeader>
             <CardTitle>版本历史</CardTitle>
-            <CardDescription>{selectedFlow} 的所有版本</CardDescription>
+            <CardDescription>{flows.find(f => f.id === selectedFlow)?.name || selectedFlow} 的所有版本</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
