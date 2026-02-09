@@ -217,6 +217,174 @@ const adminApiRoutes = async function (fastify, options) {
   });
 
   /**
+   * 更新机器人信息
+   * PUT /api/admin/robots/:id
+   */
+  fastify.put('/robots/:id', {
+    onRequest: [verifyAuth],
+  }, async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const updateData = request.body;
+      const { user } = request;
+
+      logger.info('[ADMIN_ROBOT] 更新机器人信息', {
+        robotId: id,
+        userId: user.id,
+        updateData: JSON.stringify(updateData)
+      });
+
+      // 调用 robotService 更新机器人
+      const result = await robotService.updateRobot(id, updateData);
+
+      if (!result) {
+        return reply.status(404).send({
+          code: -1,
+          message: '机器人不存在'
+        });
+      }
+
+      logger.info('[ADMIN_ROBOT] 机器人信息更新成功', {
+        robotId: id,
+        userId: user.id
+      });
+
+      return reply.send({
+        code: 0,
+        message: '更新成功',
+        data: result
+      });
+    } catch (error) {
+      logger.error('[ADMIN_ROBOT] 更新机器人信息失败', {
+        robotId: request.params?.id,
+        userId: request.user?.id,
+        error: error.message,
+        stack: error.stack
+      });
+
+      return reply.status(500).send({
+        code: -1,
+        message: '更新失败',
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 删除机器人
+   * DELETE /api/admin/robots/:id
+   */
+  fastify.delete('/robots/:id', {
+    onRequest: [verifyAuth],
+  }, async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const { user } = request;
+
+      logger.info('[ADMIN_ROBOT] 删除机器人', {
+        robotId: id,
+        userId: user.id
+      });
+
+      // 调用 robotService 删除机器人
+      const result = await robotService.deleteRobot(id);
+
+      if (!result) {
+        return reply.status(404).send({
+          code: -1,
+          message: '机器人不存在'
+        });
+      }
+
+      logger.info('[ADMIN_ROBOT] 机器人删除成功', {
+        robotId: id,
+        userId: user.id
+      });
+
+      return reply.send({
+        code: 0,
+        message: '删除成功',
+        data: { id }
+      });
+    } catch (error) {
+      logger.error('[ADMIN_ROBOT] 删除机器人失败', {
+        robotId: request.params?.id,
+        userId: request.user?.id,
+        error: error.message,
+        stack: error.stack
+      });
+
+      return reply.status(500).send({
+        code: -1,
+        message: '删除失败',
+        error: error.message
+      });
+    }
+  });
+
+  /**
+   * 重新生成机器人地址
+   * POST /api/admin/robots/:id/regenerate-urls
+   */
+  fastify.post('/robots/:id/regenerate-urls', {
+    onRequest: [verifyAuth],
+  }, async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const { user } = request;
+
+      logger.info('[ADMIN_ROBOT] 重新生成机器人地址', {
+        robotId: id,
+        userId: user.id
+      });
+
+      // 获取机器人信息
+      const robot = await robotService.getRobotById(id);
+
+      if (!robot) {
+        return reply.status(404).send({
+          code: -1,
+          message: '机器人不存在'
+        });
+      }
+
+      // 生成新的地址
+      const newUrls = robotService.generateRobotUrls(
+        robot.robotId,
+        robot.apiBaseUrl,
+        robot.callbackBaseUrl || config.get('callback.baseUrl')
+      );
+
+      // 更新数据库
+      const result = await robotService.updateRobot(id, newUrls);
+
+      logger.info('[ADMIN_ROBOT] 机器人地址重新生成成功', {
+        robotId: id,
+        userId: user.id
+      });
+
+      return reply.send({
+        code: 0,
+        message: '地址重新生成成功',
+        data: result
+      });
+    } catch (error) {
+      logger.error('[ADMIN_ROBOT] 重新生成机器人地址失败', {
+        robotId: request.params?.id,
+        userId: request.user?.id,
+        error: error.message,
+        stack: error.stack
+      });
+
+      return reply.status(500).send({
+        code: -1,
+        message: '重新生成地址失败',
+        error: error.message
+      });
+    }
+  });
+
+  /**
    * 获取系统配置
    */
   fastify.get('/config', async (request, reply) => {
