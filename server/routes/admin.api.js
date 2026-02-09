@@ -271,6 +271,57 @@ const adminApiRoutes = async function (fastify, options) {
   });
 
   /**
+   * 添加机器人
+   * POST /api/admin/robots
+   */
+  fastify.post('/robots', {
+    onRequest: [verifyAuth],
+  }, async (request, reply) => {
+    try {
+      const robotData = request.body;
+      const { user } = request;
+
+      logger.info('[ADMIN_ROBOT] 添加机器人', {
+        userId: user.id,
+        robotData: JSON.stringify(robotData)
+      });
+
+      // 调用 robotService 添加机器人
+      const result = await robotService.addRobot(robotData);
+
+      if (!result) {
+        return reply.status(500).send({
+          code: -1,
+          message: '添加机器人失败'
+        });
+      }
+
+      logger.info('[ADMIN_ROBOT] 机器人添加成功', {
+        robotId: result.id,
+        userId: user.id
+      });
+
+      return reply.send({
+        code: 0,
+        message: '添加成功',
+        data: result
+      });
+    } catch (error) {
+      logger.error('[ADMIN_ROBOT] 添加机器人失败', {
+        userId: request.user?.id,
+        error: error.message,
+        stack: error.stack
+      });
+
+      return reply.status(500).send({
+        code: -1,
+        message: '添加失败',
+        error: error.message
+      });
+    }
+  });
+
+  /**
    * 删除机器人
    * DELETE /api/admin/robots/:id
    */
