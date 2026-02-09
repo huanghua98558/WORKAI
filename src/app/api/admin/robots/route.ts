@@ -40,12 +40,6 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
 
-    console.log('[Frontend API] GET /api/admin/robots', {
-      status: response.status,
-      code: data.code,
-      dataCount: data.data?.length || 0
-    });
-
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('[Frontend API] 获取机器人列表失败:', error);
@@ -79,11 +73,6 @@ export async function POST(request: NextRequest) {
     });
 
     const data = await response.json();
-
-    console.log('[Frontend API] POST /api/admin/robots', {
-      status: response.status,
-      code: data.code
-    });
 
     return NextResponse.json(data, { status: response.status });
   } catch (error) {

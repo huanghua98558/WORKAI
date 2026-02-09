@@ -16,6 +16,7 @@ import {
 import { Plus, Edit, Trash2, Bot, Shield, Headphones, Briefcase, Bell, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import BusinessRoleForm from './business-role-form';
+import { adminRobotApi, ResponseHelper } from '@/lib/api';
 
 // 业务角色接口
 export interface BusinessRole {
@@ -75,16 +76,14 @@ export default function RobotBusinessRoleManager() {
   useEffect(() => {
     const fetchRobots = async () => {
       try {
-        const response = await fetch('/api/admin/robots');
-        const result = await response.json();
-        if (result.code === 0 && result.data) {
+        const response = await adminRobotApi.getList();
+        
+        if (ResponseHelper.isSuccess(response)) {
           // 确保 id 字段是字符串类型
-          const formattedRobots = result.data.map((robot: any) => ({
+          const formattedRobots = (response.data || []).map((robot: any) => ({
             ...robot,
             id: String(robot.id),
           }));
-          console.log('[RobotBusinessRoleManager] 机器人列表加载成功:', formattedRobots.length, '个');
-          console.log('[RobotBusinessRoleManager] 机器人详情:', formattedRobots);
           setRobots(formattedRobots);
         }
       } catch (error) {
@@ -92,14 +91,8 @@ export default function RobotBusinessRoleManager() {
       }
     };
 
-    console.log('[RobotBusinessRoleManager] 开始加载机器人列表...');
     fetchRobots();
   }, []); // 空依赖数组，只在挂载时执行一次
-
-  // 监控 robots 状态变化（调试用）
-  useEffect(() => {
-    console.log('[RobotBusinessRoleManager] robots 状态变化:', robots.length, '个机器人');
-  }, [robots]);
 
   // 加载业务角色列表
   const loadBusinessRoles = async () => {
@@ -317,10 +310,7 @@ export default function RobotBusinessRoleManager() {
       )}
 
       {/* 新增/编辑对话框 */}
-      <Dialog open={showDialog} onOpenChange={(open) => {
-        console.log('[RobotBusinessRoleManager] Dialog 状态变化:', open, '当前 robots:', robots.length);
-        setShowDialog(open);
-      }}>
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingRole ? '编辑业务角色' : '新增业务角色'}</DialogTitle>

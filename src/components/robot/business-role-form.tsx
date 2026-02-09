@@ -35,32 +35,12 @@ export default function BusinessRoleForm({ robots = [], initialData, onSave, onC
   const [keywordInput, setKeywordInput] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // 调试日志：组件渲染时输出
-  console.log('[BusinessRoleForm] 组件渲染:', {
-    robotsCount: robots.length,
-    initialData: initialData ? { name: initialData.name, robotId: initialData.robotId, robotRobotId: initialData.robotRobotId } : '无',
-    currentRobotId: formData.robotId,
-    robots: robots.map(r => ({ name: r.name, id: r.id })),
-  });
-
   // 初始化表单数据（只在 initialData 变化时执行，不依赖 robots）
   useEffect(() => {
-    console.log('[BusinessRoleForm] useEffect initialData 触发:', {
-      initialData: initialData ? initialData.name : '无',
-      robotsCount: robots.length,
-    });
-
     if (initialData) {
       // 使用 robotId 或 robotRobotId 作为 robotId（兼容不同数据源）
       const rawRobotId = initialData.robotId || initialData.robotRobotId || '';
       const finalRobotId = String(rawRobotId); // 确保是字符串类型
-
-      console.log('[BusinessRoleForm] 初始化编辑模式:', {
-        rawRobotId,
-        finalRobotId,
-        robotsCount: robots.length,
-        hasMatch: robots.some(r => String(r.id) === String(finalRobotId)),
-      });
 
       setFormData({
         name: initialData.name,
@@ -76,7 +56,6 @@ export default function BusinessRoleForm({ robots = [], initialData, onSave, onC
       });
     } else {
       // 重置表单数据（新增模式）
-      console.log('[BusinessRoleForm] 初始化新增模式');
       setFormData({
         name: '',
         code: '',
@@ -206,7 +185,6 @@ export default function BusinessRoleForm({ robots = [], initialData, onSave, onC
           <Select
             value={String(formData.robotId || 'none')}
             onValueChange={(value) => {
-              console.log('[BusinessRoleForm] 选择机器人:', value);
               // 只处理非空值（避免 Select 组件打开时触发空值）
               if (value && value.trim() !== '') {
                 setFormData({ ...formData, robotId: value === 'none' ? '' : String(value) });
@@ -220,8 +198,6 @@ export default function BusinessRoleForm({ robots = [], initialData, onSave, onC
               <SelectItem value="none">不绑定（通用角色）</SelectItem>
               {robots.map((robot) => {
                 const robotId = String(robot.id);
-                const isSelected = robotId === String(formData.robotId);
-                console.log(`[BusinessRoleForm] 渲染机器人选项: ${robot.name}, id=${robotId}, isSelected=${isSelected}`);
                 return (
                   <SelectItem key={robotId} value={robotId}>
                     {robot.name || robot.nickname || '未命名机器人'} ({robotId.slice(0, 8)}...)
