@@ -2959,7 +2959,20 @@ class FlowEngine {
       }
 
       // 获取接收者列表
-      const targets = recipients || context.recipients || [context.userId];
+      let targets = recipients || context.recipients;
+
+      // 如果没有配置接收者，从消息中提取
+      if (!targets || targets.length === 0) {
+        const roomType = context.message?.roomType;
+        
+        if (roomType === 1 || roomType === 3) {
+          // 群聊（外部群或内部群）：回复到群
+          targets = [context.message.groupName];
+        } else {
+          // 私聊（外部联系人或内部联系人）：回复给发送者
+          targets = [context.message.fromName];
+        }
+      }
 
       if (!targets || targets.length === 0) {
         throw new Error('接收者列表不能为空');
