@@ -139,13 +139,14 @@ const adminApiRoutes = async function (fastify, options) {
         expiresAt: robotInfo.authExpir ? new Date(robotInfo.authExpir) : null,
         messageCallbackEnabled: robotInfo.openCallback === 1,
         callbackBaseUrl: robotInfo.callbackUrl ? new URL(robotInfo.callbackUrl).origin : null,
+        lastCheckAt: new Date(), // 更新最后检查时间
         extraData: {
           ...robotInfo,
           lastSyncAt: new Date().toISOString()
         }
       };
 
-      // 更新数据库
+      // 更新数据库（基本信息）
       const result = await db.update(robots)
         .set(updateData)
         .where(eq(robots.robotId, robotId))
@@ -158,21 +159,35 @@ const adminApiRoutes = async function (fastify, options) {
         });
       }
 
-      logger.info('[ADMIN_ROBOT] 机器人信息同步成功', {
-        robotId,
-        nickname: updateData.nickname
-      });
-
-      // 获取机器人在线状态
+      // 获取机器人在线状态并更新到数据库
       let isOnline = false;
       try {
         isOnline = await worktoolApiService.isRobotOnline(robotId);
+        
+        // 更新数据库中的状态
+        const updatedRobot = await db.update(robots)
+          .set({
+            status: isOnline ? 'online' : 'offline',
+            lastCheckAt: new Date()
+          })
+          .where(eq(robots.robotId, robotId))
+          .returning();
+
+        if (updatedRobot.length > 0) {
+          result[0] = updatedRobot[0]; // 更新返回的数据
+        }
       } catch (error) {
         logger.warn('[ADMIN_ROBOT] 获取机器人在线状态失败', {
           robotId,
           error: error.message
         });
       }
+
+      logger.info('[ADMIN_ROBOT] 机器人信息同步成功', {
+        robotId,
+        nickname: updateData.nickname,
+        status: result[0].status
+      });
 
       return reply.send({
         code: 0,
