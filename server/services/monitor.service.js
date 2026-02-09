@@ -1,19 +1,10 @@
 /**
- * 监控服务（简化版）
- * 专注于从数据库查询实际存在的数据
+ * 监控服务
+ * 负责系统、群、用户、AI 的监控指标
  */
 
 const redisClient = require('../lib/redis');
 const { formatDate } = require('../lib/utils');
-const { getDb } = require('coze-coding-dev-sdk');
-const {
-  sessions,
-  sessionMessages,
-  robots,
-  ai_io_logs,
-  flowDefinitions
-} = require('../database/schema');
-const { desc, sql } = require('drizzle-orm');
 
 class MonitorService {
   constructor() {
@@ -28,227 +19,310 @@ class MonitorService {
   }
 
   /**
-   * 获取今日汇总数据（从数据库）
+   * 记录系统指标
+   */
+  async recordSystemMetric(metric, value, tags = {}) {
+    const redis = await this.getRedis();
+    const key = `metrics:system:${metric}:${formatDate()}`;
+    await redis.lpush(key, JSON.stringify({
+      value,
+      tags,
+      timestamp: Date.now()
+    }));
+    await redis.expire(key, 30 * 24 * 3600); // 保留30天
+  }
+
+  /**
+   * 记录群指标
+   */
+  async recordGroupMetric(groupId, metric, value) {
+    const redis = await this.getRedis();
+    const key = `metrics:group:${groupId}:${metric}:${formatDate()}`;
+    await redis.lpush(key, JSON.stringify({
+      value,
+      timestamp: Date.now()
+    }));
+    await redis.expire(key, 30 * 24 * 3600);
+  }
+
+  /**
+   * 记录用户指标
+   */
+  async recordUserMetric(userId, groupId, metric, value) {
+    const redis = await this.getRedis();
+    const key = `metrics:user:${userId}:${groupId}:${metric}:${formatDate()}`;
+    await redis.lpush(key, JSON.stringify({
+      value,
+      timestamp: Date.now()
+    }));
+    await redis.expire(key, 30 * 24 * 3600);
+  }
+
+  /**
+   * 记录 AI 指标
+   */
+  async recordAIMetric(aiProvider, metric, value, success = true) {
+    const redis = await this.getRedis();
+    const key = `metrics:ai:${aiProvider}:${metric}:${formatDate()}`;
+    await redis.lpush(key, JSON.stringify({
+      value,
+      success,
+      timestamp: Date.now()
+    }));
+    await redis.expire(key, 30 * 24 * 3600);
+  }
+
+  /**
+   * 获取系统指标
+   */
+  async getSystemMetrics(metric, date = formatDate()) {
+    const redis = await this.getRedis();
+    const key = `metrics:system:${metric}:${date}`;
+    const records = await redis.lrange(key, 0, -1);
+    
+    return records.map(r => JSON.parse(r));
+  }
+
+  /**
+   * 获取群指标
+   */
+  async getGroupMetrics(groupId, metric, date = formatDate()) {
+    const redis = await this.getRedis();
+    const key = `metrics:group:${groupId}:${metric}:${date}`;
+    const records = await redis.lrange(key, 0, -1);
+    
+    return records.map(r => JSON.parse(r));
+  }
+
+  /**
+   * 获取用户指标
+   */
+  async getUserMetrics(userId, groupId, metric, date = formatDate()) {
+    const redis = await this.getRedis();
+    const key = `metrics:user:${userId}:${groupId}:${metric}:${date}`;
+    const records = await redis.lrange(key, 0, -1);
+    
+    return records.map(r => JSON.parse(r));
+  }
+
+  /**
+   * 获取 AI 指标
+   */
+  async getAIMetrics(aiProvider, metric, date = formatDate()) {
+    const redis = await this.getRedis();
+    const key = `metrics:ai:${aiProvider}:${metric}:${date}`;
+    const records = await redis.lrange(key, 0, -1);
+    
+    const parsed = records.map(r => JSON.parse(r));
+    const total = parsed.length;
+    const success = parsed.filter(r => r.success).length;
+    const failure = total - success;
+    
+    return {
+      total,
+      success,
+      failure,
+      successRate: total > 0 ? (success / total * 100).toFixed(2) : 0,
+      records: parsed
+    };
+  }
+
+  /**
+   * 获取今日监控摘要
    */
   async getTodaySummary() {
-    try {
-      const db = await getDb();
+    const today = formatDate();
 
-      // 1. 获取会话统计
-      const sessionsData = await db
-        .select({
-          total: sql`COUNT(*)`,
-          auto: sql`COUNT(*) FILTER (WHERE status = 'auto')`,
-          human: sql`COUNT(*) FILTER (WHERE status = 'human')`,
-          pending: sql`COUNT(*) FILTER (WHERE status = 'pending')`
-        })
-        .from(sessions);
-
-      const sessionStats = sessionsData[0] || { total: 0, auto: 0, human: 0, pending: 0 };
-
-      // 2. 获取消息统计
-      const messagesData = await db
-        .select({
-          total: sql`COUNT(*)`,
-          user: sql`COUNT(*) FILTER (WHERE is_from_user = true)`,
-          robot: sql`COUNT(*) FILTER (WHERE is_from_bot = true)`
-        })
-        .from(sessionMessages);
-
-      const messageStats = messagesData[0] || { total: 0, user: 0, robot: 0 };
-
-      // 3. 获取机器人统计
-      const robotsData = await db
-        .select({
-          total: sql`COUNT(*)`,
-          active: sql`COUNT(*) FILTER (WHERE is_active = true)`
-        })
-        .from(robots);
-
-      const robotStats = robotsData[0] || { total: 0, active: 0 };
-
-      // 4. 获取AI日志统计
-      const aiData = await db
-        .select({
-          total: sql`COUNT(*)`,
-          success: sql`COUNT(*) FILTER (WHERE status = 'success')`,
-          error: sql`COUNT(*) FILTER (WHERE status = 'error')`
-        })
-        .from(ai_io_logs);
-
-      const aiStats = aiData[0] || { total: 0, success: 0, error: 0 };
-
-      // 5. 获取流程定义统计
-      const flowData = await db
-        .select({
-          total: sql`COUNT(*)`,
-          active: sql`COUNT(*) FILTER (WHERE is_active = true)`
-        })
-        .from(flowDefinitions);
-
-      const flowStats = flowData[0] || { total: 0, active: 0 };
-
-      // 6. 计算成功率
-      const aiSuccessRate = aiStats.total > 0
-        ? (aiStats.success / aiStats.total * 100).toFixed(2)
-        : '0';
-
-      // 7. 意图分布
-      const intentStats = await db
-        .select({
-          intent: sessionMessages.intent,
-          count: sql`COUNT(*)`
-        })
-        .from(sessionMessages)
-        .groupBy(sessionMessages.intent);
-
-      const intentDistribution = intentStats.reduce((acc, curr) => {
-        acc[curr.intent] = curr.count;
-        return acc;
-      }, {});
-
-      return {
-        date: formatDate(),
-        system: {
-          sessions_total: sessionStats.total,
-          sessions_active: sessionStats.auto,
-          sessions_human: sessionStats.human,
-          sessions_pending: sessionStats.pending,
-          messages_total: messageStats.total,
-          messages_user: messageStats.user,
-          messages_robot: messageStats.robot,
-          robots_total: robotStats.total,
-          robots_active: robotStats.active,
-          flows_total: flowStats.total,
-          flows_active: flowStats.active
-        },
-        ai: {
-          intentRecognition: { successRate: aiSuccessRate, total: aiStats.total },
-          serviceReply: { successRate: aiSuccessRate, total: aiStats.total },
-          chat: { successRate: aiSuccessRate, total: aiStats.total },
-          total: aiStats.total,
-          success: aiStats.success,
-          error: aiStats.error,
-          successRate: aiSuccessRate
-        },
-        summary: {
-          totalSessions: sessionStats.total,
-          totalMessages: messageStats.total,
-          totalRobots: robotStats.total,
-          aiSuccessRate: aiSuccessRate,
-          activeRobots: robotStats.active,
-          activeFlows: flowStats.active
-        },
-        details: {
-          sessions: sessionStats,
-          messages: messageStats,
-          robots: robotStats,
-          ai: aiStats,
-          flows: flowStats,
-          intentDistribution
-        }
-      };
-    } catch (error) {
-      console.error('获取今日汇总数据失败:', error);
-      // 返回空数据，避免前端崩溃
-      return {
-        date: formatDate(),
-        system: {
-          sessions_total: 0,
-          sessions_active: 0,
-          sessions_human: 0,
-          sessions_pending: 0,
-          messages_total: 0,
-          messages_user: 0,
-          messages_robot: 0,
-          robots_total: 0,
-          robots_active: 0,
-          flows_total: 0,
-          flows_active: 0
-        },
-        ai: {
-          intentRecognition: { successRate: '0', total: 0 },
-          serviceReply: { successRate: '0', total: 0 },
-          chat: { successRate: '0', total: 0 },
-          total: 0,
-          success: 0,
-          error: 0,
-          successRate: '0'
-        },
-        summary: {
-          totalSessions: 0,
-          totalMessages: 0,
-          totalRobots: 0,
-          aiSuccessRate: '0',
-          activeRobots: 0,
-          activeFlows: 0
-        },
-        details: {
-          sessions: { total: 0, auto: 0, human: 0, pending: 0 },
-          messages: { total: 0, user: 0, robot: 0 },
-          robots: { total: 0, active: 0 },
-          ai: { total: 0, success: 0, error: 0 },
-          flows: { total: 0, active: 0 },
-          intentDistribution: {}
-        }
-      };
+    // 系统指标
+    const systemMetrics = {};
+    const systemMetricNames = ['callback_received', 'callback_processed', 'callback_error', 'ai_requests', 'ai_errors'];
+    
+    for (const metric of systemMetricNames) {
+      const records = await this.getSystemMetrics(metric, today);
+      systemMetrics[metric] = records.length;
     }
+
+    // AI 指标
+    const aiProviders = ['intentRecognition', 'serviceReply', 'chat', 'report'];
+    const aiMetrics = {};
+    
+    for (const provider of aiProviders) {
+      aiMetrics[provider] = await this.getAIMetrics(provider, 'requests', today);
+    }
+
+    return {
+      date: today,
+      system: systemMetrics,
+      ai: aiMetrics,
+      summary: {
+        totalCallbacks: systemMetrics.callback_received || 0,
+        successRate: systemMetrics.callback_processed 
+          ? ((systemMetrics.callback_processed / (systemMetrics.callback_received || 1)) * 100).toFixed(2)
+          : 0,
+        aiSuccessRate: aiMetrics.intentRecognition?.successRate || 0
+      }
+    };
   }
 
   /**
-   * 获取群活跃度排行（从数据库）
+   * 获取群活跃度排行
    */
   async getTopActiveGroups(date = formatDate(), limit = 10) {
-    try {
-      const db = await getDb();
-
-      const groupStats = await db
-        .select({
-          groupId: sessions.groupId,
-          groupName: sessions.groupName,
-          messageCount: sql`COUNT(*)`
-        })
-        .from(sessionMessages)
-        .innerJoin(sessions, eq(sessionMessages.sessionId, sessions.sessionId))
-        .groupBy(sessions.groupId, sessions.groupName)
-        .orderBy(sql`COUNT(*) DESC`)
-        .limit(limit);
-
-      return groupStats;
-    } catch (error) {
-      console.error('获取群活跃度排行失败:', error);
-      return [];
+    const redis = await this.getRedis();
+    const pattern = `metrics:group:*:messages:${date}`;
+    const keys = await redis.keys(pattern);
+    
+    const groupStats = [];
+    
+    for (const key of keys) {
+      const records = await redis.lrange(key, 0, -1);
+      const groupId = key.split(':')[2];
+      const totalMessages = records.length;
+      
+      if (totalMessages > 0) {
+        groupStats.push({
+          groupId,
+          totalMessages,
+          records: records.map(r => JSON.parse(r))
+        });
+      }
     }
+
+    return groupStats
+      .sort((a, b) => b.totalMessages - a.totalMessages)
+      .slice(0, limit);
   }
 
   /**
-   * 获取用户活跃度排行（从数据库）
+   * 获取用户活跃度排行
    */
   async getTopActiveUsers(date = formatDate(), limit = 10) {
-    try {
-      const db = await getDb();
-
-      const userStats = await db
-        .select({
-          userId: sessions.userId,
-          userName: sessions.userName,
-          messageCount: sql`COUNT(*)`
-        })
-        .from(sessionMessages)
-        .innerJoin(sessions, eq(sessionMessages.sessionId, sessions.sessionId))
-        .groupBy(sessions.userId, sessions.userName)
-        .orderBy(sql`COUNT(*) DESC`)
-        .limit(limit);
-
-      return userStats;
-    } catch (error) {
-      console.error('获取用户活跃度排行失败:', error);
-      return [];
+    const redis = await this.getRedis();
+    const pattern = `metrics:user:*:*:messages:${date}`;
+    const keys = await redis.keys(pattern);
+    
+    const userStats = new Map();
+    
+    for (const key of keys) {
+      const parts = key.split(':');
+      const userId = parts[2];
+      const groupId = parts[3];
+      const records = await redis.lrange(key, 0, -1);
+      
+      if (!userStats.has(userId)) {
+        userStats.set(userId, {
+          userId,
+          groups: new Set(),
+          totalMessages: 0
+        });
+      }
+      
+      const stat = userStats.get(userId);
+      stat.groups.add(groupId);
+      stat.totalMessages += records.length;
     }
+
+    return Array.from(userStats.values())
+      .sort((a, b) => b.totalMessages - a.totalMessages)
+      .slice(0, limit)
+      .map(stat => ({
+        ...stat,
+        groups: Array.from(stat.groups)
+      }));
+  }
+
+  /**
+   * 记录机器人指标
+   */
+  async recordRobotMetric(robotId, metric, value, tags = {}) {
+    const redis = await this.getRedis();
+    const key = `metrics:robot:${robotId}:${metric}:${formatDate()}`;
+    await redis.lpush(key, JSON.stringify({
+      value,
+      tags,
+      timestamp: Date.now()
+    }));
+    await redis.expire(key, 30 * 24 * 3600); // 保留30天
+  }
+
+  /**
+   * 获取机器人指标
+   */
+  async getRobotMetrics(robotId, metric, date = formatDate()) {
+    const redis = await this.getRedis();
+    const key = `metrics:robot:${robotId}:${metric}:${date}`;
+    const records = await redis.lrange(key, 0, -1);
+    
+    return records.map(r => JSON.parse(r));
+  }
+
+  /**
+   * 获取所有机器人状态摘要
+   */
+  async getRobotsSummary() {
+    const redis = await this.getRedis();
+    const today = formatDate();
+    
+    // 获取所有机器人的消息处理统计
+    const pattern = `metrics:robot:*:messages:${today}`;
+    const keys = await redis.keys(pattern);
+    
+    const robotsStats = [];
+    
+    for (const key of keys) {
+      const robotId = key.split(':')[2];
+      const records = await redis.lrange(key, 0, -1);
+      
+      // 统计各种指标
+      const messagesProcessed = records.length;
+      const errors = records.filter(r => r.tags?.error).length;
+      
+      robotsStats.push({
+        robotId,
+        messagesProcessed,
+        errors,
+        successRate: messagesProcessed > 0 ? ((messagesProcessed - errors) / messagesProcessed * 100).toFixed(2) : 100
+      });
+    }
+    
+    return robotsStats;
+  }
+
+  /**
+   * 清理过期指标
+   */
+  async cleanupOldMetrics(daysToKeep = 30) {
+    const redis = await this.getRedis();
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+    const cutoff = formatDate(cutoffDate);
+
+    const patterns = [
+      'metrics:system:*',
+      'metrics:group:*',
+      'metrics:user:*',
+      'metrics:ai:*',
+      'metrics:robot:*'
+    ];
+
+    let deletedCount = 0;
+
+    for (const pattern of patterns) {
+      const keys = await redis.keys(pattern);
+      
+      for (const key of keys) {
+        const keyParts = key.split(':');
+        const keyDate = keyParts[keyParts.length - 1];
+        
+        if (keyDate < cutoff) {
+          await redis.del(key);
+          deletedCount++;
+        }
+      }
+    }
+
+    return deletedCount;
   }
 }
 
-// 创建单例
-const monitorService = new MonitorService();
-
-module.exports = monitorService;
+module.exports = new MonitorService();
