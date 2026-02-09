@@ -34,13 +34,17 @@ import {
   Bell,
   Users,
   Maximize2,
-  Minimize2
+  Minimize2,
+  TreeStructure,
+  Bug
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import FlowEditor from '@/components/flow-engine-editor';
 import VersionManagement from '@/components/flow-engine/version-management';
 import TestPanel from '@/components/flow-engine/test-panel';
 import ExecutionMonitor from '@/components/flow-engine/execution-monitor';
+import ContextVisualizer from '@/components/flow-engine/context-visualizer';
+import ContextDebugPanel from '@/components/flow-engine/context-debug-panel';
 import { NODE_TYPES, NODE_METADATA } from '@/app/flow-engine/types';
 import {
   getFlowDefinitions,
@@ -110,7 +114,7 @@ export default function FlowEngineManage() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFlow, setSelectedFlow] = useState<FlowDefinition | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [activeTab, setActiveTab] = useState<'flows' | 'instances' | 'versions' | 'test' | 'monitor'>('flows');
+  const [activeTab, setActiveTab] = useState<'flows' | 'instances' | 'versions' | 'test' | 'monitor' | 'context-viz' | 'context-debug'>('flows');
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
 
   // 编辑器对话框状态（统一用于创建和编辑）
@@ -564,6 +568,28 @@ export default function FlowEngineManage() {
           <Eye className="h-4 w-4 inline mr-2" />
           执行监控
         </button>
+        <button
+          onClick={() => setActiveTab('context-viz')}
+          className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${
+            activeTab === 'context-viz'
+              ? 'text-primary border-b-2 border-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <TreeStructure className="h-4 w-4 inline mr-2" />
+          Context 可视化
+        </button>
+        <button
+          onClick={() => setActiveTab('context-debug')}
+          className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${
+            activeTab === 'context-debug'
+              ? 'text-primary border-b-2 border-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Bug className="h-4 w-4 inline mr-2" />
+          Context 调试
+        </button>
       </div>
 
       {/* 流程列表 */}
@@ -786,6 +812,16 @@ export default function FlowEngineManage() {
       {/* 执行监控 */}
       {activeTab === 'monitor' && (
         <ExecutionMonitor />
+      )}
+
+      {/* Context 可视化 */}
+      {activeTab === 'context-viz' && (
+        <ContextVisualizer />
+      )}
+
+      {/* Context 调试 */}
+      {activeTab === 'context-debug' && (
+        <ContextDebugPanel />
       )}
 
       {/* 统一的流程编辑器对话框（创建和编辑） */}
