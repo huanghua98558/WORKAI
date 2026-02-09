@@ -3039,10 +3039,16 @@ class FlowEngine {
         throw new Error('没有可发送的内容');
       }
 
-      // 获取机器人ID
-      const botId = robotId || context.robotId;
+      // 获取机器人ID（支持多种来源：节点配置、context.robotId、context.robot.robotId）
+      const botId = robotId || context.robotId || context.robot?.robotId;
 
       if (!botId) {
+        logger.error('机器人ID获取失败，context结构:', {
+          contextKeys: Object.keys(context),
+          hasRobot: !!context.robot,
+          hasRobotId: !!context.robotId,
+          robotInfo: context.robot ? { id: context.robot.id, robotId: context.robot.robotId } : null
+        });
         throw new Error('机器人ID不能为空');
       }
 
