@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 日志测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #fafafa;
+        }
+        .test-section h2 {
+            color: #007bff;
+            margin-top: 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+            max-height: 300px;
+            font-size: 12px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .summary-card {
+            background: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        .summary-card h3 {
+            margin: 0 0 10px 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .summary-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 AI 日志测试工具</h1>
+
+        <button onclick="runTests()">🚀 运行测试</button>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        async function runTests() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="status loading">⏳ 正在测试...</div>';
+
+            let html = '';
+
+            // 测试 1: 后端 API
+            html += '<div class="test-section">';
+            html += '<h2>1️⃣ 测试后端 API (http://localhost:5001)</h2>';
+
+            try {
+                const response = await fetch('http://localhost:5001/api/monitoring/ai-logs?limit=5');
+                const data = await response.json();
+
+                html += '<div class="status success">✅ 成功</div>';
+                html += '<p><strong>状态码:</strong> ' + response.status + '</p>';
+                html += '<p><strong>记录数量:</strong> ' + data.data?.length + '</p>';
+
+                if (data.data && data.data.length > 0) {
+                    const latest = data.data[0];
+                    html += '<p><strong>最新记录:</strong></p>';
+                    html += '<pre>' + JSON.stringify(latest, null, 2) + '</pre>';
+                }
+            } catch (error) {
+                html += '<div class="status error">❌ 失败</div>';
+                html += '<p><strong>错误:</strong> ' + error.message + '</p>';
+                html += '<p><strong>原因:</strong> 后端服务可能没有运行（5001端口无法连接）</p>';
+            }
+
+            html += '</div>';
+
+            // 测试 2: 前端代理 API
+            html += '<div class="test-section">';
+            html += '<h2>2️⃣ 测试前端代理 API</h2>';
+
+            try {
+                const response = await fetch('/api/monitoring/ai-logs?limit=5');
+                const data = await response.json();
+
+                html += '<div class="status success">✅ 成功</div>';
+                html += '<p><strong>状态码:</strong> ' + response.status + '</p>';
+                html += '<p><strong>记录数量:</strong> ' + data.data?.length + '</p>';
+
+                if (data.data && data.data.length > 0) {
+                    const latest = data.data[0];
+                    html += '<p><strong>最新记录:</strong></p>';
+                    html += '<pre>' + JSON.stringify(latest, null, 2) + '</pre>';
+                }
+            } catch (error) {
+                html += '<div class="status error">❌ 失败</div>';
+                html += '<p><strong>错误:</strong> ' + error.message + '</p>';
+            }
+
+            html += '</div>';
+
+            // 统计信息
+            html += '<div class="test-section">';
+            html += '<h2>📊 统计信息</h2>';
+
+            try {
+                const response = await fetch('/api/monitoring/ai-logs?limit=50');
+                const data = await response.json();
+
+                if (data.data) {
+                    const total = data.data.length;
+                    const success = data.data.filter(log => log.status === 'success').length;
+                    const totalTokens = data.data.reduce((sum, log) => sum + (log.totalTokens || 0), 0);
+
+                    html += '<div class="summary">';
+                    html += '<div class="summary-card"><h3>总记录数</h3><div class="value">' + total + '</div></div>';
+                    html += '<div class="summary-card"><h3>成功数</h3><div class="value">' + success + '</div></div>';
+                    html += '<div class="summary-card"><h3>总 Token</h3><div class="value">' + totalTokens + '</div></div>';
+                    html += '</div>';
+                }
+            } catch (error) {
+                html += '<p><strong>统计失败:</strong> ' + error.message + '</p>';
+            }
+
+            html += '</div>';
+
+            // 操作建议
+            html += '<div class="test-section">';
+            html += '<h2>💡 操作建议</h2>';
+            html += '<ul>';
+            html += '<li>如果两个测试都成功，说明数据正常，请刷新 AI 交互监控页面</li>';
+            html += '<li>如果后端 API 失败，说明后端服务没有运行，需要重启后端</li>';
+            html += '<li>如果前端代理 API 失败，检查页面是否正确加载</li>';
+            html += '<li>刷新页面：按 F5 或 Ctrl+R</li>';
+            html += '<li>清除缓存：Ctrl+Shift+Delete</li>';
+            html += '</ul>';
+            html += '</div>';
+
+            resultsDiv.innerHTML = html;
+        }
+
+        // 页面加载时自动运行测试
+        window.onload = function() {
+            runTests();
+        };
+    </script>
+</body>
+</html>
