@@ -897,7 +897,10 @@ const adminApiRoutes = async function (fastify, options) {
         limit: parseInt(limit),
         hours: parseInt(hours)
       });
-      return { success: true, data: sessions };
+      
+      // 返回 rows 数组，而不是整个 QueryResult 对象
+      // 这样符合文档规范的数据格式
+      return { success: true, data: sessions.rows || [] };
     } catch (error) {
       logger.error('[ADMIN_API] 获取活跃会话失败', { error: error.message });
       return reply.status(500).send({
