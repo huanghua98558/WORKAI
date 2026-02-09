@@ -236,7 +236,8 @@ class DoubaoService {
         usage: {
           inputTokens,
           outputTokens,
-          totalTokens
+          totalTokens,
+          duration: Date.now() - startTime
         }
       };
 
@@ -256,7 +257,7 @@ class DoubaoService {
           inputTokens: result.usage.inputTokens,
           outputTokens: result.usage.outputTokens,
           totalTokens: result.usage.totalTokens,
-          responseTime: Date.now() - startTime,
+          responseTime: result.usage.duration,
           status: 'success',
           sessionId: context.sessionId,
           metadata: { ...context, contentLength: result.content.length }

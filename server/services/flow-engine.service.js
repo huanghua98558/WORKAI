@@ -954,8 +954,12 @@ class FlowEngine {
         aiInput: JSON.stringify(messages),
         aiOutput: result.content,
         modelId,
+        temperature,
         requestDuration: result.usage?.duration || 0,
-        status: 'success'
+        status: 'success',
+        inputTokens: result.usage?.inputTokens || 0,
+        outputTokens: result.usage?.outputTokens || 0,
+        totalTokens: result.usage?.totalTokens || 0
       });
 
       return {
@@ -1450,6 +1454,20 @@ class FlowEngine {
    */
   async saveAILog(sessionId, messageId, logData) {
     try {
+      logger.info('准备保存AI IO日志', {
+        sessionId,
+        messageId,
+        robotId: logData.robotId,
+        robotName: logData.robotName,
+        operationType: logData.operationType,
+        modelId: logData.modelId,
+        temperature: logData.temperature,
+        inputTokens: logData.inputTokens,
+        outputTokens: logData.outputTokens,
+        totalTokens: logData.totalTokens,
+        requestDuration: logData.requestDuration
+      });
+
       const db = await this.getDb();
       await db.insert(aiIoLogs).values({
         sessionId,
@@ -1460,9 +1478,13 @@ class FlowEngine {
         aiInput: logData.aiInput,
         aiOutput: logData.aiOutput,
         modelId: logData.modelId,
-        requestDuration: logData.requestDuration,
+        temperature: logData.temperature || null,
+        requestDuration: logData.requestDuration || 0,
         status: logData.status,
         errorMessage: logData.errorMessage,
+        inputTokens: logData.inputTokens || 0,
+        outputTokens: logData.outputTokens || 0,
+        totalTokens: logData.totalTokens || 0,
         createdAt: new Date()
       });
       logger.info('AI IO日志保存成功', { sessionId, messageId });
@@ -2715,6 +2737,13 @@ class FlowEngine {
       });
 
       // 记录AI IO日志
+      logger.info('准备调用saveAILog', {
+        contextSessionId: context.sessionId,
+        contextMessageId: context.messageId,
+        contextRobotId: context.robotId,
+        contextRobotName: context.robotName
+      });
+
       await this.saveAILog(context.sessionId, context.messageId, {
         robotId: context.robotId,
         robotName: context.robotName,
@@ -2722,9 +2751,12 @@ class FlowEngine {
         aiInput: JSON.stringify(messages),
         aiOutput: result.content,
         modelId,
+        temperature,
         requestDuration: result.usage?.duration || 0,
-        kbMatchUsed: kbMatchResult?.matches.length > 0,
-        status: 'success'
+        status: 'success',
+        inputTokens: result.usage?.inputTokens || 0,
+        outputTokens: result.usage?.outputTokens || 0,
+        totalTokens: result.usage?.totalTokens || 0
       });
 
       return {
@@ -4715,8 +4747,12 @@ class FlowEngine {
         aiInput: JSON.stringify(messages),
         aiOutput: result.content,
         modelId,
+        temperature,
         requestDuration: result.usage?.duration || 0,
-        status: 'success'
+        status: 'success',
+        inputTokens: result.usage?.inputTokens || 0,
+        outputTokens: result.usage?.outputTokens || 0,
+        totalTokens: result.usage?.totalTokens || 0
       });
 
       return {
