@@ -786,12 +786,14 @@ class FlowEngine {
         variableCount: Object.keys(processedVariables).length
       });
 
+      // 只返回必要信息，避免存储大量数据
       return {
         success: true,
         message: '流程开始',
         flowExecutionId,
         traceId,
-        context: enhancedContext
+        flowVersion: enhancedContext.flowVersion,
+        environment: enhancedContext.environment
       };
     } catch (error) {
       logger.error('开始节点执行失败', { error: error.message });
@@ -812,14 +814,11 @@ class FlowEngine {
    */
   async handleEndNode(node, context) {
     logger.info('执行结束节点', { node, context });
+    // 只返回必要信息，避免存储大量数据
     return {
       success: true,
       message: '流程结束',
-      result: {
-        finalContext: context,
-        timestamp: new Date().toISOString()
-      },
-      context
+      timestamp: new Date().toISOString()
     };
   }
 

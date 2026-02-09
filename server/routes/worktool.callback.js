@@ -73,13 +73,15 @@ const worktoolCallbackRoutes = async function (fastify, options) {
     try {
       await db.insert(callbackHistory).values({
         robotId,
-        type: String(type),
         messageId,
-        errorCode,
-        errorMsg,
-        responseTime: extraData.responseTime || 0,
-        extraData: JSON.stringify(extraData),
-        createdAt: new Date()
+        callbackType: parseInt(String(type || '0')),
+        errorCode: parseInt(String(errorCode || '0')),
+        errorReason: String(errorMsg || ''),
+        runTime: Date.now(),
+        timeCost: extraData.responseTime || 0,
+        commandType: extraData.command ? parseInt(String(extraData.command)) : null,
+        rawMsg: JSON.stringify(extraData),
+        extraData: extraData
       });
     } catch (error) {
       console.error('记录回调历史失败:', error);
