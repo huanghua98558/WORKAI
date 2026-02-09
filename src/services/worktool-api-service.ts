@@ -3,7 +3,7 @@
  * 用于调用 WorkTool 机器人管理 API
  */
 
-import { ResponseHelper } from '@/lib/api';
+import { ResponseHelper, ApiResponse } from '@/lib/api';
 
 // 获取认证 Token
 function getToken(): string {
@@ -11,6 +11,30 @@ function getToken(): string {
     return localStorage.getItem('token') || '';
   }
   return '';
+}
+
+/**
+ * 处理 fetch Response 对象
+ * 将 Response 转换为 ApiResponse 格式
+ */
+async function handleResponse<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+  }
+
+  const data = await response.json();
+
+  // 兼容后端返回的格式: { code, message, data }
+  if (data.code !== undefined) {
+    if (data.code !== 0) {
+      throw new Error(data.message || '操作失败');
+    }
+    return data.data as T;
+  }
+
+  // 兼容其他格式
+  return data as T;
 }
 
 export interface SendMessageRequest {
@@ -114,7 +138,7 @@ export class WorkToolApiService {
       body: JSON.stringify(request),
     });
 
-    return ResponseHelper.handle(response);
+    return handleResponse<SendMessageResponse>(response);
   }
 
   /**
@@ -127,7 +151,7 @@ export class WorkToolApiService {
       },
     });
 
-    return ResponseHelper.handle(response);
+    return handleResponse<RobotInfo>(response);
   }
 
   /**
@@ -140,7 +164,7 @@ export class WorkToolApiService {
       },
     });
 
-    return ResponseHelper.handle(response);
+    return handleResponse<OnlineStatus>(response);
   }
 
   /**
@@ -163,7 +187,7 @@ export class WorkToolApiService {
       },
     });
 
-    return ResponseHelper.handle(response);
+    return handleResponse<LoginLogsResponse>(response);
   }
 
   /**
@@ -186,7 +210,7 @@ export class WorkToolApiService {
       },
     });
 
-    return ResponseHelper.handle(response);
+    return handleResponse<CommandMessagesResponse>(response);
   }
 
   /**
@@ -209,7 +233,7 @@ export class WorkToolApiService {
       },
     });
 
-    return ResponseHelper.handle(response);
+    return handleResponse<CommandResultsResponse>(response);
   }
 
   /**
@@ -232,7 +256,7 @@ export class WorkToolApiService {
       },
     });
 
-    return ResponseHelper.handle(response);
+    return handleResponse<MessageLogsResponse>(response);
   }
 
   /**
@@ -248,7 +272,7 @@ export class WorkToolApiService {
       body: JSON.stringify(request),
     });
 
-    return ResponseHelper.handle(response);
+    return handleResponse<void>(response);
   }
 }
 

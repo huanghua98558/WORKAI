@@ -21,7 +21,7 @@ import {
   Activity,
   Settings,
   RefreshCw,
-} from 'luide-react';
+} from 'lucide-react';
 
 interface WorkToolRobotPanelProps {
   robotId: string;

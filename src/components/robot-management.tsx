@@ -69,6 +69,7 @@ import RobotGroupManager from '@/components/robot/robot-group-manager';
 import RobotRoleManager from '@/components/robot/robot-role-manager';
 import CommandSender from '@/components/robot/command-sender';
 import MonitoringDashboard from '@/components/robot/monitoring-dashboard';
+import WorkToolOnlineStatus from './robot/worktool-online-status';
 
 interface Robot {
   id: string;
@@ -798,6 +799,13 @@ export default function RobotManagement() {
                     <span className="font-medium">{robot.name}</span>
                     <Badge variant="outline" className="text-xs">{robot.robotId}</Badge>
                     {getStatusBadge(robot.status, robot.isActive)}
+                    {/* WorkTool 在线状态显示 */}
+                    <WorkToolOnlineStatus
+                      robotId={robot.robotId}
+                      autoRefresh={true}
+                      refreshInterval={60000}
+                      className="ml-2"
+                    />
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -875,6 +883,12 @@ export default function RobotManagement() {
                     <div className="flex items-center gap-2 mb-1">
                       <CardTitle className="text-lg">{robot.name}</CardTitle>
                       {getStatusBadge(robot.status, robot.isActive)}
+                      {/* WorkTool 在线状态显示 */}
+                      <WorkToolOnlineStatus
+                        robotId={robot.robotId}
+                        autoRefresh={true}
+                        refreshInterval={60000}
+                      />
                     </div>
                     <CardDescription className="flex items-center gap-2">
                       <Code className="h-3 w-3" />

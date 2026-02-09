@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   MessageSquare,
   RefreshCw,
@@ -21,8 +22,10 @@ import {
   Search,
   ChevronDown,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  Send
 } from 'lucide-react';
+import WorkToolMessageSender from './robot/worktool-message-sender';
 
 // 会话数据类型
 interface Session {
@@ -103,6 +106,14 @@ export default function BusinessMessageMonitor({
   const [statusFilter, setStatusFilter] = useState<'all' | 'processing' | 'ai_generated' | 'sent' | 'completed' | 'failed'>('all');
   const [expandedExecutionId, setExpandedExecutionId] = useState<string | null>(null);
   const [limit, setLimit] = useState(20);
+
+  // 消息发送对话框状态
+  const [sendMessageDialogOpen, setSendMessageDialogOpen] = useState(false);
+  const [sendMessageData, setSendMessageData] = useState<{
+    robotId: string;
+    toName: string;
+    groupName: string;
+  } | null>(null);
 
   // 加载最近50个会话的消息
   useEffect(() => {
@@ -762,6 +773,29 @@ export default function BusinessMessageMonitor({
 
                           {/* 右侧操作按钮 */}
                           <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                            {/* 发送消息按钮（仅对用户消息显示） */}
+                            {execution.senderType === 'user' && execution.userName && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs gap-1"
+                                onClick={() => {
+                                  // 查找对应的会话信息
+                                  const session = sessions.find(s => s.sessionId === execution.sessionId);
+                                  if (session) {
+                                    setSendMessageData({
+                                      robotId: session.robotId,
+                                      toName: execution.userName,
+                                      groupName: session.groupName
+                                    });
+                                    setSendMessageDialogOpen(true);
+                                  }
+                                }}
+                              >
+                                <Send className="h-3 w-3" />
+                                发送消息
+                              </Button>
+                            )}
                             {onNavigateToSession && execution.sessionId && (
                               <Button
                                 variant="ghost"
@@ -845,6 +879,39 @@ export default function BusinessMessageMonitor({
           </ScrollArea>
         </CardContent>
       </Card>
+
+      {/* 消息发送对话框 */}
+      <Dialog open={sendMessageDialogOpen} onOpenChange={setSendMessageDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>发送消息</DialogTitle>
+            <DialogDescription>
+              {sendMessageData && (
+                <>
+                  向 <span className="font-semibold">{sendMessageData.toName}</span>
+                  {sendMessageData.groupName && (
+                    <> (群组: <span className="font-semibold">{sendMessageData.groupName}</span>) </>
+                  )} 发送消息
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {sendMessageData && (
+            <WorkToolMessageSender
+              robotId={sendMessageData.robotId}
+              toName={sendMessageData.toName}
+              groupName={sendMessageData.groupName}
+              onSendSuccess={() => {
+                setSendMessageDialogOpen(false);
+                handleRefresh();
+              }}
+              onSendError={(error) => {
+                console.error('发送消息失败:', error);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
