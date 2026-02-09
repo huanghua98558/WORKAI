@@ -30,17 +30,24 @@ class WorkToolApiService {
         throw new Error(`机器人不存在: ${robotId}`);
       }
 
-      // 直接从 apiBaseUrl 字段获取，而不是从 config
+      // 从数据库获取 apiBaseUrl
       const apiBaseUrl = robot[0].apiBaseUrl;
+
+      logger.info('获取到 API Base URL', { robotId, apiBaseUrl });
 
       if (!apiBaseUrl) {
         throw new Error(`机器人 ${robotId} 未配置 apiBaseUrl`);
       }
 
-      this.apiBaseUrl = apiBaseUrl;
+      // 从 apiBaseUrl 提取基础地址（移除 /wework/ 后缀）
+      const baseUrl = apiBaseUrl.replace(/\/wework\/?$/, '').replace(/\/$/, '');
+
+      logger.info('处理后的 Base URL', { robotId, baseUrl });
+
+      this.apiBaseUrl = baseUrl;
       return this.apiBaseUrl;
     } catch (error) {
-      logger.error('获取 API Base URL 失败', { robotId, error: error.message });
+      logger.error('获取 API Base URL 失败', { robotId, error: error.message, stack: error.stack });
       throw error;
     }
   }
@@ -124,23 +131,48 @@ class WorkToolApiService {
    * @returns {Promise<object>} 机器人信息
    */
   async getRobotInfo(robotId) {
+    logger.info('开始获取机器人信息', { robotId });
+
     try {
+      logger.info('步骤1: 获取 API Base URL', { robotId });
       const apiBaseUrl = await this.getApiBaseUrl(robotId);
+      
+      logger.info('步骤2: 构建请求 URL', { robotId, apiBaseUrl });
       const url = `${apiBaseUrl}/robot/robotInfo/get?robotId=${robotId}`;
 
-      logger.info('获取机器人信息', { robotId });
+      logger.info('步骤3: 发起 fetch 请求', { robotId, url });
 
       const response = await fetch(url);
-      const result = await response.json();
+      
+      logger.info('步骤4: 收到响应', { robotId, status: response.status, ok: response.ok });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        logger.error('WorkTool API 返回错误状态', { robotId, status: response.status, errorText });
+        throw new Error(`获取机器人信息失败: HTTP ${response.status} - ${errorText}`);
+      }
+
+      logger.info('步骤5: 解析 JSON', { robotId });
+      
+      let result;
+      try {
+        result = await response.json();
+      } catch (jsonError) {
+        const errorText = await response.text();
+        logger.error('解析 JSON 响应失败', { robotId, error: jsonError.message, responseText: errorText });
+        throw new Error(`获取机器人信息失败: 无法解析响应 - ${errorText}`);
+      }
+
+      logger.info('步骤6: 检查响应码', { robotId, code: result.code, message: result.message });
 
       if (result.code !== 200) {
         throw new Error(`获取机器人信息失败: ${result.message}`);
       }
 
-      logger.info('获取机器人信息成功', { robotId });
+      logger.info('步骤7: 返回数据', { robotId });
       return result.data;
     } catch (error) {
-      logger.error('获取机器人信息失败', { robotId, error: error.message });
+      logger.error('获取机器人信息失败', { robotId, error: error.message, name: error.name, stack: error.stack });
       throw error;
     }
   }
