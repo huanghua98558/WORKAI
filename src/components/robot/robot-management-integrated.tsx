@@ -421,6 +421,8 @@ export default function RobotManagement() {
         setSaveSuccess(true);
         // 刷新机器人列表
         await loadRobots();
+        // 关闭对话框
+        setShowEditDialog(false);
       } else {
         setSaveError(result.message || '保存失败');
       }
@@ -451,6 +453,8 @@ export default function RobotManagement() {
         setSaveSuccess(true);
         // 刷新机器人列表
         await loadRobots();
+        // 关闭对话框
+        setShowConfigDialog(false);
       } else {
         setSaveError(result.message || '保存失败');
       }
