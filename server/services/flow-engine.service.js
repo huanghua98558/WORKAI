@@ -11,6 +11,7 @@ const { getLogger } = require('../lib/logger');
 const AIServiceFactory = require('./ai/AIServiceFactory'); // AI服务工厂
 const { flowSelector, SelectionStrategy } = require('./flow-selector.service'); // 流程选择器
 const { collaborationService } = require('./collaboration.service'); // 协同分析服务
+const ContextHelper = require('../lib/context-helper'); // Context 工具类
 
 const logger = getLogger('FLOW_ENGINE');
 
@@ -991,9 +992,12 @@ class FlowEngine {
       });
 
       // 9. 记录AI IO日志
+      const robotId = ContextHelper.getRobotId(context, node);
+      const robotName = ContextHelper.getRobotName(context, node);
+      
       await this.saveAILog(context.sessionId, context.messageId, {
-        robotId: context.robotId,
-        robotName: context.robotName,
+        robotId,
+        robotName,
         operationType: 'ai_chat',
         aiInput: JSON.stringify(messages),
         aiOutput: result.content,
@@ -2712,8 +2716,9 @@ class FlowEngine {
       try {
         const sessionId = context.sessionId || context.variables?.sessionId;
         if (sessionId) {
+          const robotId = ContextHelper.getRobotId(context, node);
           const aiDecision = await collaborationService.shouldAIReply(sessionId, {
-            robotId: context.robotId,
+            robotId,
             groupName: context.groupName,
             userName: context.userName
           });
@@ -2831,9 +2836,12 @@ class FlowEngine {
         contextRobotName: context.robotName
       });
 
+      const robotId = ContextHelper.getRobotId(context, node);
+      const robotName = ContextHelper.getRobotName(context, node);
+      
       await this.saveAILog(context.sessionId, context.messageId, {
-        robotId: context.robotId,
-        robotName: context.robotName,
+        robotId,
+        robotName,
         operationType: 'ai_reply',
         aiInput: JSON.stringify(messages),
         aiOutput: result.content,
@@ -4735,8 +4743,9 @@ class FlowEngine {
       try {
         const sessionId = context.sessionId || context.variables?.sessionId;
         if (sessionId) {
+          const robotId = ContextHelper.getRobotId(context, node);
           const aiDecision = await collaborationService.shouldAIReply(sessionId, {
-            robotId: context.robotId,
+            robotId,
             groupName: context.groupName,
             userName: context.userName
           });
