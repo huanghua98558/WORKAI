@@ -486,7 +486,7 @@ const MemoizedAiReplyConfig = React.memo(function AiReplyConfig({ config, onChan
   React.useEffect(() => {
     const fetchModels = async () => {
       try {
-        const response = await fetch('/api/ai-models?enabled=true');
+        const response = await fetch('/api/proxy/ai/models?enabled=true');
         const result = await response.json();
         if (result.success) {
           setModels(result.data);
