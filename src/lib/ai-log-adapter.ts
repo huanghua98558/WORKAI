@@ -72,8 +72,8 @@ export function adaptBackendAILogsToFrontend(backendLogs: BackendAILog[]): AILog
       temperature: log.temperature,
       duration: log.requestDuration,
       status: log.status === 'processing' ? 'processing' : 
-             log.status === 'completed' ? 'completed' : 
-             log.status === 'failed' ? 'failed' : 'processing',
+             log.status === 'completed' || log.status === 'success' ? 'completed' : 
+             log.status === 'failed' || log.status === 'error' ? 'failed' : 'processing',
       error_message: log.errorMessage,
       created_at: log.createdAt,
       intent: intent || undefined,
