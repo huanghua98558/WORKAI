@@ -108,72 +108,69 @@ const adminApiRoutes = async function (fastify, options) {
   });
 
   /**
-   * 检查机器人状态
+   * 同步机器人信息（从 WorkTool API 获取最新信息）
    * POST /api/admin/robots/check-status/:robotId
+   * 注意：此接口不需要用户认证，只需要验证 robotId 的有效性
    */
-  fastify.post('/robots/check-status/:robotId', {
-    onRequest: [verifyAuth],
-  }, async (request, reply) => {
+  fastify.post('/robots/check-status/:robotId', {}, async (request, reply) => {
     try {
-      const { isActive, status, search } = request.query;
-      const { user } = request;
+      const { robotId } = request.params;
 
-      logger.info('[ADMIN_ROBOT] 获取机器人列表', {
-        userId: user.id,
-        role: user.role
+      logger.info('[ADMIN_ROBOT] 同步机器人信息', {
+        robotId
       });
 
-      // 检查 robotService 是否存在
-      if (!robotService || typeof robotService.getAllRobots !== 'function') {
-        logger.error('[ADMIN_ROBOT] robotService 未正确加载');
-        return reply.status(500).send({
+      // 调用 WorkTool API 获取机器人信息
+      const robotInfo = await worktoolApiService.getRobotInfo(robotId);
+
+      // 更新数据库中的机器人信息
+      const { getDb } = require('coze-coding-dev-sdk');
+      const { robots } = require('../database/schema');
+      const { eq } = require('drizzle-orm');
+
+      const db = await getDb();
+
+      // 准备更新数据
+      const updateData = {
+        nickname: robotInfo.name || robotInfo.corporation,
+        company: robotInfo.corporation,
+        isValid: true,
+        activatedAt: robotInfo.firstLogin ? new Date(robotInfo.firstLogin) : null,
+        expiresAt: robotInfo.authExpir ? new Date(robotInfo.authExpir) : null,
+        messageCallbackEnabled: robotInfo.openCallback === 1,
+        callbackBaseUrl: robotInfo.callbackUrl ? new URL(robotInfo.callbackUrl).origin : null,
+        extraData: {
+          ...robotInfo,
+          lastSyncAt: new Date().toISOString()
+        }
+      };
+
+      // 更新数据库
+      const result = await db.update(robots)
+        .set(updateData)
+        .where(eq(robots.robotId, robotId))
+        .returning();
+
+      if (result.length === 0) {
+        return reply.status(404).send({
           code: -1,
-          message: '机器人服务未正确加载'
+          message: '机器人不存在'
         });
       }
 
-      // 判断用户角色
-      const isAdmin = user.role === 'admin' || user.role === 'superAdmin';
+      logger.info('[ADMIN_ROBOT] 机器人信息同步成功', {
+        robotId,
+        nickname: updateData.nickname
+      });
 
-      if (isAdmin) {
-        // 管理员：返回所有机器人，不进行权限过滤
-        logger.info('[ADMIN_ROBOT] 管理员请求，返回所有机器人');
-        const robotList = await robotService.getAllRobots({
-          isActive,
-          status,
-          search
-        });
-
-        return reply.send({
-          code: 0,
-          message: 'success',
-          data: robotList
-        });
-      } else {
-        // 普通用户：获取用户可访问的机器人列表
-        const accessibleRobotIds = await permissionService.getAccessibleRobotIds(user.id);
-
-        logger.info('[ADMIN_ROBOT] 普通用户请求，返回可访问的机器人', {
-          userId: user.id,
-          accessibleCount: accessibleRobotIds.length
-        });
-
-        // 传入 accessibleRobotIds 进行过滤
-        const robotList = await robotService.getAllRobots({
-          isActive,
-          status,
-          search,
-          accessibleRobotIds
-        });
-
-        return reply.send({
-          code: 0,
-          message: 'success',
-          data: robotList
-        });
-      }
+      return reply.send({
+        code: 0,
+        message: '同步成功',
+        data: result[0]
+      });
     } catch (error) {
-      logger.error('[ADMIN_ROBOT] 获取机器人列表失败', {
+      logger.error('[ADMIN_ROBOT] 同步机器人信息失败', {
+        robotId: request.params?.robotId,
         userId: request.user?.id,
         error: error.message,
         stack: error.stack
@@ -181,7 +178,7 @@ const adminApiRoutes = async function (fastify, options) {
 
       return reply.status(500).send({
         code: -1,
-        message: '获取机器人列表失败',
+        message: '同步失败',
         error: error.message
       });
     }
