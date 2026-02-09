@@ -319,25 +319,46 @@ getRobotId(context, node) {
    - 使用 `ContextHelper.getRobotId(context, node)` 获取机器人 ID
    - 使用 `ContextHelper.getRobotName(context, node)` 获取机器人名称
 
-## 待修改的节点列表
+4. **handleIntentNode** - 意图识别节点
+   - 使用 `ContextHelper.getMessageContent(context)` 获取用户消息
+   - 使用 `ContextHelper.getRobotId(context, node)` 获取机器人 ID
+   - 使用 `ContextHelper.getRobotName(context, node)` 获取机器人名称
+   - 使用 `ContextHelper.getUserId(context)` 获取用户 ID
+   - 使用 `ContextHelper.getUserName(context)` 获取用户名称
+   - 使用 `ContextHelper.getGroupId(context)` 获取群组 ID
+   - 使用 `ContextHelper.getGroupName(context)` 获取群组名称
+   - 使用 `ContextHelper.getSessionId(context)` 获取会话 ID
+   - 使用 `ContextHelper.getMessageId(context)` 获取消息 ID
 
-以下节点可能需要按照 ContextHelper 规范进行修改（根据实际使用情况）：
+5. **handleNotificationNode** - 通知节点
+   - 使用 `ContextHelper.getRobotId(context, node)` 获取机器人 ID
+   - 使用 `ContextHelper.getRobotName(context, node)` 获取机器人名称
+   - 使用 `ContextHelper.getSessionId(context)` 获取会话 ID
+   - 使用 `ContextHelper.getUserId(context)` 获取用户 ID
+   - 使用 `ContextHelper.getUserName(context)` 获取用户名称
+   - 使用 `ContextHelper.getGroupId(context)` 获取群组 ID
+   - 使用 `ContextHelper.getGroupName(context)` 获取群组名称
+   - 使用 `ContextHelper.getMessageContent(context)` 获取消息内容
 
-- handleConditionNode - 条件节点
-- handleIntentNode - 意图识别节点
-- handleServiceNode - 服务节点
-- handleHumanHandoverNode - 人工转接节点
-- handleNotificationNode - 通知节点
-- handleRiskHandlerNode - 风险处理节点
-- handleMonitorNode - 监控节点
-- handleMessageReceiveNode - 消息接收节点
-- handleSessionCreateNode - 会话创建节点
-- handleEmotionAnalyzeNode - 情绪分析节点
-- handleDecisionNode - 决策节点
-- handleMessageDispatchNode - 消息分发节点
-- handleStaffInterventionNode - 工作人员干预节点
-- handleAlertSaveNode - 告警保存节点
-- handleAlertRuleNode - 告警规则节点
+## 已排查的节点列表
+
+以下节点已排查，确认无需使用 ContextHelper（主要用于状态管理或服务调用，不直接访问 robotId 等关键字段）：
+
+- handleStartNode - 开始节点
+- handleEndNode - 结束节点
+- handleConditionNode - 条件节点（主要用于意图判断）
+- handleServiceNode - 服务节点（主要通过 parameters 传递参数）
+- handleHumanHandoverNode - 人工转接节点（仅使用 context.sessionId）
+- handleRiskHandlerNode - 风险处理节点（主要通过 context 传递给风险服务）
+- handleMonitorNode - 监控节点（主要通过 context 传递给监控服务）
+- handleMessageReceiveNode - 消息接收节点（主要用于消息处理和保存）
+- handleSessionCreateNode - 会话创建节点（主要用于会话管理）
+- handleEmotionAnalyzeNode - 情绪分析节点（主要用于情绪分析）
+- handleDecisionNode - 决策节点（主要用于条件判断）
+- handleMessageDispatchNode - 消息分发节点（主要用于消息分发）
+- handleStaffInterventionNode - 工作人员干预节点（仅使用 context.sessionId）
+- handleAlertSaveNode - 告警保存节点（主要用于告警保存）
+- handleAlertRuleNode - 告警规则节点（主要用于规则判断）
 
 ## 测试验证
 

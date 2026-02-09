@@ -1070,7 +1070,7 @@ class FlowEngine {
 
     try {
       // 获取用户消息
-      const userMessage = context.message?.spoken || context.userMessage;
+      const userMessage = ContextHelper.getMessageContent(context);
 
       if (!userMessage) {
         logger.warn('意图识别节点没有可用的消息', { context });
@@ -1088,19 +1088,39 @@ class FlowEngine {
         };
       }
 
+      // 解析模型 ID
+      let resolvedModelId = modelId;
+      if (modelId) {
+        try {
+          resolvedModelId = await this.resolveModelId(modelId);
+        } catch (error) {
+          logger.error('模型 ID 解析失败', {
+            input: modelId,
+            error: error.message
+          });
+          resolvedModelId = '1ddd764b-33f3-44c4-afe7-a4da981cfe0a'; // doubao-pro-32k-general
+        }
+      } else {
+        resolvedModelId = '1ddd764b-33f3-44c4-afe7-a4da981cfe0a'; // doubao-pro-32k-general
+      }
+
       // 获取AI服务实例
       const aiService = await AIServiceFactory.createServiceByModelId(resolvedModelId);
 
+      // 使用 ContextHelper 获取机器人信息
+      const robotId = ContextHelper.getRobotId(context, node);
+      const robotName = ContextHelper.getRobotName(context, node);
+
       // 调用意图识别
       const result = await aiService.recognizeIntent(userMessage, {
-        userId: context.userId,
-        userName: context.userName,
-        groupId: context.groupId,
-        groupName: context.groupName,
-        sessionId: context.sessionId,
-        messageId: context.messageId,
-        robotId: context.robotId,
-        robotName: context.robotName,
+        userId: ContextHelper.getUserId(context),
+        userName: ContextHelper.getUserName(context),
+        groupId: ContextHelper.getGroupId(context),
+        groupName: ContextHelper.getGroupName(context),
+        sessionId: ContextHelper.getSessionId(context),
+        messageId: ContextHelper.getMessageId(context),
+        robotId,
+        robotName,
         history: context.history || []
       });
 
@@ -1291,21 +1311,25 @@ class FlowEngine {
     const { notificationType, recipients, message, alertLevel } = data || {};
 
     try {
+      // 使用 ContextHelper 获取机器人信息
+      const robotId = ContextHelper.getRobotId(context, node);
+      const robotName = ContextHelper.getRobotName(context, node);
+
       // 如果是告警通知，使用alert-trigger服务
       if (notificationType === 'alert') {
         const alertTriggerService = require('./alert-trigger.service');
 
         const alertResult = await alertTriggerService.triggerAlert({
-          sessionId: context.sessionId,
+          sessionId: ContextHelper.getSessionId(context),
           intentType: context.intent,
           intent: context.intent,
-          userId: context.userId,
-          userName: context.userName,
-          groupId: context.groupId,
-          groupName: context.groupName,
-          messageContent: context.message?.spoken || context.userMessage,
-          robotId: context.robotId,
-          robotName: context.robotName
+          userId: ContextHelper.getUserId(context),
+          userName: ContextHelper.getUserName(context),
+          groupId: ContextHelper.getGroupId(context),
+          groupName: ContextHelper.getGroupName(context),
+          messageContent: ContextHelper.getMessageContent(context),
+          robotId,
+          robotName
         });
 
         logger.info('告警通知执行成功', { alertId: alertResult.id });
@@ -1326,7 +1350,7 @@ class FlowEngine {
         const worktoolService = require('./worktool.service');
 
         for (const recipient of recipients) {
-          await worktoolService.sendTextMessage(context.robotId, recipient, message);
+          await worktoolService.sendTextMessage(robotId, recipient, message);
         }
 
         logger.info('机器人通知执行成功', { recipientCount: recipients.length });
