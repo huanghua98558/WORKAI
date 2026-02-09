@@ -164,6 +164,15 @@ export default function ContextDebugPanel() {
     }
   };
 
+  // 获取当前 Context 用于可视化
+  const getCurrentContext = () => {
+    try {
+      return JSON.parse(contextInput);
+    } catch {
+      return {};
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Tabs defaultValue="test" className="w-full">
@@ -174,6 +183,19 @@ export default function ContextDebugPanel() {
         </TabsList>
 
         <TabsContent value="test" className="space-y-6 mt-6">
+          {/* Context 数据可视化 - 始终显示 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Context 数据可视化</CardTitle>
+              <CardDescription>
+                实时查看 Context 数据结构和字段内容
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ContextVisualizer context={getCurrentContext()} />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Context 调试</CardTitle>
@@ -232,83 +254,77 @@ export default function ContextDebugPanel() {
             </CardContent>
           </Card>
 
+          {/* 测试结果 - 仅在运行测试后显示 */}
           {testResult && (
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>测试结果</CardTitle>
-                  <CardDescription>
-                    ContextHelper 方法返回的关键字段
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-[400px]">
-                    <div className="space-y-4">
-                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="secondary">robotId</Badge>
-                          {testResult.robotIdSource && (
-                            <Badge variant="outline" className="text-xs">
-                              来源: {testResult.robotIdSource}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-lg font-mono font-semibold">
-                          {testResult.robotId || <span className="text-muted-foreground">未获取到</span>}
-                        </p>
+            <Card>
+              <CardHeader>
+                <CardTitle>测试结果</CardTitle>
+                <CardDescription>
+                  ContextHelper 方法返回的关键字段
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[400px]">
+                  <div className="space-y-4">
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant="secondary">robotId</Badge>
+                        {testResult.robotIdSource && (
+                          <Badge variant="outline" className="text-xs">
+                            来源: {testResult.robotIdSource}
+                          </Badge>
+                        )}
                       </div>
-
-                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="secondary">robotName</Badge>
-                          {testResult.robotNameSource && (
-                            <Badge variant="outline" className="text-xs">
-                              来源: {testResult.robotNameSource}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-lg font-mono font-semibold">
-                          {testResult.robotName || <span className="text-muted-foreground">未获取到</span>}
-                        </p>
-                      </div>
-
-                      <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                        <Badge variant="secondary">sessionId</Badge>
-                        <p className="text-lg font-mono font-semibold mt-2">
-                          {testResult.sessionId || <span className="text-muted-foreground">未获取到</span>}
-                        </p>
-                      </div>
-
-                      <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                        <Badge variant="secondary">messageId</Badge>
-                        <p className="text-lg font-mono font-semibold mt-2">
-                          {testResult.messageId || <span className="text-muted-foreground">未获取到</span>}
-                        </p>
-                      </div>
-
-                      <div className="p-3 bg-cyan-50 border border-cyan-200 rounded-lg">
-                        <Badge variant="secondary">userName</Badge>
-                        <p className="text-lg font-mono font-semibold mt-2">
-                          {testResult.userName || <span className="text-muted-foreground">未获取到</span>}
-                        </p>
-                      </div>
-
-                      <div className="p-3 bg-pink-50 border border-pink-200 rounded-lg">
-                        <Badge variant="secondary">groupName</Badge>
-                        <p className="text-lg font-mono font-semibold mt-2">
-                          {testResult.groupName || <span className="text-muted-foreground">未获取到</span>}
-                        </p>
-                      </div>
+                      <p className="text-lg font-mono font-semibold">
+                        {testResult.robotId || <span className="text-muted-foreground">未获取到</span>}
+                      </p>
                     </div>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
 
-              <div>
-                <h3 className="text-sm font-medium mb-2">Context 数据可视化</h3>
-                <ContextVisualizer context={JSON.parse(contextInput)} />
-              </div>
-            </div>
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant="secondary">robotName</Badge>
+                        {testResult.robotNameSource && (
+                          <Badge variant="outline" className="text-xs">
+                            来源: {testResult.robotNameSource}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-lg font-mono font-semibold">
+                        {testResult.robotName || <span className="text-muted-foreground">未获取到</span>}
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                      <Badge variant="secondary">sessionId</Badge>
+                      <p className="text-lg font-mono font-semibold mt-2">
+                        {testResult.sessionId || <span className="text-muted-foreground">未获取到</span>}
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                      <Badge variant="secondary">messageId</Badge>
+                      <p className="text-lg font-mono font-semibold mt-2">
+                        {testResult.messageId || <span className="text-muted-foreground">未获取到</span>}
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-cyan-50 border border-cyan-200 rounded-lg">
+                      <Badge variant="secondary">userName</Badge>
+                      <p className="text-lg font-mono font-semibold mt-2">
+                        {testResult.userName || <span className="text-muted-foreground">未获取到</span>}
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-pink-50 border border-pink-200 rounded-lg">
+                      <Badge variant="secondary">groupName</Badge>
+                      <p className="text-lg font-mono font-semibold mt-2">
+                        {testResult.groupName || <span className="text-muted-foreground">未获取到</span>}
+                      </p>
+                    </div>
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
 
