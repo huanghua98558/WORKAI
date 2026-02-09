@@ -35,8 +35,8 @@ import {
   Users,
   Maximize2,
   Minimize2,
-  TreeStructure,
-  Bug
+  Network,
+  SearchCode
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import FlowEditor from '@/components/flow-engine-editor';
@@ -576,7 +576,7 @@ export default function FlowEngineManage() {
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          <TreeStructure className="h-4 w-4 inline mr-2" />
+          <Network className="h-4 w-4 inline mr-2" />
           Context 可视化
         </button>
         <button
@@ -587,7 +587,7 @@ export default function FlowEngineManage() {
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          <Bug className="h-4 w-4 inline mr-2" />
+          <SearchCode className="h-4 w-4 inline mr-2" />
           Context 调试
         </button>
       </div>
@@ -816,7 +816,19 @@ export default function FlowEngineManage() {
 
       {/* Context 可视化 */}
       {activeTab === 'context-viz' && (
-        <ContextVisualizer />
+        <ContextVisualizer context={{
+          robotId: 'robot-1',
+          robotName: '机器人 1',
+          sessionId: 'session-123',
+          messageId: 'message-456',
+          userName: '测试用户',
+          groupName: '测试群组',
+          timestamp: new Date().toISOString(),
+          message: {
+            content: '测试消息内容',
+            type: 'text'
+          }
+        }} />
       )}
 
       {/* Context 调试 */}
