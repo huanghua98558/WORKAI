@@ -296,7 +296,87 @@ class RobotService {
       })
       .returning();
 
-    return result[0];
+    const newRobot = result[0];
+
+    // 自动同步机器人信息（从 WorkTool API 获取最新信息）
+    try {
+      this.logger.info('[ADD_ROBOT] 自动同步机器人信息', { robotId: data.robotId });
+
+      // 导入 worktoolApiService
+      const worktoolApiService = require('./worktool-api.service');
+
+      // 获取机器人信息
+      const robotInfo = await worktoolApiService.getRobotInfo(data.robotId);
+
+      // 准备更新数据
+      const updateData = {
+        nickname: robotInfo.name || robotInfo.corporation,
+        company: robotInfo.corporation,
+        isValid: true,
+        activatedAt: robotInfo.firstLogin ? new Date(robotInfo.firstLogin) : null,
+        expiresAt: robotInfo.authExpir ? new Date(robotInfo.authExpir) : null,
+        messageCallbackEnabled: robotInfo.openCallback === 1,
+        callbackBaseUrl: robotInfo.callbackUrl ? new URL(robotInfo.callbackUrl).origin : null,
+        lastCheckAt: new Date(),
+        extraData: {
+          ...robotInfo,
+          lastSyncAt: new Date().toISOString()
+        }
+      };
+
+      // 更新数据库（基本信息）
+      await db.update(robots)
+        .set(updateData)
+        .where(eq(robots.robotId, data.robotId));
+
+      // 获取机器人在线状态并更新到数据库
+      let isOnline = false;
+      try {
+        isOnline = await worktoolApiService.isRobotOnline(data.robotId);
+
+        // 更新数据库中的状态
+        await db.update(robots)
+          .set({
+            status: isOnline ? 'online' : 'offline',
+            lastCheckAt: new Date()
+          })
+          .where(eq(robots.robotId, data.robotId));
+      } catch (error) {
+        this.logger.warn('[ADD_ROBOT] 获取机器人在线状态失败', {
+          robotId: data.robotId,
+          error: error.message
+        });
+      }
+
+      this.logger.info('[ADD_ROBOT] 机器人信息自动同步成功', {
+        robotId: data.robotId,
+        nickname: updateData.nickname,
+        status: isOnline ? 'online' : 'offline'
+      });
+
+      // 重新查询机器人信息并返回
+      const updatedRobot = await this.getRobotByRobotId(data.robotId);
+      // 深拷贝对象并添加同步状态
+      const result = JSON.parse(JSON.stringify(updatedRobot));
+      result.syncStatus = 'success';
+      result.syncMessage = isOnline ? '机器人在线，信息已同步' : '机器人离线，但信息已同步';
+      return result;
+    } catch (error) {
+      this.logger.warn('[ADD_ROBOT] 自动同步机器人信息失败，返回基本信息', {
+        robotId: data.robotId,
+        error: error.message
+      });
+      // 同步失败不影响机器人创建，只返回基本信息
+      this.logger.info('[ADD_ROBOT] 设置同步状态标记', {
+        robotId: data.robotId,
+        syncStatus: 'failed'
+      });
+      // 深拷贝对象并添加同步状态
+      const result = JSON.parse(JSON.stringify(newRobot));
+      result.syncStatus = 'failed';
+      result.syncMessage = `信息同步失败: ${error.message}。请确保机器人ID正确，并在WorkTool系统中已配置此机器人。`;
+      return result;
+    }
   }
 
   /**

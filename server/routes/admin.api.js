@@ -298,7 +298,10 @@ const adminApiRoutes = async function (fastify, options) {
 
       logger.info('[ADMIN_ROBOT] 机器人添加成功', {
         robotId: result.id,
-        userId: user.id
+        userId: user.id,
+        syncStatus: result.syncStatus,
+        syncMessage: result.syncMessage,
+        keys: Object.keys(result)
       });
 
       return reply.send({
