@@ -136,25 +136,26 @@ export default function RobotManagement() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // 检查所有机器人状态
-  const checkAllRobotsStatus = async () => {
-    try {
-      const res = await fetch('/api/proxy/admin/robots/check-status-all', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.code === 0) {
-          console.log('机器人状态检查完成:', data.data);
-        }
-      }
-    } catch (error) {
-      console.error('检查机器人状态失败:', error);
-    }
-  };
+  // 注意：后端路由暂未实现，暂时注释掉
+  // const checkAllRobotsStatus = async () => {
+  //   try {
+  //     const res = await fetch('/api/proxy/admin/robots/check-status-all', {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //       },
+  //       body: JSON.stringify({}),
+  //     });
+  //     if (res.ok) {
+  //       const data = await res.json();
+  //       if (data.code === 0) {
+  //         console.log('机器人状态检查完成:', data.data);
+  //       }
+  //     }
+  //   } catch (error) {
+  //     console.error('检查机器人状态失败:', error);
+  //   }
+  // };
 
   // 刷新机器人列表（先检查状态，然后加载列表）
   const handleRefresh = async () => {
