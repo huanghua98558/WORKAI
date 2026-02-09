@@ -2387,9 +2387,9 @@ ${callbacks.robotStatus}
             </CardHeader>
             <CardContent className="pt-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                {sessions.slice(0, 10).map((session) => (
+                {sessions.slice(0, 10).map((session, index) => (
                   <Card
-                    key={session.sessionId}
+                    key={session.sessionId || `session-${index}-${Date.now()}`}
                     className="group hover:shadow-md hover:border-blue-400 dark:hover:border-blue-600 transition-all duration-200 cursor-pointer bg-gradient-to-br from-white to-blue-50/30 dark:from-slate-900 dark:to-blue-950/20"
                     onClick={() => {
                       setSelectedSession(session);
@@ -2553,9 +2553,9 @@ ${callbacks.robotStatus}
               </div>
             ) : (
               <div className="space-y-3">
-                {filteredSessions.map((session) => (
+                {filteredSessions.map((session, index) => (
                   <Card
-                    key={session.sessionId}
+                    key={session.sessionId || `filtered-session-${index}-${Date.now()}`}
                     className="group hover:shadow-md hover:border-blue-400 dark:hover:border-blue-600 transition-all duration-200 cursor-pointer bg-gradient-to-br from-white to-slate-50/50 dark:from-slate-900 dark:to-slate-950/50"
                     onClick={() => handleViewSessionDetail(session)}
                   >

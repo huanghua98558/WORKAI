@@ -123,13 +123,13 @@ export default function BusinessMessageMonitor({
       const batchSize = 10;
       for (let i = 0; i < sessionsToLoad.length; i += batchSize) {
         const batch = sessionsToLoad.slice(i, i + batchSize);
-        const promises = batch.map(session => 
+        const promises = batch.map((session, index) => 
           fetch(`/api/admin/sessions/${session.sessionId}/messages`)
             .then(res => res.json())
             .then(data => {
               if (data.success && data.data) {
                 // 为每条消息添加会话信息
-                return (data.data as any[]).map(msg => ({
+                return (data.data as any[]).map((msg, msgIndex) => ({
                   ...msg,
                   sessionId: session.sessionId,
                   userName: session.userName,
@@ -162,7 +162,7 @@ export default function BusinessMessageMonitor({
     const statusMap: Record<string, any> = {};
     
     // 并行加载所有会话的回复状态
-    const promises = sessions.map(async (session) => {
+    const promises = sessions.map(async (session, index) => {
       try {
         const res = await fetch(`/api/sessions/${session.sessionId}/reply-status`);
         if (res.ok) {
@@ -225,7 +225,7 @@ export default function BusinessMessageMonitor({
 
   // 将所有消息转换为 UnifiedMessage 格式
   const unifiedMessages = useMemo(() => {
-    return allMessages.map(msg => {
+    return allMessages.map((msg, index) => {
       const status = determineStatus(msg);
       
       // 确定发送者类型
@@ -237,7 +237,7 @@ export default function BusinessMessageMonitor({
       }
 
       return {
-        id: msg.id || `${msg.sessionId}-${msg.timestamp}-${Math.random()}`,
+        id: msg.id || `${msg.sessionId || 'unknown'}-${msg.timestamp || Date.now()}-${index}`,
         sessionId: msg.sessionId,
         content: msg.content,
         userName: msg.userName,
@@ -313,12 +313,12 @@ export default function BusinessMessageMonitor({
       const batchSize = 10;
       for (let i = 0; i < sessionsToLoad.length; i += batchSize) {
         const batch = sessionsToLoad.slice(i, i + batchSize);
-        const promises = batch.map(session => 
+        const promises = batch.map((session, index) => 
           fetch(`/api/admin/sessions/${session.sessionId}/messages`)
             .then(res => res.json())
             .then(data => {
               if (data.success && data.data) {
-                return (data.data as any[]).map(msg => ({
+                return (data.data as any[]).map((msg, msgIndex) => ({
                   ...msg,
                   sessionId: session.sessionId,
                   userName: session.userName,
