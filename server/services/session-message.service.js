@@ -377,6 +377,7 @@ class SessionMessageService {
     const db = await getDb();
 
     // 查询最近活跃的会话
+    // 注意：使用 sql.raw() 避免参数化问题
     const sessions = await db.execute(sql`
       SELECT 
         session_id as sessionId,
@@ -422,7 +423,7 @@ class SessionMessageService {
           LIMIT 1
         ) as lastUserMessageTime
       FROM session_messages s
-      WHERE s.timestamp >= NOW() - INTERVAL '${hours} hours'
+      WHERE s.timestamp >= NOW() - ${sql.raw(`INTERVAL '${hours} hours'`)}
       GROUP BY s.session_id, s.user_id, s.user_name, s.group_id, s.group_name, s.robot_id, s.robot_name, s.robot_nickname
       ORDER BY MAX(s.timestamp) DESC
       LIMIT ${limit}
