@@ -14,10 +14,21 @@ export async function GET(request: NextRequest) {
     if (status) queryParams.append('status', status);
     if (search) queryParams.append('search', search);
 
+    const authHeader = request.headers.get('authorization');
+    const cookieHeader = request.headers.get('cookie');
+
     const response = await fetch(`${BACKEND_URL}/api/admin/robots?${queryParams.toString()}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        // 转发认证头
+        ...(authHeader ? {
+          'authorization': authHeader
+        } : {}),
+        // 转发 Cookie
+        ...(cookieHeader ? {
+          'cookie': cookieHeader
+        } : {}),
       },
     });
 

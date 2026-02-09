@@ -25,9 +25,24 @@ class ApiClient {
    * 添加认证头
    */
   private addAuthHeader(headers: HeadersInit = {}): HeadersInit {
-    const token = typeof window !== 'undefined' 
-      ? localStorage.getItem('access_token') || localStorage.getItem('token')
-      : null;
+    let token: string | null = null;
+
+    if (typeof window !== 'undefined') {
+      // 优先从 localStorage 获取
+      token = localStorage.getItem('access_token') || localStorage.getItem('token');
+
+      // 如果 localStorage 中没有，尝试从 cookie 获取
+      if (!token) {
+        const cookies = document.cookie.split(';');
+        for (const cookie of cookies) {
+          const [name, value] = cookie.trim().split('=');
+          if (name === 'access_token') {
+            token = value;
+            break;
+          }
+        }
+      }
+    }
       
     if (token) {
       return {
