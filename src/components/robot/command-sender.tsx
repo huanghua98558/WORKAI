@@ -624,30 +624,11 @@ export default function CommandSender() {
                         robots.map((robot, idx) => (
                           <SelectItem 
                             key={`robot-select-${robot.id || robot.robotId || idx}`} 
-                            value={robot.robotId} 
-                            className="py-3"
+                            value={robot.robotId}
                             disabled={!robot.isActive}
                           >
-                            <div className="flex items-center gap-3">
-                              <div className="flex-1">
-                                <div className="font-semibold text-sm">
-                                  {robot.name || robot.nickname || '未命名机器人'}
-                                  {!robot.isActive && (
-                                    <Badge variant="outline" className="ml-2 text-xs">
-                                      未激活
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {robot.company && robot.nickname
-                                    ? `${robot.company} - ${robot.nickname}`
-                                    : robot.company || robot.nickname || ''}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {getStatusBadge(robot.status)}
-                              </div>
-                            </div>
+                            {robot.name || robot.nickname || '未命名机器人'}
+                            {!robot.isActive && ' (未激活)'}
                           </SelectItem>
                         ))
                       )}
@@ -658,21 +639,23 @@ export default function CommandSender() {
                       <div className="flex items-center gap-2">
                         <Bot className="h-4 w-4 text-blue-600" />
                         <span className="font-medium">已选择:</span>
-                        <span>{selectedRobotDisplay}</span>
-                        {(() => {
-                          const robot = robots.find(r => r.robotId === selectedRobot);
-                          return robot ? (
-                            <>
-                              {getStatusBadge(robot.status)}
-                              <span className="text-muted-foreground">
-                                | {robot.company && robot.nickname
-                                  ? `${robot.company} - ${robot.nickname}`
-                                  : robot.company || robot.nickname || ''}
-                              </span>
-                            </>
-                          ) : null;
-                        })()}
+                        <span className="text-foreground">{selectedRobotDisplay}</span>
                       </div>
+                      {/* 显示机器人详细信息 */}
+                      {(() => {
+                        const robot = robots.find(r => r.robotId === selectedRobot);
+                        if (!robot) return null;
+                        return (
+                          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                            {robot.company && <span>{robot.company}</span>}
+                            {robot.nickname && robot.company && <span>-</span>}
+                            {robot.nickname && <span>{robot.nickname}</span>}
+                            <div className="ml-auto">
+                              {getStatusBadge(robot.status)}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
