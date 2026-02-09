@@ -1229,10 +1229,12 @@ const worktoolCallbackRoutes = async function (fastify, options) {
 
   /**
    * 机器人状态回调（上线/下线）- 兼容旧接口
-   * 
+   *
    * 请求参数：
    * - status: 状态（5=上线 6=下线）
    * - timestamp: 时间戳
+   *
+   * 注意：此端点已废弃，请使用 /status 端点
    */
   fastify.post('/robot-status', {
     preHandler: [verifySignatureMiddleware]
@@ -1296,6 +1298,98 @@ const worktoolCallbackRoutes = async function (fastify, options) {
 
     } catch (error) {
       console.error('处理机器人状态回调失败:', error);
+      const responseTime = Date.now() - startTime;
+      await recordCallbackHistory(robotId, String(callbackData.status || '5'), requestId, 500, error.message, { responseTime });
+
+      reply.status(500).send(errorResponse(500, error.message));
+    }
+  });
+
+  /**
+   * 机器人状态回调（上线/下线）- 标准 WorkTool 接口
+   *
+   * 请求参数：
+   * - status: 状态（5=上线 6=下线）
+   * - timestamp: 时间戳
+   *
+   * WorkTool 规范地址：/api/worktool/callback/status?robotId=xxx
+   */
+  fastify.post('/status', {
+    preHandler: [verifySignatureMiddleware]
+  }, async (request, reply) => {
+    const startTime = Date.now();
+    const requestId = generateRequestId();
+    const callbackData = request.body;
+    const { robotId } = request.query;
+
+    try {
+      // 验证 robotId
+      if (!robotId) {
+        console.error('[STATUS回调] 缺少 robotId 参数');
+        const responseTime = Date.now() - startTime;
+        await recordCallbackHistory('', callbackData.status || '5', requestId, 400, '缺少 robotId 参数', { responseTime });
+        return reply.status(400).send(errorResponse(400, '缺少 robotId 参数'));
+      }
+
+      // 查询机器人配置
+      const robot = await robotService.getRobotByRobotId(robotId);
+      if (!robot) {
+        console.error('[STATUS回调] 机器人不存在:', robotId);
+        const responseTime = Date.now() - startTime;
+        await recordCallbackHistory(robotId, callbackData.status || '5', requestId, 404, `机器人不存在: ${robotId}`, { responseTime });
+        return reply.status(404).send(errorResponse(404, `机器人不存在: ${robotId}`));
+      }
+
+      console.log('[STATUS回调] 收到机器人状态变化', {
+        requestId,
+        robotId,
+        status: callbackData.status,
+        timestamp: callbackData.timestamp
+      });
+
+      // 记录审计日志
+      await auditLogger.log('robot_status_callback', 'worktool', {
+        requestId,
+        robotId,
+        callbackData
+      });
+
+      // 记录监控指标
+      await monitorService.recordSystemMetric('callback_received', 1, {
+        type: 'robot_status',
+        robotId
+      });
+
+      // 记录回调历史
+      const responseTime = Date.now() - startTime;
+      await recordCallbackHistory(robotId, String(callbackData.status || '5'), requestId, 0, '', {
+        responseTime,
+        status: callbackData.status,
+        timestamp: callbackData.timestamp
+      });
+
+      // 更新机器人状态
+      const statusCode = parseInt(callbackData.status);
+
+      if (statusCode === 5) {
+        // 机器人上线
+        await robotService.updateRobotStatus(robotId, true);
+        console.log('[STATUS回调] ✅ 机器人上线:', robotId);
+      } else if (statusCode === 6) {
+        // 机器人下线
+        await robotService.updateRobotStatus(robotId, false);
+        console.log('[STATUS回调] ⚠️  机器人下线:', robotId);
+      } else {
+        console.warn('[STATUS回调] 未知的机器人状态:', {
+          robotId,
+          status: callbackData.status
+        });
+      }
+
+      reply.send(successResponse({}, 'success'));
+
+    } catch (error) {
+      console.error('[STATUS回调] 处理失败:', error);
       const responseTime = Date.now() - startTime;
       await recordCallbackHistory(robotId, String(callbackData.status || '5'), requestId, 500, error.message, { responseTime });
 

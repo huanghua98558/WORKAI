@@ -22,6 +22,7 @@ const websocket = require('@fastify/websocket');
 const worktoolCallbackRoutes = require('./routes/worktool.callback');
 const worktoolSendOssImageApiRoutes = require('./routes/worktool-send-oss-image.api');
 const worktoolConversionRobotApiRoutes = require('./routes/worktool-conversion-robot.api');
+const worktoolRobotApiRoutes = require('./routes/worktool-robot.api');
 const adminApiRoutes = require('./routes/admin.api');
 const qaApiRoutes = require('./routes/qa.api');
 // robot.api.js 已删除，使用 robot-protected.api.js 替代（更安全，带权限控制）
@@ -146,6 +147,7 @@ fastifyRequestLogger(fastify);
 fastify.register(worktoolCallbackRoutes, { prefix: '/api/worktool/callback' });
 fastify.register(worktoolSendOssImageApiRoutes, { prefix: '/api/worktool' });
 fastify.register(worktoolConversionRobotApiRoutes, { prefix: '/api/worktool' });
+fastify.register(worktoolRobotApiRoutes, { prefix: '/api/worktool' });
 fastify.register(adminApiRoutes, { prefix: '/api/admin' });
 fastify.register(qaApiRoutes, { prefix: '/api/admin' });
 // robot.api.js 已删除，使用 robot-protected.api.js 替代
