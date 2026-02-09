@@ -55,7 +55,7 @@ const encoderCache = new Map();
 /**
  * 获取编码器实例
  * @param {string} modelName - 模型名称
- * @returns {Tiktoken} 编码器实例
+ * @returns {Object} 编码器实例
  */
 function getEncoder(modelName = 'default') {
   const encodingName = MODEL_TO_ENCODING[modelName] || MODEL_TO_ENCODING['default'];
@@ -65,8 +65,9 @@ function getEncoder(modelName = 'default') {
     return encoderCache.get(encodingName);
   }
   
-  // 创建新的编码器
-  const encoder = new Tiktoken(encodingName);
+  // 创建新的编码器（使用 get_encoding 而不是 Tiktoken 构造函数）
+  const tiktoken = require('tiktoken');
+  const encoder = tiktoken.get_encoding(encodingName);
   encoderCache.set(encodingName, encoder);
   
   return encoder;
