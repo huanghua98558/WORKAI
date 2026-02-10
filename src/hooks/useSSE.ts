@@ -163,7 +163,18 @@ export function useSSE(options: UseSSEOptions = {}) {
               heartbeatTimerRef.current = setTimeout(() => {
                 console.warn('[useSSE] 心跳超时，重新连接...');
                 eventSource.close();
-                attemptReconnect();
+                // 手动触发重连逻辑
+                const delay = Math.min(reconnectInterval * Math.pow(2, reconnectAttempts), 30000);
+                setTimeout(() => {
+                  if (reconnectAttempts < maxReconnectAttempts) {
+                    setReconnectAttempts(reconnectAttempts + 1);
+                    console.log(`[useSSE] 第 ${reconnectAttempts + 1} 次重连尝试...`);
+                    connect();
+                  } else {
+                    console.warn('[useSSE] 已达到最大重连次数，停止重连');
+                    setError(new Error('SSE连接失败'));
+                  }
+                }, delay);
               }, 35000);
               break;
 
@@ -181,12 +192,23 @@ export function useSSE(options: UseSSEOptions = {}) {
 
       // 错误处理
       eventSource.onerror = (err) => {
-        console.error('[useSSE] SSE连接错误:', err);
+        // 降低日志级别，避免SSE连接失败时过多控制台输出
+        console.warn('[useSSE] SSE连接错误，尝试重连...');
         setConnected(false);
         eventSource.close();
 
-        // 尝试重连
-        attemptReconnect();
+        // 尝试重连（延迟递增）
+        const delay = Math.min(reconnectInterval * Math.pow(2, reconnectAttempts), 30000);
+        setTimeout(() => {
+          if (reconnectAttempts < maxReconnectAttempts) {
+            setReconnectAttempts(reconnectAttempts + 1);
+            console.log(`[useSSE] 第 ${reconnectAttempts + 1} 次重连尝试...`);
+            connect();
+          } else {
+            console.warn('[useSSE] 已达到最大重连次数，停止重连');
+            setError(new Error('SSE连接失败'));
+          }
+        }, delay);
       };
 
     } catch (err) {
@@ -196,27 +218,6 @@ export function useSSE(options: UseSSEOptions = {}) {
       onError?.(error);
     }
   }, [sessionId, robotId, onMessage, onConnected, onError, reconnectInterval, maxReconnectAttempts, cleanup]);
-
-  /**
-   * 尝试重连
-   */
-  const attemptReconnect = useCallback(() => {
-    if (reconnectAttempts >= maxReconnectAttempts) {
-      console.error('[useSSE] 已达到最大重连次数，停止重连');
-      setError(new Error('已达到最大重连次数'));
-      onDisconnected?.();
-      return;
-    }
-
-    const nextAttempt = reconnectAttempts + 1;
-    setReconnectAttempts(nextAttempt);
-    console.log(`[useSSE] 将在 ${reconnectInterval / 1000} 秒后进行第 ${nextAttempt} 次重连...`);
-
-    reconnectTimerRef.current = setTimeout(() => {
-      console.log(`[useSSE] 开始第 ${nextAttempt} 次重连...`);
-      connect();
-    }, reconnectInterval);
-  }, [reconnectAttempts, maxReconnectAttempts, reconnectInterval, connect, onDisconnected]);
 
   /**
    * 断开连接
