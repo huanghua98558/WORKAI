@@ -76,6 +76,7 @@ const { getCspConfig } = require('./lib/csp');
 const prometheusService = require('./lib/prometheus');
 const cacheService = require('./lib/cache');
 const cacheWarmupService = require('./services/cache-warmup.service');
+const { getRateLimitConfig } = require('./lib/rate-limit-config');
 
 // 获取主模块日志
 const logger = getLogger('APP');
@@ -116,9 +117,45 @@ fastify.register(cors, corsConfig);
 fastify.register(helmet, getCspConfig());
 
 // rate-limit 使用内存模式（避免 Upstash Redis 连接限制）
+// 根据不同的路由使用不同的限流策略
 fastify.register(rateLimit, {
   max: 1000,
-  timeWindow: '1 minute'
+  timeWindow: '1 minute',
+  // 使用 addHeaders 配置，在响应头中添加限流信息
+  addHeaders: {
+    'x-ratelimit-limit': true,
+    'x-ratelimit-remaining': true,
+    'x-ratelimit-reset': true,
+    'retry-after': true
+  },
+  // 错误响应自定义
+  errorResponseBuilder: (req, context) => {
+    const routePath = req.url;
+    const limitConfig = getRateLimitConfig(routePath);
+
+    logger.warn('[限流] 请求被限流', {
+      ip: req.ip,
+      url: routePath,
+      limit: context.limit,
+      remaining: context.remaining,
+      reset: context.reset
+    });
+
+    return {
+      code: 429,
+      message: limitConfig.errorResponseBuilder?.(req, context)?.message || '请求过于频繁，请稍后再试',
+      error: 'RATE_LIMIT_EXCEEDED',
+      retryAfter: Math.ceil(context.ttl / 1000)
+    };
+  },
+  // keyGenerator 自定义限流键（使用 IP + 路径前缀）
+  keyGenerator: (req) => {
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const path = req.url;
+    // 提取主要路径前缀（如 /api/auth, /api/admin 等）
+    const pathPrefix = path.split('/').slice(0, 3).join('/');
+    return `${ip}:${pathPrefix}`;
+  }
   // 不使用 redis 存储，使用内存存储
 });
 

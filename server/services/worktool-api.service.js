@@ -53,7 +53,7 @@ class WorkToolApiService {
   }
 
   /**
-   * 1. 发送消息
+   * 1. 发送消息（基础方法）
    * @param {string} robotId - 机器人ID
    * @param {object} message - 消息对象
    * @param {string} message.toName - 接收者姓名
@@ -88,6 +88,149 @@ class WorkToolApiService {
       logger.error('发送消息失败', { robotId, error: error.message });
       throw error;
     }
+  }
+
+  /**
+   * 1.1 发送消息（带重试机制）
+   * @param {string} robotId - 机器人ID
+   * @param {object} message - 消息对象
+   * @param {object} retryOptions - 重试选项
+   * @param {number} retryOptions.maxRetries - 最大重试次数（默认 3）
+   * @param {number} retryOptions.initialDelay - 初始延迟（毫秒，默认 1000）
+   * @param {number} retryOptions.maxDelay - 最大延迟（毫秒，默认 10000）
+   * @param {number} retryOptions.backoffFactor - 退避因子（默认 2）
+   * @param {Array<number>} retryOptions.retryableStatusCodes - 可重试的HTTP状态码（默认 [408, 429, 500, 502, 503, 504]）
+   * @returns {Promise<object>} 发送结果
+   */
+  async sendRawMessageWithRetry(robotId, message, retryOptions = {}) {
+    const {
+      maxRetries = 3,
+      initialDelay = 1000,
+      maxDelay = 10000,
+      backoffFactor = 2,
+      retryableStatusCodes = [408, 429, 500, 502, 503, 504]
+    } = retryOptions;
+
+    let lastError = null;
+    let attempt = 0;
+
+    while (attempt <= maxRetries) {
+      attempt++;
+
+      try {
+        logger.info('[重试发送消息] 开始尝试', {
+          robotId,
+          attempt,
+          maxRetries,
+          toName: message.toName
+        });
+
+        // 调用基础发送方法
+        const result = await this.sendRawMessage(robotId, message);
+
+        logger.info('[重试发送消息] 尝试成功', {
+          robotId,
+          attempt,
+          messageId: result.data?.messageId
+        });
+
+        // 如果重试成功，调用 robotService 的记录成功方法
+        if (attempt > 1) {
+          try {
+            const robotService = require('./robot.service');
+            await robotService.recordRobotSendSuccess(robotId);
+            logger.info('[重试发送消息] 重试成功，已更新健康状态', { robotId });
+          } catch (recordError) {
+            logger.warn('[重试发送消息] 记录发送成功失败', { robotId, error: recordError.message });
+          }
+        }
+
+        return result;
+      } catch (error) {
+        lastError = error;
+
+        // 判断是否可重试
+        const isRetryable = this.isRetryableError(error, retryableStatusCodes);
+
+        logger.warn('[重试发送消息] 尝试失败', {
+          robotId,
+          attempt,
+          maxRetries,
+          isRetryable,
+          error: error.message,
+          statusCode: error.response?.status
+        });
+
+        // 如果不可重试或已达最大重试次数，抛出错误
+        if (!isRetryable || attempt >= maxRetries) {
+          logger.error('[重试发送消息] 最终失败，停止重试', {
+            robotId,
+            attempt,
+            maxRetries,
+            error: error.message
+          });
+
+          // 如果是最终失败，调用 robotService 的记录失败方法
+          try {
+            const robotService = require('./robot.service');
+            await robotService.recordRobotSendFailure(robotId, error);
+            logger.info('[重试发送消息] 已记录发送失败', { robotId });
+          } catch (recordError) {
+            logger.warn('[重试发送消息] 记录发送失败失败', { robotId, error: recordError.message });
+          }
+
+          throw error;
+        }
+
+        // 计算延迟时间（指数退避）
+        const delay = Math.min(
+          initialDelay * Math.pow(backoffFactor, attempt - 1),
+          maxDelay
+        );
+
+        // 添加随机抖动（±20%），避免重试风暴
+        const jitter = delay * 0.2 * (Math.random() * 2 - 1);
+        const finalDelay = Math.round(delay + jitter);
+
+        logger.info('[重试发送消息] 等待重试', {
+          robotId,
+          attempt,
+          delay: finalDelay,
+          nextAttempt: attempt + 1
+        });
+
+        // 延迟等待
+        await new Promise(resolve => setTimeout(resolve, finalDelay));
+      }
+    }
+
+    // 理论上不应该到这里
+    throw lastError;
+  }
+
+  /**
+   * 判断错误是否可重试
+   * @param {Error} error - 错误对象
+   * @param {Array<number>} retryableStatusCodes - 可重试的HTTP状态码
+   * @returns {boolean} 是否可重试
+   */
+  isRetryableError(error, retryableStatusCodes) {
+    // 网络错误（超时、连接失败等）
+    if (error.name === 'AbortError' || 
+        error.name === 'ETIMEDOUT' || 
+        error.name === 'ECONNRESET' ||
+        error.name === 'ENOTFOUND' ||
+        error.name === 'ECONNREFUSED') {
+      return true;
+    }
+
+    // HTTP 错误
+    if (error.response?.status) {
+      return retryableStatusCodes.includes(error.response.status);
+    }
+
+    // 其他错误不重试
+    return false;
   }
 
   /**
