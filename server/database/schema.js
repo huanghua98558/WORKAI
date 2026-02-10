@@ -1520,3 +1520,58 @@ exports.afterSalesTasks = pgTable(
 );
 
 // 会话工作人员状态表
+
+// 跟踪任务表
+exports.trackTasks = pgTable(
+  "track_tasks",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    // 任务类型
+    taskType: varchar("task_type", { length: 50 }).notNull(),
+    taskStatus: varchar("task_status", { length: 50 }).notNull().default('pending'),
+    // 群信息
+    groupId: varchar("group_id", { length: 255 }),
+    groupName: varchar("group_name", { length: 255 }),
+    // 运营信息
+    operationId: varchar("operation_id", { length: 255 }),
+    operationName: varchar("operation_name", { length: 255 }),
+    // 工作人员信息
+    staffId: varchar("staff_id", { length: 255 }),
+    staffName: varchar("staff_name", { length: 255 }),
+    // 目标用户
+    targetUserId: varchar("target_user_id", { length: 255 }),
+    targetUserName: varchar("target_user_name", { length: 255 }),
+    // 任务内容
+    taskRequirement: text("task_requirement"),
+    taskDescription: text("task_description"),
+    // 优先级和状态
+    priority: varchar("priority", { length: 20 }).notNull().default('medium'),
+    // 时间信息
+    deadline: timestamp("deadline", { withTimezone: true }),
+    responseDetectedAt: timestamp("response_detected_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    // 冲突处理
+    conflictDetected: boolean("conflict_detected").default(false),
+    conflictResolved: boolean("conflict_resolved").default(false),
+    // 创建和更新信息
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    // 扩展数据
+    metadata: jsonb("metadata").default('{}'),
+  },
+  (table) => ({
+    taskTypeIdx: index("track_tasks_task_type_idx").on(table.taskType),
+    taskStatusIdx: index("track_tasks_task_status_idx").on(table.taskStatus),
+    priorityIdx: index("track_tasks_priority_idx").on(table.priority),
+    targetUserIdIdx: index("track_tasks_target_user_id_idx").on(table.targetUserId),
+    groupIdIdx: index("track_tasks_group_id_idx").on(table.groupId),
+    staffIdIdx: index("track_tasks_staff_id_idx").on(table.staffId),
+    operationIdIdx: index("track_tasks_operation_id_idx").on(table.operationId),
+    createdAtIdx: index("track_tasks_created_at_idx").on(table.createdAt),
+    deadlineIdx: index("track_tasks_deadline_idx").on(table.deadline),
+    responseDetectedAtIdx: index("track_tasks_response_detected_at_idx").on(table.responseDetectedAt),
+    pendingIdx: index("track_tasks_pending_idx").on(table.taskStatus, table.priority, table.createdAt),
+  })
+);

@@ -219,6 +219,9 @@ console.log('[app.js] messages.api loaded successfully');
 fastify.register(messagesApiRoutes, { prefix: '/api' });
 fastify.register(intentConfigApiRoutes, { prefix: '/api/ai/intents' });
 fastify.register(flowEngineApiRoutes, { prefix: '/api/flow-engine' });
+// 注册跟踪任务 API
+const trackTasksApiRoutes = require('./routes/track-tasks.api');
+fastify.register(trackTasksApiRoutes, { prefix: '/api/flow-engine' });
 fastify.register(riskApiRoutes, { prefix: '/api' });
 // AI 模块 API（使用 /proxy 前缀以匹配前端调用）
 fastify.register(aiModuleApiRoutes, { prefix: '/api/proxy/ai' });

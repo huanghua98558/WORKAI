@@ -471,6 +471,36 @@ class FlowEngine {
   }
 
   /**
+   * 取消流程实例
+   */
+  async cancelFlowInstance(id, reason = '') {
+    try {
+      const db = await this.getDb();
+      const updateData = {
+        status: 'cancelled',
+        completedAt: new Date(),
+        error_message: reason || '流程实例被取消'
+      };
+
+      const result = await db.update(flowInstances)
+        .set(updateData)
+        .where(eq(flowInstances.id, id))
+        .returning();
+
+      if (result.length === 0) {
+        logger.warn('取消流程实例失败，实例不存在', { id });
+        return null;
+      }
+
+      logger.info('取消流程实例成功', { id, reason });
+      return result[0];
+    } catch (error) {
+      logger.error('取消流程实例失败', { id, error: error.message });
+      throw new Error(`取消流程实例失败: ${error.message}`);
+    }
+  }
+
+  /**
    * 查询流程实例列表
    */
   async listFlowInstances(filters = {}) {
