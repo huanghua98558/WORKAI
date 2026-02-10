@@ -1,0 +1,420 @@
+{
+  "id": "flow_collaboration_v6_1",
+  "name": "协同分析模块流程",
+  "description": "多维度数据分析流程，包括用户行为分析、趋势预测、异常检测和协同决策支持",
+  "version": "6.1.0",
+  "category": "分析流程",
+  "tags": [
+    "数据分析",
+    "协同决策",
+    "趋势预测",
+    "异常检测"
+  ],
+  "triggerType": "webhook",
+  "isActive": true,
+  "nodes": [
+    {
+      "id": "node_collab_1",
+      "name": "接收分析请求",
+      "type": "trigger_webhook",
+      "config": {
+        "path": "/webhooks/collaboration-analysis",
+        "method": "POST",
+        "description": "接收协同分析请求，包括分析类型、时间范围、分析维度等参数"
+      },
+      "position": {
+        "x": 100,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_collab_2",
+      "name": "验证分析参数",
+      "type": "data_validate",
+      "config": {
+        "description": "验证分析请求参数的有效性",
+        "tasks": [
+          {
+            "id": "validate_params",
+            "name": "验证分析参数",
+            "operation": "validate",
+            "dataPath": "analysis_params",
+            "rules": {
+              "required": true,
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "analysis_type": {
+                    "type": "string",
+                    "enum": ["user_behavior", "trend", "anomaly", "comprehensive"]
+                  },
+                  "time_range": {
+                    "type": "object",
+                    "properties": {
+                      "start": { "type": "string" },
+                      "end": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "position": {
+        "x": 300,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_collab_3",
+      "name": "收集用户行为数据",
+      "type": "multi_task_data",
+      "config": {
+        "description": "收集用户行为相关数据",
+        "tasks": [
+          {
+            "id": "collect_user_actions",
+            "name": "收集用户行为",
+            "operation": "query",
+            "sql": "SELECT user_id, action_type, COUNT(*) as count FROM user_actions WHERE created_at BETWEEN :start AND :end GROUP BY user_id, action_type",
+            "timeout": 15
+          },
+          {
+            "id": "collect_user_sessions",
+            "name": "收集用户会话",
+            "operation": "query",
+            "sql": "SELECT user_id, session_id, duration FROM user_sessions WHERE created_at BETWEEN :start AND :end",
+            "timeout": 15
+          },
+          {
+            "id": "collect_user_feedback",
+            "name": "收集用户反馈",
+            "operation": "query",
+            "sql": "SELECT user_id, rating, feedback FROM user_feedback WHERE created_at BETWEEN :start AND :end",
+            "timeout": 15
+          }
+        ]
+      },
+      "position": {
+        "x": 500,
+        "y": 150
+      }
+    },
+    {
+      "id": "node_collab_4",
+      "name": "收集业务指标数据",
+      "type": "multi_task_data",
+      "config": {
+        "description": "收集业务指标数据",
+        "tasks": [
+          {
+            "id": "collect_flow_metrics",
+            "name": "收集流程指标",
+            "operation": "query",
+            "sql": "SELECT flow_id, status, COUNT(*) as count, AVG(execution_time) as avg_time FROM flow_executions WHERE created_at BETWEEN :start AND :end GROUP BY flow_id, status",
+            "timeout": 15
+          },
+          {
+            "id": "collect_message_metrics",
+            "name": "收集消息指标",
+            "operation": "query",
+            "sql": "SELECT message_type, COUNT(*) as count, AVG(response_time) as avg_response_time FROM messages WHERE created_at BETWEEN :start AND :end GROUP BY message_type",
+            "timeout": 15
+          }
+        ]
+      },
+      "position": {
+        "x": 500,
+        "y": 300
+      }
+    },
+    {
+      "id": "node_collab_5",
+      "name": "用户行为分析",
+      "type": "multi_task_ai",
+      "config": {
+        "description": "分析用户行为模式",
+        "tasks": [
+          {
+            "id": "analyze_user_behavior",
+            "name": "分析行为模式",
+            "operation": "analyze",
+            "prompt": "分析用户行为数据，识别以下模式：\n1. 活跃时间段\n2. 常用功能\n3. 行为路径\n4. 流失风险用户\n\n返回JSON格式：{\"patterns\":[{\"type\":\"time\",\"description\":\"用户活跃时间为工作日9-18点\"}],\"at_risk_users\":[\"user123\",\"user456\"]}",
+            "modelName": "doubao",
+            "outputKey": "user_behavior_analysis"
+          }
+        ]
+      },
+      "position": {
+        "x": 700,
+        "y": 150
+      }
+    },
+    {
+      "id": "node_collab_6",
+      "name": "趋势预测分析",
+      "type": "multi_task_ai",
+      "config": {
+        "description": "基于历史数据预测未来趋势",
+        "tasks": [
+          {
+            "id": "predict_trends",
+            "name": "预测趋势",
+            "operation": "predict",
+            "prompt": "基于历史业务指标数据，预测未来7天的趋势：\n1. 流量趋势\n2. 消息量趋势\n3. 流程执行量趋势\n\n返回JSON格式：{\"trends\":[{\"metric\":\"traffic\",\"direction\":\"up\",\"change_percent\":15}],\"alerts\":[{\"type\":\"spike\",\"description\":\"预计周五流量将激增\"}]}",
+            "modelName": "doubao",
+            "outputKey": "trend_prediction"
+          }
+        ]
+      },
+      "position": {
+        "x": 700,
+        "y": 300
+      }
+    },
+    {
+      "id": "node_collab_7",
+      "name": "异常检测",
+      "type": "multi_task_ai",
+      "config": {
+        "description": "检测数据中的异常情况",
+        "tasks": [
+          {
+            "id": "detect_anomalies",
+            "name": "检测异常",
+            "operation": "detect",
+            "prompt": "检测业务指标中的异常情况：\n1. 突增或突降\n2. 异常峰值\n3. 异常低的值\n\n返回JSON格式：{\"anomalies\":[{\"type\":\"spike\",\"metric\":\"message_count\",\"value\":5000,\"threshold\":3000,\"time\":\"2025-06-18 10:00\"}],\"severity\":\"high\"}",
+            "modelName": "doubao",
+            "outputKey": "anomaly_detection"
+          }
+        ]
+      },
+      "position": {
+        "x": 900,
+        "y": 225
+      }
+    },
+    {
+      "id": "node_collab_8",
+      "name": "生成综合分析报告",
+      "type": "multi_task_ai",
+      "config": {
+        "description": "整合所有分析结果，生成综合报告",
+        "tasks": [
+          {
+            "id": "generate_report",
+            "name": "生成综合报告",
+            "operation": "report",
+            "prompt": "生成综合分析报告，包括：\n1. 用户行为分析摘要\n2. 趋势预测结果\n3. 异常检测结果\n4. 关键发现\n5. 建议行动项\n\n报告应该清晰、简洁、可操作。",
+            "modelName": "doubao",
+            "outputKey": "comprehensive_report"
+          }
+        ]
+      },
+      "position": {
+        "x": 1100,
+        "y": 225
+      }
+    },
+    {
+      "id": "node_collab_9",
+      "name": "判断是否需要人工决策",
+      "type": "condition",
+      "config": {
+        "description": "根据分析结果判断是否需要人工决策",
+        "conditions": [
+          {
+            "expression": "{{anomaly_detection.severity}} === 'high' || {{trend_prediction.alerts.length}} > 0",
+            "label": "需要人工决策"
+          },
+          {
+            "expression": "{{anomaly_detection.severity}} !== 'high' && {{trend_prediction.alerts.length}} === 0",
+            "label": "自动处理"
+          }
+        ]
+      },
+      "position": {
+        "x": 1300,
+        "y": 225
+      }
+    },
+    {
+      "id": "node_collab_10",
+      "name": "发送决策请求",
+      "type": "task_staff",
+      "config": {
+        "description": "向管理层发送决策请求",
+        "staffId": "decision_team",
+        "message": "分析发现异常或重要趋势，需要人工决策：\n\n{{comprehensive_report.text}}\n\n请查阅报告并提供决策意见。",
+        "priority": "high",
+        "timeout": 3600
+      },
+      "position": {
+        "x": 1500,
+        "y": 150
+      }
+    },
+    {
+      "id": "node_collab_11",
+      "name": "自动优化建议",
+      "type": "multi_task_ai",
+      "config": {
+        "description": "基于分析结果生成优化建议",
+        "tasks": [
+          {
+            "id": "generate_suggestions",
+            "name": "生成优化建议",
+            "operation": "suggest",
+            "prompt": "基于分析结果，生成具体的优化建议，包括：\n1. 系统优化\n2. 流程优化\n3. 用户体验优化\n\n每个建议应该包括优先级、实施难度和预期效果。",
+            "modelName": "doubao",
+            "outputKey": "optimization_suggestions"
+          }
+        ]
+      },
+      "position": {
+        "x": 1500,
+        "y": 300
+      }
+    },
+    {
+      "id": "node_collab_12",
+      "name": "保存分析结果",
+      "type": "data_persist",
+      "config": {
+        "description": "保存分析结果到数据库",
+        "tableName": "collaboration_analysis",
+        "operation": "insert",
+        "data": {
+          "request_id": "{{request_id}}",
+          "analysis_type": "{{analysis_params.analysis_type}}",
+          "time_range": "{{analysis_params.time_range}}",
+          "user_behavior": "{{user_behavior_analysis}}",
+          "trend_prediction": "{{trend_prediction}}",
+          "anomaly_detection": "{{anomaly_detection}}",
+          "report": "{{comprehensive_report.text}}",
+          "created_at": "{{now()}}"
+        }
+      },
+      "position": {
+        "x": 1700,
+        "y": 225
+      }
+    },
+    {
+      "id": "node_collab_13",
+      "name": "发送分析报告",
+      "type": "multi_task_robot",
+      "config": {
+        "description": "将分析报告发送给相关人员",
+        "tasks": [
+          {
+            "id": "send_report",
+            "name": "发送报告",
+            "operation": "send_message",
+            "robotId": "analysis_bot",
+            "messageType": "markdown",
+            "content": "# 协同分析报告\n\n## 分析概览\n- 分析类型：{{analysis_params.analysis_type}}\n- 时间范围：{{analysis_params.time_range.start}} ~ {{analysis_params.time_range.end}}\n- 生成时间：{{now()}}\n\n## 关键发现\n{{comprehensive_report.text}}\n\n## 趋势预测\n{{trend_prediction.trends.map(t => '- ' + t.metric + ': ' + t.direction + ' (' + t.change_percent + '%)').join('\\n')}}\n\n## 异常检测\n{{anomaly_detection.anomalies.map(a => '- ' + a.metric + ': ' + a.description).join('\\n')}}\n\n## 优化建议\n{{optimization_suggestions.text}}",
+            "target": "analysis_group"
+          }
+        ]
+      },
+      "position": {
+        "x": 1900,
+        "y": 225
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "node_collab_1",
+      "target": "node_collab_2",
+      "condition": null
+    },
+    {
+      "source": "node_collab_2",
+      "target": "node_collab_3",
+      "condition": "success"
+    },
+    {
+      "source": "node_collab_2",
+      "target": "node_collab_4",
+      "condition": "success"
+    },
+    {
+      "source": "node_collab_3",
+      "target": "node_collab_5",
+      "condition": null
+    },
+    {
+      "source": "node_collab_4",
+      "target": "node_collab_6",
+      "condition": null
+    },
+    {
+      "source": "node_collab_5",
+      "target": "node_collab_7",
+      "condition": null
+    },
+    {
+      "source": "node_collab_6",
+      "target": "node_collab_7",
+      "condition": null
+    },
+    {
+      "source": "node_collab_7",
+      "target": "node_collab_8",
+      "condition": null
+    },
+    {
+      "source": "node_collab_8",
+      "target": "node_collab_9",
+      "condition": null
+    },
+    {
+      "source": "node_collab_9",
+      "target": "node_collab_10",
+      "condition": "需要人工决策"
+    },
+    {
+      "source": "node_collab_9",
+      "target": "node_collab_11",
+      "condition": "自动处理"
+    },
+    {
+      "source": "node_collab_10",
+      "target": "node_collab_12",
+      "condition": null
+    },
+    {
+      "source": "node_collab_11",
+      "target": "node_collab_12",
+      "condition": null
+    },
+    {
+      "source": "node_collab_12",
+      "target": "node_collab_13",
+      "condition": null
+    }
+  ],
+  "metadata": {
+    "author": "WorkTool AI",
+    "createdAt": "2025-06-18",
+    "updatedAt": "2025-06-18",
+    "documentation": {
+      "purpose": "多维度数据分析，支持协同决策和趋势预测",
+      "trigger": "通过webhook接收分析请求",
+      "expectedInputs": [
+        "analysis_type: 分析类型（user_behavior/trend/anomaly/comprehensive）",
+        "time_range: 时间范围",
+        "dimensions: 分析维度（可选）"
+      ],
+      "expectedOutputs": [
+        "综合分析报告",
+        "趋势预测",
+        "异常检测结果",
+        "优化建议"
+      ]
+    }
+  }
+}

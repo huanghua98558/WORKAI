@@ -446,6 +446,80 @@ async function flowEngineRoutes(fastify, options) {
       });
     }
   });
+
+  /**
+   * 初始化 v6.1 流程文件
+   * 批量导入默认流程到数据库
+   * POST /api/flow-engine/initialize
+   */
+  fastify.post('/initialize', async (request, reply) => {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+
+      // 流程文件列表
+      const flowFiles = [
+        'flows/default/v6.1-auto-scheduling-flow.json',
+        'flows/default/v6.1-message-processing-flow.json',
+        'flows/default/v6.1-community-analysis-flow.json',
+        'flows/default/v6.1-after-sale-flow.json',
+        'flows/default/v6.1-operations-flow.json',
+        'flows/default/v6.1-collaboration-flow.json'
+      ];
+
+      const results = [];
+      const errors = [];
+
+      for (const fileName of flowFiles) {
+        const filePath = path.join(process.cwd(), fileName);
+        
+        try {
+          if (!fs.existsSync(filePath)) {
+            errors.push({ file: fileName, error: '文件不存在' });
+            continue;
+          }
+
+          const flowData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+
+          // 检查流程是否已存在
+          const existing = await flowEngine.getFlowDefinition(flowData.id);
+          
+          if (existing) {
+            // 更新现有流程
+            const updated = await flowEngine.updateFlowDefinition(flowData.id, flowData);
+            results.push({ file: fileName, action: 'updated', id: flowData.id, name: flowData.name });
+            logger.info('流程定义更新成功', { id: flowData.id, name: flowData.name });
+          } else {
+            // 创建新流程
+            const created = await flowEngine.createFlowDefinition(flowData);
+            results.push({ file: fileName, action: 'created', id: flowData.id, name: flowData.name });
+            logger.info('流程定义创建成功', { id: flowData.id, name: flowData.name });
+          }
+        } catch (error) {
+          errors.push({ file: fileName, error: error.message });
+          logger.error('流程定义导入失败', { file: fileName, error: error.message });
+        }
+      }
+
+      return reply.send({
+        success: true,
+        message: '流程初始化完成',
+        data: {
+          total: flowFiles.length,
+          success: results.length,
+          failed: errors.length,
+          results,
+          errors
+        }
+      });
+    } catch (error) {
+      logger.error('初始化流程失败', { error: error.message });
+      return reply.code(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
 }
 
 // ============================================
@@ -547,6 +621,9 @@ function getFlowStatusDescription(status) {
   return descriptions[status] || status;
 }
 
+/**
+ * 获取节点类型描述（辅助函数）
+ */
 function getTriggerTypeDescription(triggerType) {
   const descriptions = {
     webhook: 'Webhook触发',

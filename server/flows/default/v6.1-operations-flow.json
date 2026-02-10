@@ -1,0 +1,364 @@
+{
+  "id": "flow_operations_v6_1",
+  "name": "运营专项维护机制流程",
+  "description": "定期检查系统状态，分析运营数据，识别问题和风险，自动优化或通知运维",
+  "version": "6.1.0",
+  "category": "运维流程",
+  "tags": [
+    "系统维护",
+    "运营分析",
+    "自动优化",
+    "风险监控"
+  ],
+  "triggerType": "scheduled",
+  "isActive": true,
+  "nodes": [
+    {
+      "id": "node_ops_1",
+      "name": "定时触发",
+      "type": "trigger_scheduled",
+      "config": {
+        "description": "每天凌晨2点触发",
+        "cron": "0 2 * * *",
+        "timezone": "Asia/Shanghai"
+      },
+      "position": {
+        "x": 100,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_ops_2",
+      "name": "检查系统健康状态",
+      "type": "multi_task_data",
+      "config": {
+        "description": "检查各系统模块的健康状态",
+        "tasks": [
+          {
+            "id": "check_database",
+            "name": "检查数据库状态",
+            "operation": "query",
+            "sql": "SELECT COUNT(*) as active_connections FROM pg_stat_activity WHERE state = 'active'",
+            "timeout": 5
+          },
+          {
+            "id": "check_api",
+            "name": "检查API状态",
+            "operation": "query",
+            "sql": "SELECT COUNT(*) as error_count FROM api_logs WHERE status >= 400 AND created_at > NOW() - INTERVAL '24 hours'",
+            "timeout": 5
+          },
+          {
+            "id": "check_flow",
+            "name": "检查流程状态",
+            "operation": "query",
+            "sql": "SELECT COUNT(*) as running_flows FROM flow_instances WHERE status = 'running'",
+            "timeout": 5
+          }
+        ]
+      },
+      "position": {
+        "x": 300,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_ops_3",
+      "name": "分析运营指标",
+      "type": "multi_task_data",
+      "config": {
+        "description": "分析关键运营指标",
+        "tasks": [
+          {
+            "id": "analyze_message",
+            "name": "分析消息处理量",
+            "operation": "query",
+            "sql": "SELECT COUNT(*) as message_count, AVG(execution_time) as avg_time FROM flow_executions WHERE created_at > NOW() - INTERVAL '24 hours'",
+            "timeout": 10
+          },
+          {
+            "id": "analyze_user",
+            "name": "分析用户活跃度",
+            "operation": "query",
+            "sql": "SELECT COUNT(DISTINCT user_id) as active_users FROM flow_executions WHERE created_at > NOW() - INTERVAL '24 hours'",
+            "timeout": 10
+          },
+          {
+            "id": "analyze_flow",
+            "name": "分析流程执行情况",
+            "operation": "query",
+            "sql": "SELECT flow_id, COUNT(*) as count, AVG(execution_time) as avg_time FROM flow_executions WHERE created_at > NOW() - INTERVAL '24 hours' GROUP BY flow_id",
+            "timeout": 10
+          }
+        ]
+      },
+      "position": {
+        "x": 500,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_ops_4",
+      "name": "识别风险和问题",
+      "type": "multi_task_ai",
+      "config": {
+        "description": "基于系统状态和运营指标，识别潜在风险和问题",
+        "tasks": [
+          {
+            "id": "identify_risks",
+            "name": "识别风险",
+            "operation": "analyze",
+            "prompt": "分析系统健康状态和运营指标，识别以下风险：\n1. 数据库连接数过高（>100）\n2. API错误率过高（>5%）\n3. 流程执行失败率高（>10%）\n4. 消息处理延迟过高（>2秒）\n\n返回JSON格式：{\"risks\":[{\"type\":\"database\",\"severity\":\"high\",\"description\":\"数据库连接数过高\"}],\"overall_score\":85}",
+            "modelName": "doubao",
+            "outputKey": "risk_analysis"
+          }
+        ]
+      },
+      "position": {
+        "x": 700,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_ops_5",
+      "name": "判断风险级别",
+      "type": "condition",
+      "config": {
+        "description": "根据风险严重程度决定处理方式",
+        "conditions": [
+          {
+            "expression": "{{risk_analysis.overall_score}} < 60",
+            "label": "高风险"
+          },
+          {
+            "expression": "{{risk_analysis.overall_score}} >= 60 && {{risk_analysis.overall_score}} < 80",
+            "label": "中风险"
+          },
+          {
+            "expression": "{{risk_analysis.overall_score}} >= 80",
+            "label": "低风险"
+          }
+        ]
+      },
+      "position": {
+        "x": 900,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_ops_6",
+      "name": "发送紧急告警",
+      "type": "multi_task_alert",
+      "config": {
+        "description": "向运维团队发送紧急告警",
+        "tasks": [
+          {
+            "id": "send_alert",
+            "name": "发送紧急告警",
+            "operation": "send",
+            "alertType": "emergency",
+            "channels": ["wechat", "email"],
+            "title": "系统高风险告警",
+            "message": "系统检测到高风险问题：\n\n{{risk_analysis.risks.map(r => r.type + ': ' + r.description).join('\\n')}}\n\n综合评分：{{risk_analysis.overall_score}}\n\n请立即处理！",
+            "recipients": ["ops_team"]
+          }
+        ]
+      },
+      "position": {
+        "x": 1100,
+        "y": 100
+      }
+    },
+    {
+      "id": "node_ops_7",
+      "name": "自动优化",
+      "type": "multi_task_ai",
+      "config": {
+        "description": "自动执行优化操作",
+        "tasks": [
+          {
+            "id": "optimize_database",
+            "name": "优化数据库",
+            "operation": "optimize",
+            "prompt": "基于当前系统状态，生成数据库优化建议（如清理连接、优化查询、重建索引等）",
+            "modelName": "doubao",
+            "outputKey": "database_optimization"
+          }
+        ]
+      },
+      "position": {
+        "x": 1100,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_ops_8",
+      "name": "发送提醒通知",
+      "type": "multi_task_alert",
+      "config": {
+        "description": "发送低风险提醒",
+        "tasks": [
+          {
+            "id": "send_notice",
+            "name": "发送提醒",
+            "operation": "send",
+            "alertType": "info",
+            "channels": ["wechat"],
+            "title": "系统健康报告",
+            "message": "系统运行正常，综合评分：{{risk_analysis.overall_score}}\n\n关键指标：\n- 数据库连接：{{health.database}}\n- API错误数：{{health.api_errors}}\n- 运行流程数：{{health.running_flows}}",
+            "recipients": ["ops_team"]
+          }
+        ]
+      },
+      "position": {
+        "x": 1100,
+        "y": 300
+      }
+    },
+    {
+      "id": "node_ops_9",
+      "name": "生成运营报告",
+      "type": "multi_task_ai",
+      "config": {
+        "description": "生成运营维护报告",
+        "tasks": [
+          {
+            "id": "generate_report",
+            "name": "生成报告",
+            "operation": "report",
+            "prompt": "生成运营维护报告，包括：\n1. 系统健康状态\n2. 关键运营指标\n3. 风险分析\n4. 优化建议\n5. 维护记录",
+            "modelName": "doubao",
+            "outputKey": "operations_report"
+          }
+        ]
+      },
+      "position": {
+        "x": 1300,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_ops_10",
+      "name": "保存维护日志",
+      "type": "data_persist",
+      "config": {
+        "description": "保存维护日志到数据库",
+        "tableName": "operations_logs",
+        "operation": "insert",
+        "data": {
+          "report_date": "{{now()}}",
+          "health_score": "{{risk_analysis.overall_score}}",
+          "risks": "{{risk_analysis.risks}}",
+          "metrics": "{{metrics}}",
+          "report": "{{operations_report.text}}",
+          "created_at": "{{now()}}"
+        }
+      },
+      "position": {
+        "x": 1500,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_ops_11",
+      "name": "发送报告给管理层",
+      "type": "multi_task_robot",
+      "config": {
+        "description": "将运营报告发送给管理层",
+        "tasks": [
+          {
+            "id": "send_report",
+            "name": "发送报告",
+            "operation": "send_message",
+            "robotId": "ops_bot",
+            "messageType": "markdown",
+            "content": "# 运营维护报告\n\n## 系统健康评分\n{{risk_analysis.overall_score}}/100\n\n## 风险分析\n{{risk_analysis.risks.map(r => '- ' + r.type + ': ' + r.description).join('\\n')}}\n\n## 关键指标\n- 消息处理量：{{metrics.message_count}}\n- 活跃用户数：{{metrics.active_users}}\n- 数据库连接：{{health.database}}\n\n## 详细报告\n{{operations_report.text}}",
+            "target": "management_group"
+          }
+        ]
+      },
+      "position": {
+        "x": 1700,
+        "y": 200
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "node_ops_1",
+      "target": "node_ops_2",
+      "condition": null
+    },
+    {
+      "source": "node_ops_2",
+      "target": "node_ops_3",
+      "condition": null
+    },
+    {
+      "source": "node_ops_3",
+      "target": "node_ops_4",
+      "condition": null
+    },
+    {
+      "source": "node_ops_4",
+      "target": "node_ops_5",
+      "condition": null
+    },
+    {
+      "source": "node_ops_5",
+      "target": "node_ops_6",
+      "condition": "高风险"
+    },
+    {
+      "source": "node_ops_5",
+      "target": "node_ops_7",
+      "condition": "中风险"
+    },
+    {
+      "source": "node_ops_5",
+      "target": "node_ops_8",
+      "condition": "低风险"
+    },
+    {
+      "source": "node_ops_6",
+      "target": "node_ops_9",
+      "condition": null
+    },
+    {
+      "source": "node_ops_7",
+      "target": "node_ops_9",
+      "condition": null
+    },
+    {
+      "source": "node_ops_8",
+      "target": "node_ops_9",
+      "condition": null
+    },
+    {
+      "source": "node_ops_9",
+      "target": "node_ops_10",
+      "condition": null
+    },
+    {
+      "source": "node_ops_10",
+      "target": "node_ops_11",
+      "condition": null
+    }
+  ],
+  "metadata": {
+    "author": "WorkTool AI",
+    "createdAt": "2025-06-18",
+    "updatedAt": "2025-06-18",
+    "documentation": {
+      "purpose": "定期检查系统状态，分析运营数据，识别问题和风险",
+      "trigger": "每天凌晨2点自动触发",
+      "expectedInputs": [],
+      "expectedOutputs": [
+        "系统健康报告",
+        "风险分析",
+        "优化建议",
+        "维护日志"
+      ]
+    }
+  }
+}

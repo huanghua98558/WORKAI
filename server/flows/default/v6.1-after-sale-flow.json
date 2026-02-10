@@ -1,0 +1,398 @@
+{
+  "id": "flow_after_sale_v6_1",
+  "name": "售后处理与分析系统流程",
+  "description": "处理用户售后请求，包括问题分析、客服分配、问题处理、结果分析和通知发送等环节",
+  "version": "6.1.0",
+  "category": "业务流程",
+  "tags": [
+    "售后服务",
+    "问题处理",
+    "客服分配",
+    "质量分析"
+  ],
+  "triggerType": "webhook",
+  "isActive": true,
+  "nodes": [
+    {
+      "id": "node_after_sale_1",
+      "name": "接收售后请求",
+      "type": "trigger_webhook",
+      "config": {
+        "path": "/webhooks/after-sale",
+        "method": "POST",
+        "description": "接收用户售后请求，包括订单号、问题描述、联系方式等信息"
+      },
+      "position": {
+        "x": 100,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_after_sale_2",
+      "name": "验证订单信息",
+      "type": "data_validate",
+      "config": {
+        "description": "验证订单号是否有效，订单是否在售后范围内",
+        "tasks": [
+          {
+            "id": "validate_order",
+            "name": "验证订单状态",
+            "operation": "validate",
+            "dataPath": "order_status",
+            "rules": {
+              "required": true,
+              "enum": ["completed", "refunded"]
+            }
+          },
+          {
+            "id": "validate_time",
+            "name": "验证售后时间",
+            "operation": "validate",
+            "dataPath": "order_time",
+            "rules": {
+              "required": true,
+              "timeRange": "7d"
+            }
+          }
+        ]
+      },
+      "position": {
+        "x": 300,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_after_sale_3",
+      "name": "AI分析问题类型",
+      "type": "multi_task_ai",
+      "config": {
+        "description": "使用AI分析用户问题描述，识别问题类型和严重程度",
+        "tasks": [
+          {
+            "id": "analyze_problem_type",
+            "name": "分析问题类型",
+            "operation": "classify",
+            "prompt": "分析用户售后问题描述，判断问题类型（产品质量、物流问题、服务态度、其他），返回JSON格式：{\"type\":\"产品质量\",\"severity\":\"high\",\"keywords\":[\"损坏\",\"破损\"]}",
+            "modelName": "doubao",
+            "outputKey": "problem_analysis"
+          },
+          {
+            "id": "extract_order_info",
+            "name": "提取订单关键信息",
+            "operation": "extract",
+            "prompt": "从售后请求中提取订单号、商品名称、购买时间等关键信息",
+            "modelName": "doubao",
+            "outputKey": "order_info"
+          }
+        ]
+      },
+      "position": {
+        "x": 500,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_after_sale_4",
+      "name": "判断是否需要人工处理",
+      "type": "condition",
+      "config": {
+        "description": "根据问题严重程度判断是否需要人工客服处理",
+        "conditions": [
+          {
+            "expression": "{{problem_analysis.severity}} === 'high'",
+            "label": "严重问题"
+          },
+          {
+            "expression": "{{problem_analysis.severity}} === 'medium'",
+            "label": "中等问题"
+          },
+          {
+            "expression": "{{problem_analysis.severity}} === 'low'",
+            "label": "轻微问题"
+          }
+        ]
+      },
+      "position": {
+        "x": 700,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_after_sale_5",
+      "name": "分配高级客服",
+      "type": "task_staff",
+      "config": {
+        "description": "将严重问题分配给高级客服处理",
+        "staffId": "senior_staff_pool",
+        "message": "处理严重售后问题：{{order_info.orderNo}} - {{problem_analysis.type}}",
+        "priority": "high",
+        "timeout": 300
+      },
+      "position": {
+        "x": 900,
+        "y": 100
+      }
+    },
+    {
+      "id": "node_after_sale_6",
+      "name": "分配普通客服",
+      "type": "task_staff",
+      "config": {
+        "description": "将中等问题分配给普通客服处理",
+        "staffId": "regular_staff_pool",
+        "message": "处理中等售后问题：{{order_info.orderNo}} - {{problem_analysis.type}}",
+        "priority": "medium",
+        "timeout": 600
+      },
+      "position": {
+        "x": 900,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_after_sale_7",
+      "name": "自动处理轻微问题",
+      "type": "multi_task_ai",
+      "config": {
+        "description": "自动处理轻微问题，生成解决方案",
+        "tasks": [
+          {
+            "id": "generate_solution",
+            "name": "生成解决方案",
+            "operation": "generate",
+            "prompt": "根据用户问题类型{{problem_analysis.type}}，生成具体的解决方案和建议",
+            "modelName": "doubao",
+            "outputKey": "solution"
+          }
+        ]
+      },
+      "position": {
+        "x": 900,
+        "y": 300
+      }
+    },
+    {
+      "id": "node_after_sale_8",
+      "name": "记录处理结果",
+      "type": "data_persist",
+      "config": {
+        "description": "将售后处理结果保存到数据库",
+        "tableName": "after_sale_records",
+        "operation": "insert",
+        "data": {
+          "order_id": "{{order_info.orderNo}}",
+          "problem_type": "{{problem_analysis.type}}",
+          "severity": "{{problem_analysis.severity}}",
+          "status": "resolved",
+          "solution": "{{solution.text}}",
+          "handled_by": "system",
+          "created_at": "{{now()}}"
+        }
+      },
+      "position": {
+        "x": 1100,
+        "y": 300
+      }
+    },
+    {
+      "id": "node_after_sale_9",
+      "name": "更新订单状态",
+      "type": "data_persist",
+      "config": {
+        "description": "更新订单售后状态",
+        "tableName": "orders",
+        "operation": "update",
+        "conditions": {
+          "order_no": "{{order_info.orderNo}}"
+        },
+        "data": {
+          "after_sale_status": "processing",
+          "updated_at": "{{now()}}"
+        }
+      },
+      "position": {
+        "x": 1100,
+        "y": 150
+      }
+    },
+    {
+      "id": "node_after_sale_10",
+      "name": "分析处理质量",
+      "type": "multi_task_ai",
+      "config": {
+        "description": "分析售后处理质量，评估处理效果",
+        "tasks": [
+          {
+            "id": "analyze_quality",
+            "name": "分析处理质量",
+            "operation": "analyze",
+            "prompt": "分析售后处理记录，评估处理质量和用户满意度，返回评分（1-10分）和改进建议",
+            "modelName": "doubao",
+            "outputKey": "quality_analysis"
+          }
+        ]
+      },
+      "position": {
+        "x": 1300,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_after_sale_11",
+      "name": "发送处理通知",
+      "type": "multi_task_robot",
+      "config": {
+        "description": "向用户发送售后处理通知",
+        "tasks": [
+          {
+            "id": "send_user_notification",
+            "name": "发送用户通知",
+            "operation": "send_message",
+            "robotId": "customer_service_bot",
+            "messageType": "text",
+            "content": "您的售后请求已处理完成。\n\n订单号：{{order_info.orderNo}}\n问题类型：{{problem_analysis.type}}\n处理结果：{{solution.text}}\n处理评分：{{quality_analysis.score}}/10\n\n如有疑问，请联系客服。",
+            "target": "{{user_id}}"
+          }
+        ]
+      },
+      "position": {
+        "x": 1500,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_after_sale_12",
+      "name": "生成售后报告",
+      "type": "multi_task_ai",
+      "config": {
+        "description": "生成售后处理报告",
+        "tasks": [
+          {
+            "id": "generate_report",
+            "name": "生成售后报告",
+            "operation": "report",
+            "prompt": "基于本次售后处理记录，生成售后处理报告，包括问题描述、处理过程、处理结果、质量分析和改进建议",
+            "modelName": "doubao",
+            "outputKey": "after_sale_report"
+          }
+        ]
+      },
+      "position": {
+        "x": 1700,
+        "y": 200
+      }
+    },
+    {
+      "id": "node_after_sale_13",
+      "name": "保存报告",
+      "type": "data_persist",
+      "config": {
+        "description": "保存售后报告到数据库",
+        "tableName": "after_sale_reports",
+        "operation": "insert",
+        "data": {
+          "order_id": "{{order_info.orderNo}}",
+          "report": "{{after_sale_report.text}}",
+          "quality_score": "{{quality_analysis.score}}",
+          "created_at": "{{now()}}"
+        }
+      },
+      "position": {
+        "x": 1900,
+        "y": 200
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "node_after_sale_1",
+      "target": "node_after_sale_2",
+      "condition": null
+    },
+    {
+      "source": "node_after_sale_2",
+      "target": "node_after_sale_3",
+      "condition": "success"
+    },
+    {
+      "source": "node_after_sale_3",
+      "target": "node_after_sale_4",
+      "condition": null
+    },
+    {
+      "source": "node_after_sale_4",
+      "target": "node_after_sale_5",
+      "condition": "严重问题"
+    },
+    {
+      "source": "node_after_sale_4",
+      "target": "node_after_sale_6",
+      "condition": "中等问题"
+    },
+    {
+      "source": "node_after_sale_4",
+      "target": "node_after_sale_7",
+      "condition": "轻微问题"
+    },
+    {
+      "source": "node_after_sale_5",
+      "target": "node_after_sale_9",
+      "condition": null
+    },
+    {
+      "source": "node_after_sale_6",
+      "target": "node_after_sale_9",
+      "condition": null
+    },
+    {
+      "source": "node_after_sale_7",
+      "target": "node_after_sale_8",
+      "condition": null
+    },
+    {
+      "source": "node_after_sale_8",
+      "target": "node_after_sale_10",
+      "condition": null
+    },
+    {
+      "source": "node_after_sale_9",
+      "target": "node_after_sale_10",
+      "condition": null
+    },
+    {
+      "source": "node_after_sale_10",
+      "target": "node_after_sale_11",
+      "condition": null
+    },
+    {
+      "source": "node_after_sale_11",
+      "target": "node_after_sale_12",
+      "condition": null
+    },
+    {
+      "source": "node_after_sale_12",
+      "target": "node_after_sale_13",
+      "condition": null
+    }
+  ],
+  "metadata": {
+    "author": "WorkTool AI",
+    "createdAt": "2025-06-18",
+    "updatedAt": "2025-06-18",
+    "documentation": {
+      "purpose": "处理用户售后请求，自动化处理轻微问题，分配人工客服处理严重问题",
+      "trigger": "通过webhook接收售后请求",
+      "expectedInputs": [
+        "order_no: 订单号",
+        "user_id: 用户ID",
+        "problem_description: 问题描述",
+        "contact_info: 联系方式"
+      ],
+      "expectedOutputs": [
+        "处理结果通知",
+        "售后报告",
+        "质量分析"
+      ]
+    }
+  }
+}

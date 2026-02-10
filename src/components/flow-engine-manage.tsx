@@ -201,6 +201,56 @@ export default function FlowEngineManage() {
     }
   };
 
+  // 初始化 v6.1 流程
+  const handleInitializeFlows = async () => {
+    if (!confirm('确定要初始化 v6.1 流程吗？这会导入默认流程文件到数据库。')) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/flow-engine/initialize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast({
+          title: "初始化成功",
+          description: `成功导入 ${result.data.success} 个流程，失败 ${result.data.failed} 个`,
+          variant: "default",
+        });
+        
+        // 刷新流程列表
+        await loadFlows();
+        
+        // 显示详细结果
+        if (result.data.errors.length > 0) {
+          console.error('部分流程导入失败:', result.data.errors);
+        }
+      } else {
+        toast({
+          title: "初始化失败",
+          description: result.error || '初始化流程失败',
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('初始化流程失败:', error);
+      toast({
+        title: "初始化失败",
+        description: '初始化流程失败',
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // 加载实例列表
   const loadInstances = async () => {
     try {
@@ -474,6 +524,15 @@ export default function FlowEngineManage() {
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             刷新
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleInitializeFlows}
+            disabled={isLoading}
+          >
+            <Settings className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            初始化 v6.1 流程
           </Button>
           <Button
             variant="default"
