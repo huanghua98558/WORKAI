@@ -4,6 +4,7 @@
  */
 
 const { getDb } = require('coze-coding-dev-sdk');
+const { getPool } = require('coze-coding-dev-sdk');
 const {
   collaborationDecisionLogs,
   staffMessages,
@@ -718,12 +719,44 @@ async function getStaffDetail(req, reply) {
 }
 
 /**
+ * 发送SSE通知
+ * @param {string} type - 通知类型
+ * @param {object} data - 通知数据
+ */
+async function sendSSENotification(type, data) {
+  try {
+    const pool = await getPool();
+    const payload = JSON.stringify({
+      type,
+      data,
+      timestamp: new Date().toISOString(),
+    });
+
+    // 发送到全局售后通知通道
+    await pool.query(`NOTIFY "after_sales_notifications", '${payload.replace(/'/g, "''")}'`);
+    console.log('[SSE通知] 已发送:', { type, data });
+  } catch (error) {
+    console.error('[SSE通知] 发送失败:', error);
+  }
+}
+
+/**
  * 创建售后任务
  * POST /api/collab/after-sales-tasks
  */
 async function createAfterSalesTask(req, reply) {
   try {
     const task = await collaborationService.createAfterSalesTask(req.body);
+
+    // 发送SSE通知
+    await sendSSENotification('task_created', {
+      taskId: task.id,
+      title: task.title,
+      status: task.status,
+      priority: task.priority,
+      assignedStaffUserId: task.assignedStaffUserId,
+      createdAt: task.createdAt
+    });
 
     return reply.send({
       code: 0,
@@ -750,6 +783,16 @@ async function updateAfterSalesTask(req, reply) {
     const updates = req.body;
 
     const task = await collaborationService.updateAfterSalesTask(taskId, updates);
+
+    // 发送SSE通知
+    await sendSSENotification('task_updated', {
+      taskId: task.id,
+      status: task.status,
+      priority: task.priority,
+      assignedStaffUserId: task.assignedStaffUserId,
+      updatedAt: task.updatedAt,
+      changes: updates
+    });
 
     return reply.send({
       code: 0,

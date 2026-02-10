@@ -221,6 +221,125 @@ async function sseMessageRoutes(fastify, options) {
     }
   });
 
+  // 售后通知SSE端点
+  fastify.get('/sse/after-sales', async (request, reply) => {
+    const channel = 'after_sales_notifications';
+
+    logger.info('[售后SSE] 创建连接', { channel });
+
+    // 设置SSE响应头
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Cache-Control',
+    });
+
+    // 发送SSE消息的辅助函数
+    const sendSSEMessage = (data) => {
+      try {
+        reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
+      } catch (error) {
+        logger.error('[售后SSE] 发送消息失败', { error: error.message });
+      }
+    };
+
+    // 发送连接成功消息
+    sendSSEMessage({
+      type: 'connected',
+      message: '售后通知SSE连接成功',
+      timestamp: new Date().toISOString(),
+      channel,
+    });
+
+    try {
+      // 创建独立的PostgreSQL连接用于LISTEN/NOTIFY
+      const sseClient = new pg.Client({
+        connectionString: process.env.PGDATABASE_URL,
+      });
+
+      await sseClient.connect();
+      logger.info('[售后SSE] 数据库连接已建立');
+
+      // 开始监听PostgreSQL通知
+      await sseClient.query(`LISTEN "${channel}"`);
+      logger.info('[售后SSE] LISTEN成功', { channel });
+
+      // 添加到活跃连接列表
+      if (!activeConnections.has(channel)) {
+        activeConnections.set(channel, new Set());
+      }
+      activeConnections.get(channel).add(reply.raw);
+
+      // 监听PostgreSQL通知事件
+      const handleNotification = (notification) => {
+        try {
+          const payload = JSON.parse(notification.payload);
+
+          // 发送新消息到前端
+          sendSSEMessage(payload);
+
+          logger.info('[售后SSE] 推送通知', {
+            type: payload.type,
+            channel,
+          });
+        } catch (error) {
+          logger.error('[售后SSE] 处理通知失败', { error: error.message, payload: notification.payload });
+        }
+      };
+
+      // 注册通知监听器
+      sseClient.on('notification', handleNotification);
+
+      // 心跳保活（每30秒发送一次）
+      const heartbeatInterval = setInterval(() => {
+        try {
+          sendSSEMessage({
+            type: 'heartbeat',
+            timestamp: new Date().toISOString(),
+          });
+        } catch (error) {
+          // 客户端已断开，清理资源
+          clearInterval(heartbeatInterval);
+        }
+      }, 30000);
+
+      // 客户端断开连接时清理资源
+      request.raw.on('close', async () => {
+        logger.info('[售后SSE] 连接已断开', { channel });
+
+        // 移除连接
+        const connections = activeConnections.get(channel);
+        if (connections) {
+          connections.delete(reply.raw);
+        }
+
+        // 清理定时器
+        clearInterval(heartbeatInterval);
+
+        // 取消监听PostgreSQL通知并关闭数据库连接
+        try {
+          sseClient.removeListener('notification', handleNotification);
+          await sseClient.query(`UNLISTEN "${channel}"`);
+          await sseClient.end();
+          logger.info('[售后SSE] 数据库连接已关闭', { channel });
+        } catch (err) {
+          logger.warn('[售后SSE] 清理资源失败', { error: err.message });
+        }
+      });
+
+    } catch (error) {
+      logger.error('[售后SSE] 连接初始化失败', { error: error.message });
+      sendSSEMessage({
+        type: 'error',
+        message: '售后通知SSE连接初始化失败',
+        error: error.message,
+      });
+      reply.raw.end();
+    }
+  });
+
   // 获取SSE连接统计信息
   fastify.get('/sse/stats', async (request, reply) => {
     const stats = {
