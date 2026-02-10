@@ -665,14 +665,15 @@ export default function FlowEngineManage() {
                         <p className="text-sm text-muted-foreground">{flow.description}</p>
                       )}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       {flow.status === 'active' ? (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => toggleFlowStatus(flow.id, 'inactive')}
+                          className="h-8"
                         >
-                          <Pause className="h-4 w-4 mr-1" />
+                          <Pause className="h-3.5 w-3.5 mr-1" />
                           停用
                         </Button>
                       ) : (
@@ -680,22 +681,20 @@ export default function FlowEngineManage() {
                           variant="outline"
                           size="sm"
                           onClick={() => toggleFlowStatus(flow.id, 'active')}
+                          className="h-8"
                         >
-                          <Play className="h-4 w-4 mr-1" />
+                          <Play className="h-3.5 w-3.5 mr-1" />
                           启用
                         </Button>
                       )}
-                      <Button variant="outline" size="sm" onClick={() => openDetailDialog(flow.id)}>
-                        <Eye className="h-4 w-4 mr-1" />
-                        查看详情
+                      <Button variant="ghost" size="sm" onClick={() => openDetailDialog(flow.id)} className="h-8 px-2">
+                        <Eye className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => openEditDialog(flow.id)}>
-                        <Edit className="h-4 w-4 mr-1" />
-                        编辑
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog(flow.id)} className="h-8 px-2">
+                        <Edit className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleDeleteFlow(flow.id)}>
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        删除
+                      <Button variant="ghost" size="sm" onClick={() => handleDeleteFlow(flow.id)} className="h-8 px-2 hover:text-red-600">
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </div>
@@ -703,48 +702,51 @@ export default function FlowEngineManage() {
                 <CardContent>
                   <div className="space-y-4">
                     {/* 流程节点预览 */}
-                    <div className="flex items-center gap-2 overflow-x-auto pb-2">
-                      {flow.nodes && flow.nodes.length > 0 ? flow.nodes.map((node, index) => {
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                      {flow.nodes && flow.nodes.length > 0 ? flow.nodes.slice(0, 8).map((node, index) => {
                         const config = getNodeTypeConfig(node.type);
                         const Icon = config?.icon || Box;
-                        // 后端返回的节点数据结构：{ id, data: { name, config, description }, type, position }
-                        // 兼容两种数据结构：直接访问 node.name 或通过 node.data.name
                         const nodeName = node.data?.name || node.name || node.id || '未命名节点';
                         return (
                           <React.Fragment key={node.id}>
                             {index > 0 && (
-                              <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                             )}
                             <Badge
                               variant="outline"
-                              className={`gap-1 flex-shrink-0 ${config?.color || 'text-gray-500'} border-current`}
+                              className={`gap-1 flex-shrink-0 text-xs py-0.5 px-2 ${config?.color || 'text-gray-500'} border-current`}
                             >
                               <Icon className="h-3 w-3" />
-                              {nodeName}
+                              <span className="max-w-[120px] truncate">{nodeName}</span>
                             </Badge>
                           </React.Fragment>
                         );
                       }) : (
-                        <Badge variant="outline" className="text-muted-foreground">
+                        <Badge variant="outline" className="text-muted-foreground text-xs">
                           <Box className="h-3 w-3 mr-1" />
                           暂无节点
+                        </Badge>
+                      )}
+                      {flow.nodes && flow.nodes.length > 8 && (
+                        <Badge variant="outline" className="text-muted-foreground text-xs ml-1">
+                          +{flow.nodes.length - 8}
                         </Badge>
                       )}
                     </div>
 
                     {/* 统计信息 */}
-                    <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <Activity className="h-4 w-4" />
-                        <span>执行次数: {flow.execution_count || 0}</span>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <Activity className="h-3.5 w-3.5" />
+                        <span>执行: {flow.execution_count || 0}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4" />
-                        <span>成功率: {flow.success_rate ? `${flow.success_rate}%` : '0.0%'}</span>
+                      <div className="flex items-center gap-1.5">
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        <span>成功率: {flow.success_rate ? `${flow.success_rate}%` : '0%'}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        <span>更新于: {formatTime(flow.updated_at)}</span>
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5" />
+                        <span>更新: {formatTime(flow.updated_at)}</span>
                       </div>
                     </div>
                   </div>
