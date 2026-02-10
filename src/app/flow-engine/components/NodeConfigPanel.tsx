@@ -144,6 +144,20 @@ export interface InterventionJudgmentConfig extends BaseNodeConfig {
       aiConfidenceThreshold: number;
       maxConversationRounds: number;
     };
+    staffRules?: {
+      detectStaffStatus: boolean;
+      activityThreshold?: 'strict' | 'moderate' | 'relaxed';
+      responseTimeThreshold?: number;
+      userReplyToStaff?: 'assist' | 'monitor_only' | 'auto_reply';
+      staffTypes?: ('after_sales' | 'group_assistant' | '运营')[];
+    };
+    operatorRules?: {
+      enabled: boolean;
+      keywords?: string[];
+      toneTypes?: ('harsh' | 'impatient' | 'normal')[];
+      interventionStrategy?: 'assist' | 'monitor_only' | 'protect_user' | 'balance';
+      recordAbnormalBehavior?: boolean;
+    };
   };
 }
 
@@ -174,6 +188,27 @@ export interface ContextRetrievalConfig extends BaseNodeConfig {
     includeUserProfile: boolean;
     includeAfterSalesTasks: boolean;
     maxHistoryLength: number;
+    includeStaffMessages?: boolean;
+    sessionType?: {
+      user: boolean;
+      group: boolean;
+    };
+    sessionStatusFilter?: ('active' | 'idle' | 'inactive')[];
+    newUserOptimization?: {
+      enabled: boolean;
+      messageCountThreshold: number;
+      useDefaultProfile: boolean;
+    };
+    userProfileFields?: ('satisfaction' | 'problemResolutionRate' | 'conversationCount' | 'lastContactTime' | 'tagInfo')[];
+    defaultUserProfile?: {
+      satisfaction: number;
+      tags: string[];
+    };
+    includeStaffStatus?: boolean;
+    includeRobotStatus?: boolean;
+    includeAlertInfo?: boolean;
+    staffStatusFilter?: ('after_sales' | 'group_assistant' | 'operation')[];
+    detectOnlineStaff?: boolean;
   };
 }
 
@@ -182,9 +217,13 @@ export interface MessageSendConfig extends BaseNodeConfig {
   type: 'message_send';
   config: {
     enabled: boolean;
+    messageType?: 'group_at_user' | 'group_general' | 'private' | 'image' | 'file';
+    atAll?: boolean;
+    deduplicate?: boolean;
     robotSelection: {
-      strategy: 'priority' | 'load' | 'health' | 'type';
-      preferredRobotTypes: ('main_bot' | 'after_sales_bot' | 'emergency_bot' | 'backup_bot')[];
+      strategy: 'priority' | 'load' | 'health' | 'type' | 'reply_bot' | 'notification_bot';
+      preferredRobotTypes: ('main_bot' | 'after_sales_bot' | 'emergency_bot' | 'backup_bot' | 'monitoring_bot' | 'notification_bot' | 'day_shift_bot' | 'night_shift_bot')[];
+      allowCrossRobot?: boolean;
     };
     delayStrategy: {
       baseDelay: number;
@@ -206,10 +245,24 @@ export interface MessageSendConfig extends BaseNodeConfig {
         negative_medium: number;
         negative_low: number;
       };
+      timeOfDayAdjustment?: {
+        dayShift?: number;
+        nightShift?: number;
+        lateNight?: number;
+      };
     };
     retryConfig: {
       maxRetries: number;
       retryDelay: number;
+      retryStrategy?: 'fixed' | 'linear' | 'exponential';
+    };
+    timeRestriction?: {
+      enabled: boolean;
+      dayShiftStart?: string;
+      dayShiftEnd?: string;
+      nightShiftStart?: string;
+      nightShiftEnd?: string;
+      nightShiftFrequency?: 'normal' | 'reduced' | 'minimal' | 'quiet';
     };
   };
 }
@@ -219,12 +272,52 @@ export interface AfterSalesTaskConfig extends BaseNodeConfig {
   type: 'after_sales_task';
   config: {
     enabled: boolean;
-    taskTypes: ('refund' | 'product_issue' | 'service_issue' | 'order_issue' | 'other')[];
+    taskTypes: ('scan_qrcode' | 'bind_phone' | 'reauth' | 'upload_videos' | 'delete_product' | 'delete_works' | 'refund' | 'complaint' | 'other')[];
     defaultPriority: 'P0' | 'P1' | 'P2' | 'P3';
     autoAssignment: boolean;
-    assignmentStrategy: 'load_balance' | 'skill_based' | 'priority_based';
+    assignmentStrategy: 'load_balance' | 'skill_based' | 'priority_based' | 'round_robin';
     syncToTencentDocs: boolean;
+    tencentDocId?: string;
+    tencentDocSheet?: string;
+    autoUpdateProgress?: boolean;
     collaborationTeam?: string[];
+    enableTaskAssociation?: boolean;
+    taskTimeoutMinutes?: number;
+    reminderIntervalMinutes?: number;
+    userResponseKeywords?: string[];
+    taskTriggerKeywords?: string[];
+    cooperationScore?: {
+      responseTimeWeight: number;
+      taskCompletionWeight: number;
+      attitudeWeight: number;
+    };
+    enableRobotSoothe?: boolean;
+    sootheRobotType?: 'notification_bot' | 'current_bot' | 'main_bot';
+    robotSootheMessages?: {
+      online?: {
+        enabled: boolean;
+        delaySeconds: number;
+        message: string;
+      };
+      busy?: {
+        enabled: boolean;
+        delaySeconds: number;
+        message: string;
+      };
+      offline?: {
+        enabled: boolean;
+        delaySeconds: number;
+        message: string;
+      };
+    };
+    assignmentTimeSlots?: {
+      dayShift?: boolean;
+      eveningShift?: boolean;
+    };
+    staffSchedule?: {
+      dayShift?: string;
+      eveningShift?: string;
+    };
   };
 }
 
@@ -1211,152 +1304,461 @@ function InterventionJudgmentForm({
           />
         </div>
 
-        <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="conditions">
-            <AccordionTrigger className="text-sm">
-              介入条件配置
-            </AccordionTrigger>
-            <AccordionContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>连续负面情绪次数: {config.config.conditions.consecutiveNegativeCount}</Label>
-                <Slider
-                  value={[config.config.conditions.consecutiveNegativeCount]}
-                  onValueChange={([value]) =>
-                    onUpdate({
-                      config: {
-                        ...config.config,
-                        conditions: {
-                          ...config.config.conditions,
-                          consecutiveNegativeCount: value,
-                        },
-                      },
-                    })
-                  }
-                  min={1}
-                  max={10}
-                  step={1}
-                />
-                <p className="text-xs text-muted-foreground">
-                  用户连续表达负面消息达到此次数时触发介入
-                </p>
-              </div>
+        <Tabs defaultValue="conditions" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="conditions">介入条件</TabsTrigger>
+            <TabsTrigger value="staff">工作人员规则</TabsTrigger>
+            <TabsTrigger value="operator">运营规则</TabsTrigger>
+          </TabsList>
 
-              <div className="space-y-2">
-                <Label>最低满意度阈值: {config.config.conditions.maxSatisfactionScore}分</Label>
-                <Slider
-                  value={[config.config.conditions.maxSatisfactionScore]}
-                  onValueChange={([value]) =>
-                    onUpdate({
-                      config: {
-                        ...config.config,
-                        conditions: {
-                          ...config.config.conditions,
-                          maxSatisfactionScore: value,
-                        },
-                      },
-                    })
-                  }
-                  min={0}
-                  max={100}
-                  step={5}
-                />
-                <p className="text-xs text-muted-foreground">
-                  用户满意度低于此分数时触发介入
-                </p>
-              </div>
+          <TabsContent value="conditions" className="space-y-4">
+            <Accordion type="multiple" defaultValue={['satisfaction', 'complaint']} className="w-full">
+              <AccordionItem value="satisfaction">
+                <AccordionTrigger className="text-sm">
+                  满意度判断
+                </AccordionTrigger>
+                <AccordionContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>最低满意度阈值: {config.config.conditions.maxSatisfactionScore}分</Label>
+                    <Slider
+                      value={[config.config.conditions.maxSatisfactionScore]}
+                      onValueChange={([value]) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            conditions: {
+                              ...config.config.conditions,
+                              maxSatisfactionScore: value,
+                            },
+                          },
+                        })
+                      }
+                      min={0}
+                      max={100}
+                      step={5}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      用户满意度低于此分数时触发介入
+                    </p>
+                  </div>
 
-              <div className="space-y-2">
-                <Label>最低投诉次数: {config.config.conditions.minComplaintCount}</Label>
-                <Slider
-                  value={[config.config.conditions.minComplaintCount]}
-                  onValueChange={([value]) =>
-                    onUpdate({
-                      config: {
-                        ...config.config,
-                        conditions: {
-                          ...config.config.conditions,
-                          minComplaintCount: value,
-                        },
-                      },
-                    })
-                  }
-                  min={1}
-                  max={10}
-                  step={1}
-                />
-                <p className="text-xs text-muted-foreground">
-                  用户投诉次数达到此次数时触发介入
-                </p>
-              </div>
+                  <div className="space-y-2">
+                    <Label>连续负面情绪次数: {config.config.conditions.consecutiveNegativeCount}</Label>
+                    <Slider
+                      value={[config.config.conditions.consecutiveNegativeCount]}
+                      onValueChange={([value]) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            conditions: {
+                              ...config.config.conditions,
+                              consecutiveNegativeCount: value,
+                            },
+                          },
+                        })
+                      }
+                      min={1}
+                      max={10}
+                      step={1}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      用户连续表达负面消息达到此次数时触发介入
+                    </p>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
 
-              <div className="flex items-center justify-between">
-                <Label>用户明确要求人工服务</Label>
-                <Switch
-                  checked={config.config.conditions.requireHumanService}
-                  onCheckedChange={(checked) =>
-                    onUpdate({
-                      config: {
-                        ...config.config,
-                        conditions: {
-                          ...config.config.conditions,
-                          requireHumanService: checked,
-                        },
-                      },
-                    })
-                  }
-                />
-              </div>
+              <AccordionItem value="complaint">
+                <AccordionTrigger className="text-sm">
+                  投诉判断
+                </AccordionTrigger>
+                <AccordionContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>最低投诉次数: {config.config.conditions.minComplaintCount}</Label>
+                    <Slider
+                      value={[config.config.conditions.minComplaintCount]}
+                      onValueChange={([value]) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            conditions: {
+                              ...config.config.conditions,
+                              minComplaintCount: value,
+                            },
+                          },
+                        })
+                      }
+                      min={1}
+ max={10}
+                      step={1}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      用户投诉次数达到此次数时触发介入
+                    </p>
+                  </div>
 
-              <div className="space-y-2">
-                <Label>AI 置信度阈值: {config.config.conditions.aiConfidenceThreshold.toFixed(2)}</Label>
-                <Slider
-                  value={[config.config.conditions.aiConfidenceThreshold]}
-                  onValueChange={([value]) =>
-                    onUpdate({
-                      config: {
-                        ...config.config,
-                        conditions: {
-                          ...config.config.conditions,
-                          aiConfidenceThreshold: value,
-                        },
-                      },
-                    })
-                  }
-                  min={0}
-                  max={1}
-                  step={0.1}
-                />
-                <p className="text-xs text-muted-foreground">
-                  AI置信度低于此阈值时触发介入
-                </p>
-              </div>
+                  <div className="flex items-center justify-between">
+                    <Label>用户明确要求人工服务</Label>
+                    <Switch
+                      checked={config.config.conditions.requireHumanService}
+                      onCheckedChange={(checked) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            conditions: {
+                              ...config.config.conditions,
+                              requireHumanService: checked,
+                            },
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
 
-              <div className="space-y-2">
-                <Label>最大对话轮次: {config.config.conditions.maxConversationRounds}</Label>
-                <Slider
-                  value={[config.config.conditions.maxConversationRounds]}
-                  onValueChange={([value]) =>
-                    onUpdate({
-                      config: {
-                        ...config.config,
-                        conditions: {
-                          ...config.config.conditions,
-                          maxConversationRounds: value,
-                        },
+              <AccordionItem value="ai">
+                <AccordionTrigger className="text-sm">
+                  AI 能力判断
+                </AccordionTrigger>
+                <AccordionContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>AI 置信度阈值: {config.config.conditions.aiConfidenceThreshold.toFixed(2)}</Label>
+                    <Slider
+                      value={[config.config.conditions.aiConfidenceThreshold]}
+                      onValueChange={([value]) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            conditions: {
+                              ...config.config.conditions,
+                              aiConfidenceThreshold: value,
+                            },
+                          },
+                        })
+                      }
+                      min={0}
+                      max={1}
+                      step={0.1}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      AI置信度低于此阈值时触发介入
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>最大对话轮次: {config.config.conditions.maxConversationRounds}</Label>
+                    <Slider
+                      value={[config.config.conditions.maxConversationRounds]}
+                      onValueChange={([value]) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            conditions: {
+                              ...config.config.conditions,
+                              maxConversationRounds: value,
+                            },
+                          },
+                        })
+                      }
+                      min={5}
+                      max={50}
+                      step={1}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      对话轮次超过此时仍未解决问题时触发介入
+                    </p>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </TabsContent>
+
+          <TabsContent value="staff" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label>检测工作人员状态</Label>
+              <Switch
+                checked={config.config.staffRules?.detectStaffStatus || false}
+                onCheckedChange={(checked) =>
+                  onUpdate({
+                    config: {
+                      ...config.config,
+                      staffRules: {
+                        ...config.config.staffRules,
+                        detectStaffStatus: checked,
                       },
-                    })
-                  }
-                  min={5}
-                  max={50}
-                  step={1}
-                />
-                <p className="text-xs text-muted-foreground">
-                  对话轮次超过此时仍未解决问题时触发介入
-                </p>
+                    },
+                  })
+                }
+              />
+            </div>
+
+            {config.config.staffRules?.detectStaffStatus && (
+              <>
+                <div className="space-y-2">
+                  <Label>工作人员活跃度判断</Label>
+                  <Select
+                    value={config.config.staffRules?.activityThreshold || 'moderate'}
+                    onValueChange={(value) =>
+                      onUpdate({
+                        config: {
+                          ...config.config,
+                          staffRules: {
+                            ...config.config.staffRules,
+                            activityThreshold: value,
+                          },
+                        },
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="strict">严格（高活跃度时介入）</SelectItem>
+                      <SelectItem value="moderate">适中（中等活跃度时介入）</SelectItem>
+                      <SelectItem value="relaxed">宽松（低活跃度时介入）</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>工作人员响应时间阈值（分钟）: {config.config.staffRules?.responseTimeThreshold || 10}</Label>
+                  <Slider
+                    value={[config.config.staffRules?.responseTimeThreshold || 10]}
+                    onValueChange={([value]) =>
+                      onUpdate({
+                        config: {
+                          ...config.config,
+                          staffRules: {
+                            ...config.config.staffRules,
+                            responseTimeThreshold: value,
+                          },
+                        },
+                      })
+                    }
+                    min={1}
+                    max={30}
+                    step={1}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    工作人员超过此时未回复时，系统介入
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>用户回复工作人员时的判断策略</Label>
+                  <Select
+                    value={config.config.staffRules?.userReplyToStaff || 'assist'}
+                    onValueChange={(value) =>
+                      onUpdate({
+                        config: {
+                          ...config.config,
+                          staffRules: {
+                            ...config.config.staffRules,
+                            userReplyToStaff: value,
+                          },
+                        },
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="assist">协助回复（工作人员忙碌时）</SelectItem>
+                      <SelectItem value="monitor_only">仅监控（不回复）</SelectItem>
+                      <SelectItem value="auto_reply">自动回复（根据上下文）</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    当用户回复工作人员消息时，系统的处理策略
+                  </p>
+                </div>
+              </>
+            )}
+
+            <div className="space-y-2">
+              <Label>工作人员类型识别</Label>
+              <div className="space-y-2">
+                {[
+                  { value: 'after_sales', label: '售后人员' },
+                  { value: 'group_assistant', label: '群助理' },
+                  { value: '运营', label: '运营（财神爷）' },
+                ].map((item) => (
+                  <div key={item.value} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`staff-type-${item.value}`}
+                      checked={config.config.staffRules?.staffTypes?.includes(item.value as any) || false}
+                      onCheckedChange={(checked) => {
+                        const currentTypes = config.config.staffRules?.staffTypes || [];
+                        const newTypes = checked
+                          ? [...currentTypes, item.value]
+                          : currentTypes.filter((t) => t !== item.value);
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            staffRules: {
+                              ...config.config.staffRules,
+                              staffTypes: newTypes,
+                            },
+                          },
+                        });
+                      }}
+                    />
+                    <Label htmlFor={`staff-type-${item.value}`} className="text-sm cursor-pointer">
+                      {item.label}
+                    </Label>
+                  </div>
+                ))}
               </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+            </div>
+
+            <div className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-md">
+              <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-muted-foreground">
+                <strong>重要：</strong>售后和群助理合并后，需要根据工作时间自动分配：
+                <br />• 白班（9:00-19:00）：售后A
+                <br />• 晚班（19:00-23:00）：售后B
+              </p>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="operator" className="space-y-4">
+            <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/20 rounded-md mb-4">
+              <Info className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-muted-foreground">
+                <strong>运营（财神爷）特殊规则：</strong>运营是我们的核心客户（老板），要尽可能配合维护好他们。运营会在群里让号主去配合解决账号的认证问题，有些运营语气很硬，会让号主配合度很低，有些运营脾气不好。基本都是用的微信在我们号主群，有极少的会用企业微信。
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label>启用运营特殊处理</Label>
+              <Switch
+                checked={config.config.operatorRules?.enabled || false}
+                onCheckedChange={(checked) =>
+                  onUpdate({
+                    config: {
+                      ...config.config,
+                      operatorRules: {
+                        ...config.config.operatorRules,
+                        enabled: checked,
+                      },
+                    },
+                  })
+                }
+              />
+            </div>
+
+            {config.config.operatorRules?.enabled && (
+              <>
+                <div className="space-y-2">
+                  <Label>运营识别关键词</Label>
+                  <Input
+                    value={config.config.operatorRules?.keywords?.join(', ') || ''}
+                    onChange={(e) =>
+                      onUpdate({
+                        config: {
+                          ...config.config,
+                          operatorRules: {
+                            ...config.config.operatorRules,
+                            keywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean),
+                          },
+                        },
+                      })
+                    }
+                    placeholder="例如：运营, 老板, 号主配合, 认证问题"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>运营语气识别</Label>
+                  <div className="space-y-2">
+                    {[
+                      { value: 'harsh', label: '强硬语气' },
+                      { value: 'impatient', label: '不耐烦' },
+                      { value: 'normal', label: '正常语气' },
+                    ].map((item) => (
+                      <div key={item.value} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`operator-tone-${item.value}`}
+                          checked={config.config.operatorRules?.toneTypes?.includes(item.value as any) || false}
+                          onCheckedChange={(checked) => {
+                            const currentTypes = config.config.operatorRules?.toneTypes || [];
+                            const newTypes = checked
+                              ? [...currentTypes, item.value]
+                              : currentTypes.filter((t) => t !== item.value);
+                            onUpdate({
+                              config: {
+                                ...config.config,
+                                operatorRules: {
+                                  ...config.config.operatorRules,
+                                  toneTypes: newTypes,
+                                },
+                              },
+                            });
+                          }}
+                        />
+                        <Label htmlFor={`operator-tone-${item.value}`} className="text-sm cursor-pointer">
+                          {item.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>系统介入策略</Label>
+                  <Select
+                    value={config.config.operatorRules?.interventionStrategy || 'assist'}
+                    onValueChange={(value) =>
+                      onUpdate({
+                        config: {
+                          ...config.config,
+                          operatorRules: {
+                            ...config.config.operatorRules,
+                            interventionStrategy: value,
+                          },
+                        },
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="assist">协助运营（补充说明，缓解气氛）</SelectItem>
+                      <SelectItem value="monitor_only">仅监控（不干预）</SelectItem>
+                      <SelectItem value="protect_user">保护用户（提醒运营注意语气）</SelectItem>
+                      <SelectItem value="balance">平衡（在保护用户的同时协助运营）</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label>记录运营异常行为</Label>
+                  <Switch
+                    checked={config.config.operatorRules?.recordAbnormalBehavior || false}
+                    onCheckedChange={(checked) =>
+                      onUpdate({
+                        config: {
+                          ...config.config,
+                          operatorRules: {
+                            ...config.config.operatorRules,
+                            recordAbnormalBehavior: checked,
+                          },
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  记录运营的语气问题，用于后续评估和改进建议
+                </p>
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
@@ -1557,80 +1959,443 @@ function ContextRetrievalForm({
           />
         </div>
 
-        <div className="space-y-2">
-          <Label>检索策略</Label>
-          <Select
-            value={config.config.retrievalStrategy}
-            onValueChange={(value: any) =>
-              onUpdate({ config: { ...config.config, retrievalStrategy: value } })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="recent">最近消息</SelectItem>
-              <SelectItem value="relevant">相关消息</SelectItem>
-              <SelectItem value="hybrid">混合策略</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <Tabs defaultValue="strategy" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="strategy">检索策略</TabsTrigger>
+            <TabsTrigger value="session">会话类型</TabsTrigger>
+            <TabsTrigger value="profile">用户画像</TabsTrigger>
+            <TabsTrigger value="extra">扩展信息</TabsTrigger>
+          </TabsList>
 
-        <div className="space-y-2">
-          <Label>历史消息数量: {config.config.historyCount}</Label>
-          <Slider
-            value={[config.config.historyCount]}
-            onValueChange={([value]) =>
-              onUpdate({ config: { ...config.config, historyCount: value } })
-            }
-            min={1}
-            max={50}
-            step={1}
-          />
-        </div>
+          <TabsContent value="strategy" className="space-y-4">
+            <div className="space-y-2">
+              <Label>检索策略</Label>
+              <Select
+                value={config.config.retrievalStrategy}
+                onValueChange={(value: any) =>
+                  onUpdate({ config: { ...config.config, retrievalStrategy: value } })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">最近消息（按时间倒序）</SelectItem>
+                  <SelectItem value="relevant">相关消息（基于语义相似度）</SelectItem>
+                  <SelectItem value="hybrid">混合策略（时间+相关性）</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-        <div className="space-y-2">
-          <Label>最大历史长度: {config.config.maxHistoryLength}</Label>
-          <Slider
-            value={[config.config.maxHistoryLength]}
-            onValueChange={([value]) =>
-              onUpdate({ config: { ...config.config, maxHistoryLength: value } })
-            }
-            min={10}
-            max={200}
-            step={10}
-          />
-          <p className="text-xs text-muted-foreground">
-            控制发送给AI的上下文总长度（字符数）
-          </p>
-        </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>历史消息数量: {config.config.historyCount}</Label>
+                <Slider
+                  value={[config.config.historyCount]}
+                  onValueChange={([value]) =>
+                    onUpdate({ config: { ...config.config, historyCount: value } })
+                  }
+                  min={1}
+                  max={50}
+                  step={1}
+                />
+              </div>
 
-        <div className="space-y-3 pt-2 border-t">
-          <Label>检索内容</Label>
-          <div className="space-y-2">
-            {[
-              { key: 'includeUserSession', label: '用户会话历史' },
-              { key: 'includeGroupSession', label: '群组会话历史' },
-              { key: 'includeUserProfile', label: '用户画像信息' },
-              { key: 'includeAfterSalesTasks', label: '售后任务信息' },
-            ].map((item) => (
-              <div key={item.key} className="flex items-center justify-between">
-                <Label className="text-sm">{item.label}</Label>
+              <div className="space-y-2">
+                <Label>最大历史长度: {config.config.maxHistoryLength}</Label>
+                <Slider
+                  value={[config.config.maxHistoryLength]}
+                  onValueChange={([value]) =>
+                    onUpdate({ config: { ...config.config, maxHistoryLength: value } })
+                  }
+                  min={10}
+                  max={200}
+                  step={10}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-md">
+              <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div className="text-sm">
+                <p className="text-muted-foreground mb-1"><strong>检索规则：</strong></p>
+                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                  <li>新会话（消息总数 = 0）：历史消息上下文为空数组</li>
+                  <li>老会话（消息总数 &gt; 0）：检索最近N条消息（默认20条）</li>
+                </ul>
+              </div>
+            </div>
+
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="new-user">
+                <AccordionTrigger className="text-sm">
+                  新用户优化策略
+                </AccordionTrigger>
+                <AccordionContent className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>启用新用户优化</Label>
+                    <Switch
+                      checked={config.config.newUserOptimization?.enabled || false}
+                      onCheckedChange={(checked) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            newUserOptimization: {
+                              ...config.config.newUserOptimization,
+                              enabled: checked,
+                            },
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    如果用户是新用户（用户会话消息总数 &lt; 5），检索该用户所在的其他群聊的历史消息作为补充上下文
+                  </p>
+
+                  {config.config.newUserOptimization?.enabled && (
+                    <>
+                      <div className="space-y-2">
+                        <Label>
+                          新用户消息阈值: {config.config.newUserOptimization?.messageCountThreshold || 5}
+                        </Label>
+                        <Slider
+                          value={[config.config.newUserOptimization?.messageCountThreshold || 5]}
+                          onValueChange={([value]) =>
+                            onUpdate({
+                              config: {
+                                ...config.config,
+                                newUserOptimization: {
+                                  ...config.config.newUserOptimization,
+                                  messageCountThreshold: value,
+                                },
+                              },
+                            })
+                          }
+                          min={1}
+                          max={10}
+                          step={1}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <Label>使用默认用户画像</Label>
+                        <Switch
+                          checked={config.config.newUserOptimization?.useDefaultProfile || false}
+                          onCheckedChange={(checked) =>
+                            onUpdate({
+                              config: {
+                                ...config.config,
+                                newUserOptimization: {
+                                  ...config.config.newUserOptimization,
+                                  useDefaultProfile: checked,
+                                },
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                    </>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </TabsContent>
+
+          <TabsContent value="session" className="space-y-4">
+            <div className="space-y-2">
+              <Label>会话类型选择</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex items-center justify-between p-3 border rounded-md">
+                  <div className="flex flex-col">
+                    <Label className="text-sm font-medium">用户会话</Label>
+                    <span className="text-xs text-muted-foreground">按用户名/昵称创建</span>
+                  </div>
+                  <Switch
+                    checked={config.config.sessionType?.user || true}
+                    onCheckedChange={(checked) =>
+                      onUpdate({
+                        config: {
+                          ...config.config,
+                          sessionType: {
+                            ...config.config.sessionType,
+                            user: checked,
+                          },
+                        },
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 border rounded-md">
+                  <div className="flex flex-col">
+                    <Label className="text-sm font-medium">社群会话</Label>
+                    <span className="text-xs text-muted-foreground">按群聊群名创建</span>
+                  </div>
+                  <Switch
+                    checked={config.config.sessionType?.group || true}
+                    onCheckedChange={(checked) =>
+                      onUpdate({
+                        config: {
+                          ...config.config,
+                          sessionType: {
+                            ...config.config.sessionType,
+                            group: checked,
+                          },
+                        },
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>检索内容</Label>
+              <div className="space-y-2">
+                {[
+                  { key: 'includeUserSession', label: '用户会话历史', desc: '检索用户在所有群聊中的对话历史' },
+                  { key: 'includeGroupSession', label: '群组会话历史', desc: '检索群聊中的所有消息历史' },
+                  { key: 'includeStaffMessages', label: '工作人员消息', desc: '包含售后、群助理、运营的消息' },
+                ].map((item) => (
+                  <div key={item.key} className="flex items-start gap-2 p-3 border rounded-md">
+                    <Switch
+                      checked={config.config[item.key as keyof typeof config.config] as boolean}
+                      onCheckedChange={(checked) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            [item.key]: checked,
+                          },
+                        })
+                      }
+                    />
+                    <div className="flex-1">
+                      <Label className="text-sm cursor-pointer">{item.label}</Label>
+                      <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>会话状态过滤</Label>
+              <div className="space-y-2">
+                {[
+                  { value: 'active', label: '活跃（最近1小时内有新消息）' },
+                  { value: 'idle', label: '空闲（最近1-24小时内有新消息）' },
+                  { value: 'inactive', label: '沉睡（最近24小时-7天内有新消息）' },
+                ].map((item) => (
+                  <div key={item.value} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`session-status-${item.value}`}
+                      checked={config.config.sessionStatusFilter?.includes(item.value as any) || false}
+                      onCheckedChange={(checked) => {
+                        const currentFilter = config.config.sessionStatusFilter || [];
+                        const newFilter = checked
+                          ? [...currentFilter, item.value]
+                          : currentFilter.filter((s) => s !== item.value);
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            sessionStatusFilter: newFilter,
+                          },
+                        });
+                      }}
+                    />
+                    <Label htmlFor={`session-status-${item.value}`} className="text-sm cursor-pointer">
+                      {item.label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="profile" className="space-y-4">
+            <div className="space-y-2">
+              <Label>用户画像加载</Label>
+              <div className="flex items-center justify-between p-3 border rounded-md">
+                <div className="flex-1">
+                  <Label className="text-sm">启用用户画像</Label>
+                  <p className="text-xs text-muted-foreground mt-1">加载用户满意度、问题解决率等历史数据</p>
+                </div>
                 <Switch
-                  checked={config.config[item.key as keyof typeof config.config] as boolean}
+                  checked={config.config.includeUserProfile || false}
                   onCheckedChange={(checked) =>
-                    onUpdate({
-                      config: {
-                        ...config.config,
-                        [item.key]: checked,
-                      },
-                    })
+                    onUpdate({ config: { ...config.config, includeUserProfile: checked } })
                   }
                 />
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+
+            {config.config.includeUserProfile && (
+              <div className="space-y-2 p-3 bg-muted/50 rounded-md">
+                <Label className="text-sm mb-2 block">用户画像字段</Label>
+                <div className="space-y-2">
+                  {[
+                    { key: 'satisfaction', label: '满意度评分' },
+                    { key: 'problemResolutionRate', label: '问题解决率' },
+                    { key: 'conversationCount', label: '对话次数' },
+                    { key: 'lastContactTime', label: '最后联系时间' },
+                    { key: 'tagInfo', label: '用户标签' },
+                  ].map((item) => (
+                    <div key={item.key} className="flex items-center justify-between">
+                      <Label className="text-xs">{item.label}</Label>
+                      <Switch
+                        checked={config.config.userProfileFields?.includes(item.key as any) || false}
+                        onCheckedChange={(checked) => {
+                          const currentFields = config.config.userProfileFields || [];
+                          const newFields = checked
+                            ? [...currentFields, item.key]
+                            : currentFields.filter((f) => f !== item.key);
+                          onUpdate({
+                            config: {
+                              ...config.config,
+                              userProfileFields: newFields,
+                            },
+                          });
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>默认用户画像（新用户）</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">默认满意度</Label>
+                  <Input
+                    type="number"
+                    value={config.config.defaultUserProfile?.satisfaction || 50}
+                    onChange={(e) =>
+                      onUpdate({
+                        config: {
+                          ...config.config,
+                          defaultUserProfile: {
+                            ...config.config.defaultUserProfile,
+                            satisfaction: parseInt(e.target.value),
+                          },
+                        },
+                      })
+                    }
+                    min={0}
+                    max={100}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">用户标签</Label>
+                  <Input
+                    value={config.config.defaultUserProfile?.tags?.join(', ') || '新用户'}
+                    onChange={(e) =>
+                      onUpdate({
+                        config: {
+                          ...config.config,
+                          defaultUserProfile: {
+                            ...config.config.defaultUserProfile,
+                            tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean),
+                          },
+                        },
+                      })
+                    }
+                    placeholder="例如：新用户, 潜在客户"
+                  />
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="extra" className="space-y-4">
+            <div className="space-y-2">
+              <Label>扩展信息加载</Label>
+              <div className="space-y-2">
+                {[
+                  { key: 'includeAfterSalesTasks', label: '售后任务信息', desc: '加载当前任务的类型、状态、进度' },
+                  { key: 'includeStaffStatus', label: '工作人员状态', desc: '加载在线工作人员及其状态（在线/忙碌/离线）' },
+                  { key: 'includeRobotStatus', label: '机器人状态', desc: '加载回复机器人和通知机器人的状态' },
+                  { key: 'includeAlertInfo', label: '告警信息', desc: '加载最近的告警记录和状态' },
+                ].map((item) => (
+                  <div key={item.key} className="flex items-start gap-2 p-3 border rounded-md">
+                    <Switch
+                      checked={config.config[item.key as keyof typeof config.config] as boolean}
+                      onCheckedChange={(checked) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            [item.key]: checked,
+                          },
+                        })
+                      }
+                    />
+                    <div className="flex-1">
+                      <Label className="text-sm cursor-pointer">{item.label}</Label>
+                      <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="staff-status-detail">
+                <AccordionTrigger className="text-sm">
+                  工作人员状态详细配置
+                </AccordionTrigger>
+                <AccordionContent className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>工作人员类型</Label>
+                    <div className="space-y-2">
+                      {[
+                        { value: 'after_sales', label: '售后人员' },
+                        { value: 'group_assistant', label: '群助理' },
+                        { value: 'operation', label: '运营（财神爷）' },
+                      ].map((item) => (
+                        <div key={item.value} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`staff-detail-${item.value}`}
+                            checked={config.config.staffStatusFilter?.includes(item.value as any) || false}
+                            onCheckedChange={(checked) => {
+                              const currentFilter = config.config.staffStatusFilter || [];
+                              const newFilter = checked
+                                ? [...currentFilter, item.value]
+                                : currentFilter.filter((s) => s !== item.value);
+                              onUpdate({
+                                config: {
+                                  ...config.config,
+                                  staffStatusFilter: newFilter,
+                                },
+                              });
+                            }}
+                          />
+                          <Label htmlFor={`staff-detail-${item.value}`} className="text-sm cursor-pointer">
+                            {item.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <Label>检测在线工作人员</Label>
+                    <Switch
+                      checked={config.config.detectOnlineStaff || false}
+                      onCheckedChange={(checked) =>
+                        onUpdate({ config: { ...config.config, detectOnlineStaff: checked } })
+                      }
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    检测当前在线的工作人员，用于判断是否需要介入
+                  </p>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
@@ -1663,16 +2428,192 @@ function MessageSendForm({
           />
         </div>
 
-        <Tabs defaultValue="robot" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="basic" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="basic">基础配置</TabsTrigger>
             <TabsTrigger value="robot">机器人选择</TabsTrigger>
             <TabsTrigger value="delay">延迟策略</TabsTrigger>
             <TabsTrigger value="retry">重试配置</TabsTrigger>
           </TabsList>
 
+          <TabsContent value="basic" className="space-y-4">
+            <div className="space-y-2">
+              <Label>消息类型</Label>
+              <Select
+                value={config.config.messageType || 'group_at_user'}
+                onValueChange={(value) =>
+                  onUpdate({ config: { ...config.config, messageType: value } })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="group_at_user">群聊@用户</SelectItem>
+                  <SelectItem value="group_general">群聊普通消息</SelectItem>
+                  <SelectItem value="private">私聊消息</SelectItem>
+                  <SelectItem value="image">图片消息</SelectItem>
+                  <SelectItem value="file">文件消息</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {config.config.messageType === 'group_at_user' && (
+              <div className="flex items-center justify-between">
+                <Label>@所有人</Label>
+                <Switch
+                  checked={config.config.atAll || false}
+                  onCheckedChange={(checked) =>
+                    onUpdate({ config: { ...config.config, atAll: checked } })
+                  }
+                />
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
+              <Label>启用时段限制</Label>
+              <Switch
+                checked={config.config.timeRestriction?.enabled || false}
+                onCheckedChange={(checked) =>
+                  onUpdate({
+                    config: {
+                      ...config.config,
+                      timeRestriction: {
+                        ...config.config.timeRestriction,
+                        enabled: checked,
+                      },
+                    },
+                  })
+                }
+              />
+            </div>
+
+            {config.config.timeRestriction?.enabled && (
+              <div className="space-y-3 p-3 bg-muted/50 rounded-md">
+                <div className="space-y-2">
+                  <Label>白班时段</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="time"
+                      value={config.config.timeRestriction?.dayShiftStart || '09:00'}
+                      onChange={(e) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            timeRestriction: {
+                              ...config.config.timeRestriction,
+                              dayShiftStart: e.target.value,
+                            },
+                          },
+                        })
+                      }
+                    />
+                    <span className="self-center">-</span>
+                    <Input
+                      type="time"
+                      value={config.config.timeRestriction?.dayShiftEnd || '21:00'}
+                      onChange={(e) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            timeRestriction: {
+                              ...config.config.timeRestriction,
+                              dayShiftEnd: e.target.value,
+                            },
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>晚班时段</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="time"
+                      value={config.config.timeRestriction?.nightShiftStart || '21:00'}
+                      onChange={(e) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            timeRestriction: {
+                              ...config.config.timeRestriction,
+                              nightShiftStart: e.target.value,
+                            },
+                          },
+                        })
+                      }
+                    />
+                    <span className="self-center">-</span>
+                    <Input
+                      type="time"
+                      value={config.config.timeRestriction?.nightShiftEnd || '09:00'}
+                      onChange={(e) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            timeRestriction: {
+                              ...config.config.timeRestriction,
+                              nightShiftEnd: e.target.value,
+                            },
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>晚班消息频率限制: {config.config.timeRestriction?.nightShiftFrequency || 'normal'}</Label>
+                  <Select
+                    value={config.config.timeRestriction?.nightShiftFrequency || 'normal'}
+                    onValueChange={(value) =>
+                      onUpdate({
+                        config: {
+                          ...config.config,
+                          timeRestriction: {
+                            ...config.config.timeRestriction,
+                            nightShiftFrequency: value,
+                          },
+                        },
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">正常频率</SelectItem>
+                      <SelectItem value="reduced">降低频率（50%）</SelectItem>
+                      <SelectItem value="minimal">最小频率（仅重要消息）</SelectItem>
+                      <SelectItem value="quiet">静默模式（仅紧急消息）</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    晚上12点后尽量减少发消息频率，免得打扰到群内其他人
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
+              <Label>消息去重</Label>
+              <Switch
+                checked={config.config.deduplicate || false}
+                onCheckedChange={(checked) =>
+                  onUpdate({ config: { ...config.config, deduplicate: checked } })
+                }
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              避免发送重复消息（基于消息内容哈希）
+            </p>
+          </TabsContent>
+
           <TabsContent value="robot" className="space-y-4">
             <div className="space-y-2">
-              <Label>选择策略</Label>
+              <Label>机器人选择策略</Label>
               <Select
                 value={config.config.robotSelection.strategy}
                 onValueChange={(value: any) =>
@@ -1691,48 +2632,88 @@ function MessageSendForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="reply_bot">回复机器人（当前群聊的机器人）</SelectItem>
+                  <SelectItem value="notification_bot">通知机器人（专用）</SelectItem>
                   <SelectItem value="priority">基于优先级</SelectItem>
                   <SelectItem value="load">基于负载</SelectItem>
                   <SelectItem value="health">基于健康状态</SelectItem>
-                  <SelectItem value="type">基于类型</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
+            {config.config.robotSelection.strategy === 'reply_bot' && (
+              <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-md">
+                <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-muted-foreground">
+                  哪个机器人上报的消息只能由哪个机器人去回（日常社群运营板块，售后协助和协助运营老板除外）
+                </p>
+              </div>
+            )}
+
+            {config.config.robotSelection.strategy === 'notification_bot' && (
+              <div className="flex items-start gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-md">
+                <Info className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-muted-foreground">
+                  通知机器人职责：发送通知、提醒、告警（24小时），发送通知给售后、告警给管理层（P0紧急告警）、发送系统通知。优势：专用机器人，确保通知送达。
+                </p>
+              </div>
+            )}
+
             <div className="space-y-2">
-              <Label>首选机器人类型</Label>
+              <Label>机器人角色类型</Label>
               <div className="space-y-2">
                 {[
-                  { value: 'main_bot', label: '主要机器人' },
-                  { value: 'after_sales_bot', label: '售后机器人' },
-                  { value: 'emergency_bot', label: '应急机器人' },
-                  { value: 'backup_bot', label: '备用机器人' },
+                  { value: 'monitoring_bot', label: '监控机器人（监控所有消息，不回复）', description: '监控回复机器人消息、上报协同分析消息' },
+                  { value: 'notification_bot', label: '通知机器人（新增）', description: '发送通知、提醒、告警，24小时运行' },
+                  { value: 'day_shift_bot', label: '白班回复机器人（9:00-21:00）', description: '负责社群运营消息回复疑虑解答' },
+                  { value: 'night_shift_bot', label: '晚班回复机器人（21:00-9:00）', description: '负责社群运营消息回复，减少晚班消息频率' },
                 ].map((item) => (
-                  <div key={item.value} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`robot-${item.value}`}
-                      checked={config.config.robotSelection.preferredRobotTypes.includes(item.value as any)}
-                      onCheckedChange={(checked) => {
-                        const newTypes = checked
-                          ? [...config.config.robotSelection.preferredRobotTypes, item.value]
-                          : config.config.robotSelection.preferredRobotTypes.filter((t) => t !== item.value);
-                        onUpdate({
-                          config: {
-                            ...config.config,
-                            robotSelection: {
-                              ...config.config.robotSelection,
-                              preferredRobotTypes: newTypes,
+                  <div key={item.value} className="p-3 border rounded-md">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <Checkbox
+                        id={`role-${item.value}`}
+                        checked={config.config.robotSelection.preferredRobotTypes.includes(item.value as any)}
+                        onCheckedChange={(checked) => {
+                          const newTypes = checked
+                            ? [...config.config.robotSelection.preferredRobotTypes, item.value]
+                            : config.config.robotSelection.preferredRobotTypes.filter((t) => t !== item.value);
+                          onUpdate({
+                            config: {
+                              ...config.config,
+                              robotSelection: {
+                                ...config.config.robotSelection,
+                                preferredRobotTypes: newTypes,
+                              },
                             },
-                          },
-                        });
-                      }}
-                    />
-                    <Label htmlFor={`robot-${item.value}`} className="text-sm cursor-pointer">
-                      {item.label}
-                    </Label>
+                          });
+                        }}
+                      />
+                      <Label htmlFor={`role-${item.value}`} className="text-sm cursor-pointer font-medium">
+                        {item.label}
+                      </Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground ml-6">{item.description}</p>
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label>跨机器人发送（售后协助/运营老板）</Label>
+              <Switch
+                checked={config.config.robotSelection.allowCrossRobot || false}
+                onCheckedChange={(checked) =>
+                  onUpdate({
+                    config: {
+                      ...config.config,
+                      robotSelection: {
+                        ...config.config.robotSelection,
+                        allowCrossRobot: checked,
+                      },
+                    },
+                  })
+                }
+              />
             </div>
           </TabsContent>
 
@@ -1783,6 +2764,94 @@ function MessageSendForm({
             </div>
 
             <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="time">
+                <AccordionTrigger className="text-sm">
+                  时段调整
+                </AccordionTrigger>
+                <AccordionContent className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>
+                      白班延迟（秒）: {config.config.delayStrategy.timeOfDayAdjustment?.dayShift || 5}
+                    </Label>
+                    <Slider
+                      value={[config.config.delayStrategy.timeOfDayAdjustment?.dayShift || 5]}
+                      onValueChange={([value]) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            delayStrategy: {
+                              ...config.config.delayStrategy,
+                              timeOfDayAdjustment: {
+                                ...config.config.delayStrategy.timeOfDayAdjustment,
+                                dayShift: value,
+                              },
+                            },
+                          },
+                        })
+                      }
+                      min={1}
+                      max={20}
+                      step={1}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>
+                      晚班延迟（秒）: {config.config.delayStrategy.timeOfDayAdjustment?.nightShift || 15}
+                    </Label>
+                    <Slider
+                      value={[config.config.delayStrategy.timeOfDayAdjustment?.nightShift || 15]}
+                      onValueChange={([value]) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            delayStrategy: {
+                              ...config.config.delayStrategy,
+                              timeOfDayAdjustment: {
+                                ...config.config.delayStrategy.timeOfDayAdjustment,
+                                nightShift: value,
+                              },
+                            },
+                          },
+                        })
+                      }
+                      min={5}
+                      max={60}
+                      step={1}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>
+                      深夜延迟（秒）: {config.config.delayStrategy.timeOfDayAdjustment?.lateNight || 30}
+                    </Label>
+                    <Slider
+                      value={[config.config.delayStrategy.timeOfDayAdjustment?.lateNight || 30]}
+                      onValueChange={([value]) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            delayStrategy: {
+                              ...config.config.delayStrategy,
+                              timeOfDayAdjustment: {
+                                ...config.config.delayStrategy.timeOfDayAdjustment,
+                                lateNight: value,
+                              },
+                            },
+                          },
+                        })
+                      }
+                      min={10}
+                      max={120}
+                      step={5}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      深夜时段（0:00-6:00），减少打扰
+                    </p>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
               <AccordionItem value="priority">
                 <AccordionTrigger className="text-sm">
                   优先级调整
@@ -1946,6 +3015,33 @@ function MessageSendForm({
                 step={1}
               />
             </div>
+
+            <div className="space-y-2">
+              <Label>重试策略</Label>
+              <Select
+                value={config.config.retryConfig.retryStrategy || 'exponential'}
+                onValueChange={(value) =>
+                  onUpdate({
+                    config: {
+                      ...config.config,
+                      retryConfig: {
+                        ...config.config.retryConfig,
+                        retryStrategy: value,
+                      },
+                    },
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fixed">固定延迟</SelectItem>
+                  <SelectItem value="linear">线性增长（每次增加固定时间）</SelectItem>
+                  <SelectItem value="exponential">指数增长（2^n * 基础延迟）</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>
@@ -1980,112 +3076,679 @@ function AfterSalesTaskForm({
           />
         </div>
 
-        <div className="space-y-2">
-          <Label>任务类型</Label>
-          <div className="space-y-2">
-            {[
-              { value: 'refund', label: '退款任务' },
-              { value: 'product_issue', label: '产品问题' },
-              { value: 'service_issue', label: '服务问题' },
-              { value: 'order_issue', label: '订单问题' },
-              { value: 'other', label: '其他问题' },
-            ].map((item) => (
-              <div key={item.value} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`task-${item.value}`}
-                  checked={config.config.taskTypes.includes(item.value as any)}
-                  onCheckedChange={(checked) => {
-                    const newTypes = checked
-                      ? [...config.config.taskTypes, item.value]
-                      : config.config.taskTypes.filter((t) => t !== item.value);
-                    onUpdate({ config: { ...config.config, taskTypes: newTypes } });
-                  }}
-                />
-                <Label htmlFor={`task-${item.value}`} className="text-sm cursor-pointer">
-                  {item.label}
-                </Label>
+        <Tabs defaultValue="task" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="task">任务类型</TabsTrigger>
+            <TabsTrigger value="matching">匹配规则</TabsTrigger>
+            <TabsTrigger value="soothe">机器人安抚</TabsTrigger>
+            <TabsTrigger value="sync">同步与通知</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="task" className="space-y-4">
+            <div className="space-y-2">
+              <Label>任务类型（视频号运营场景）</Label>
+              <div className="space-y-2">
+                {[
+                  { value: 'scan_qrcode', label: '扫码实名认证（最常见，60-70%）' },
+                  { value: 'bind_phone', label: '绑定手机号' },
+                  { value: 'reauth', label: '重新实名认证' },
+                  { value: 'upload_videos', label: '上传10条自拍视频（减少推荐申诉）' },
+                  { value: 'delete_product', label: '删除私自添加的商品' },
+                  { value: 'delete_works', label: '删除自行发布的作品' },
+                  { value: 'refund', label: '退款处理' },
+                  { value: 'complaint', label: '投诉处理' },
+                  { value: 'other', label: '其他问题' },
+                ].map((item) => (
+                  <div key={item.value} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`task-${item.value}`}
+                      checked={config.config.taskTypes.includes(item.value as any)}
+                      onCheckedChange={(checked) => {
+                        const newTypes = checked
+                          ? [...config.config.taskTypes, item.value]
+                          : config.config.taskTypes.filter((t) => t !== item.value);
+                        onUpdate({ config: { ...config.config, taskTypes: newTypes } });
+                      }}
+                    />
+                    <Label htmlFor={`task-${item.value}`} className="text-sm cursor-pointer">
+                      {item.label}
+                    </Label>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        <div className="space-y-2">
-          <Label>默认优先级</Label>
-          <Select
-            value={config.config.defaultPriority}
-            onValueChange={(value: any) =>
-              onUpdate({ config: { ...config.config, defaultPriority: value } })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="P0">P0（最高）</SelectItem>
-              <SelectItem value="P1">P1（高）</SelectItem>
-              <SelectItem value="P2">P2（中）</SelectItem>
-              <SelectItem value="P3">P3（低）</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+            <div className="space-y-2">
+              <Label>默认优先级</Label>
+              <Select
+                value={config.config.defaultPriority}
+                onValueChange={(value: any) =>
+                  onUpdate({ config: { ...config.config, defaultPriority: value } })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="P0">P0（最高 - 紧急）</SelectItem>
+                  <SelectItem value="P1">P1（高 - 重要）</SelectItem>
+                  <SelectItem value="P2">P2（中 - 一般）</SelectItem>
+                  <SelectItem value="P3">P3（低 - 常规）</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-        <div className="flex items-center justify-between">
-          <Label>自动分配工作人员</Label>
-          <Switch
-            checked={config.config.autoAssignment}
-            onCheckedChange={(checked) =>
-              onUpdate({ config: { ...config.config, autoAssignment: checked } })
-            }
-          />
-        </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>任务超时时间（分钟）: {config.config.taskTimeoutMinutes ?? 60}</Label>
+                <Slider
+                  value={[config.config.taskTimeoutMinutes ?? 60]}
+                  onValueChange={([value]) =>
+                    onUpdate({ config: { ...config.config, taskTimeoutMinutes: value } })
+                  }
+                  min={30}
+                  max={240}
+                  step={10}
+                />
+              </div>
 
-        {config.config.autoAssignment && (
-          <div className="space-y-2">
-            <Label>分配策略</Label>
-            <Select
-              value={config.config.assignmentStrategy}
-              onValueChange={(value: any) =>
-                onUpdate({ config: { ...config.config, assignmentStrategy: value } })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="load_balance">负载均衡</SelectItem>
-                <SelectItem value="skill_based">基于技能</SelectItem>
-                <SelectItem value="priority_based">基于优先级</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+              <div className="space-y-2">
+                <Label>自动提醒频率（分钟）: {config.config.reminderIntervalMinutes ?? 15}</Label>
+                <Slider
+                  value={[config.config.reminderIntervalMinutes ?? 15]}
+                  onValueChange={([value]) =>
+                    onUpdate({ config: { ...config.config, reminderIntervalMinutes: value } })
+                  }
+                  min={5}
+                  max={60}
+                  step={5}
+                />
+              </div>
+            </div>
+          </TabsContent>
 
-        <div className="flex items-center justify-between">
-          <Label>同步到腾讯文档</Label>
-          <Switch
-            checked={config.config.syncToTencentDocs}
-            onCheckedChange={(checked) =>
-              onUpdate({ config: { ...config.config, syncToTencentDocs: checked } })
-            }
-          />
-        </div>
+          <TabsContent value="matching" className="space-y-4">
+            <div className="space-y-2">
+              <Label>用户确认响应关键词</Label>
+              <p className="text-xs text-muted-foreground">
+                当用户发送包含这些关键词的消息时，系统识别为对售后@任务的确认响应
+              </p>
+              <Input
+                value={config.config.userResponseKeywords?.join(', ') || ''}
+                onChange={(e) =>
+                  onUpdate({
+                    config: {
+                      ...config.config,
+                      userResponseKeywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean),
+                    },
+                  })
+                }
+                placeholder="例如：在的, 收到, 好的, 可以, 明白, 知道了"
+              />
+            </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="collaboration-team">协同团队（可选，用逗号分隔）</Label>
-          <Input
-            id="collaboration-team"
-            value={config.config.collaborationTeam?.join(', ') || ''}
-            onChange={(e) =>
-              onUpdate({
-                config: {
-                  ...config.config,
-                  collaborationTeam: e.target.value.split(',').map(s => s.trim()).filter(Boolean),
-                },
-              })
-            }
-            placeholder="例如：售后团队A, 售后团队B"
-          />
-        </div>
+            <div className="space-y-2">
+              <Label>售后@用户关键词</Label>
+              <p className="text-xs text-muted-foreground">
+                当检测到售后人员@用户且消息包含这些关键词时，创建售后任务
+              </p>
+              <Input
+                value={config.config.taskTriggerKeywords?.join(', ') || ''}
+                onChange={(e) =>
+                  onUpdate({
+                    config: {
+                      ...config.config,
+                      taskTriggerKeywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean),
+                    },
+                  })
+                }
+                placeholder="例如：需要配合, 请扫码, 请绑定, 请上传, 请认证, 请删除"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label>启用任务关联检查</Label>
+              <Switch
+                checked={config.config.enableTaskAssociation}
+                onCheckedChange={(checked) =>
+                  onUpdate({ config: { ...config.config, enableTaskAssociation: checked } })
+                }
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              自动识别用户对售后@消息的响应（如"在的"），关联到现有售后任务
+            </p>
+
+            <div className="space-y-2">
+              <Label>配合度评分规则</Label>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm w-32">响应时间:</Label>
+                  <div className="flex-1">
+                    <Input
+                      type="number"
+                      value={config.config.cooperationScore?.responseTimeWeight || 0.4}
+                      onChange={(e) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            cooperationScore: {
+                              ...config.config.cooperationScore,
+                              responseTimeWeight: parseFloat(e.target.value),
+                            },
+                          },
+                        })
+                      }
+                      step={0.1}
+                      min={0}
+                      max={1}
+                    />
+                  </div>
+                  <span className="text-sm text-muted-foreground">权重</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm w-32">任务完成度:</Label>
+                  <div className="flex-1">
+                    <Input
+                      type="number"
+                      value={config.config.cooperationScore?.taskCompletionWeight || 0.4}
+                      onChange={(e) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            cooperationScore: {
+                              ...config.config.cooperationScore,
+                              taskCompletionWeight: parseFloat(e.target.value),
+                            },
+                          },
+                        })
+                      }
+                      step={0.1}
+                      min={0}
+                      max={1}
+                    />
+                  </div>
+                  <span className="text-sm text-muted-foreground">权重</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm w-32">态度评分:</Label>
+                  <div className="flex-1">
+                    <Input
+                      type="number"
+                      value={config.config.cooperationScore?.attitudeWeight || 0.2}
+                      onChange={(e) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            cooperationScore: {
+                              ...config.config.cooperationScore,
+                              attitudeWeight: parseFloat(e.target.value),
+                            },
+                          },
+                        })
+                      }
+                      step={0.1}
+                      min={0}
+                      max={1}
+                    />
+                  </div>
+                  <span className="text-sm text-muted-foreground">权重</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                配合度用于评估号主（用户）的配合程度，影响补号决策
+              </p>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="soothe" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label>启用机器人安抚功能</Label>
+              <Switch
+                checked={config.config.enableRobotSoothe}
+                onCheckedChange={(checked) =>
+                  onUpdate({ config: { ...config.config, enableRobotSoothe: checked } })
+                }
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              当售后人员忙碌或离线时，机器人自动发送安抚消息给用户
+            </p>
+
+            {config.config.enableRobotSoothe && (
+              <>
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="online">
+                    <AccordionTrigger className="text-sm">
+                      售后人员在线时安抚策略
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>启用安抚</Label>
+                        <Switch
+                          checked={config.config.robotSootheMessages?.online?.enabled || false}
+                          onCheckedChange={(checked) =>
+                            onUpdate({
+                              config: {
+                                ...config.config,
+                                robotSootheMessages: {
+                                  ...config.config.robotSootheMessages,
+                                  online: {
+                                    ...config.config.robotSootheMessages?.online,
+                                    enabled: checked,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>安抚延迟（秒）: {config.config.robotSootheMessages?.online?.delaySeconds || 30}</Label>
+                        <Slider
+                          value={[config.config.robotSootheMessages?.online?.delaySeconds || 30]}
+                          onValueChange={([value]) =>
+                            onUpdate({
+                              config: {
+                                ...config.config,
+                                robotSootheMessages: {
+                                  ...config.config.robotSootheMessages,
+                                  online: {
+                                    ...config.config.robotSootheMessages?.online,
+                                    delaySeconds: value,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                          min={10}
+                          max={60}
+                          step={5}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>安抚消息模板</Label>
+                        <Textarea
+                          value={config.config.robotSootheMessages?.online?.message || ''}
+                          onChange={(e) =>
+                            onUpdate({
+                              config: {
+                                ...config.config,
+                                robotSootheMessages: {
+                                  ...config.config.robotSootheMessages,
+                                  online: {
+                                    ...config.config.robotSootheMessages?.online,
+                                    message: e.target.value,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                          placeholder="例如：好的，售后人员正在处理您的请求，请稍候..."
+                          rows={2}
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="busy">
+                    <AccordionTrigger className="text-sm">
+                      售后人员忙碌时安抚策略
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>启用安抚</Label>
+                        <Switch
+                          checked={config.config.robotSootheMessages?.busy?.enabled || false}
+                          onCheckedChange={(checked) =>
+                            onUpdate({
+                              config: {
+                                ...config.config,
+                                robotSootheMessages: {
+                                  ...config.config.robotSootheMessages,
+                                  busy: {
+                                    ...config.config.robotSootheMessages?.busy,
+                                    enabled: checked,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>安抚延迟（秒）: {config.config.robotSootheMessages?.busy?.delaySeconds || 15}</Label>
+                        <Slider
+                          value={[config.config.robotSootheMessages?.busy?.delaySeconds || 15]}
+                          onValueChange={([value]) =>
+                            onUpdate({
+                              config: {
+                                ...config.config,
+                                robotSootheMessages: {
+                                  ...config.config.robotSootheMessages,
+                                  busy: {
+                                    ...config.config.robotSootheMessages?.busy,
+                                    delaySeconds: value,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                          min={5}
+                          max={30}
+                          step={5}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>安抚消息模板</Label>
+                        <Textarea
+                          value={config.config.robotSootheMessages?.busy?.message || ''}
+                          onChange={(e) =>
+                            onUpdate({
+                              config: {
+                                ...config.config,
+                                robotSootheMessages: {
+                                  ...config.config.robotSootheMessages,
+                                  busy: {
+                                    ...config.config.robotSootheMessages?.busy,
+                                    message: e.target.value,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                          placeholder="例如：售后人员正在忙碌中，已收到您的消息，会在稍后尽快处理，请您耐心等待~"
+                          rows={2}
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="offline">
+                    <AccordionTrigger className="text-sm">
+                      售后人员离线时安抚策略
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>启用安抚</Label>
+                        <Switch
+                          checked={config.config.robotSootheMessages?.offline?.enabled || false}
+                          onCheckedChange={(checked) =>
+                            onUpdate({
+                              config: {
+                                ...config.config,
+                                robotSootheMessages: {
+                                  ...config.config.robotSootheMessages,
+                                  offline: {
+                                    ...config.config.robotSootheMessages?.offline,
+                                    enabled: checked,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>安抚延迟（秒）: {config.config.robotSootheMessages?.offline?.delaySeconds || 10}</Label>
+                        <Slider
+                          value={[config.config.robotSootheMessages?.offline?.delaySeconds || 10]}
+                          onValueChange={([value]) =>
+                            onUpdate({
+                              config: {
+                                ...config.config,
+                                robotSootheMessages: {
+                                  ...config.config.robotSootheMessages,
+                                  offline: {
+                                    ...config.config.robotSootheMessages?.offline,
+                                    delaySeconds: value,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                          min={5}
+                          max={30}
+                          step={5}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>安抚消息模板</Label>
+                        <Textarea
+                          value={config.config.robotSootheMessages?.offline?.message || ''}
+                          onChange={(e) =>
+                            onUpdate({
+                              config: {
+                                ...config.config,
+                                robotSootheMessages: {
+                                  ...config.config.robotSootheMessages,
+                                  offline: {
+                                    ...config.config.robotSootheMessages?.offline,
+                                    message: e.target.value,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                          placeholder="例如：售后人员暂时不在，已收到您的消息，会在上班后第一时间处理，请您耐心等待~"
+                          rows={2}
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+
+                <div className="space-y-2">
+                  <Label>选择安抚机器人</Label>
+                  <Select
+                    value={config.config.sootheRobotType || 'notification_bot'}
+                    onValueChange={(value) =>
+                      onUpdate({ config: { ...config.config, sootheRobotType: value } })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="notification_bot">通知机器人（专用）</SelectItem>
+                      <SelectItem value="current_bot">当前回复机器人</SelectItem>
+                      <SelectItem value="main_bot">主要机器人</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    建议使用通知机器人，确保安抚消息能够送达
+                  </p>
+                </div>
+              </>
+            )}
+          </TabsContent>
+
+          <TabsContent value="sync" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label>同步到腾讯文档</Label>
+              <Switch
+                checked={config.config.syncToTencentDocs}
+                onCheckedChange={(checked) =>
+                  onUpdate({ config: { ...config.config, syncToTencentDocs: checked } })
+                }
+              />
+            </div>
+
+            {config.config.syncToTencentDocs && (
+              <>
+                <div className="space-y-2">
+                  <Label>腾讯文档ID</Label>
+                  <Input
+                    value={config.config.tencentDocId || ''}
+                    onChange={(e) =>
+                      onUpdate({ config: { ...config.config, tencentDocId: e.target.value } })
+                    }
+                    placeholder="输入腾讯文档ID"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>工作表名称</Label>
+                  <Input
+                    value={config.config.tencentDocSheet || ''}
+                    onChange={(e) =>
+                      onUpdate({ config: { ...config.config, tencentDocSheet: e.target.value } })
+                    }
+                    placeholder="输入工作表名称"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label>自动更新售后进度</Label>
+                  <Switch
+                    checked={config.config.autoUpdateProgress || false}
+                    onCheckedChange={(checked) =>
+                      onUpdate({ config: { ...config.config, autoUpdateProgress: checked } })
+                    }
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  系统会根据聊天记录自动确认售后完成进度，并同步到腾讯文档
+                </p>
+              </>
+            )}
+
+            <div className="flex items-center justify-between">
+              <Label>自动分配工作人员</Label>
+              <Switch
+                checked={config.config.autoAssignment}
+                onCheckedChange={(checked) =>
+                  onUpdate({ config: { ...config.config, autoAssignment: checked } })
+                }
+              />
+            </div>
+
+            {config.config.autoAssignment && (
+              <>
+                <div className="space-y-2">
+                  <Label>分配策略</Label>
+                  <Select
+                    value={config.config.assignmentStrategy}
+                    onValueChange={(value: any) =>
+                      onUpdate({ config: { ...config.config, assignmentStrategy: value } })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="load_balance">负载均衡（分配给当前负载最低的工作人员）</SelectItem>
+                      <SelectItem value="skill_based">基于技能（根据任务类型匹配技能）</SelectItem>
+                      <SelectItem value="priority_based">基于优先级（高优先级分配给资深人员）</SelectItem>
+                      <SelectItem value="round_robin">轮询分配</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>工作时间分配</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="day-shift"
+                        checked={config.config.assignmentTimeSlots?.dayShift || false}
+                        onCheckedChange={(checked) =>
+                          onUpdate({
+                            config: {
+                              ...config.config,
+                              assignmentTimeSlots: {
+                                ...config.config.assignmentTimeSlots,
+                                dayShift: checked,
+                              },
+                            },
+                          })
+                        }
+                      />
+                      <Label htmlFor="day-shift" className="text-sm">白班（9:00-19:00）</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="evening-shift"
+                        checked={config.config.assignmentTimeSlots?.eveningShift || false}
+                        onCheckedChange={(checked) =>
+                          onUpdate({
+                            config: {
+                              ...config.config,
+                              assignmentTimeSlots: {
+                                ...config.config.assignmentTimeSlots,
+                                eveningShift: checked,
+                              },
+                            },
+                          })
+                        }
+                      />
+                      <Label htmlFor="evening-shift" className="text-sm">晚班（19:00-9:00）</Label>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="collaboration-team">协同团队（可选，用逗号分隔）</Label>
+              <Input
+                id="collaboration-team"
+                value={config.config.collaborationTeam?.join(', ') || ''}
+                onChange={(e) =>
+                  onUpdate({
+                    config: {
+                      ...config.config,
+                      collaborationTeam: e.target.value.split(',').map(s => s.trim()).filter(Boolean),
+                    },
+                  })
+                }
+                placeholder="例如：售后团队A, 售后团队B"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>售后人员工时配置</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">白班时段</Label>
+                  <Input
+                    value={config.config.staffSchedule?.dayShift || '09:00-19:00'}
+                    onChange={(e) =>
+                      onUpdate({
+                        config: {
+                          ...config.config,
+                          staffSchedule: {
+                            ...config.config.staffSchedule,
+                            dayShift: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                    placeholder="09:00-19:00"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">晚班时段</Label>
+                  <Input
+                    value={config.config.staffSchedule?.eveningShift || '19:00-23:00'}
+                    onChange={(e) =>
+                      onUpdate({
+                        config: {
+                          ...config.config,
+                          staffSchedule: {
+                            ...config.config.staffSchedule,
+                            eveningShift: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                    placeholder="19:00-23:00"
+                  />
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
