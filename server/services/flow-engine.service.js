@@ -130,7 +130,7 @@ class FlowEngine {
       [NodeType.AI_REPLY]: this.handleAIReplyNode.bind(this),
       [NodeType.MESSAGE_DISPATCH]: this.handleMessageDispatchNode.bind(this),
       [NodeType.SEND_COMMAND]: this.handleSendCommandNode.bind(this),
-      // [NodeType.COMMAND_STATUS]: this.handleCommandStatusNode.bind(this), // 暂不实现
+      [NodeType.COMMAND_STATUS]: this.handleCommandStatusNode.bind(this),
       [NodeType.STAFF_INTERVENTION]: this.handleStaffInterventionNode.bind(this),
       [NodeType.ALERT_SAVE]: this.handleAlertSaveNode.bind(this),
       [NodeType.ALERT_RULE]: this.handleAlertRuleNode.bind(this),
@@ -3267,6 +3267,167 @@ class FlowEngine {
           ...context,
           commandError: error.message,
           lastNodeType: 'send_command'
+        }
+      };
+    }
+  }
+
+  /**
+   * 处理指令状态记录节点
+   */
+  async handleCommandStatusNode(node, context) {
+    logger.info('执行指令状态记录节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { config } = data || {};
+
+      // 从节点配置或context中获取参数
+      const {
+        messageId,
+        robotId,
+        commandType = 'message',
+        status = 'completed',
+        error = null,
+        retryCount = 0,
+        result = null
+      } = config || {};
+
+      // 优先使用context中的值
+      const actualMessageId = messageId || context.messageId || context.message?.messageId;
+      const actualRobotId = robotId || context.robotId || context.robot?.robotId;
+      const actualStatus = status || context.command?.status || 'completed';
+      const actualError = error || context.commandError || context.command?.error;
+      const actualRetryCount = retryCount || context.command?.retryCount || 0;
+
+      if (!actualMessageId) {
+        logger.warn('指令状态记录节点：缺少messageId，跳过记录');
+        return {
+          success: true,
+          message: '跳过记录（缺少messageId）',
+          context: {
+            ...context,
+            lastNodeType: 'command_status'
+          }
+        };
+      }
+
+      const db = await this.getDb();
+      const { robotCommands } = require('../database/schema');
+      const { eq } = require('drizzle-orm');
+
+      // 查找并更新指令记录
+      const existingCommands = await db
+        .select()
+        .from(robotCommands)
+        .where(eq(robotCommands.messageId, actualMessageId))
+        .limit(1);
+
+      if (existingCommands.length > 0) {
+        // 更新现有记录
+        await db
+          .update(robotCommands)
+          .set({
+            status: actualStatus,
+            completedAt: actualStatus === 'completed' ? new Date() : null,
+            errorMessage: actualError,
+            retryCount: actualRetryCount,
+            result: result || context.command,
+            updatedAt: new Date()
+          })
+          .where(eq(robotCommands.messageId, actualMessageId));
+
+        logger.info('指令状态更新成功', {
+          messageId: actualMessageId,
+          status: actualStatus,
+          robotId: actualRobotId
+        });
+      } else {
+        // 如果没有找到记录，创建新记录（可选）
+        logger.info('未找到指令记录，创建新记录', {
+          messageId: actualMessageId,
+          status: actualStatus
+        });
+
+        await db.insert(robotCommands).values({
+          id: `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          robotId: actualRobotId || context.robot?.id,
+          commandType: commandType,
+          commandData: {
+            messageContent: context.aiReply || context.message?.content,
+            recipients: context.command?.targets || context.message?.fromName,
+            ...context.command
+          },
+          status: actualStatus,
+          completedAt: actualStatus === 'completed' ? new Date() : null,
+          errorMessage: actualError,
+          retryCount: actualRetryCount,
+          messageId: actualMessageId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+
+        logger.info('指令状态记录创建成功', {
+          messageId: actualMessageId,
+          status: actualStatus
+        });
+      }
+
+      // 更新执行日志
+      await this.saveExecutionLog({
+        flowInstanceId: context.flowInstanceId,
+        nodeId: node.id,
+        nodeType: 'command_status',
+        nodeName: node.data?.name || '指令状态记录',
+        status: 'completed',
+        inputData: config,
+        outputData: {
+          messageId: actualMessageId,
+          status: actualStatus,
+          robotId: actualRobotId,
+          timestamp: new Date().toISOString()
+        },
+        processingTime: 0
+      });
+
+      return {
+        success: true,
+        status: actualStatus,
+        messageId: actualMessageId,
+        robotId: actualRobotId,
+        context: {
+          ...context,
+          commandStatus: actualStatus,
+          commandStatusUpdatedAt: new Date().toISOString(),
+          lastNodeType: 'command_status'
+        }
+      };
+    } catch (error) {
+      logger.error('指令状态记录节点执行失败', {
+        error: error.message,
+        stack: error.stack
+      });
+
+      // 保存错误日志
+      await this.saveExecutionLog({
+        flowInstanceId: context.flowInstanceId,
+        nodeId: node.id,
+        nodeType: 'command_status',
+        nodeName: node.data?.name || '指令状态记录',
+        status: 'failed',
+        inputData: node.data,
+        errorMessage: error.message,
+        errorStack: error.stack,
+        processingTime: 0
+      });
+
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          commandStatusError: error.message,
+          lastNodeType: 'command_status'
         }
       };
     }
