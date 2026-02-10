@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AnimatedNumber } from '@/components/ui/animated-number';
@@ -36,13 +36,15 @@ export function TokenStatsCard() {
   const [stats, setStats] = useState<TokenStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // 检查登录状态
   useEffect(() => {
     const checkAuth = () => {
       try {
         const userStr = localStorage.getItem('user');
-        setIsAuthenticated(!!userStr);
+        const authenticated = !!userStr;
+        setIsAuthenticated(authenticated);
       } catch {
         setIsAuthenticated(false);
       }
@@ -50,16 +52,19 @@ export function TokenStatsCard() {
 
     checkAuth();
 
-    // 监听存储变化
-    const handleStorageChange = () => {
-      checkAuth();
+    // 监听存储变化（只在其他标签页修改时触发）
+    const handleStorageChange = (event: StorageEvent) => {
+      // 只有当user相关的键发生变化时才检查
+      if (event.key === 'user' || event.key === 'access_token' || event.key === 'token') {
+        checkAuth();
+      }
     };
 
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  const loadTokenStats = async () => {
+  const loadTokenStats = useCallback(async () => {
     // 未登录时不加载数据
     if (!isAuthenticated) {
       return;
@@ -81,19 +86,37 @@ export function TokenStatsCard() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isAuthenticated]);
 
   useEffect(() => {
+    // 清理之前的定时器
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
     // 只有在登录状态下才加载和刷新数据
     if (!isAuthenticated) {
       setStats(null);
       return;
     }
 
+    // 立即加载一次
     loadTokenStats();
-    const interval = setInterval(loadTokenStats, 60000);
-    return () => clearInterval(interval);
-  }, [isAuthenticated]);
+
+    // 设置定时器
+    intervalRef.current = setInterval(() => {
+      loadTokenStats();
+    }, 60000);
+
+    // 清理函数
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [isAuthenticated, loadTokenStats]);
 
   const getGrowthRate = () => {
     if (!stats || !stats.yesterday || stats.yesterday.total === 0 || stats.yesterday.total === undefined || stats.yesterday.total === null) return 0;
