@@ -45,6 +45,9 @@ import {
 import { cn } from '@/lib/utils';
 import { useSSE } from '@/hooks/useSSE';
 import { AIAnalysisBadge } from '@/components/ai-analysis-badge';
+import { SentimentAnalysisCard, SentimentBadge } from '@/components/sentiment-analysis-card';
+import { DelayStatsCard, DelayBadge } from '@/components/delay-stats-card';
+import { AlertDetailCard, AlertTypeBadge } from '@/components/alert-detail-card';
 
 // 类型定义
 interface MonitorSummary {
@@ -851,6 +854,24 @@ export default function NewDashboard() {
               </div>
             </CardContent>
           </Card>
+        </div>
+      </div>
+
+      {/* 新增组件展示区域 */}
+      <div className="grid gap-6 lg:grid-cols-3 mb-6">
+        {/* 情感分析卡片 */}
+        <div className="space-y-6">
+          <SentimentAnalysisCard />
+        </div>
+
+        {/* 延迟统计卡片 */}
+        <div className="space-y-6">
+          <DelayStatsCard />
+        </div>
+
+        {/* 告警详情卡片 */}
+        <div className="space-y-6">
+          <AlertDetailCard />
         </div>
       </div>
 
