@@ -1124,13 +1124,297 @@ class RobotService {
   }
 
   /**
+   * 根据机器人类型选择机器人
+   * @param {string} robotType - 机器人类型（main_bot, emergency_bot, after_sales_bot, backup_bot）
+   * @returns {Promise<Object|null>} 选中的机器人
+   */
+  async selectRobotByType(robotType) {
+    try {
+      const db = await getDb();
+      const robots = await db.select().from(robots)
+        .where(
+          and(
+            eq(robots.robotType, robotType),
+            eq(robots.isActive, true),
+            eq(robots.status, 'online')
+          )
+        )
+        .limit(10);
+
+      if (robots.length === 0) {
+        this.logger.warn('未找到可用机器人', { robotType });
+        return null;
+      }
+
+      // 按健康状态和负载排序
+      const sortedRobots = robots.sort((a, b) => {
+        // 健康状态优先：healthy > warning > unhealthy
+        const healthPriority = { 'healthy': 0, 'warning': 1, 'degraded': 1, 'critical': 2, 'unhealthy': 2 };
+        const aHealth = healthPriority[a.healthStatus] || 2;
+        const bHealth = healthPriority[b.healthStatus] || 2;
+
+        if (aHealth !== bHealth) {
+          return aHealth - bHealth;
+        }
+
+        // 负载优先：低负载优先
+        const aLoad = a.sendFailureCount || 0;
+        const bLoad = b.sendFailureCount || 0;
+
+        return aLoad - bLoad;
+      });
+
+      return sortedRobots[0];
+    } catch (error) {
+      this.logger.error('根据类型选择机器人失败', {
+        robotType,
+        error: error.message
+      });
+      return null;
+    }
+  }
+
+  /**
+   * 智能选择机器人（基于意图、优先级、负载、健康状态）
+   * @param {Object} options - 选择选项
+   * @param {string} options.intent - 意图类型
+   * @param {string} options.priority - 优先级（P0, P1, P2, P3）
+   * @param {string} options.robotType - 指定机器人类型（可选）
+   * @returns {Promise<Object|null>} 选中的机器人
+   */
+  async selectRobotSmart(options = {}) {
+    const { intent, priority = 'P3', robotType } = options;
+
+    // 如果指定了机器人类型，直接按类型选择
+    if (robotType) {
+      return await this.selectRobotByType(robotType);
+    }
+
+    // 根据优先级和意图选择机器人类型
+    let targetType = null;
+
+    // P0 级别或紧急投诉 -> 应急机器人
+    if (priority === 'P0' || intent === 'complaint' || intent === 'emergency') {
+      targetType = 'emergency_bot';
+    }
+    // P1 级别或售后相关 -> 售后机器人
+    else if (priority === 'P1' || intent === 'after_sales' || intent === 'service') {
+      targetType = 'after_sales_bot';
+    }
+    // 其他情况 -> 主机器人或备用机器人
+    else {
+      targetType = 'main_bot';
+    }
+
+    // 尝试选择目标类型机器人
+    let selectedRobot = await this.selectRobotByType(targetType);
+
+    // 如果目标类型不可用，尝试备用机器人
+    if (!selectedRobot && targetType !== 'backup_bot') {
+      this.logger.warn('目标类型机器人不可用，尝试备用机器人', {
+        targetType
+      });
+      selectedRobot = await this.selectRobotByType('backup_bot');
+    }
+
+    // 如果仍然没有可用机器人，返回null
+    if (!selectedRobot) {
+      this.logger.error('没有可用的机器人', {
+        intent,
+        priority,
+        targetType
+      });
+    }
+
+    return selectedRobot;
+  }
+
+  /**
+   * 计算详细的机器人健康状态
+   * @param {string} robotId - 机器人ID
+   * @returns {Promise<Object>} 健康状态信息
+   */
+  async calculateRobotHealthDetail(robotId) {
+    try {
+      const db = await getDb();
+      const robot = await db.select().from(robots)
+        .where(eq(robots.robotId, robotId))
+        .limit(1);
+
+      if (robot.length === 0) {
+        this.logger.warn('机器人不存在', { robotId });
+        return null;
+      }
+
+      const r = robot[0];
+      const failureCount = r.sendFailureCount || 0;
+      const lastFailureTime = r.lastSendFailureAt;
+
+      // 计算健康分数 (0-100)
+      let healthScore = 100;
+      let healthStatus = 'healthy';
+      let recommendations = [];
+
+      // 扣分项1：失败次数
+      if (failureCount > 0) {
+        healthScore -= Math.min(failureCount * 5, 30); // 最多扣30分
+      }
+
+      // 扣分项2：连续失败
+      const consecutiveFailures = r.consecutiveFailureCount || 0;
+      if (consecutiveFailures > 0) {
+        healthScore -= Math.min(consecutiveFailures * 10, 40); // 最多扣40分
+      }
+
+      // 扣分项3：最近失败
+      if (lastFailureTime) {
+        const timeSinceFailure = Date.now() - new Date(lastFailureTime).getTime();
+        const minutesSinceFailure = timeSinceFailure / (1000 * 60);
+
+        if (minutesSinceFailure < 5) {
+          healthScore -= 20; // 5分钟内失败扣20分
+          recommendations.push('最近5分钟内有发送失败，建议检查网络');
+        } else if (minutesSinceFailure < 30) {
+          healthScore -= 10; // 30分钟内失败扣10分
+          recommendations.push('最近30分钟内有发送失败，建议关注');
+        }
+      }
+
+      // 确定健康状态
+      if (healthScore >= 80) {
+        healthStatus = 'healthy';
+      } else if (healthScore >= 50) {
+        healthStatus = 'warning';
+        recommendations.push('健康状态警告，建议降低负载');
+      } else {
+        healthStatus = 'unhealthy';
+        recommendations.push('健康状态异常，建议暂停使用');
+      }
+
+      // 检查机器人在线状态
+      if (r.status !== 'online') {
+        healthStatus = 'offline';
+        healthScore = 0;
+        recommendations.push('机器人离线，无法使用');
+      }
+
+      const healthInfo = {
+        robotId,
+        healthScore,
+        healthStatus,
+        failureCount,
+        consecutiveFailures,
+        lastFailureTime,
+        recommendations,
+        calculatedAt: new Date()
+      };
+
+      this.logger.info('机器人健康状态计算完成', healthInfo);
+
+      return healthInfo;
+    } catch (error) {
+      this.logger.error('计算机器人健康状态失败', {
+        robotId,
+        error: error.message
+      });
+      return null;
+    }
+  }
+
+  /**
+   * 批量计算所有机器人健康状态
+   * @returns {Promise<Array>} 所有机器人的健康状态
+   */
+  async calculateAllRobotsHealth() {
+    try {
+      const db = await getDb();
+      const allRobots = await db.select().from(robots)
+        .where(eq(robots.isActive, true));
+
+      const healthResults = await Promise.all(
+        allRobots.map(robot => this.calculateRobotHealthDetail(robot.robotId))
+      );
+
+      return healthResults.filter(r => r !== null);
+    } catch (error) {
+      this.logger.error('批量计算机器人健康状态失败', {
+        error: error.message
+      });
+      return [];
+    }
+  }
+
+  /**
+   * 获取机器人统计信息
+   * @returns {Promise<Object>} 机器人统计信息
+   */
+  async getRobotStats() {
+    try {
+      const db = await getDb();
+      const allRobots = await db.select().from(robots)
+        .where(eq(robots.isActive, true));
+
+      const stats = {
+        total: allRobots.length,
+        online: 0,
+        offline: 0,
+        healthy: 0,
+        warning: 0,
+        unhealthy: 0,
+        byType: {
+          main_bot: 0,
+          emergency_bot: 0,
+          after_sales_bot: 0,
+          backup_bot: 0,
+          unknown: 0
+        }
+      };
+
+      for (const robot of allRobots) {
+        // 状态统计
+        if (robot.status === 'online') {
+          stats.online++;
+        } else {
+          stats.offline++;
+        }
+
+        // 健康状态统计
+        if (robot.healthStatus === 'healthy') {
+          stats.healthy++;
+        } else if (robot.healthStatus === 'warning' || robot.healthStatus === 'degraded') {
+          stats.warning++;
+        } else if (robot.healthStatus === 'unhealthy' || robot.healthStatus === 'critical') {
+          stats.unhealthy++;
+        }
+
+        // 类型统计
+        const type = robot.robotType || 'unknown';
+        if (stats.byType.hasOwnProperty(type)) {
+          stats.byType[type]++;
+        } else {
+          stats.byType.unknown++;
+        }
+      }
+
+      this.logger.info('机器人统计信息', stats);
+
+      return stats;
+    } catch (error) {
+      this.logger.error('获取机器人统计信息失败', {
+        error: error.message
+      });
+      return null;
+    }
+  }
+
+  /**
    * 基于意图和优先级选择机器人（简化版）
    * @param {string} intent - 意图类型
    * @param {string} priority - 优先级（P0, P1, P2, P3）
    * @returns {Promise<Object>} 选中的机器人
    */
   async selectRobotForReply(intent, priority = 'P3') {
-    return await this.selectRobot({ intent, priority });
+    return await this.selectRobotSmart({ intent, priority });
   }
 }
 

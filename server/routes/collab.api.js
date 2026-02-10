@@ -635,6 +635,168 @@ async function exportDecisionLogsCSV(req, reply) {
 }
 
 /**
+ * 分析用户满意度
+ * GET /api/collab/satisfaction/analyze
+ */
+async function analyzeUserSatisfaction(req, reply) {
+  try {
+    const { timeRange = '24h', robotId, staffUserId } = req.query;
+
+    const satisfactionData = await collaborationService.analyzeUserSatisfaction({
+      timeRange,
+      robotId,
+      staffUserId
+    });
+
+    return reply.send({
+      code: 0,
+      message: '分析用户满意度成功',
+      data: satisfactionData
+    });
+  } catch (error) {
+    console.error('[CollabAPI] 分析用户满意度失败:', error);
+    return reply.code(500).send({
+      code: -1,
+      message: '分析用户满意度失败',
+      error: error.message
+    });
+  }
+}
+
+/**
+ * 获取工作人员活动统计（详细）
+ * GET /api/collab/staff-activity-stats
+ */
+async function getStaffActivityStats(req, reply) {
+  try {
+    const { timeRange = '24h', robotId } = req.query;
+
+    const stats = await collaborationService.getStaffActivityStats({
+      timeRange,
+      robotId
+    });
+
+    return reply.send({
+      code: 0,
+      message: '获取工作人员活动统计成功',
+      data: stats
+    });
+  } catch (error) {
+    console.error('[CollabAPI] 获取工作人员活动统计失败:', error);
+    return reply.code(500).send({
+      code: -1,
+      message: '获取工作人员活动统计失败',
+      error: error.message
+    });
+  }
+}
+
+/**
+ * 获取工作人员详细信息
+ * GET /api/collab/staff-detail/:staffUserId
+ */
+async function getStaffDetail(req, reply) {
+  try {
+    const { staffUserId } = req.params;
+    const { timeRange = '24h' } = req.query;
+
+    const staffDetail = await collaborationService.getStaffDetail(staffUserId, timeRange);
+
+    return reply.send({
+      code: 0,
+      message: '获取工作人员详细信息成功',
+      data: staffDetail
+    });
+  } catch (error) {
+    console.error('[CollabAPI] 获取工作人员详细信息失败:', error);
+    return reply.code(500).send({
+      code: -1,
+      message: '获取工作人员详细信息失败',
+      error: error.message
+    });
+  }
+}
+
+/**
+ * 创建售后任务
+ * POST /api/collab/after-sales-tasks
+ */
+async function createAfterSalesTask(req, reply) {
+  try {
+    const task = await collaborationService.createAfterSalesTask(req.body);
+
+    return reply.send({
+      code: 0,
+      message: '创建售后任务成功',
+      data: task
+    });
+  } catch (error) {
+    console.error('[CollabAPI] 创建售后任务失败:', error);
+    return reply.code(500).send({
+      code: -1,
+      message: '创建售后任务失败',
+      error: error.message
+    });
+  }
+}
+
+/**
+ * 更新售后任务
+ * PUT /api/collab/after-sales-tasks/:taskId
+ */
+async function updateAfterSalesTask(req, reply) {
+  try {
+    const { taskId } = req.params;
+    const updates = req.body;
+
+    const task = await collaborationService.updateAfterSalesTask(taskId, updates);
+
+    return reply.send({
+      code: 0,
+      message: '更新售后任务成功',
+      data: task
+    });
+  } catch (error) {
+    console.error('[CollabAPI] 更新售后任务失败:', error);
+    return reply.code(500).send({
+      code: -1,
+      message: '更新售后任务失败',
+      error: error.message
+    });
+  }
+}
+
+/**
+ * 获取售后任务列表
+ * GET /api/collab/after-sales-tasks
+ */
+async function getAfterSalesTasks(req, reply) {
+  try {
+    const { status, priority, assignedStaffUserId, limit = 50 } = req.query;
+
+    const tasks = await collaborationService.getAfterSalesTasks({
+      status,
+      priority,
+      assignedStaffUserId,
+      limit: parseInt(limit)
+    });
+
+    return reply.send({
+      code: 0,
+      message: '获取售后任务列表成功',
+      data: tasks
+    });
+  } catch (error) {
+    console.error('[CollabAPI] 获取售后任务列表失败:', error);
+    return reply.code(500).send({
+      code: -1,
+      message: '获取售后任务列表失败',
+      error: error.message
+    });
+  }
+}
+
+/**
  * 注册路由
  */
 async function collabRoutes(fastify, options) {
@@ -647,6 +809,21 @@ async function collabRoutes(fastify, options) {
   fastify.put('/decision-logs/:id', updateDecisionLog);
   fastify.get('/robot-satisfaction', getRobotSatisfactionList);
   fastify.get('/robot-satisfaction/:robotId', getRobotSatisfactionDetail);
+
+  // 新增：用户满意度分析
+  fastify.get('/satisfaction/analyze', analyzeUserSatisfaction);
+
+  // 新增：工作人员活动统计（详细）
+  fastify.get('/staff-activity-stats', getStaffActivityStats);
+
+  // 新增：工作人员详细信息
+  fastify.get('/staff-detail/:staffUserId', getStaffDetail);
+
+  // 新增：售后任务管理
+  fastify.post('/after-sales-tasks', createAfterSalesTask);
+  fastify.put('/after-sales-tasks/:taskId', updateAfterSalesTask);
+  fastify.get('/after-sales-tasks', getAfterSalesTasks);
+
   fastify.get('/export/csv', exportCollabStatsCSV);
   fastify.get('/export/staff-activity', exportStaffActivityCSV);
   fastify.get('/export/decision-logs', exportDecisionLogsCSV);

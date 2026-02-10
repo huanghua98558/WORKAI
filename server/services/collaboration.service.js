@@ -425,28 +425,24 @@ class CollaborationService {
   async recordStaffActivity(activityData) {
     const {
       sessionId,
-      robotId,
       staffUserId,
       staffName,
       activityType,
-      activityData: actData = {},
-      extraData = {}
+      activityData: actData = {}
     } = activityData;
 
     try {
       await this.init();
 
-      // 插入工作人员活动记录
+      // 插入工作人员活动记录（注意：staff_activities 表没有 robotId 字段）
       await this.db.insert(staffActivities).values({
         id: `sa_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         sessionId,
-        robotId,
         staffUserId,
         staffName,
         activityType,
-        activityData: JSON.stringify(actData),
-        createdAt: new Date(),
-        extraData: JSON.stringify(extraData)
+        activityDetail: JSON.stringify(actData),
+        createdAt: new Date()
       });
 
       console.log('[协同分析] 工作人员活动记录成功', {
@@ -2342,6 +2338,710 @@ class CollaborationService {
     } catch (error) {
       console.error('[协同分析] 获取机器人满意度详情失败:', error);
       throw error;
+    }
+  }
+
+  /**
+   * 分析用户满意度
+   * @param {Object} options - 分析选项
+   * @param {string} options.timeRange - 时间范围 (1h, 24h, 7d, 30d)
+   * @param {string} options.robotId - 机器人ID（可选）
+   * @param {string} options.staffUserId - 工作人员ID（可选）
+   * @returns {Promise<Object>} 满意度分析结果
+   */
+  async analyzeUserSatisfaction(options = {}) {
+    const { timeRange = '24h', robotId, staffUserId } = options;
+
+    try {
+      await this.init();
+
+      // 计算时间范围
+      const now = new Date();
+      let startTime;
+      switch (timeRange) {
+        case '1h':
+          startTime = new Date(now.getTime() - 60 * 60 * 1000);
+          break;
+        case '24h':
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case '7d':
+          startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      }
+
+      // 构建查询条件
+      let whereConditions = [gte(collaborationDecisionLogs.createdAt, startTime)];
+      if (robotId) {
+        whereConditions.push(eq(collaborationDecisionLogs.robotId, robotId));
+      }
+      if (staffUserId) {
+        whereConditions.push(eq(collaborationDecisionLogs.staffUserId, staffUserId));
+      }
+
+      // 获取决策日志
+      const decisionLogs = await this.db
+        .select()
+        .from(collaborationDecisionLogs)
+        .where(and(...whereConditions))
+        .orderBy(desc(collaborationDecisionLogs.createdAt))
+        .limit(500);
+
+      if (decisionLogs.length === 0) {
+        return {
+          timeRange,
+          robotId,
+          staffUserId,
+          summary: {
+            totalSessions: 0,
+            avgSatisfactionScore: 0,
+            satisfactionDistribution: { high: 0, medium: 0, low: 0 },
+            needsAttention: false
+          },
+          trends: [],
+          topIssues: []
+        };
+      }
+
+      // 计算协同率
+      const totalDecisions = decisionLogs.length;
+      let aiReplyCount = 0;
+      let staffReplyCount = 0;
+      let bothReplyCount = 0;
+
+      decisionLogs.forEach(log => {
+        if (log.aiAction === 'reply') aiReplyCount++;
+        if (log.staffAction === 'continue') staffReplyCount++;
+        if (log.priority === 'both') bothReplyCount++;
+      });
+
+      const collaborationRate = totalDecisions > 0
+        ? ((aiReplyCount + bothReplyCount) / totalDecisions * 100)
+        : 0;
+
+      // 计算满意度分数（基于多个因素）
+      let satisfactionScore = 75; // 基础分
+
+      // 因素1: 协同率
+      if (collaborationRate > 80) satisfactionScore += 15;
+      else if (collaborationRate > 60) satisfactionScore += 10;
+      else if (collaborationRate < 40) satisfactionScore -= 15;
+
+      // 因素2: 工作人员介入率（过高可能意味着AI处理能力不足）
+      const staffInterventionRate = totalDecisions > 0
+        ? (staffReplyCount / totalDecisions * 100)
+        : 0;
+
+      if (staffInterventionRate < 10) satisfactionScore += 5;
+      else if (staffInterventionRate > 40) satisfactionScore -= 15;
+      else if (staffInterventionRate > 30) satisfactionScore -= 10;
+
+      // 因素3: AI独立处理率
+      const aiIndependentRate = totalDecisions > 0
+        ? (aiReplyCount / totalDecisions * 100)
+        : 0;
+
+      if (aiIndependentRate > 70) satisfactionScore += 10;
+      else if (aiIndependentRate > 50) satisfactionScore += 5;
+
+      // 限制分数范围
+      satisfactionScore = Math.max(0, Math.min(100, satisfactionScore));
+
+      // 计算满意度分布（基于最近决策原因）
+      const reasons = {};
+      decisionLogs.forEach(log => {
+        if (log.reason) {
+          reasons[log.reason] = (reasons[log.reason] || 0) + 1;
+        }
+      });
+
+      const satisfactionDistribution = {
+        high: 0, // AI独立处理，无工作人员介入
+        medium: 0, // 需要少量工作人员介入
+        low: 0 // 需要大量工作人员介入
+      };
+
+      decisionLogs.forEach(log => {
+        if (log.aiAction === 'reply' && log.staffAction === 'none') {
+          satisfactionDistribution.high++;
+        } else if (log.staffAction === 'continue' && log.priority === 'both') {
+          satisfactionDistribution.medium++;
+        } else if (log.staffAction === 'urgent' || log.priority === 'staff') {
+          satisfactionDistribution.low++;
+        }
+      });
+
+      // 识别主要问题
+      const topIssues = Object.entries(reasons)
+        .map(([reason, count]) => ({ reason, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      // 时间趋势（按小时分组）
+      const trends = [];
+      const hourlyStats = {};
+
+      decisionLogs.forEach(log => {
+        const hour = new Date(log.createdAt).toISOString().slice(0, 13); // YYYY-MM-DDTHH
+        if (!hourlyStats[hour]) {
+          hourlyStats[hour] = { total: 0, aiReply: 0, staffReply: 0 };
+        }
+        hourlyStats[hour].total++;
+        if (log.aiAction === 'reply') hourlyStats[hour].aiReply++;
+        if (log.staffAction === 'continue') hourlyStats[hour].staffReply++;
+      });
+
+      Object.entries(hourlyStats)
+        .slice(-24) // 最近24小时
+        .forEach(([hour, stats]) => {
+          const hourRate = stats.total > 0
+            ? ((stats.aiReply + stats.staffReply) / stats.total * 100)
+            : 0;
+          trends.push({
+            hour,
+            totalSessions: stats.total,
+            collaborationRate: parseFloat(hourRate.toFixed(2)),
+            staffIntervention: stats.total > 0
+              ? (stats.staffReply / stats.total * 100).toFixed(2)
+              : '0.00'
+          });
+        });
+
+      return {
+        timeRange,
+        robotId,
+        staffUserId,
+        summary: {
+          totalSessions: totalDecisions,
+          avgSatisfactionScore: Math.round(satisfactionScore),
+          collaborationRate: parseFloat(collaborationRate.toFixed(2)),
+          staffInterventionRate: parseFloat(staffInterventionRate.toFixed(2)),
+          aiIndependentRate: parseFloat(aiIndependentRate.toFixed(2)),
+          satisfactionDistribution,
+          needsAttention: satisfactionScore < 60
+        },
+        trends,
+        topIssues,
+        insights: {
+          status: satisfactionScore >= 80 ? 'excellent' :
+                  satisfactionScore >= 60 ? 'good' :
+                  satisfactionScore >= 40 ? 'fair' : 'poor',
+          recommendations: this._getSatisfactionRecommendations(
+            satisfactionScore,
+            collaborationRate,
+            staffInterventionRate
+          )
+        }
+      };
+    } catch (error) {
+      console.error('[协同分析] 分析用户满意度失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取满意度改进建议
+   * @private
+   */
+  _getSatisfactionRecommendations(score, collaborationRate, staffInterventionRate) {
+    const recommendations = [];
+
+    if (staffInterventionRate > 40) {
+      recommendations.push('工作人员介入率过高，建议优化AI知识库和Prompt配置');
+    }
+
+    if (collaborationRate < 50) {
+      recommendations.push('AI处理效率偏低，建议增加知识库内容和优化回答策略');
+    }
+
+    if (score < 60) {
+      recommendations.push('整体满意度偏低，建议全面审查AI配置和增加培训');
+    }
+
+    if (score >= 80) {
+      recommendations.push('AI运行表现良好，继续保持当前配置');
+    }
+
+    if (recommendations.length === 0) {
+      recommendations.push('AI运行正常，建议持续监控');
+    }
+
+    return recommendations;
+  }
+
+  /**
+   * 获取工作人员活动统计
+   * @param {Object} options - 查询选项
+   * @param {string} options.timeRange - 时间范围
+   * @param {string} options.robotId - 机器人ID（可选）
+   * @returns {Promise<Object>} 工作人员活动统计
+   */
+  async getStaffActivityStats(options = {}) {
+    const { timeRange = '24h', robotId } = options;
+
+    try {
+      await this.init();
+
+      // 计算时间范围
+      const now = new Date();
+      let startTime;
+      switch (timeRange) {
+        case '1h':
+          startTime = new Date(now.getTime() - 60 * 60 * 1000);
+          break;
+        case '24h':
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case '7d':
+          startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      }
+
+      // 获取活动日志（不使用 robotId 过滤，因为 staff_activities 表没有 robotId 字段）
+      const activityLogs = await this.db
+        .select()
+        .from(staffActivities)
+        .where(gte(staffActivities.createdAt, startTime))
+        .orderBy(desc(staffActivities.createdAt))
+        .limit(1000);
+
+      if (activityLogs.length === 0) {
+        return {
+          timeRange,
+          robotId,
+          summary: {
+            totalStaff: 0,
+            activeStaff: 0,
+            totalActivities: 0,
+            avgActivitiesPerStaff: 0
+          },
+          staffList: [],
+          activityDistribution: {}
+        };
+      }
+
+      // 按工作人员分组统计
+      const staffStats = new Map();
+
+      activityLogs.forEach(log => {
+        const staffUserId = log.staffUserId;
+        if (!staffStats.has(staffUserId)) {
+          staffStats.set(staffUserId, {
+            staffUserId: log.staffUserId,
+            staffName: log.staffName,
+            totalActivities: 0,
+            lastActivity: log.createdAt,
+            activityTypes: {},
+            sessionIds: new Set()
+          });
+        }
+
+        const stats = staffStats.get(staffUserId);
+        stats.totalActivities++;
+        stats.sessionIds.add(log.sessionId);
+
+        // 统计活动类型
+        const activityType = log.activityType;
+        stats.activityTypes[activityType] = (stats.activityTypes[activityType] || 0) + 1;
+
+        // 更新最新活动时间
+        if (new Date(log.createdAt) > new Date(stats.lastActivity)) {
+          stats.lastActivity = log.createdAt;
+        }
+      });
+
+      // 活动类型分布
+      const activityDistribution = {};
+      activityLogs.forEach(log => {
+        const type = log.activityType;
+        activityDistribution[type] = (activityDistribution[type] || 0) + 1;
+      });
+
+      // 构建工作人员列表
+      const staffList = Array.from(staffStats.values())
+        .map(stats => ({
+          ...stats,
+          sessionCount: stats.sessionIds.size,
+          isOnline: this._isStaffOnline(stats.lastActivity, timeRange)
+        }))
+        .sort((a, b) => b.totalActivities - a.totalActivities);
+
+      // 计算活跃工作人员（在最近1小时内有活动）
+      const activeStaffCount = staffList.filter(s => s.isOnline).length;
+
+      return {
+        timeRange,
+        robotId,
+        summary: {
+          totalStaff: staffList.length,
+          activeStaff: activeStaffCount,
+          totalActivities: activityLogs.length,
+          avgActivitiesPerStaff: staffList.length > 0
+            ? (activityLogs.length / staffList.length).toFixed(2)
+            : '0.00'
+        },
+        staffList,
+        activityDistribution,
+        topPerformers: staffList.slice(0, 5).map(s => ({
+          staffUserId: s.staffUserId,
+          staffName: s.staffName,
+          totalActivities: s.totalActivities,
+          sessionCount: s.sessionCount
+        }))
+      };
+    } catch (error) {
+      console.error('[协同分析] 获取工作人员活动统计失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 判断工作人员是否在线
+   * @private
+   */
+  _isStaffOnline(lastActivity, timeRange) {
+    const now = new Date();
+    const lastActivityTime = new Date(lastActivity);
+    const diffMs = now - lastActivityTime;
+
+    // 如果在最近1小时内有活动，认为是在线
+    return diffMs < 60 * 60 * 1000;
+  }
+
+  /**
+   * 获取工作人员详细信息
+   * @param {string} staffUserId - 工作人员ID
+   * @param {string} timeRange - 时间范围
+   * @returns {Promise<Object>} 工作人员详细信息
+   */
+  async getStaffDetail(staffUserId, timeRange = '24h') {
+    try {
+      await this.init();
+
+      // 计算时间范围
+      const now = new Date();
+      let startTime;
+      switch (timeRange) {
+        case '1h':
+          startTime = new Date(now.getTime() - 60 * 60 * 1000);
+          break;
+        case '24h':
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case '7d':
+          startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      }
+
+      // 获取该工作人员的活动日志
+      const activityLogs = await this.db
+        .select()
+        .from(staffActivities)
+        .where(
+          and(
+            eq(staffActivities.staffUserId, staffUserId),
+            gte(staffActivities.createdAt, startTime)
+          )
+        )
+        .orderBy(desc(staffActivities.createdAt))
+        .limit(100);
+
+      if (activityLogs.length === 0) {
+        return {
+          staffUserId,
+          error: '未找到该工作人员的活动记录'
+        };
+      }
+
+      const staffName = activityLogs[0].staffName;
+
+      // 获取该工作人员的消息记录
+      const messageLogs = await this.db
+        .select()
+        .from(staffMessages)
+        .where(
+          and(
+            eq(staffMessages.staffUserId, staffUserId),
+            gte(staffMessages.createdAt, startTime)
+          )
+        )
+        .orderBy(desc(staffMessages.createdAt))
+        .limit(100);
+
+      // 统计活动数据
+      const activityTypes = {};
+      activityLogs.forEach(log => {
+        const type = log.activityType;
+        activityTypes[type] = (activityTypes[type] || 0) + 1;
+      });
+
+      // 统计处理的会话
+      const sessions = new Set();
+      activityLogs.forEach(log => sessions.add(log.sessionId));
+
+      // 获取会话工作人员状态
+      const sessionStatuses = await this.db
+        .select()
+        .from(sessionStaffStatus)
+        .where(eq(sessionStaffStatus.staffUserId, staffUserId));
+
+      const activeSessions = sessionStatuses.filter(
+        status => status.isHandling && status.status === 'active'
+      ).length;
+
+      // 最近活动
+      const recentActivities = activityLogs.slice(0, 10).map(log => ({
+        id: log.id,
+        sessionId: log.sessionId,
+        robotId: log.robotId,
+        activityType: log.activityType,
+        createdAt: log.createdAt
+      }));
+
+      // 消息统计
+      const messageStats = {
+        totalMessages: messageLogs.length,
+        replies: messageLogs.filter(m => m.isReply).length,
+        byType: {}
+      };
+
+      messageLogs.forEach(log => {
+        const type = log.messageType;
+        messageStats.byType[type] = (messageStats.byType[type] || 0) + 1;
+      });
+
+      return {
+        staffUserId,
+        staffName,
+        timeRange,
+        summary: {
+          totalActivities: activityLogs.length,
+          totalSessions: sessions.size,
+          activeSessions,
+          totalMessages: messageStats.totalMessages,
+          isOnline: this._isStaffOnline(activityLogs[0].createdAt, timeRange)
+        },
+        activityTypes,
+        messageStats,
+        recentActivities,
+        performance: {
+          avgSessionsPerHour: parseFloat(
+            (sessions.size / 24).toFixed(2)
+          ),
+          responseRate: activityLogs.length > 0
+            ? parseFloat(((messageStats.replies / activityLogs.length) * 100).toFixed(2))
+            : 0
+        }
+      };
+    } catch (error) {
+      console.error('[协同分析] 获取工作人员详细信息失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 创建售后任务
+   * @param {Object} taskData - 任务数据
+   * @returns {Promise<Object>} 创建的任务
+   */
+  async createAfterSalesTask(taskData) {
+    const {
+      sessionId,
+      robotId,
+      userId,
+      userName,
+      issueType,
+      issueDescription,
+      priority = 'normal',
+      assignedStaffUserId,
+      dueDate,
+      tags
+    } = taskData;
+
+    try {
+      await this.init();
+
+      const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // 插入售后任务（如果有专门的表，这里应该插入到那个表）
+      // 目前先记录到工作人员活动日志中
+      await this.recordStaffActivity({
+        sessionId,
+        robotId,
+        staffUserId: assignedStaffUserId || 'system',
+        staffName: assignedStaffUserId ? '' : '系统',
+        activityType: 'after_sales_task_created',
+        activityData: {
+          taskId,
+          issueType,
+          issueDescription,
+          priority,
+          assignedStaffUserId,
+          dueDate,
+          tags,
+          status: 'pending'
+        }
+      });
+
+      console.log('[协同分析] 售后任务创建成功:', {
+        taskId,
+        issueType,
+        sessionId,
+        assignedStaffUserId
+      });
+
+      return {
+        taskId,
+        sessionId,
+        robotId,
+        userId,
+        userName,
+        issueType,
+        issueDescription,
+        priority,
+        assignedStaffUserId,
+        dueDate,
+        tags,
+        status: 'pending',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+    } catch (error) {
+      console.error('[协同分析] 创建售后任务失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 更新售后任务
+   * @param {string} taskId - 任务ID
+   * @param {Object} updates - 更新数据
+   * @returns {Promise<Object>} 更新后的任务
+   */
+  async updateAfterSalesTask(taskId, updates) {
+    const {
+      status,
+      assignedStaffUserId,
+      priority,
+      issueDescription,
+      resolution,
+      completedAt
+    } = updates;
+
+    try {
+      await this.init();
+
+      // 记录任务更新活动
+      await this.recordStaffActivity({
+        sessionId: 'system',
+        robotId: 'system',
+        staffUserId: 'system',
+        staffName: '系统',
+        activityType: 'after_sales_task_updated',
+        activityData: {
+          taskId,
+          status,
+          assignedStaffUserId,
+          priority,
+          issueDescription,
+          resolution,
+          completedAt
+        }
+      });
+
+      console.log('[协同分析] 售后任务更新成功:', { taskId, status });
+
+      return {
+        taskId,
+        ...updates,
+        updatedAt: new Date()
+      };
+    } catch (error) {
+      console.error('[协同分析] 更新售后任务失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取售后任务列表
+   * @param {Object} options - 查询选项
+   * @param {string} options.status - 任务状态
+   * @param {string} options.priority - 任务优先级
+   * @param {string} options.assignedStaffUserId - 分配的工作人员ID
+   * @param {number} options.limit - 返回数量限制
+   * @returns {Promise<Array>} 售后任务列表
+   */
+  async getAfterSalesTasks(options = {}) {
+    const {
+      status,
+      priority,
+      assignedStaffUserId,
+      limit = 50
+    } = options;
+
+    try {
+      await this.init();
+
+      // 获取售后任务相关的活动日志
+      const activityLogs = await this.db
+        .select()
+        .from(staffActivities)
+        .where(eq(staffActivities.activityType, 'after_sales_task_created'))
+        .orderBy(desc(staffActivities.createdAt))
+        .limit(200);
+
+      // 解析任务数据
+      const tasks = activityLogs
+        .map(log => {
+          try {
+            const taskData = JSON.parse(log.activityDetail || '{}');
+            return {
+              ...taskData,
+              createdAt: log.createdAt,
+              sessionId: log.sessionId
+            };
+          } catch (e) {
+            return null;
+          }
+        })
+        .filter(task => task !== null);
+
+      // 应用过滤条件
+      let filteredTasks = tasks;
+
+      if (status) {
+        filteredTasks = filteredTasks.filter(task => task.status === status);
+      }
+
+      if (priority) {
+        filteredTasks = filteredTasks.filter(task => task.priority === priority);
+      }
+
+      if (assignedStaffUserId) {
+        filteredTasks = filteredTasks.filter(
+          task => task.assignedStaffUserId === assignedStaffUserId
+        );
+      }
+
+      return filteredTasks.slice(0, limit);
+    } catch (error) {
+      console.error('[协同分析] 获取售后任务列表失败:', error);
+      return [];
     }
   }
 
