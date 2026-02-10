@@ -1334,6 +1334,178 @@ exports.robotPermissions = pgTable(
 // 协同分析相关表
 // ============================================
 
+// ============================================
+// 会话管理表（新增）
+// ============================================
 
+// 用户会话表
+exports.userSessions = pgTable(
+  "user_sessions",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    sessionId: varchar("session_id", { length: 255 }).unique().notNull(),
+    userId: varchar("user_id", { length: 255 }),
+    userName: varchar("user_name", { length: 255 }),
+    enterpriseName: varchar("enterprise_name", { length: 255 }),
+    satisfactionScore: integer("satisfaction_score").default(50),
+    problemResolutionRate: numeric("problem_resolution_rate", { precision: 5, scale: 2 }).default(0),
+    messageCount: integer("message_count").default(0),
+    lastMessageTime: timestamp("last_message_time", { withTimezone: true }),
+    status: varchar("status", { length: 20 }).default("active"),
+    joinedAt: timestamp("joined_at", { withTimezone: true }),
+    context: jsonb("context").default("{}"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    sessionIdIdx: index("user_sessions_session_id_idx").on(table.sessionId),
+    userIdIdx: index("user_sessions_user_id_idx").on(table.userId),
+    statusIdx: index("user_sessions_status_idx").on(table.status),
+    satisfactionScoreIdx: index("user_sessions_satisfaction_score_idx").on(table.satisfactionScore),
+    lastMessageTimeIdx: index("user_sessions_last_message_time_idx").on(table.lastMessageTime),
+  })
+);
+
+// 社群会话表
+exports.groupSessions = pgTable(
+  "group_sessions",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    sessionId: varchar("session_id", { length: 255 }).unique().notNull(),
+    groupId: varchar("group_id", { length: 255 }),
+    groupName: varchar("group_name", { length: 255 }),
+    memberCount: integer("member_count").default(0),
+    messageCount: integer("message_count").default(0),
+    lastMessageTime: timestamp("last_message_time", { withTimezone: true }),
+    status: varchar("status", { length: 20 }).default("active"),
+    context: jsonb("context").default("{}"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    sessionIdIdx: index("group_sessions_session_id_idx").on(table.sessionId),
+    groupIdIdx: index("group_sessions_group_id_idx").on(table.groupId),
+    statusIdx: index("group_sessions_status_idx").on(table.status),
+    lastMessageTimeIdx: index("group_sessions_last_message_time_idx").on(table.lastMessageTime),
+  })
+);
+
+// 满意度分析表
+exports.satisfactionAnalysis = pgTable(
+  "satisfaction_analysis",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    analysisId: varchar("analysis_id", { length: 100 }).unique().notNull(),
+    userId: varchar("user_id", { length: 255 }),
+    satisfactionScore: integer("satisfaction_score").notNull(),
+    sentiment: varchar("sentiment", { length: 20 }),
+    problemResolutionCount: integer("problem_resolution_count").default(0),
+    problemInProgressCount: integer("problem_in_progress_count").default(0),
+    problemUnresolvedCount: integer("problem_unresolved_count").default(0),
+    problemResolutionRate: numeric("problem_resolution_rate", { precision: 5, scale: 2 }).default(0),
+    complaintCount: integer("complaint_count").default(0),
+    dissatisfactionCount: integer("dissatisfaction_count").default(0),
+    analyzedAt: timestamp("analyzed_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    analysisIdIdx: index("satisfaction_analysis_analysis_id_idx").on(table.analysisId),
+    userIdIdx: index("satisfaction_analysis_user_id_idx").on(table.userId),
+    satisfactionScoreIdx: index("satisfaction_analysis_satisfaction_score_idx").on(table.satisfactionScore),
+    analyzedAtIdx: index("satisfaction_analysis_analyzed_at_idx").on(table.analyzedAt),
+  })
+);
+
+// 工作人员活跃度表
+exports.staffActivities = pgTable(
+  "staff_activities",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    staffId: varchar("staff_id", { length: 255 }).unique().notNull(),
+    staffName: varchar("staff_name", { length: 255 }),
+    staffRole: varchar("staff_role", { length: 50 }),
+    status: varchar("status", { length: 20 }).default("offline"),
+    messageCountPerHour: integer("message_count_per_hour").default(0),
+    messageCountPerDay: integer("message_count_per_day").default(0),
+    messageCountPerWeek: integer("message_count_per_week").default(0),
+    averageResponseTime: integer("average_response_time"),
+    maxResponseTime: integer("max_response_time"),
+    minResponseTime: integer("min_response_time"),
+    lastActiveTime: timestamp("last_active_time", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    staffIdIdx: index("staff_activities_staff_id_idx").on(table.staffId),
+    statusIdx: index("staff_activities_status_idx").on(table.status),
+    staffRoleIdx: index("staff_activities_staff_role_idx").on(table.staffRole),
+    lastActiveTimeIdx: index("staff_activities_last_active_time_idx").on(table.lastActiveTime),
+  })
+);
+
+// 任务管理表
+exports.tasks = pgTable(
+  "tasks",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    taskId: varchar("task_id", { length: 255 }).unique().notNull(),
+    alertId: varchar("alert_id", { length: 255 }),
+    taskTitle: varchar("task_title", { length: 255 }).notNull(),
+    taskDescription: text("task_description"),
+    status: varchar("status", { length: 20 }).default("pending"),
+    priority: varchar("priority", { length: 20 }).default("medium"),
+    assignedStaff: varchar("assigned_staff", { length: 255 }),
+    createdBy: varchar("created_by", { length: 255 }),
+    dueDate: timestamp("due_date", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    tencentDocId: varchar("tencent_doc_id", { length: 255 }),
+    tencentDocUrl: varchar("tencent_doc_url", { length: 500 }),
+    metadata: jsonb("metadata").default("{}"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    taskIdIdx: index("tasks_task_id_idx").on(table.taskId),
+    alertIdIdx: index("tasks_alert_id_idx").on(table.alertId),
+    statusIdx: index("tasks_status_idx").on(table.status),
+    assignedStaffIdx: index("tasks_assigned_staff_idx").on(table.assignedStaff),
+    dueDateIdx: index("tasks_due_date_idx").on(table.dueDate),
+  })
+);
+
+// AI介入记录表
+exports.aiInterventions = pgTable(
+  "ai_interventions",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    interventionId: varchar("intervention_id", { length: 100 }).unique().notNull(),
+    messageId: varchar("message_id", { length: 255 }),
+    userId: varchar("user_id", { length: 255 }),
+    groupId: varchar("group_id", { length: 255 }),
+    scenario: varchar("scenario", { length: 50 }),
+    description: text("description"),
+    aiResponse: jsonb("ai_response"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    interventionIdIdx: index("ai_interventions_intervention_id_idx").on(table.interventionId),
+    messageIdIdx: index("ai_interventions_message_id_idx").on(table.messageId),
+    userIdIdx: index("ai_interventions_user_id_idx").on(table.userId),
+    scenarioIdx: index("ai_interventions_scenario_idx").on(table.scenario),
+    createdAtIdx: index("ai_interventions_created_at_idx").on(table.createdAt),
+  })
+);
 
 // 会话工作人员状态表
