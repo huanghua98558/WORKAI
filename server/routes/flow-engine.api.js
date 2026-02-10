@@ -16,6 +16,8 @@ const logger = getLogger('FLOW_ENGINE_API');
  * 流程引擎路由注册
  */
 async function flowEngineRoutes(fastify, options) {
+  logger.info('FlowEngine API 路由正在注册');
+
   // ============================================
   // 流程定义管理
   // ============================================
@@ -554,6 +556,14 @@ async function flowEngineRoutes(fastify, options) {
   });
 
   /**
+   * 测试路由
+   * GET /api/flow-engine/test-track-tasks
+   */
+  fastify.get('/test-track-tasks', async (request, reply) => {
+    return reply.send({ success: true, message: '测试路由正常' });
+  });
+
+  /**
    * 获取流程状态列表
    * GET /api/flow-engine/flow-statuses
    */
@@ -680,6 +690,27 @@ async function flowEngineRoutes(fastify, options) {
   // ============================================
   // 跟踪任务管理
   // ============================================
+
+  /**
+   * 测试跟踪任务路由
+   * GET /api/flow-engine/test-track-tasks
+   */
+  fastify.get('/test-track-tasks', async (request, reply) => {
+    try {
+      logger.info('测试跟踪任务路由被调用');
+      return reply.send({
+        success: true,
+        message: '测试路由正常',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      logger.error('测试路由失败', { error: error.message });
+      return reply.code(500).send({
+        success: false,
+        error: error.message
+      });
+    }
+  });
 
   /**
    * 创建跟踪任务

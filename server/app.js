@@ -218,10 +218,20 @@ const messagesApiRoutes = require('./routes/messages.api');
 console.log('[app.js] messages.api loaded successfully');
 fastify.register(messagesApiRoutes, { prefix: '/api' });
 fastify.register(intentConfigApiRoutes, { prefix: '/api/ai/intents' });
+console.log('[app.js] Attempting to load flow-engine.api...');
 fastify.register(flowEngineApiRoutes, { prefix: '/api/flow-engine' });
-// 注册跟踪任务 API
-const trackTasksApiRoutes = require('./routes/track-tasks.api');
-fastify.register(trackTasksApiRoutes, { prefix: '/api/flow-engine' });
+console.log('[app.js] flow-engine.api registered');
+// 注册跟踪任务 API（独立版本）
+console.log('[app.js] Attempting to load track-tasks-v2.api...');
+try {
+  const trackTasksApi = require('./routes/track-tasks-v2.api');
+  console.log('[app.js] track-tasks-v2.api module loaded:', Object.keys(trackTasksApi));
+  console.log('[app.js] trackTasksRoutes type:', typeof trackTasksApi.trackTasksRoutes);
+  fastify.register(trackTasksApi.trackTasksRoutes, { prefix: '/api/track-tasks' });
+  console.log('[app.js] track-tasks-v2.api registered');
+} catch (error) {
+  console.error('[app.js] Failed to load track-tasks-v2.api:', error);
+}
 fastify.register(riskApiRoutes, { prefix: '/api' });
 // AI 模块 API（使用 /proxy 前缀以匹配前端调用）
 fastify.register(aiModuleApiRoutes, { prefix: '/api/proxy/ai' });
