@@ -1,0 +1,711 @@
+{
+  "id": "unified-message-routing-v3",
+  "name": "统一消息处理流程（v3.0）",
+  "description": "根据发送者角色路由到不同处理分支，支持运营、工作人员、售后、用户消息的完整处理流程",
+  "version": "3.0",
+  "is_active": true,
+  "trigger_type": "webhook",
+  "nodes": [
+    {
+      "id": "node-1",
+      "type": "start",
+      "name": "Webhook触发器",
+      "description": "接收企业微信群消息Webhook，验证签名，幂等性检查",
+      "position": { "x": 100, "y": 200 },
+      "data": {
+        "config": {
+          "webhookUrl": "/api/robots/callback",
+          "verifySignature": true,
+          "idempotencyCheck": true
+        }
+      }
+    },
+    {
+      "id": "node-2",
+      "type": "multi_task_message",
+      "name": "消息接收与保存",
+      "description": "接收消息并保存到messages表和session_messages表",
+      "position": { "x": 350, "y": 200 },
+      "data": {
+        "config": {
+          "tasks": [
+            {
+              "type": "receive",
+              "messageData": {
+                "saveToMessagesTable": true,
+                "saveToSessionMessages": true,
+                "pushToMonitorQueue": true
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-3",
+      "type": "multi_task_data",
+      "name": "发送者身份识别",
+      "description": "识别发送者角色：运营、工作人员、用户、机器人",
+      "position": { "x": 600, "y": 200 },
+      "data": {
+        "config": {
+          "tasks": [
+            {
+              "type": "query",
+              "queryData": {
+                "queryType": "identify_sender",
+                "senderId": "{{sender_id}}",
+                "operationUserIdList": [],
+                "groupAssistantUserIdList": [],
+                "afterSalesUserIdList": [],
+                "robotIdList": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-3.5",
+      "type": "multi_task_task",
+      "name": "售后任务关联检查",
+      "description": "检查用户是否有待处理的售后任务",
+      "position": { "x": 850, "y": 200 },
+      "data": {
+        "config": {
+          "tasks": [
+            {
+              "type": "query",
+              "taskData": {
+                "queryType": "check_after_sales_task",
+                "targetUserId": "{{sender_id}}",
+                "responseKeywords": ["在的", "来了", "好的", "收到", "马上", "可以", "行", "是的"],
+                "completionKeywords": ["完成了", "搞定", "可以了", "完成"],
+                "pendingTaskStatus": ["pending", "waiting_user_response"]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-4",
+      "type": "condition",
+      "name": "角色路由",
+      "description": "根据发送者角色路由到不同分支",
+      "position": { "x": 1100, "y": 200 },
+      "data": {
+        "config": {
+          "conditions": [
+            {
+              "expression": "{{sender_role}} === 'operation'",
+              "value": "operation",
+              "priority": 0
+            },
+            {
+              "expression": "{{sender_role}} === 'group_assistant' || {{sender_role}} === 'after_sales'",
+              "value": "staff",
+              "priority": 1
+            },
+            {
+              "expression": "{{route_to_after_sales}} === true",
+              "value": "after_sales",
+              "priority": 2
+            },
+            {
+              "expression": "{{sender_role}} === 'user'",
+              "value": "user",
+              "priority": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-a1",
+      "type": "multi_task_task",
+      "name": "运营消息识别与跟踪",
+      "description": "创建运营跟踪任务，提取运营要求",
+      "position": { "x": 1350, "y": 50 },
+      "data": {
+        "config": {
+          "tasks": [
+            {
+              "type": "create",
+              "taskData": {
+                "task_type": "operation",
+                "group_id": "{{group_id}}",
+                "operation_id": "{{sender_id}}",
+                "operation_name": "{{sender_name}}",
+                "task_requirement": "{{content}}",
+                "priority": "critical",
+                "response_timeout": 600,
+                "auto_cancel_when_responded": true
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-a2",
+      "type": "condition",
+      "name": "号主响应检测",
+      "description": "检测号主是否回应",
+      "position": { "x": 1600, "y": 50 },
+      "data": {
+        "config": {
+          "conditions": [
+            {
+              "expression": "{{has_response}} === true",
+              "value": "responded"
+            },
+            {
+              "expression": "{{has_response}} === false",
+              "value": "no_response"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-a3",
+      "type": "notification",
+      "name": "无人回应通知",
+      "description": "发送通知给工作人员",
+      "position": { "x": 1850, "y": 50 },
+      "data": {
+        "config": {
+          "recipients": ["staff_group"],
+          "message": "提醒：运营在{{group_name}}群要求{{target_user_name}}配合，但用户尚未回应",
+          "type": "urgent",
+          "priority": "high"
+        }
+      }
+    },
+    {
+      "id": "node-a4",
+      "type": "multi_task_alert",
+      "name": "冲突检测与调和",
+      "description": "检测运营和用户是否发生冲突",
+      "position": { "x": 2100, "y": 50 },
+      "data": {
+        "config": {
+          "tasks": [
+            {
+              "type": "rule_evaluate",
+              "alertData": {
+                "rule": "conflict_detection",
+                "condition": "{{emotion_score}} < 0.3"
+              }
+            },
+            {
+              "type": "notify",
+              "alertData": {
+                "message": "我们马上配合他，去帮助他完成实名或者扫码登录等相关工作",
+                "recipients": ["staff_work_group", "monitor_panel"]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-b1",
+      "type": "multi_task_staff",
+      "name": "工作人员活跃度记录",
+      "description": "记录工作人员活跃度",
+      "position": { "x": 1350, "y": 150 },
+      "data": {
+        "config": {
+          "tasks": [
+            {
+              "type": "notify",
+              "staffData": {
+                "action": "record_activity",
+                "staffId": "{{sender_id}}",
+                "staffName": "{{sender_name}}",
+                "role": "{{sender_role}}"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-b2",
+      "type": "condition",
+      "name": "工作人员介入判断",
+      "description": "判断是否需要介入",
+      "position": { "x": 1600, "y": 150 },
+      "data": {
+        "config": {
+          "conditions": [
+            {
+              "expression": "{{need_intervention}} === true",
+              "value": "intervene"
+            },
+            {
+              "expression": "{{need_intervention}} === false",
+              "value": "no_intervention"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-b3",
+      "type": "notification",
+      "name": "介入通知执行",
+      "description": "发送介入通知",
+      "position": { "x": 1850, "y": 150 },
+      "data": {
+        "config": {
+          "recipients": ["staff_work_group"],
+          "message": "工作人员{{staff_name}}需要介入{{group_name}}群的对话",
+          "type": "info"
+        }
+      }
+    },
+    {
+      "id": "node-c1",
+      "type": "multi_task_task",
+      "name": "售后消息识别",
+      "description": "创建售后跟踪任务",
+      "position": { "x": 1350, "y": 250 },
+      "data": {
+        "config": {
+          "tasks": [
+            {
+              "type": "create",
+              "taskData": {
+                "task_type": "after_sales",
+                "group_id": "{{group_id}}",
+                "staff_id": "{{staff_id}}",
+                "staff_name": "{{staff_name}}",
+                "target_user_id": "{{sender_id}}",
+                "target_user_name": "{{sender_name}}",
+                "task_requirement": "{{content}}",
+                "priority": "high"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-c2",
+      "type": "condition",
+      "name": "用户响应检测",
+      "description": "检测用户是否回应，执行机器人安抚",
+      "position": { "x": 1600, "y": 250 },
+      "data": {
+        "config": {
+          "conditions": [
+            {
+              "expression": "{{has_response}} === true",
+              "value": "responded"
+            },
+            {
+              "expression": "{{has_response}} === false",
+              "value": "no_response"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-c3",
+      "type": "multi_task_robot",
+      "name": "机器人安抚",
+      "description": "机器人安抚用户并通知售后人员",
+      "position": { "x": 1850, "y": 250 },
+      "data": {
+        "config": {
+          "tasks": [
+            {
+              "type": "command",
+              "robotData": {
+                "robotId": "{{reply_robot_id}}",
+                "robotType": "reply",
+                "command": {
+                  "type": "send_message",
+                  "params": {
+                    "group_id": "{{group_id}}",
+                    "content": "@{{sender_name}} 好的，请稍等，售后人员马上就来处理 👍",
+                    "atUser": true
+                  }
+                }
+              }
+            },
+            {
+              "type": "command",
+              "robotData": {
+                "robotId": "{{notification_robot_id}}",
+                "robotType": "notification",
+                "command": {
+                  "type": "send_message",
+                  "params": {
+                    "recipients": ["staff_work_group"],
+                    "content": "【紧急】用户{{sender_name}}已响应：{{content}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-c4",
+      "type": "notification",
+      "name": "售后无人回应通知",
+      "description": "用户响应但售后未跟进时通知",
+      "position": { "x": 2100, "y": 250 },
+      "data": {
+        "config": {
+          "recipients": ["staff_work_group"],
+          "message": "提醒：用户{{sender_name}}已响应售后@消息，请及时安排任务",
+          "type": "urgent",
+          "priority": "high"
+        }
+      }
+    },
+    {
+      "id": "node-c5",
+      "type": "multi_task_task",
+      "name": "任务完成跟踪",
+      "description": "跟踪售后任务完成情况",
+      "position": { "x": 2350, "y": 250 },
+      "data": {
+        "config": {
+          "tasks": [
+            {
+              "type": "update",
+              "taskData": {
+                "task_id": "{{task_id}}",
+                "task_status": "completed",
+                "completed_at": "NOW()"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-c6",
+      "type": "multi_task_analysis",
+      "name": "协同分析与报告",
+      "description": "生成售后处理效果报告",
+      "position": { "x": 2600, "y": 250 },
+      "data": {
+        "config": {
+          "tasks": [
+            {
+              "type": "report",
+              "analysisData": {
+                "report_type": "after_sales_summary",
+                "task_id": "{{task_id}}",
+                "group_id": "{{group_id}}",
+                "target_user_id": "{{sender_id}}"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-d1",
+      "type": "multi_task_ai",
+      "name": "用户消息意图识别",
+      "description": "AI识别用户消息意图和情绪",
+      "position": { "x": 1350, "y": 350 },
+      "data": {
+        "config": {
+          "tasks": [
+            {
+              "type": "identify",
+              "model": "doubao",
+              "prompt": "识别用户消息的意图和情绪，返回意图类型、情绪、置信度等信息",
+              "input": "{{content}}",
+              "useContext": true,
+              "contextLength": 10,
+              "enableEmotionAnalysis": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-d2",
+      "type": "multi_task_alert",
+      "name": "告警判断与分类",
+      "description": "判断是否触发告警",
+      "position": { "x": 1600, "y": 350 },
+      "data": {
+        "config": {
+          "tasks": [
+            {
+              "type": "rule_evaluate",
+              "alertData": {
+                "rule": "alert_detection",
+                "intent": "{{intent}}",
+                "emotion": "{{emotion}}",
+                "emotionScore": "{{emotion_score}}"
+              }
+            },
+            {
+              "type": "save",
+              "alertData": {
+                "alert_level": "{{alert_level}}",
+                "alert_type": "{{alert_type}}",
+                "group_id": "{{group_id}}",
+                "user_id": "{{sender_id}}",
+                "intent": "{{intent}}",
+                "emotion": "{{emotion}}"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-d3",
+      "type": "condition",
+      "name": "AI回复决策",
+      "description": "判断是否需要AI回复",
+      "position": { "x": 1850, "y": 350 },
+      "data": {
+        "config": {
+          "conditions": [
+            {
+              "expression": "{{need_reply}} === true",
+              "value": "reply"
+            },
+            {
+              "expression": "{{need_reply}} === false",
+              "value": "no_reply"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-d4",
+      "type": "multi_task_ai",
+      "name": "AI回复生成",
+      "description": "AI生成回复内容",
+      "position": { "x": 2100, "y": 350 },
+      "data": {
+        "config": {
+          "tasks": [
+            {
+              "type": "generate",
+              "model": "doubao",
+              "prompt": "生成一个友好、专业的回复",
+              "input": "{{content}}",
+              "intent": "{{intent}}",
+              "emotion": "{{emotion}}",
+              "context": "{{context}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-d5",
+      "type": "condition",
+      "name": "回复质量检查",
+      "description": "检查回复质量",
+      "position": { "x": 2350, "y": 350 },
+      "data": {
+        "config": {
+          "conditions": [
+            {
+              "expression": "{{quality}} >= 0.8",
+              "value": "approved"
+            },
+            {
+              "expression": "{{quality}} < 0.8",
+              "value": "rejected"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-d6",
+      "type": "delay",
+      "name": "延迟控制",
+      "description": "根据时间段延迟发送",
+      "position": { "x": 2600, "y": 350 },
+      "data": {
+        "config": {
+          "delaySeconds": "{{delay_seconds}}",
+          "delayReason": "{{delay_reason}}",
+          "dayShift": {
+            "startHour": 9,
+            "endHour": 21,
+            "minDelay": 0,
+            "maxDelay": 0
+          },
+          "nightShift": {
+            "startHour": 21,
+            "endHour": 24,
+            "minDelay": 60,
+            "maxDelay": 300
+          },
+          "lateNight": {
+            "startHour": 0,
+            "endHour": 6,
+            "highPriority": {
+              "minDelay": 300,
+              "maxDelay": 600
+            },
+            "mediumPriority": {
+              "minDelay": 600,
+              "maxDelay": 1800
+            },
+            "lowPriority": {
+              "noReply": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "node-d7",
+      "type": "multi_task_robot",
+      "name": "机器人通讯执行",
+      "description": "发送机器人指令",
+      "position": { "x": 2850, "y": 350 },
+      "data": {
+        "config": {
+          "tasks": [
+            {
+              "type": "command",
+              "robotData": {
+                "robotId": "{{reply_robot_id}}",
+                "robotType": "reply",
+                "command": {
+                  "type": "send_message",
+                  "params": {
+                    "group_id": "{{group_id}}",
+                    "content": "{{reply_content}}",
+                    "replyType": "{{reply_type}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-d8",
+      "type": "multi_task_robot",
+      "name": "异步结果确认",
+      "description": "1分钟后查询执行结果",
+      "position": { "x": 3100, "y": 350 },
+      "data": {
+        "config": {
+          "tasks": [
+            {
+              "type": "command",
+              "robotData": {
+                "robotId": "{{reply_robot_id}}",
+                "robotType": "reply",
+                "command": {
+                  "type": "check_status",
+                  "params": {
+                    "command_id": "{{command_id}}"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "config": {
+          "checkDelaySeconds": 60,
+          "maxCheckAttempts": 3,
+          "checkIntervalSeconds": 30,
+          "actionOnFailure": "manual_intervention"
+        }
+      }
+    },
+    {
+      "id": "node-5",
+      "type": "session",
+      "name": "会话管理与分析",
+      "description": "更新会话状态、上下文、满意度",
+      "position": { "x": 3350, "y": 200 },
+      "data": {
+        "config": {
+          "action": "update",
+          "sessionData": {
+            "session_id": "{{session_id}}",
+            "last_message_at": "NOW()",
+            "message_count": "+1",
+            "context": "{{context}}",
+            "last_intent": "{{intent}}",
+            "last_emotion": "{{emotion}}"
+          }
+        }
+      }
+    },
+    {
+      "id": "node-6",
+      "type": "end",
+      "name": "流程结束",
+      "description": "流程执行完成",
+      "position": { "x": 3600, "y": 200 },
+      "data": {
+        "config": {
+          "resultVariable": "context"
+        }
+      }
+    }
+  ],
+  "edges": [
+    { "id": "edge-1", "source": "node-1", "target": "node-2" },
+    { "id": "edge-2", "source": "node-2", "target": "node-3" },
+    { "id": "edge-3", "source": "node-3", "target": "node-3.5" },
+    { "id": "edge-4", "source": "node-3.5", "target": "node-4" },
+    { "id": "edge-5", "source": "node-4", "target": "node-a1", "condition": "operation" },
+    { "id": "edge-6", "source": "node-4", "target": "node-b1", "condition": "staff" },
+    { "id": "edge-7", "source": "node-4", "target": "node-c1", "condition": "after_sales" },
+    { "id": "edge-8", "source": "node-4", "target": "node-d1", "condition": "user" },
+    { "id": "edge-a1-2", "source": "node-a1", "target": "node-a2" },
+    { "id": "edge-a2-3", "source": "node-a2", "target": "node-a3", "condition": "no_response" },
+    { "id": "edge-a3-4", "source": "node-a3", "target": "node-a4" },
+    { "id": "edge-a4-end", "source": "node-a4", "target": "node-5" },
+    { "id": "edge-a2-end", "source": "node-a2", "target": "node-5", "condition": "responded" },
+    { "id": "edge-b1-2", "source": "node-b1", "target": "node-b2" },
+    { "id": "edge-b2-3", "source": "node-b2", "target": "node-b3", "condition": "intervene" },
+    { "id": "edge-b3-end", "source": "node-b3", "target": "node-5" },
+    { "id": "edge-b2-end", "source": "node-b2", "target": "node-5", "condition": "no_intervention" },
+    { "id": "edge-c1-2", "source": "node-c1", "target": "node-c2" },
+    { "id": "edge-c2-3", "source": "node-c2", "target": "node-c3", "condition": "responded" },
+    { "id": "edge-c3-4", "source": "node-c3", "target": "node-c4" },
+    { "id": "edge-c4-5", "source": "node-c4", "target": "node-c5" },
+    { "id": "edge-c5-6", "source": "node-c5", "target": "node-c6" },
+    { "id": "edge-c6-end", "source": "node-c6", "target": "node-5" },
+    { "id": "edge-c2-end", "source": "node-c2", "target": "node-5", "condition": "no_response" },
+    { "id": "edge-d1-2", "source": "node-d1", "target": "node-d2" },
+    { "id": "edge-d2-3", "source": "node-d2", "target": "node-d3" },
+    { "id": "edge-d3-4", "source": "node-d3", "target": "node-d4", "condition": "reply" },
+    { "id": "edge-d4-5", "source": "node-d4", "target": "node-d5" },
+    { "id": "edge-d5-6", "source": "node-d5", "target": "node-d6", "condition": "approved" },
+    { "id": "edge-d5-retry", "source": "node-d5", "target": "node-d4", "condition": "rejected" },
+    { "id": "edge-d6-7", "source": "node-d6", "target": "node-d7" },
+    { "id": "edge-d7-8", "source": "node-d7", "target": "node-d8" },
+    { "id": "edge-d8-end", "source": "node-d8", "target": "node-5" },
+    { "id": "edge-d3-end", "source": "node-d3", "target": "node-5", "condition": "no_reply" },
+    { "id": "edge-5-6", "source": "node-5", "target": "node-6" }
+  ],
+  "variables": {
+    "reply_robot_id": "{{default_reply_robot}}",
+    "notification_robot_id": "{{default_notification_robot}}",
+    "default_delay_seconds": 0
+  }
+}

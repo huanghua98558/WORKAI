@@ -623,14 +623,9 @@ async function flowEngineRoutes(fastify, options) {
       const fs = require('fs');
       const path = require('path');
 
-      // 流程文件列表
+      // 流程文件列表（v3.0 - 使用统一消息处理流程）
       const flowFiles = [
-        'flows/default/v6.1-auto-scheduling-flow.json',
-        'flows/default/v6.1-message-processing-flow.json',
-        'flows/default/v6.1-community-analysis-flow.json',
-        'flows/default/v6.1-after-sale-flow.json',
-        'flows/default/v6.1-operations-flow.json',
-        'flows/default/v6.1-collaboration-flow.json'
+        'flows/default/unified-message-routing-v3.json'
       ];
 
       const results = [];
@@ -690,27 +685,6 @@ async function flowEngineRoutes(fastify, options) {
   // ============================================
   // 跟踪任务管理
   // ============================================
-
-  /**
-   * 测试跟踪任务路由
-   * GET /api/flow-engine/test-track-tasks
-   */
-  fastify.get('/test-track-tasks', async (request, reply) => {
-    try {
-      logger.info('测试跟踪任务路由被调用');
-      return reply.send({
-        success: true,
-        message: '测试路由正常',
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
-      logger.error('测试路由失败', { error: error.message });
-      return reply.code(500).send({
-        success: false,
-        error: error.message
-      });
-    }
-  });
 
   /**
    * 创建跟踪任务
