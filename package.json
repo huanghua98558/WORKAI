@@ -13,7 +13,18 @@
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug",
     "test:report": "playwright show-report",
-    "test:install": "playwright install --with-deps"
+    "test:install": "playwright install --with-deps",
+    "db:check": "node scripts/check-db-consistency.js",
+    "db:init": "node scripts/db-init-full.js",
+    "db:migrate:p0": "node scripts/db-migrate-p0.js",
+    "db:migrate:p1": "node scripts/db-migrate-p1.js",
+    "db:migrate:p2": "node scripts/db-migrate-p2.js",
+    "db:migrate:all": "node scripts/db-init-full.js && node scripts/db-migrate-p0.js && node scripts/db-migrate-p1.js && node scripts/db-migrate-p2.js",
+    "drizzle:generate": "drizzle-kit generate",
+    "drizzle:migrate": "drizzle-kit migrate",
+    "drizzle:push": "drizzle-kit push",
+    "drizzle:studio": "drizzle-kit studio",
+    "drizzle:check": "drizzle-kit introspect"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.958.0",
