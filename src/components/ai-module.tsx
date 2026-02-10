@@ -251,6 +251,10 @@ export default function AIModule() {
   const [chatInput, setChatInput] = useState('');
   const [chatModel, setChatModel] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  
+  // 流式输出状态
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+  const [streamingFullContent, setStreamingFullContent] = useState<string>('');
 
   // 加载数据
   useEffect(() => {
@@ -1059,6 +1063,37 @@ export default function AIModule() {
     }
   };
 
+  // 打字机效果：逐字显示AI回复
+  useEffect(() => {
+    if (!streamingMessageId || !streamingFullContent) {
+      return;
+    }
+
+    let index = 0;
+    const speed = 20; // 每个字符显示的间隔（毫秒）
+
+    const timer = setInterval(() => {
+      if (index < streamingFullContent.length) {
+        const nextIndex = Math.min(index + 2, streamingFullContent.length); // 每次显示2个字符，加快速度
+        setChatMessages(prev => 
+          prev.map(msg => 
+            msg.id === streamingMessageId
+              ? { ...msg, content: streamingFullContent.substring(0, nextIndex) }
+              : msg
+          )
+        );
+        index = nextIndex;
+      } else {
+        // 显示完成
+        setStreamingMessageId(null);
+        setStreamingFullContent('');
+        clearInterval(timer);
+      }
+    }, speed);
+
+    return () => clearInterval(timer);
+  }, [streamingMessageId, streamingFullContent]);
+
   // 发送聊天消息
   const handleSendMessage = async () => {
     if (!chatModel || !chatInput.trim()) {
@@ -1119,15 +1154,22 @@ export default function AIModule() {
 
       const data = await response.json();
       if (data.success && data.data?.reply) {
-        // 添加AI回复
+        // 创建空的AI消息
+        const assistantMessageId = (Date.now() + 1).toString();
         const assistantMessage: ChatMessage = {
-          id: (Date.now() + 1).toString(),
+          id: assistantMessageId,
           role: 'assistant',
-          content: data.data.reply,
+          content: '',
           timestamp: new Date(),
           modelId: chatModel
         };
+        
+        // 先添加空消息
         setChatMessages(prev => [...prev, assistantMessage]);
+        
+        // 设置流式输出状态，触发打字机效果
+        setStreamingMessageId(assistantMessageId);
+        setStreamingFullContent(data.data.reply);
       } else {
         toast.error(data.error || '发送失败');
       }
