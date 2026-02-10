@@ -555,13 +555,7 @@ async function flowEngineRoutes(fastify, options) {
     }
   });
 
-  /**
-   * 测试路由
-   * GET /api/flow-engine/test-track-tasks
-   */
-  fastify.get('/test-track-tasks', async (request, reply) => {
-    return reply.send({ success: true, message: '测试路由正常' });
-  });
+
 
   /**
    * 获取流程状态列表

@@ -249,6 +249,79 @@ class FlowEngine {
     return this.dbPromise;
   }
 
+  /**
+   * 解析流程变量
+   * 将流程定义中的变量引用（如 {{default_reply_robot}}）解析为实际值
+   */
+  async resolveFlowVariables(variables) {
+    try {
+      if (!variables || Object.keys(variables).length === 0) {
+        return {};
+      }
+
+      // 从数据库加载全局流程变量
+      const db = await this.getDb();
+      const { flowVariables } = require('../database/schema');
+      const globalVars = await db.select().from(flowVariables);
+
+      // 转换为映射
+      const globalVarMap = {};
+      globalVars.forEach(v => {
+        globalVarMap[v.variableName] = this.parseVariableValue(v.variableValue, v.variableType);
+      });
+
+      // 解析流程变量
+      const resolvedVariables = {};
+      for (const [key, value] of Object.entries(variables)) {
+        // 检查是否是变量引用 {{variable_name}}
+        if (typeof value === 'string' && value.match(/^{{(.+)}}$/)) {
+          const varName = value.match(/^{{(.+)}}$/)[1].trim();
+          if (globalVarMap[varName] !== undefined) {
+            resolvedVariables[key] = globalVarMap[varName];
+          } else {
+            // 如果全局变量不存在，保留原值
+            logger.warn(`全局变量不存在: ${varName}，保留原值`);
+            resolvedVariables[key] = value;
+          }
+        } else {
+          resolvedVariables[key] = value;
+        }
+      }
+
+      logger.info('解析流程变量成功', {
+        totalVariables: Object.keys(variables).length,
+        resolvedCount: Object.keys(resolvedVariables).length
+      });
+
+      return resolvedVariables;
+    } catch (error) {
+      logger.error('解析流程变量失败', { error: error.message });
+      // 出错时返回原始变量
+      return variables || {};
+    }
+  }
+
+  /**
+   * 解析变量值
+   */
+  parseVariableValue(value, type) {
+    switch (type) {
+      case 'number':
+        return Number(value);
+      case 'boolean':
+        return value === 'true';
+      case 'json':
+        try {
+          return JSON.parse(value);
+        } catch (e) {
+          logger.warn(`解析JSON变量失败: ${value}`);
+          return value;
+        }
+      default:
+        return value;
+    }
+  }
+
   // ============================================
   // 流程定义管理 (CRUD)
   // ============================================
@@ -395,25 +468,28 @@ class FlowEngine {
       }
 
       const instanceId = uuidv4();
-      
+
+      // 解析流程变量
+      const resolvedVariables = await this.resolveFlowVariables(flowDef.variables);
+
       // 加载历史消息（如果有的话）
       let history = [];
       try {
-        const sessionId = triggerData.message?.groupName 
-          ? `session_${triggerData.message.groupName}` 
-          : triggerData.message?.fromName 
-            ? `session_${triggerData.message.fromName}` 
+        const sessionId = triggerData.message?.groupName
+          ? `session_${triggerData.message.groupName}`
+          : triggerData.message?.fromName
+            ? `session_${triggerData.message.fromName}`
             : null;
-        
+
         if (sessionId) {
           const messages = await sessionMessageService.getSessionMessages(sessionId, 10);
-          
+
           // 转换为 AI 期望的格式
           history = messages.map(msg => ({
             role: msg.isFromUser ? 'user' : 'assistant',
             content: msg.content
           }));
-          
+
           logger.info('已加载历史消息', {
             sessionId,
             messageCount: messages.length,
@@ -425,7 +501,7 @@ class FlowEngine {
           error: error.message
         });
       }
-      
+
       const instance = {
         id: instanceId,
         flowDefinitionId,
@@ -434,7 +510,7 @@ class FlowEngine {
         triggerType: flowDef.triggerType,
         triggerData,
         context: {
-          ...flowDef.variables,
+          ...resolvedVariables,  // 使用解析后的变量
           ...triggerData,
           history: history // 添加历史消息
         },

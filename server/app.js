@@ -221,6 +221,11 @@ fastify.register(intentConfigApiRoutes, { prefix: '/api/ai/intents' });
 console.log('[app.js] Attempting to load flow-engine.api...');
 fastify.register(flowEngineApiRoutes, { prefix: '/api/flow-engine' });
 console.log('[app.js] flow-engine.api registered');
+// 注册流程变量管理API
+console.log('[app.js] Attempting to load flow-variables.api...');
+const flowVariablesApiRoutes = require('./routes/flow-variables.api');
+fastify.register(flowVariablesApiRoutes, { prefix: '/api/flow-engine' });
+console.log('[app.js] flow-variables.api registered');
 // 注册跟踪任务 API（独立版本）
 console.log('[app.js] Attempting to load track-tasks-v2.api...');
 try {

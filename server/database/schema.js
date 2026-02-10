@@ -1575,3 +1575,25 @@ exports.trackTasks = pgTable(
     pendingIdx: index("track_tasks_pending_idx").on(table.taskStatus, table.priority, table.createdAt),
   })
 );
+
+// 流程变量表
+exports.flowVariables = pgTable(
+  "flow_variables",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    variableName: varchar("variable_name", { length: 255 }).notNull().unique(),
+    variableValue: text("variable_value").notNull(),
+    description: text("description"),
+    variableType: varchar("variable_type", { length: 50 }).notNull().default("string"),
+    isSystem: boolean("is_system").notNull().default(false),
+    isEncrypted: boolean("is_encrypted").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    variableNameIdx: index("flow_variables_variable_name_idx").on(table.variableName),
+    isSystemIdx: index("flow_variables_is_system_idx").on(table.isSystem),
+  })
+);
