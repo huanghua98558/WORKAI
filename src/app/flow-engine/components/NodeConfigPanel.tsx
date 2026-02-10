@@ -1,874 +1,2084 @@
 'use client';
 
 /**
- * 节点配置面板
- * 根据节点类型动态渲染配置项
- * 性能优化：使用防抖和 React.memo
+ * 增强的节点属性配置面板
+ * 支持多种节点类型的详细参数化配置
  */
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Node } from 'reactflow';
-import { Card } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { X, Settings } from 'lucide-react';
-import { NODE_TYPES, NODE_METADATA } from '../types';
-import DecisionConfig from './DecisionConfig';
-import ContextEnhancerConfig from './ContextEnhancerConfig';
+import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+import {
+  Settings,
+  MessageSquare,
+  Brain,
+  AlertTriangle,
+  User,
+  Send,
+  Database,
+  Bell,
+  X,
+  Trash2,
+  Info,
+  Zap,
+  Clock,
+  Target,
+  FileText,
+  Users,
+  Bot,
+  MessageCircle,
+  Heart,
+  Shield,
+  CheckCircle2
+} from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Node } from 'reactflow';
+import { FlowNode } from '@/components/flow-engine-editor';
 
-type FlowNode = Node;
+// AI 模型提供商
+export type AIProvider = 'doubao' | 'deepseek' | 'kimi';
+
+// 基础节点数据接口
+export interface BaseNodeConfig {
+  id: string;
+  type: string;
+  label: string;
+  description?: string;
+  enabled: boolean;
+  retryConfig?: {
+    maxRetries: number;
+    retryDelay: number;
+  };
+  timeout?: number;
+  notes?: string;
+}
+
+// 意图识别配置
+export interface IntentRecognitionConfig extends BaseNodeConfig {
+  type: 'intent_recognition';
+  config: {
+    enabled: boolean;
+    intentTypes: ('daily_chat' | 'after_sales' | 'complaint' | 'query')[];
+    confidenceThreshold: number;
+    useHistory: boolean;
+    historyCount: number;
+    promptTemplate?: string;
+  };
+}
+
+// 情感分析配置
+export interface SentimentAnalysisConfig extends BaseNodeConfig {
+  type: 'sentiment_analysis';
+  config: {
+    enabled: boolean;
+    sentimentTypes: ('positive' | 'neutral' | 'negative')[];
+    intensityThresholds: {
+      low: number;
+      medium: number;
+      high: number;
+    };
+    useEmoji: boolean;
+    promptTemplate?: string;
+  };
+}
+
+// 告警判断配置
+export interface AlertJudgmentConfig extends BaseNodeConfig {
+  type: 'alert_judgment';
+  config: {
+    enabled: boolean;
+    alertLevels: ('P0' | 'P1' | 'P2' | 'P3')[];
+    alertTypes: ('user_complaint' | 'after_sales' | 'low_satisfaction' | 'frequent_complaint' | 'human_intervention_request' | 'system_error')[];
+    responseTimes: {
+      P0: number;
+      P1: number;
+      P2: number;
+      P3: number;
+    };
+    escalationRules: {
+      enabled: boolean;
+      escalationTimes: {
+        P0: number;
+        P1: number;
+        P2: number;
+      };
+    };
+  };
+}
+
+// 介入判断配置
+export interface InterventionJudgmentConfig extends BaseNodeConfig {
+  type: 'intervention_judgment';
+  config: {
+    enabled: boolean;
+    conditions: {
+      consecutiveNegativeCount: number;
+      maxSatisfactionScore: number;
+      minComplaintCount: number;
+      requireHumanService: boolean;
+      aiConfidenceThreshold: number;
+      maxConversationRounds: number;
+    };
+  };
+}
+
+// 回复生成配置
+export interface ReplyGenerationConfig extends BaseNodeConfig {
+  type: 'reply_generation';
+  config: {
+    enabled: boolean;
+    strategy: 'daily_chat' | 'query' | 'after_sales' | 'complaint' | 'auto';
+    aiProvider: AIProvider;
+    model: string;
+    temperature: number;
+    maxTokens: number;
+    personalization: boolean;
+    promptTemplate?: string;
+  };
+}
+
+// 上下文检索配置
+export interface ContextRetrievalConfig extends BaseNodeConfig {
+  type: 'context_retrieval';
+  config: {
+    enabled: boolean;
+    retrievalStrategy: 'recent' | 'relevant' | 'hybrid';
+    historyCount: number;
+    includeUserSession: boolean;
+    includeGroupSession: boolean;
+    includeUserProfile: boolean;
+    includeAfterSalesTasks: boolean;
+    maxHistoryLength: number;
+  };
+}
+
+// 消息发送配置
+export interface MessageSendConfig extends BaseNodeConfig {
+  type: 'message_send';
+  config: {
+    enabled: boolean;
+    robotSelection: {
+      strategy: 'priority' | 'load' | 'health' | 'type';
+      preferredRobotTypes: ('main_bot' | 'after_sales_bot' | 'emergency_bot' | 'backup_bot')[];
+    };
+    delayStrategy: {
+      baseDelay: number;
+      randomFactor: number;
+      priorityAdjustment: {
+        P0: number;
+        P1: number;
+        P2: number;
+        P3: number;
+      };
+      intentAdjustment: {
+        complaint: number;
+        after_sales: number;
+        query: number;
+        daily_chat: number;
+      };
+      sentimentAdjustment: {
+        negative_high: number;
+        negative_medium: number;
+        negative_low: number;
+      };
+    };
+    retryConfig: {
+      maxRetries: number;
+      retryDelay: number;
+    };
+  };
+}
+
+// 售后任务配置
+export interface AfterSalesTaskConfig extends BaseNodeConfig {
+  type: 'after_sales_task';
+  config: {
+    enabled: boolean;
+    taskTypes: ('refund' | 'product_issue' | 'service_issue' | 'order_issue' | 'other')[];
+    defaultPriority: 'P0' | 'P1' | 'P2' | 'P3';
+    autoAssignment: boolean;
+    assignmentStrategy: 'load_balance' | 'skill_based' | 'priority_based';
+    syncToTencentDocs: boolean;
+    collaborationTeam?: string[];
+  };
+}
+
+// 通用节点配置
+export interface GeneralNodeConfig extends BaseNodeConfig {
+  type: string;
+  config?: Record<string, any>;
+}
+
+export type NodeConfig =
+  | IntentRecognitionConfig
+  | SentimentAnalysisConfig
+  | AlertJudgmentConfig
+  | InterventionJudgmentConfig
+  | ReplyGenerationConfig
+  | ContextRetrievalConfig
+  | MessageSendConfig
+  | AfterSalesTaskConfig
+  | GeneralNodeConfig;
 
 interface NodeConfigPanelProps {
-  node: FlowNode;
-  onUpdate: (updates: Partial<FlowNode>) => void;
+  node: FlowNode | null;
+  onUpdate: (nodeId: string, updates: Partial<FlowNode>) => void;
+  onDelete?: (nodeId: string) => void;
+  onClose?: () => void;
 }
 
-// 防抖函数
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+// 默认配置模板
+const defaultConfigs: Record<string, any> = {
+  intent_recognition: {
+    enabled: true,
+    intentTypes: ['daily_chat', 'after_sales', 'complaint', 'query'],
+    confidenceThreshold: 0.7,
+    useHistory: true,
+    historyCount: 5,
+  },
+  sentiment_analysis: {
+    enabled: true,
+    sentimentTypes: ['positive', 'neutral', 'negative'],
+    intensityThresholds: {
+      low: 30,
+      medium: 60,
+      high: 80,
+    },
+    useEmoji: true,
+  },
+  alert_judgment: {
+    enabled: true,
+    alertLevels: ['P0', 'P1', 'P2', 'P3'],
+    alertTypes: ['user_complaint', 'after_sales', 'low_satisfaction', 'frequent_complaint', 'human_intervention_request', 'system_error'],
+    responseTimes: {
+      P0: 5,
+      P1: 15,
+      P2: 30,
+      P3: 60,
+    },
+    escalationRules: {
+      enabled: true,
+      escalationTimes: {
+        P0: 15,
+        P1: 30,
+        P2: 60,
+      },
+    },
+  },
+  intervention_judgment: {
+    enabled: true,
+    conditions: {
+      consecutiveNegativeCount: 3,
+      maxSatisfactionScore: 40,
+      minComplaintCount: 2,
+      requireHumanService: false,
+      aiConfidenceThreshold: 0.5,
+      maxConversationRounds: 10,
+    },
+  },
+  reply_generation: {
+    enabled: true,
+    strategy: 'auto',
+    aiProvider: 'doubao',
+    model: 'doubao-pro',
+    temperature: 0.7,
+    maxTokens: 500,
+    personalization: true,
+  },
+  context_retrieval: {
+    enabled: true,
+    retrievalStrategy: 'recent',
+    historyCount: 10,
+    includeUserSession: true,
+    includeGroupSession: true,
+    includeUserProfile: true,
+    includeAfterSalesTasks: true,
+    maxHistoryLength: 50,
+  },
+  message_send: {
+    enabled: true,
+    robotSelection: {
+      strategy: 'priority',
+      preferredRobotTypes: ['main_bot', 'after_sales_bot', 'emergency_bot', 'backup_bot'],
+    },
+    delayStrategy: {
+      baseDelay: 5,
+      randomFactor: 0.2,
+      priorityAdjustment: {
+        P0: 1,
+        P1: 2,
+        P2: 3,
+        P3: 5,
+      },
+      intentAdjustment: {
+        complaint: 1,
+        after_sales: 2,
+        query: 3,
+        daily_chat: 5,
+      },
+      sentimentAdjustment: {
+        negative_high: 1,
+        negative_medium: 2,
+        negative_low: 3,
+      },
+    },
+    retryConfig: {
+      maxRetries: 3,
+      retryDelay: 5,
+    },
+  },
+  after_sales_task: {
+    enabled: true,
+    taskTypes: ['refund', 'product_issue', 'service_issue', 'order_issue', 'other'],
+    defaultPriority: 'P2',
+    autoAssignment: true,
+    assignmentStrategy: 'skill_based',
+    syncToTencentDocs: true,
+  },
+};
 
+export default function NodeConfigPanel({ node, onUpdate, onDelete, onClose }: NodeConfigPanelProps) {
+  const { toast } = useToast();
+  const [config, setConfig] = useState<NodeConfig | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // 初始化配置
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-
-  return debouncedValue;
-}
-
-export default function NodeConfigPanel({ node, onUpdate }: NodeConfigPanelProps) {
-  // 使用本地状态管理配置，不直接更新父组件
-  const [localConfig, setLocalConfig] = useState(node.data.config || {});
-  const [localName, setLocalName] = useState(node.data.name || '');
-  const [localDescription, setLocalDescription] = useState(node.data.description || '');
-
-  // 防抖更新到父组件（300ms）
-  const debouncedConfig = useDebounce(localConfig, 300);
-  const debouncedName = useDebounce(localName, 300);
-  const debouncedDescription = useDebounce(localDescription, 300);
-
-  // 当防抖后的值变化时，更新父组件
-  useEffect(() => {
-    if (debouncedConfig !== node.data.config) {
-      onUpdate({
-        data: {
-          ...node.data,
-          config: debouncedConfig,
-        },
-      });
+    if (node) {
+      const defaultConfig = defaultConfigs[node.data.type] || {};
+      setConfig({
+        id: node.id,
+        type: node.data.type,
+        label: node.data.label || node.data.type,
+        enabled: node.data.enabled !== false,
+        config: node.data.config || defaultConfig,
+        description: node.data.description,
+        timeout: node.data.timeout,
+        notes: node.data.notes,
+      } as NodeConfig);
+      setHasChanges(false);
     }
-  }, [debouncedConfig, node.data.config, node.data, onUpdate]);
+  }, [node]);
 
-  useEffect(() => {
-    if (debouncedName !== node.data.name) {
-      onUpdate({
-        data: { ...node.data, name: debouncedName },
-      });
-    }
-  }, [debouncedName, node.data.name, node.data, onUpdate]);
+  // 更新配置
+  const handleUpdateConfig = (updates: Partial<NodeConfig>) => {
+    if (!node || !config) return;
 
-  useEffect(() => {
-    if (debouncedDescription !== node.data.description) {
-      onUpdate({
-        data: { ...node.data, description: debouncedDescription },
-      });
-    }
-  }, [debouncedDescription, node.data.description, node.data, onUpdate]);
+    const newConfig = { ...config, ...updates };
+    setConfig(newConfig);
+    setHasChanges(true);
 
-  // 当 node 变化时，同步本地状态
-  useEffect(() => {
-    setLocalConfig(node.data.config || {});
-    setLocalName(node.data.name || '');
-    setLocalDescription(node.data.description || '');
-  }, [node.data.config, node.data.name, node.data.description]);
-
-  const handleConfigChange = useCallback((key: string, value: any) => {
-    setLocalConfig((prev: any) => ({ ...prev, [key]: value }));
-  }, []);
-
-  const handleNodeTypeChange = useCallback((value: string) => {
-    onUpdate({
+    // 实时更新节点数据
+    onUpdate(node.id, {
       data: {
         ...node.data,
-        type: value,
-        name: NODE_METADATA[value as keyof typeof NODE_METADATA]?.name || node.data.name,
-        description: NODE_METADATA[value as keyof typeof NODE_METADATA]?.description || node.data.description,
-        icon: NODE_METADATA[value as keyof typeof NODE_METADATA]?.icon || node.data.icon,
-        color: NODE_METADATA[value as keyof typeof NODE_METADATA]?.color || node.data.color,
+        ...updates,
       },
     });
-  }, [node.data, onUpdate]);
+  };
+
+  // 保存配置
+  const handleSave = () => {
+    if (!node || !config) return;
+
+    onUpdate(node.id, {
+      data: {
+        ...node.data,
+        ...config,
+      },
+    });
+
+    setHasChanges(false);
+    toast({
+      title: "配置已保存",
+      description: "节点属性配置已更新",
+    });
+  };
+
+  // 删除节点
+  const handleDelete = () => {
+    if (!node || !onDelete) return;
+
+    if (window.confirm('确定要删除这个节点吗？')) {
+      onDelete(node.id);
+      toast({
+        title: "节点已删除",
+        description: `节点 ${node.data.label} 已被删除`,
+      });
+      if (onClose) onClose();
+    }
+  };
+
+  // 渲染节点类型特定的配置表单
+  const renderConfigForm = () => {
+    if (!config) return null;
+
+    switch (config.type) {
+      case 'intent_recognition':
+        return <IntentRecognitionForm config={config as IntentRecognitionConfig} onUpdate={handleUpdateConfig} />;
+      case 'sentiment_analysis':
+        return <SentimentAnalysisForm config={config as SentimentAnalysisConfig} onUpdate={handleUpdateConfig} />;
+      case 'alert_judgment':
+        return <AlertJudgmentForm config={config as AlertJudgmentConfig} onUpdate={handleUpdateConfig} />;
+      case 'intervention_judgment':
+        return <InterventionJudgmentForm config={config as InterventionJudgmentConfig} onUpdate={handleUpdateConfig} />;
+      case 'reply_generation':
+        return <ReplyGenerationForm config={config as ReplyGenerationConfig} onUpdate={handleUpdateConfig} />;
+      case 'context_retrieval':
+        return <ContextRetrievalForm config={config as ContextRetrievalConfig} onUpdate={handleUpdateConfig} />;
+      case 'message_send':
+        return <MessageSendForm config={config as MessageSendConfig} onUpdate={handleUpdateConfig} />;
+      case 'after_sales_task':
+        return <AfterSalesTaskForm config={config as AfterSalesTaskConfig} onUpdate={handleUpdateConfig} />;
+      default:
+        return <GeneralConfigForm config={config} onUpdate={handleUpdateConfig} />;
+    }
+  };
+
+  // 获取节点类型图标
+  const getNodeIcon = (type: string) => {
+    const icons: Record<string, any> = {
+      message_receive: MessageSquare,
+      intent_recognition: Brain,
+      sentiment_analysis: Heart,
+      alert_judgment: AlertTriangle,
+      intervention_judgment: Users,
+      reply_generation: MessageCircle,
+      context_retrieval: Database,
+      message_send: Send,
+      after_sales_task: Target,
+      condition: Zap,
+      save_data: Database,
+      notify: Bell,
+    };
+    return icons[type] || Settings;
+  };
+
+  if (!node) {
+    return (
+      <div className="h-full flex items-center justify-center text-muted-foreground">
+        <div className="text-center">
+          <Settings className="mx-auto h-12 w-12 mb-4 opacity-50" />
+          <p>请选择一个节点进行配置</p>
+        </div>
+      </div>
+    );
+  }
+
+  const NodeIcon = getNodeIcon(config?.type || '');
 
   return (
-    <Card className="p-4 bg-white shadow-sm">
-      <div className="flex items-center gap-2 mb-4">
-        <Settings className="w-5 h-5 text-slate-600" />
-        <h3 className="font-semibold text-slate-900">节点配置</h3>
+    <div className="h-full flex flex-col bg-background border-l">
+      {/* 头部 */}
+      <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <NodeIcon className="h-5 w-5 text-primary flex-shrink-0" />
+          <h3 className="font-semibold text-sm truncate">
+            {config?.label || node.data.label || node.data.type}
+          </h3>
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleDelete}
+              className="h-8 w-8"
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          )}
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="h-8 w-8"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* 节点基本信息 */}
-      <div className="space-y-3 mb-4 pb-4 border-b border-slate-200">
-        <div>
-          <Label htmlFor="node-type">节点类型</Label>
-          <Select
-            value={node.data.type || ''}
-            onValueChange={handleNodeTypeChange}
-          >
-            <SelectTrigger className="mt-1">
-              <SelectValue placeholder="选择节点类型" />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(NODE_METADATA).map(([type, meta]) => (
-                <SelectItem key={type} value={type}>
-                  {meta.icon} {meta.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {/* 配置内容 */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="p-4 space-y-4">
+          {/* 基础配置 */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                基础配置
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="label">节点名称</Label>
+                <Input
+                  id="label"
+                  value={config?.label || ''}
+                  onChange={(e) => handleUpdateConfig({ label: e.target.value })}
+                  placeholder="输入节点名称"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">节点描述</Label>
+                <Textarea
+                  id="description"
+                  value={config?.description || ''}
+                  onChange={(e) => handleUpdateConfig({ description: e.target.value })}
+                  placeholder="输入节点描述"
+                  rows={2}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="enabled">启用节点</Label>
+                <Switch
+                  id="enabled"
+                  checked={config?.enabled ?? true}
+                  onCheckedChange={(checked) => handleUpdateConfig({ enabled: checked })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="timeout">超时时间（秒）</Label>
+                <Input
+                  id="timeout"
+                  type="number"
+                  value={config?.timeout || 30}
+                  onChange={(e) => handleUpdateConfig({ timeout: parseInt(e.target.value) })}
+                  placeholder="30"
+                  min={1}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="notes">备注</Label>
+                <Textarea
+                  id="notes"
+                  value={config?.notes || ''}
+                  onChange={(e) => handleUpdateConfig({ notes: e.target.value })}
+                  placeholder="添加备注信息"
+                  rows={2}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 节点类型特定配置 */}
+          {renderConfigForm()}
         </div>
-        <div>
-          <Label htmlFor="node-name">节点名称</Label>
-          <Input
-            id="node-name"
-            value={localName}
-            onChange={(e) => setLocalName(e.target.value)}
-            placeholder="输入节点名称"
-            className="mt-1"
+      </div>
+
+      {/* 底部操作栏 */}
+      {hasChanges && (
+        <div className="p-4 border-t bg-muted/50">
+          <div className="flex gap-2">
+            <Button onClick={handleSave} size="sm" className="flex-1">
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+              保存更改
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setHasChanges(false)}
+            >
+              取消
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== 意图识别配置表单 ====================
+function IntentRecognitionForm({
+  config,
+  onUpdate
+}: {
+  config: IntentRecognitionConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Brain className="h-4 w-4 text-blue-500" />
+          意图识别配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Label>启用意图识别</Label>
+          <Switch
+            checked={config.config.enabled}
+            onCheckedChange={(checked) =>
+              onUpdate({ config: { ...config.config, enabled: checked } })
+            }
           />
         </div>
-        <div>
-          <Label htmlFor="node-description">描述</Label>
+
+        <div className="space-y-2">
+          <Label>识别意图类型</Label>
+          <div className="space-y-2">
+            {[
+              { value: 'daily_chat', label: '日常聊天' },
+              { value: 'after_sales', label: '售后任务' },
+              { value: 'complaint', label: '用户投诉' },
+              { value: 'query', label: '查询咨询' },
+            ].map((item) => (
+              <div key={item.value} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`intent-${item.value}`}
+                  checked={config.config.intentTypes.includes(item.value as any)}
+                  onCheckedChange={(checked) => {
+                    const newTypes = checked
+                      ? [...config.config.intentTypes, item.value]
+                      : config.config.intentTypes.filter((t) => t !== item.value);
+                    onUpdate({ config: { ...config.config, intentTypes: newTypes } });
+                  }}
+                />
+                <Label htmlFor={`intent-${item.value}`} className="text-sm cursor-pointer">
+                  {item.label}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>置信度阈值: {config.config.confidenceThreshold.toFixed(2)}</Label>
+          <Slider
+            value={[config.config.confidenceThreshold]}
+            onValueChange={([value]) =>
+              onUpdate({ config: { ...config.config, confidenceThreshold: value } })
+            }
+            min={0}
+            max={1}
+            step={0.05}
+          />
+          <p className="text-xs text-muted-foreground">
+            仅当置信度超过此阈值时才使用识别结果
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <Label>使用历史消息</Label>
+          <Switch
+            checked={config.config.useHistory}
+            onCheckedChange={(checked) =>
+              onUpdate({ config: { ...config.config, useHistory: checked } })
+            }
+          />
+        </div>
+
+        {config.config.useHistory && (
+          <div className="space-y-2">
+            <Label>历史消息数量: {config.config.historyCount}</Label>
+            <Slider
+              value={[config.config.historyCount]}
+              onValueChange={([value]) =>
+                onUpdate({ config: { ...config.config, historyCount: value } })
+              }
+              min={1}
+              max={20}
+              step={1}
+            />
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <Label htmlFor="intent-prompt">自定义提示词模板（可选）</Label>
           <Textarea
-            id="node-description"
-            value={localDescription}
-            onChange={(e) => setLocalDescription(e.target.value)}
-            placeholder="输入节点描述"
-            className="mt-1 resize-none"
-            rows={2}
+            id="intent-prompt"
+            value={config.config.promptTemplate || ''}
+            onChange={(e) =>
+              onUpdate({ config: { ...config.config, promptTemplate: e.target.value } })
+            }
+            placeholder="输入自定义的意图识别提示词模板"
+            rows={4}
           />
+          <p className="text-xs text-muted-foreground">
+            留空则使用系统默认提示词
+          </p>
         </div>
-      </div>
-
-      {/* 根据节点类型渲染不同的配置项 */}
-      {node.data.type === 'message_receive' && (
-        <MemoizedMessageReceiveConfig config={localConfig} onChange={handleConfigChange} />
-      )}
-
-      {node.data.type === 'intent' && (
-        <MemoizedIntentConfig config={localConfig} onChange={handleConfigChange} />
-      )}
-
-      {node.data.type === 'decision' && (
-        <MemoizedDecisionConfig config={localConfig} onChange={handleConfigChange} />
-      )}
-
-      {node.data.type === 'context_enhancer' && (
-        <MemoizedContextEnhancerConfig config={localConfig} onChange={handleConfigChange} />
-      )}
-
-      {node.data.type === 'ai_reply' && (
-        <MemoizedAiReplyConfig config={localConfig} onChange={handleConfigChange} />
-      )}
-
-      {node.data.type === 'message_dispatch' && (
-        <MemoizedMessageDispatchConfig config={localConfig} onChange={handleConfigChange} />
-      )}
-
-      {node.data.type === 'send_command' && (
-        <MemoizedSendCommandConfig config={localConfig} onChange={handleConfigChange} />
-      )}
-
-      {node.data.type === 'command_status' && (
-        <MemoizedCommandStatusConfig config={localConfig} onChange={handleConfigChange} />
-      )}
-
-      {node.data.type === 'end' && (
-        <MemoizedEndConfig config={localConfig} onChange={handleConfigChange} />
-      )}
-
-      {node.data.type === 'alert_save' && (
-        <MemoizedAlertSaveConfig config={localConfig} onChange={handleConfigChange} />
-      )}
-
-      {node.data.type === 'alert_rule' && (
-        <MemoizedAlertRuleConfig config={localConfig} onChange={handleConfigChange} />
-      )}
-
-      {node.data.type === 'risk_handler' && (
-        <MemoizedRiskHandlerConfig config={localConfig} onChange={handleConfigChange} />
-      )}
-
-      {node.data.type === 'monitor' && (
-        <MemoizedMonitorConfig config={localConfig} onChange={handleConfigChange} />
-      )}
-
-      {node.data.type === 'robot_dispatch' && (
-        <MemoizedRobotDispatchConfig config={localConfig} onChange={handleConfigChange} />
-      )}
-
-      {node.data.type === 'execute_notification' && (
-        <MemoizedExecuteNotificationConfig config={localConfig} onChange={handleConfigChange} />
-      )}
-
-      {/* 默认情况：未识别的节点类型 */}
-      {!['message_receive', 'intent', 'decision', 'context_enhancer', 'ai_reply', 'message_dispatch', 'send_command', 'command_status', 'end', 'alert_save', 'alert_rule', 'risk_handler', 'monitor', 'robot_dispatch', 'execute_notification'].includes(node.data.type || '') && (
-        <div className="text-sm text-red-500 text-center py-4">
-          <p className="font-medium">未知的节点类型</p>
-          <p className="text-xs mt-1">类型: {node.data.type || 'undefined'}</p>
-          <p className="text-xs mt-2">请联系管理员添加此节点类型的配置</p>
-        </div>
-      )}
+      </CardContent>
     </Card>
   );
 }
 
-// 使用 React.memo 优化所有配置组件
-const MemoizedMessageReceiveConfig = React.memo(function MessageReceiveConfig({ config, onChange }: any) {
+// ==================== 情感分析配置表单 ====================
+function SentimentAnalysisForm({
+  config,
+  onUpdate
+}: {
+  config: SentimentAnalysisConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+}) {
   return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-sm font-medium text-slate-700">数据保存配置</Label>
-        <div className="space-y-2 mt-2">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="saveToDatabase"
-              checked={config.saveToDatabase ?? true}
-              onCheckedChange={(checked) => onChange('saveToDatabase', checked)}
-            />
-            <Label htmlFor="saveToDatabase" className="text-sm">
-              保存到数据库 (session_messages)
-            </Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="saveToContext"
-              checked={config.saveToContext ?? true}
-              onCheckedChange={(checked) => onChange('saveToContext', checked)}
-            />
-            <Label htmlFor="saveToContext" className="text-sm">
-              保存到流程上下文
-            </Label>
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Heart className="h-4 w-4 text-red-500" />
+          情感分析配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Label>启用情感分析</Label>
+          <Switch
+            checked={config.config.enabled}
+            onCheckedChange={(checked) =>
+              onUpdate({ config: { ...config.config, enabled: checked } })
+            }
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>识别情感类型</Label>
+          <div className="space-y-2">
+            {[
+              { value: 'positive', label: '正面（满意）' },
+              { value: 'neutral', label: '中性（客观）' },
+              { value: 'negative', label: '负面（不满）' },
+            ].map((item) => (
+              <div key={item.value} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`sentiment-${item.value}`}
+                  checked={config.config.sentimentTypes.includes(item.value as any)}
+                  onCheckedChange={(checked) => {
+                    const newTypes = checked
+                      ? [...config.config.sentimentTypes, item.value]
+                      : config.config.sentimentTypes.filter((t) => t !== item.value);
+                    onUpdate({ config: { ...config.config, sentimentTypes: newTypes } });
+                  }}
+                />
+                <Label htmlFor={`sentiment-${item.value}`} className="text-sm cursor-pointer">
+                  {item.label}
+                </Label>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
 
-      <div>
-        <Label className="text-sm font-medium text-slate-700">字段提取配置</Label>
-        <div className="space-y-2 mt-2">
-          {['messageId', 'sessionId', 'userName', 'groupName', 'roomType', 'atMe'].map((field) => (
-            <div key={field} className="flex items-center space-x-2">
-              <Checkbox
-                id={`extract-${field}`}
-                checked={config.extractFields?.[field] ?? true}
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="intensity">
+            <AccordionTrigger className="text-sm">
+              情感强度阈值配置
+            </AccordionTrigger>
+            <AccordionContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>高强度阈值: {config.config.intensityThresholds.high}%</Label>
+                <Slider
+                  value={[config.config.intensityThresholds.high]}
+                  onValueChange={([value]) =>
+                    onUpdate({
+                      config: {
+                        ...config.config,
+                        intensityThresholds: {
+                          ...config.config.intensityThresholds,
+                          high: value,
+                        },
+                      },
+                    })
+                  }
+                  min={0}
+                  max={100}
+                  step={5}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>中强度阈值: {config.config.intensityThresholds.medium}%</Label>
+                <Slider
+                  value={[config.config.intensityThresholds.medium]}
+                  onValueChange={([value]) =>
+                    onUpdate({
+                      config: {
+                        ...config.config,
+                        intensityThresholds: {
+                          ...config.config.intensityThresholds,
+                          medium: value,
+                        },
+                      },
+                    })
+                  }
+                  min={0}
+                  max={100}
+                  step={5}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>低强度阈值: {config.config.intensityThresholds.low}%</Label>
+                <Slider
+                  value={[config.config.intensityThresholds.low]}
+                  onValueChange={([value]) =>
+                    onUpdate({
+                      config: {
+                        ...config.config,
+                        intensityThresholds: {
+                          ...config.config.intensityThresholds,
+                          low: value,
+                        },
+                      },
+                    })
+                  }
+                  min={0}
+                  max={100}
+                  step={5}
+                />
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                情感强度基于情感值的绝对值计算
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+
+        <div className="flex items-center justify-between">
+          <Label>识别表情符号情感</Label>
+          <Switch
+            checked={config.config.useEmoji}
+            onCheckedChange={(checked) =>
+              onUpdate({ config: { ...config.config, useEmoji: checked } })
+            }
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="sentiment-prompt">自定义提示词模板（可选）</Label>
+          <Textarea
+            id="sentiment-prompt"
+            value={config.config.promptTemplate || ''}
+            onChange={(e) =>
+              onUpdate({ config: { ...config.config, promptTemplate: e.target.value } })
+            }
+            placeholder="输入自定义的情感分析提示词模板"
+            rows={4}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ==================== 告警判断配置表单 ====================
+function AlertJudgmentForm({
+  config,
+  onUpdate
+}: {
+  config: AlertJudgmentConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-orange-500" />
+          告警判断配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Label>启用告警判断</Label>
+          <Switch
+            checked={config.config.enabled}
+            onCheckedChange={(checked) =>
+              onUpdate({ config: { ...config.config, enabled: checked } })
+            }
+          />
+        </div>
+
+        <Tabs defaultValue="levels" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="levels">告警级别</TabsTrigger>
+            <TabsTrigger value="types">告警类型</TabsTrigger>
+            <TabsTrigger value="response">响应时间</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="levels" className="space-y-3">
+            <div className="space-y-2">
+              <Label>启用的告警级别</Label>
+              <div className="space-y-2">
+                {[
+                  { value: 'P0', label: 'P0（最高优先级）', color: 'text-red-500' },
+                  { value: 'P1', label: 'P1（高优先级）', color: 'text-orange-500' },
+                  { value: 'P2', label: 'P2（中优先级）', color: 'text-yellow-500' },
+                  { value: 'P3', label: 'P3（低优先级）', color: 'text-green-500' },
+                ].map((item) => (
+                  <div key={item.value} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`level-${item.value}`}
+                      checked={config.config.alertLevels.includes(item.value as any)}
+                      onCheckedChange={(checked) => {
+                        const newLevels = checked
+                          ? [...config.config.alertLevels, item.value]
+                          : config.config.alertLevels.filter((l) => l !== item.value);
+                        onUpdate({ config: { ...config.config, alertLevels: newLevels } });
+                      }}
+                    />
+                    <Label htmlFor={`level-${item.value}`} className={`text-sm cursor-pointer ${item.color}`}>
+                      {item.label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="escalation">
+                <AccordionTrigger className="text-sm">
+                  告警升级配置
+                </AccordionTrigger>
+                <AccordionContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label>启用告警升级</Label>
+                    <Switch
+                      checked={config.config.escalationRules.enabled}
+                      onCheckedChange={(checked) =>
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            escalationRules: {
+                              ...config.config.escalationRules,
+                              enabled: checked,
+                            },
+                          },
+                        })
+                      }
+                    />
+                  </div>
+
+                  {config.config.escalationRules.enabled && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>P0 升级时间（分钟）: {config.config.escalationRules.escalationTimes.P0}</Label>
+                        <Slider
+                          value={[config.config.escalationRules.escalationTimes.P0]}
+                          onValueChange={([value]) =>
+                            onUpdate({
+                              config: {
+                                ...config.config,
+                                escalationRules: {
+                                  ...config.config.escalationRules,
+                                  escalationTimes: {
+                                    ...config.config.escalationRules.escalationTimes,
+                                    P0: value,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                          min={5}
+                          max={60}
+                          step={5}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>P1 升级时间（分钟）: {config.config.escalationRules.escalationTimes.P1}</Label>
+                        <Slider
+                          value={[config.config.escalationRules.escalationTimes.P1]}
+                          onValueChange={([value]) =>
+                            onUpdate({
+                              config: {
+                                ...config.config,
+                                escalationRules: {
+                                  ...config.config.escalationRules,
+                                  escalationTimes: {
+                                    ...config.config.escalationRules.escalationTimes,
+                                    P1: value,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                          min={5}
+                          max={60}
+                          step={5}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>P2 升级时间（分钟）: {config.config.escalationRules.escalationTimes.P2}</Label>
+                        <Slider
+                          value={[config.config.escalationRules.escalationTimes.P2]}
+                          onValueChange={([value]) =>
+                            onUpdate({
+                              config: {
+                                ...config.config,
+                                escalationRules: {
+                                  ...config.config.escalationRules,
+                                  escalationTimes: {
+                                    ...config.config.escalationRules.escalationTimes,
+                                    P2: value,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                          min={5}
+                          max={60}
+                          step={5}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </TabsContent>
+
+          <TabsContent value="types" className="space-y-3">
+            <div className="space-y-2">
+              <Label>启用的告警类型</Label>
+              <div className="space-y-2">
+                {[
+                  { value: 'user_complaint', label: '用户投诉' },
+                  { value: 'after_sales', label: '售后任务' },
+                  { value: 'low_satisfaction', label: '低满意度预警' },
+                  { value: 'frequent_complaint', label: '频繁投诉预警' },
+                  { value: 'human_intervention_request', label: '人工介入请求' },
+                  { value: 'system_error', label: '系统异常' },
+                ].map((item) => (
+                  <div key={item.value} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`alert-type-${item.value}`}
+                      checked={config.config.alertTypes.includes(item.value as any)}
+                      onCheckedChange={(checked) => {
+                        const newTypes = checked
+                          ? [...config.config.alertTypes, item.value]
+                          : config.config.alertTypes.filter((t) => t !== item.value);
+                        onUpdate({ config: { ...config.config, alertTypes: newTypes } });
+                      }}
+                    />
+                    <Label htmlFor={`alert-type-${item.value}`} className="text-sm cursor-pointer">
+                      {item.label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="response" className="space-y-4">
+            {[
+              { level: 'P0', label: 'P0 响应时间' },
+              { level: 'P1', label: 'P1 响应时间' },
+              { level: 'P2', label: 'P2 响应时间' },
+              { level: 'P3', label: 'P3 响应时间' },
+            ].map((item) => (
+              <div key={item.level} className="space-y-2">
+                <Label>
+                  {item.label}（分钟）: {config.config.responseTimes[item.level as keyof typeof config.config.responseTimes]}
+                </Label>
+                <Slider
+                  value={[config.config.responseTimes[item.level as keyof typeof config.config.responseTimes]]}
+                  onValueChange={([value]) =>
+                    onUpdate({
+                      config: {
+                        ...config.config,
+                        responseTimes: {
+                          ...config.config.responseTimes,
+                          [item.level]: value,
+                        },
+                      },
+                    })
+                  }
+                  min={1}
+                  max={60}
+                  step={1}
+                />
+              </div>
+            ))}
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ==================== 介入判断配置表单 ====================
+function InterventionJudgmentForm({
+  config,
+  onUpdate
+}: {
+  config: InterventionJudgmentConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Users className="h-4 w-4 text-purple-500" />
+          介入判断配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Label>启用介入判断</Label>
+          <Switch
+            checked={config.config.enabled}
+            onCheckedChange={(checked) =>
+              onUpdate({ config: { ...config.config, enabled: checked } })
+            }
+          />
+        </div>
+
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="conditions">
+            <AccordionTrigger className="text-sm">
+              介入条件配置
+            </AccordionTrigger>
+            <AccordionContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>连续负面情绪次数: {config.config.conditions.consecutiveNegativeCount}</Label>
+                <Slider
+                  value={[config.config.conditions.consecutiveNegativeCount]}
+                  onValueChange={([value]) =>
+                    onUpdate({
+                      config: {
+                        ...config.config,
+                        conditions: {
+                          ...config.config.conditions,
+                          consecutiveNegativeCount: value,
+                        },
+                      },
+                    })
+                  }
+                  min={1}
+                  max={10}
+                  step={1}
+                />
+                <p className="text-xs text-muted-foreground">
+                  用户连续表达负面消息达到此次数时触发介入
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>最低满意度阈值: {config.config.conditions.maxSatisfactionScore}分</Label>
+                <Slider
+                  value={[config.config.conditions.maxSatisfactionScore]}
+                  onValueChange={([value]) =>
+                    onUpdate({
+                      config: {
+                        ...config.config,
+                        conditions: {
+                          ...config.config.conditions,
+                          maxSatisfactionScore: value,
+                        },
+                      },
+                    })
+                  }
+                  min={0}
+                  max={100}
+                  step={5}
+                />
+                <p className="text-xs text-muted-foreground">
+                  用户满意度低于此分数时触发介入
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>最低投诉次数: {config.config.conditions.minComplaintCount}</Label>
+                <Slider
+                  value={[config.config.conditions.minComplaintCount]}
+                  onValueChange={([value]) =>
+                    onUpdate({
+                      config: {
+                        ...config.config,
+                        conditions: {
+                          ...config.config.conditions,
+                          minComplaintCount: value,
+                        },
+                      },
+                    })
+                  }
+                  min={1}
+                  max={10}
+                  step={1}
+                />
+                <p className="text-xs text-muted-foreground">
+                  用户投诉次数达到此次数时触发介入
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label>用户明确要求人工服务</Label>
+                <Switch
+                  checked={config.config.conditions.requireHumanService}
+                  onCheckedChange={(checked) =>
+                    onUpdate({
+                      config: {
+                        ...config.config,
+                        conditions: {
+                          ...config.config.conditions,
+                          requireHumanService: checked,
+                        },
+                      },
+                    })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>AI 置信度阈值: {config.config.conditions.aiConfidenceThreshold.toFixed(2)}</Label>
+                <Slider
+                  value={[config.config.conditions.aiConfidenceThreshold]}
+                  onValueChange={([value]) =>
+                    onUpdate({
+                      config: {
+                        ...config.config,
+                        conditions: {
+                          ...config.config.conditions,
+                          aiConfidenceThreshold: value,
+                        },
+                      },
+                    })
+                  }
+                  min={0}
+                  max={1}
+                  step={0.1}
+                />
+                <p className="text-xs text-muted-foreground">
+                  AI置信度低于此阈值时触发介入
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>最大对话轮次: {config.config.conditions.maxConversationRounds}</Label>
+                <Slider
+                  value={[config.config.conditions.maxConversationRounds]}
+                  onValueChange={([value]) =>
+                    onUpdate({
+                      config: {
+                        ...config.config,
+                        conditions: {
+                          ...config.config.conditions,
+                          maxConversationRounds: value,
+                        },
+                      },
+                    })
+                  }
+                  min={5}
+                  max={50}
+                  step={1}
+                />
+                <p className="text-xs text-muted-foreground">
+                  对话轮次超过此时仍未解决问题时触发介入
+                </p>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ==================== 回复生成配置表单 ====================
+function ReplyGenerationForm({
+  config,
+  onUpdate
+}: {
+  config: ReplyGenerationConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <MessageCircle className="h-4 w-4 text-green-500" />
+          回复生成配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Label>启用回复生成</Label>
+          <Switch
+            checked={config.config.enabled}
+            onCheckedChange={(checked) =>
+              onUpdate({ config: { ...config.config, enabled: checked } })
+            }
+          />
+        </div>
+
+        <Tabs defaultValue="strategy" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="strategy">策略</TabsTrigger>
+            <TabsTrigger value="model">模型</TabsTrigger>
+            <TabsTrigger value="prompt">提示词</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="strategy" className="space-y-4">
+            <div className="space-y-2">
+              <Label>回复策略</Label>
+              <Select
+                value={config.config.strategy}
+                onValueChange={(value: any) =>
+                  onUpdate({ config: { ...config.config, strategy: value } })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">自动（根据意图选择）</SelectItem>
+                  <SelectItem value="daily_chat">日常聊天</SelectItem>
+                  <SelectItem value="query">查询咨询</SelectItem>
+                  <SelectItem value="after_sales">售后任务</SelectItem>
+                  <SelectItem value="complaint">投诉安抚</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label>个性化回复</Label>
+              <Switch
+                checked={config.config.personalization}
                 onCheckedChange={(checked) =>
-                  onChange('extractFields', {
-                    ...(config.extractFields || {}),
-                    [field]: checked,
-                  })
+                  onUpdate({ config: { ...config.config, personalization: checked } })
                 }
               />
-              <Label htmlFor={`extract-${field}`} className="text-sm">
-                {field}
-              </Label>
             </div>
-          ))}
-        </div>
-      </div>
+            <p className="text-xs text-muted-foreground">
+              根据用户画像和历史对话调整回复风格
+            </p>
+          </TabsContent>
 
-      <div>
-        <Label className="text-sm font-medium text-slate-700">WebSocket推送配置</Label>
-        <div className="space-y-2 mt-2">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="enableWebSocketPush"
-              checked={config.enableWebSocketPush ?? true}
-              onCheckedChange={(checked) => onChange('enableWebSocketPush', checked)}
-            />
-            <Label htmlFor="enableWebSocketPush" className="text-sm">
-              启用WebSocket实时推送
-            </Label>
-          </div>
-          <div>
-            <Label htmlFor="pushTarget" className="text-sm">
-              推送目标
-            </Label>
-            <Select
-              value={config.pushTarget || 'panel1'}
-              onValueChange={(value) => onChange('pushTarget', value)}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="选择推送目标" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="panel1">仅面板1 (业务消息监控)</SelectItem>
-                <SelectItem value="panel2">仅面板2 (AI交互监控)</SelectItem>
-                <SelectItem value="both">双面板</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
+          <TabsContent value="model" className="space-y-4">
+            <div className="space-y-2">
+              <Label>AI 提供商</Label>
+              <Select
+                value={config.config.aiProvider}
+                onValueChange={(value: AIProvider) =>
+                  onUpdate({ config: { ...config.config, aiProvider: value } })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="doubao">豆包 (Doubao)</SelectItem>
+                  <SelectItem value="deepseek">DeepSeek</SelectItem>
+                  <SelectItem value="kimi">Kimi</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-      {/* ========== 阶段二新增：业务角色提取配置 ========== */}
-      <div className="pt-3 border-t border-slate-200">
-        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
-          <span>👥</span>
-          业务角色提取
-        </Label>
-        <div className="space-y-3 mt-2">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="extractBusinessRole"
-              checked={config.extractBusinessRole ?? false}
-              onCheckedChange={(checked) => onChange('extractBusinessRole', checked)}
-            />
-            <Label htmlFor="extractBusinessRole" className="text-sm">
-              启用业务角色提取
-            </Label>
-          </div>
-          <p className="text-[10px] text-slate-500 ml-6">
-            根据群组名称或用户信息自动提取业务角色
-          </p>
-          {config.extractBusinessRole && (
-            <div>
-              <Label htmlFor="roleMapping" className="text-xs">角色映射规则</Label>
+            <div className="space-y-2">
+              <Label>模型</Label>
+              <Select
+                value={config.config.model}
+                onValueChange={(value) =>
+                  onUpdate({ config: { ...config.config, model: value } })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="doubao-pro">Doubao Pro</SelectItem>
+                  <SelectItem value="doubao-lite">Doubao Lite</SelectItem>
+                  <SelectItem value="deepseek-chat">DeepSeek Chat</SelectItem>
+                  <SelectItem value="deepseek-coder">DeepSeek Coder</SelectItem>
+                  <SelectItem value="kimi-pro">Kimi Pro</SelectItem>
+                  <SelectItem value="kimi-lite">Kimi Lite</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Temperature: {config.config.temperature.toFixed(1)}</Label>
+              <Slider
+                value={[config.config.temperature]}
+                onValueChange={([value]) =>
+                  onUpdate({ config: { ...config.config, temperature: value } })
+                }
+                min={0}
+                max={1}
+                step={0.1}
+              />
+              <p className="text-xs text-muted-foreground">
+                控制回复的随机性，值越高越随机
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>最大 Token 数: {config.config.maxTokens}</Label>
+              <Slider
+                value={[config.config.maxTokens]}
+                onValueChange={([value]) =>
+                  onUpdate({ config: { ...config.config, maxTokens: value } })
+                }
+                min={100}
+                max={2000}
+                step={100}
+              />
+              <p className="text-xs text-muted-foreground">
+                控制回复的最大长度
+              </p>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="prompt" className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="reply-prompt">自定义提示词模板（可选）</Label>
               <Textarea
-                id="roleMapping"
-                value={config.roleMapping || ''}
-                onChange={(e) => onChange('roleMapping', e.target.value)}
-                placeholder="售后:包含'售后','客服'字样&#10;营销:包含'营销','推广'字样&#10;技术:包含'技术','开发'字样"
-                className="mt-1 resize-none font-mono text-xs"
-                rows={3}
+                id="reply-prompt"
+                value={config.config.promptTemplate || ''}
+                onChange={(e) =>
+                  onUpdate({ config: { ...config.config, promptTemplate: e.target.value } })
+                }
+                placeholder="输入自定义的回复生成提示词模板"
+                rows={8}
               />
+              <p className="text-xs text-muted-foreground">
+                留空则使用系统默认提示词。可以使用 {'{intent}'}, {'{sentiment}'}, {'{context}'} 等变量
+              </p>
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* ========== 阶段二新增：优先级智能检测 ========== */}
-      <div className="pt-3 border-t border-slate-200">
-        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
-          <span>🎯</span>
-          优先级智能检测
-        </Label>
-        <div className="space-y-3 mt-2">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="enableSmartPriorityDetection"
-              checked={config.enableSmartPriorityDetection ?? false}
-              onCheckedChange={(checked) => onChange('enableSmartPriorityDetection', checked)}
-            />
-            <Label htmlFor="enableSmartPriorityDetection" className="text-sm">
-              启用智能优先级检测
-            </Label>
-          </div>
-          <p className="text-[10px] text-slate-500 ml-6">
-            根据消息关键词自动分配优先级
-          </p>
-          {config.enableSmartPriorityDetection && (
-            <div>
-              <Label htmlFor="priorityRules" className="text-xs">优先级规则</Label>
-              <Textarea
-                id="priorityRules"
-                value={config.priorityRules || ''}
-                onChange={(e) => onChange('priorityRules', e.target.value)}
-                placeholder="高:紧急,bug,故障&#10;中:咨询,问题&#10;低:其他"
-                className="mt-1 resize-none font-mono text-xs"
-                rows={3}
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ========== 阶段二新增：消息去重配置 ========== */}
-      <div className="pt-3 border-t border-slate-200">
-        <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
-          <span>🔒</span>
-          消息去重
-        </Label>
-        <div className="space-y-3 mt-2">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="enableDeduplication"
-              checked={config.enableDeduplication ?? false}
-              onCheckedChange={(checked) => onChange('enableDeduplication', checked)}
-            />
-            <Label htmlFor="enableDeduplication" className="text-sm">
-              启用消息去重
-            </Label>
-          </div>
-          <p className="text-[10px] text-slate-500 ml-6">
-            根据消息内容去重，避免重复处理相同消息
-          </p>
-          {config.enableDeduplication && (
-            <div>
-              <Label htmlFor="dedupWindow" className="text-xs">去重窗口（秒）</Label>
-              <Input
-                id="dedupWindow"
-                type="number"
-                value={config.dedupWindow || 60}
-                onChange={(e) => onChange('dedupWindow', parseInt(e.target.value) || 60)}
-                placeholder="60"
-                className="mt-1"
-              />
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
   );
-});
+}
 
-const MemoizedIntentConfig = React.memo(function IntentConfig({ config, onChange }: any) {
+// ==================== 上下文检索配置表单 ====================
+function ContextRetrievalForm({
+  config,
+  onUpdate
+}: {
+  config: ContextRetrievalConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+}) {
   return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-sm font-medium text-slate-700">意图识别配置</Label>
-        <div className="space-y-2 mt-2">
-          <div>
-            <Label htmlFor="model" className="text-sm">
-              使用的模型
-            </Label>
-            <Select
-              value={config.model || 'doubao-pro-4k-intent'}
-              onValueChange={(value) => onChange('model', value)}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="选择模型" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="doubao-pro-4k-intent">Doubao Pro 4K Intent</SelectItem>
-                <SelectItem value="gpt-4">GPT-4</SelectItem>
-                <SelectItem value="claude-3">Claude-3</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="confidenceThreshold" className="text-sm">
-              置信度阈值
-            </Label>
-            <Input
-              id="confidenceThreshold"
-              type="number"
-              step="0.1"
-              min="0"
-              max="1"
-              value={config.confidenceThreshold ?? 0.7}
-              onChange={(e) => onChange('confidenceThreshold', parseFloat(e.target.value))}
-              placeholder="0.7"
-              className="mt-1"
-            />
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Database className="h-4 w-4 text-cyan-500" />
+          上下文检索配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Label>启用上下文检索</Label>
+          <Switch
+            checked={config.config.enabled}
+            onCheckedChange={(checked) =>
+              onUpdate({ config: { ...config.config, enabled: checked } })
+            }
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>检索策略</Label>
+          <Select
+            value={config.config.retrievalStrategy}
+            onValueChange={(value: any) =>
+              onUpdate({ config: { ...config.config, retrievalStrategy: value } })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">最近消息</SelectItem>
+              <SelectItem value="relevant">相关消息</SelectItem>
+              <SelectItem value="hybrid">混合策略</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>历史消息数量: {config.config.historyCount}</Label>
+          <Slider
+            value={[config.config.historyCount]}
+            onValueChange={([value]) =>
+              onUpdate({ config: { ...config.config, historyCount: value } })
+            }
+            min={1}
+            max={50}
+            step={1}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>最大历史长度: {config.config.maxHistoryLength}</Label>
+          <Slider
+            value={[config.config.maxHistoryLength]}
+            onValueChange={([value]) =>
+              onUpdate({ config: { ...config.config, maxHistoryLength: value } })
+            }
+            min={10}
+            max={200}
+            step={10}
+          />
+          <p className="text-xs text-muted-foreground">
+            控制发送给AI的上下文总长度（字符数）
+          </p>
+        </div>
+
+        <div className="space-y-3 pt-2 border-t">
+          <Label>检索内容</Label>
+          <div className="space-y-2">
+            {[
+              { key: 'includeUserSession', label: '用户会话历史' },
+              { key: 'includeGroupSession', label: '群组会话历史' },
+              { key: 'includeUserProfile', label: '用户画像信息' },
+              { key: 'includeAfterSalesTasks', label: '售后任务信息' },
+            ].map((item) => (
+              <div key={item.key} className="flex items-center justify-between">
+                <Label className="text-sm">{item.label}</Label>
+                <Switch
+                  checked={config.config[item.key as keyof typeof config.config] as boolean}
+                  onCheckedChange={(checked) =>
+                    onUpdate({
+                      config: {
+                        ...config.config,
+                        [item.key]: checked,
+                      },
+                    })
+                  }
+                />
+              </div>
+            ))}
           </div>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
-});
+}
 
-const MemoizedDecisionConfig = React.memo(function DecisionConfigWrapper({ config, onChange }: any) {
-  return <DecisionConfig config={config} onChange={onChange} />;
-});
-
-const MemoizedAiReplyConfig = React.memo(function AiReplyConfig({ config, onChange }: any) {
-  const [models, setModels] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(true);
-
-  // 加载模型列表
-  React.useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        const response = await fetch('/api/proxy/ai/models?enabled=true');
-        const result = await response.json();
-        if (result.success) {
-          setModels(result.data);
-        }
-      } catch (error) {
-        console.error('加载模型列表失败:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchModels();
-  }, []);
-
+// ==================== 消息发送配置表单 ====================
+function MessageSendForm({
+  config,
+  onUpdate
+}: {
+  config: MessageSendConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+}) {
   return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-sm font-medium text-slate-700">AI 回复配置</Label>
-        <div className="space-y-2 mt-2">
-          <div>
-            <Label htmlFor="modelId" className="text-sm">
-              使用的模型
-            </Label>
-            <Select
-              value={config.modelId || ''}
-              onValueChange={(value) => onChange('modelId', value)}
-              disabled={loading}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder={loading ? "加载中..." : "选择模型"} />
-              </SelectTrigger>
-              <SelectContent>
-                {models.map((model) => (
-                  <SelectItem key={model.id} value={model.id}>
-                    {model.displayName}
-                  </SelectItem>
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Send className="h-4 w-4 text-blue-500" />
+          消息发送配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Label>启用消息发送</Label>
+          <Switch
+            checked={config.config.enabled}
+            onCheckedChange={(checked) =>
+              onUpdate({ config: { ...config.config, enabled: checked } })
+            }
+          />
+        </div>
+
+        <Tabs defaultValue="robot" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="robot">机器人选择</TabsTrigger>
+            <TabsTrigger value="delay">延迟策略</TabsTrigger>
+            <TabsTrigger value="retry">重试配置</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="robot" className="space-y-4">
+            <div className="space-y-2">
+              <Label>选择策略</Label>
+              <Select
+                value={config.config.robotSelection.strategy}
+                onValueChange={(value: any) =>
+                  onUpdate({
+                    config: {
+                      ...config.config,
+                      robotSelection: {
+                        ...config.config.robotSelection,
+                        strategy: value,
+                      },
+                    },
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="priority">基于优先级</SelectItem>
+                  <SelectItem value="load">基于负载</SelectItem>
+                  <SelectItem value="health">基于健康状态</SelectItem>
+                  <SelectItem value="type">基于类型</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>首选机器人类型</Label>
+              <div className="space-y-2">
+                {[
+                  { value: 'main_bot', label: '主要机器人' },
+                  { value: 'after_sales_bot', label: '售后机器人' },
+                  { value: 'emergency_bot', label: '应急机器人' },
+                  { value: 'backup_bot', label: '备用机器人' },
+                ].map((item) => (
+                  <div key={item.value} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`robot-${item.value}`}
+                      checked={config.config.robotSelection.preferredRobotTypes.includes(item.value as any)}
+                      onCheckedChange={(checked) => {
+                        const newTypes = checked
+                          ? [...config.config.robotSelection.preferredRobotTypes, item.value]
+                          : config.config.robotSelection.preferredRobotTypes.filter((t) => t !== item.value);
+                        onUpdate({
+                          config: {
+                            ...config.config,
+                            robotSelection: {
+                              ...config.config.robotSelection,
+                              preferredRobotTypes: newTypes,
+                            },
+                          },
+                        });
+                      }}
+                    />
+                    <Label htmlFor={`robot-${item.value}`} className="text-sm cursor-pointer">
+                      {item.label}
+                    </Label>
+                  </div>
                 ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="delay" className="space-y-4">
+            <div className="space-y-2">
+              <Label>基础延迟（秒）: {config.config.delayStrategy.baseDelay}</Label>
+              <Slider
+                value={[config.config.delayStrategy.baseDelay]}
+                onValueChange={([value]) =>
+                  onUpdate({
+                    config: {
+                      ...config.config,
+                      delayStrategy: {
+                        ...config.config.delayStrategy,
+                        baseDelay: value,
+                      },
+                    },
+                  })
+                }
+                min={1}
+                max={30}
+                step={1}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>随机因子: ±{Math.round(config.config.delayStrategy.randomFactor * 100)}%</Label>
+              <Slider
+                value={[config.config.delayStrategy.randomFactor * 100]}
+                onValueChange={([value]) =>
+                  onUpdate({
+                    config: {
+                      ...config.config,
+                      delayStrategy: {
+                        ...config.config.delayStrategy,
+                        randomFactor: value / 100,
+                      },
+                    },
+                  })
+                }
+                min={0}
+                max={50}
+                step={5}
+              />
+              <p className="text-xs text-muted-foreground">
+                在基础延迟上增加随机波动，使回复更自然
+              </p>
+            </div>
+
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="priority">
+                <AccordionTrigger className="text-sm">
+                  优先级调整
+                </AccordionTrigger>
+                <AccordionContent className="space-y-3">
+                  {[
+                    { level: 'P0', label: 'P0 消息' },
+                    { level: 'P1', label: 'P1 消息' },
+                    { level: 'P2', label: 'P2 消息' },
+                    { level: 'P3', label: 'P3 消息' },
+                  ].map((item) => (
+                    <div key={item.level} className="space-y-2">
+                      <Label>
+                        {item.label}延迟（秒）: {config.config.delayStrategy.priorityAdjustment[item.level as keyof typeof config.config.delayStrategy.priorityAdjustment]}
+                      </Label>
+                      <Slider
+                        value={[config.config.delayStrategy.priorityAdjustment[item.level as keyof typeof config.config.delayStrategy.priorityAdjustment]]}
+                        onValueChange={([value]) =>
+                          onUpdate({
+                            config: {
+                              ...config.config,
+                              delayStrategy: {
+                                ...config.config.delayStrategy,
+                                priorityAdjustment: {
+                                  ...config.config.delayStrategy.priorityAdjustment,
+                                  [item.level]: value,
+                                },
+                              },
+                            },
+                          })
+                        }
+                        min={1}
+                        max={30}
+                        step={1}
+                      />
+                    </div>
+                  ))}
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="intent">
+                <AccordionTrigger className="text-sm">
+                  意图调整
+                </AccordionTrigger>
+                <AccordionContent className="space-y-3">
+                  {[
+                    { key: 'complaint', label: '投诉类消息' },
+                    { key: 'after_sales', label: '售后类消息' },
+                    { key: 'query', label: '查询类消息' },
+                    { key: 'daily_chat', label: '日常聊天' },
+                  ].map((item) => (
+                    <div key={item.key} className="space-y-2">
+                      <Label>
+                        {item.label}延迟（秒）: {config.config.delayStrategy.intentAdjustment[item.key as keyof typeof config.config.delayStrategy.intentAdjustment]}
+                      </Label>
+                      <Slider
+                        value={[config.config.delayStrategy.intentAdjustment[item.key as keyof typeof config.config.delayStrategy.intentAdjustment]]}
+                        onValueChange={([value]) =>
+                          onUpdate({
+                            config: {
+                              ...config.config,
+                              delayStrategy: {
+                                ...config.config.delayStrategy,
+                                intentAdjustment: {
+                                  ...config.config.delayStrategy.intentAdjustment,
+                                  [item.key]: value,
+                                },
+                              },
+                            },
+                          })
+                        }
+                        min={1}
+                        max={30}
+                        step={1}
+                      />
+                    </div>
+                  ))}
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="sentiment">
+                <AccordionTrigger className="text-sm">
+                  情感调整
+                </AccordionTrigger>
+                <AccordionContent className="space-y-3">
+                  {[
+                    { key: 'negative_high', label: '负面高强度' },
+                    { key: 'negative_medium', label: '负面中强度' },
+                    { key: 'negative_low', label: '负面低强度' },
+                  ].map((item) => (
+                    <div key={item.key} className="space-y-2">
+                      <Label>
+                        {item.label}延迟（秒）: {config.config.delayStrategy.sentimentAdjustment[item.key as keyof typeof config.config.delayStrategy.sentimentAdjustment]}
+                      </Label>
+                      <Slider
+                        value={[config.config.delayStrategy.sentimentAdjustment[item.key as keyof typeof config.config.delayStrategy.sentimentAdjustment]]}
+                        onValueChange={([value]) =>
+                          onUpdate({
+                            config: {
+                              ...config.config,
+                              delayStrategy: {
+                                ...config.config.delayStrategy,
+                                sentimentAdjustment: {
+                                  ...config.config.delayStrategy.sentimentAdjustment,
+                                  [item.key]: value,
+                                },
+                              },
+                            },
+                          })
+                        }
+                        min={1}
+                        max={30}
+                        step={1}
+                      />
+                    </div>
+                  ))}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </TabsContent>
+
+          <TabsContent value="retry" className="space-y-4">
+            <div className="space-y-2">
+              <Label>最大重试次数: {config.config.retryConfig.maxRetries}</Label>
+              <Slider
+                value={[config.config.retryConfig.maxRetries]}
+                onValueChange={([value]) =>
+                  onUpdate({
+                    config: {
+                      ...config.config,
+                      retryConfig: {
+                        ...config.config.retryConfig,
+                        maxRetries: value,
+                      },
+                    },
+                  })
+                }
+                min={0}
+                max={10}
+                step={1}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>重试延迟（秒）: {config.config.retryConfig.retryDelay}</Label>
+              <Slider
+                value={[config.config.retryConfig.retryDelay]}
+                onValueChange={([value]) =>
+                  onUpdate({
+                    config: {
+                      ...config.config,
+                      retryConfig: {
+                        ...config.config.retryConfig,
+                        retryDelay: value,
+                      },
+                    },
+                  })
+                }
+                min={1}
+                max={60}
+                step={1}
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ==================== 售后任务配置表单 ====================
+function AfterSalesTaskForm({
+  config,
+  onUpdate
+}: {
+  config: AfterSalesTaskConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Target className="h-4 w-4 text-pink-500" />
+          售后任务配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Label>启用售后任务</Label>
+          <Switch
+            checked={config.config.enabled}
+            onCheckedChange={(checked) =>
+              onUpdate({ config: { ...config.config, enabled: checked } })
+            }
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>任务类型</Label>
+          <div className="space-y-2">
+            {[
+              { value: 'refund', label: '退款任务' },
+              { value: 'product_issue', label: '产品问题' },
+              { value: 'service_issue', label: '服务问题' },
+              { value: 'order_issue', label: '订单问题' },
+              { value: 'other', label: '其他问题' },
+            ].map((item) => (
+              <div key={item.value} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`task-${item.value}`}
+                  checked={config.config.taskTypes.includes(item.value as any)}
+                  onCheckedChange={(checked) => {
+                    const newTypes = checked
+                      ? [...config.config.taskTypes, item.value]
+                      : config.config.taskTypes.filter((t) => t !== item.value);
+                    onUpdate({ config: { ...config.config, taskTypes: newTypes } });
+                  }}
+                />
+                <Label htmlFor={`task-${item.value}`} className="text-sm cursor-pointer">
+                  {item.label}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>默认优先级</Label>
+          <Select
+            value={config.config.defaultPriority}
+            onValueChange={(value: any) =>
+              onUpdate({ config: { ...config.config, defaultPriority: value } })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="P0">P0（最高）</SelectItem>
+              <SelectItem value="P1">P1（高）</SelectItem>
+              <SelectItem value="P2">P2（中）</SelectItem>
+              <SelectItem value="P3">P3（低）</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <Label>自动分配工作人员</Label>
+          <Switch
+            checked={config.config.autoAssignment}
+            onCheckedChange={(checked) =>
+              onUpdate({ config: { ...config.config, autoAssignment: checked } })
+            }
+          />
+        </div>
+
+        {config.config.autoAssignment && (
+          <div className="space-y-2">
+            <Label>分配策略</Label>
+            <Select
+              value={config.config.assignmentStrategy}
+              onValueChange={(value: any) =>
+                onUpdate({ config: { ...config.config, assignmentStrategy: value } })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="load_balance">负载均衡</SelectItem>
+                <SelectItem value="skill_based">基于技能</SelectItem>
+                <SelectItem value="priority_based">基于优先级</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label htmlFor="temperature" className="text-sm">
-              温度值
-            </Label>
-            <Input
-              id="temperature"
-              type="number"
-              step="0.1"
-              min="0"
-              max="2"
-              value={config.temperature ?? 0.7}
-              onChange={(e) => onChange('temperature', parseFloat(e.target.value))}
-              placeholder="0.7"
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label htmlFor="maxTokens" className="text-sm">
-              最大 token 数
-            </Label>
-            <Input
-              id="maxTokens"
-              type="number"
-              value={config.maxTokens ?? 1000}
-              onChange={(e) => onChange('maxTokens', parseInt(e.target.value))}
-              placeholder="1000"
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label htmlFor="systemPrompt" className="text-sm">
-              系统提示词
-            </Label>
+        )}
+
+        <div className="flex items-center justify-between">
+          <Label>同步到腾讯文档</Label>
+          <Switch
+            checked={config.config.syncToTencentDocs}
+            onCheckedChange={(checked) =>
+              onUpdate({ config: { ...config.config, syncToTencentDocs: checked } })
+            }
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="collaboration-team">协同团队（可选，用逗号分隔）</Label>
+          <Input
+            id="collaboration-team"
+            value={config.config.collaborationTeam?.join(', ') || ''}
+            onChange={(e) =>
+              onUpdate({
+                config: {
+                  ...config.config,
+                  collaborationTeam: e.target.value.split(',').map(s => s.trim()).filter(Boolean),
+                },
+              })
+            }
+            placeholder="例如：售后团队A, 售后团队B"
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ==================== 通用配置表单 ====================
+function GeneralConfigForm({
+  config,
+  onUpdate
+}: {
+  config: GeneralNodeConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Settings className="h-4 w-4 text-gray-500" />
+          节点配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-md">
+          <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-muted-foreground">
+            此节点类型的详细配置暂未实现。您可以在 JSON 编辑器中手动配置节点属性。
+          </p>
+        </div>
+
+        {config.config && Object.keys(config.config).length > 0 && (
+          <div className="space-y-2">
+            <Label>现有配置（JSON）</Label>
             <Textarea
-              id="systemPrompt"
-              value={config.systemPrompt || ''}
-              onChange={(e) => onChange('systemPrompt', e.target.value)}
-              placeholder="输入系统提示词"
-              className="mt-1 resize-none"
-              rows={4}
+              value={JSON.stringify(config.config, null, 2)}
+              onChange={(e) => {
+                try {
+                  const newConfig = JSON.parse(e.target.value);
+                  onUpdate({ config: newConfig });
+                } catch (err) {
+                  // 忽略 JSON 解析错误
+                }
+              }}
+              rows={10}
+              className="font-mono text-xs"
             />
           </div>
-        </div>
-      </div>
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
-});
-
-const MemoizedMessageDispatchConfig = React.memo(function MessageDispatchConfig({ config, onChange }: any) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-sm font-medium text-slate-700">消息分发配置</Label>
-        <div className="space-y-2 mt-2">
-          <div>
-            <Label htmlFor="dispatchRule" className="text-sm">
-              分发规则
-            </Label>
-            <Select
-              value={config.dispatchRule || 'random'}
-              onValueChange={(value) => onChange('dispatchRule', value)}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="选择分发规则" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="random">随机分发</SelectItem>
-                <SelectItem value="round_robin">轮询分发</SelectItem>
-                <SelectItem value="least_busy">分发到最空闲</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-});
-
-const MemoizedSendCommandConfig = React.memo(function SendCommandConfig({ config, onChange }: any) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-sm font-medium text-slate-700">发送命令配置</Label>
-        <div className="space-y-2 mt-2">
-          <div>
-            <Label htmlFor="commandType" className="text-sm">
-              命令类型
-            </Label>
-            <Input
-              id="commandType"
-              value={config.commandType || 'text'}
-              onChange={(e) => onChange('commandType', e.target.value)}
-              placeholder="text"
-              className="mt-1"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-});
-
-const MemoizedCommandStatusConfig = React.memo(function CommandStatusConfig({ config, onChange }: any) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-sm font-medium text-slate-700">命令状态配置</Label>
-        <div className="space-y-2 mt-2">
-          <div>
-            <Label htmlFor="statusField" className="text-sm">
-              状态字段
-            </Label>
-            <Input
-              id="statusField"
-              value={config.statusField || 'status'}
-              onChange={(e) => onChange('statusField', e.target.value)}
-              placeholder="status"
-              className="mt-1"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-});
-
-const MemoizedEndConfig = React.memo(function EndConfig({ config, onChange }: any) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-sm font-medium text-slate-700">结束配置</Label>
-        <div className="space-y-2 mt-2">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="endSession"
-              checked={config.endSession ?? true}
-              onCheckedChange={(checked) => onChange('endSession', checked)}
-            />
-            <Label htmlFor="endSession" className="text-sm">
-              结束会话
-            </Label>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-});
-
-const MemoizedAlertSaveConfig = React.memo(function AlertSaveConfig({ config, onChange }: any) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-sm font-medium text-slate-700">告警保存配置</Label>
-        <div className="space-y-2 mt-2">
-          <div>
-            <Label htmlFor="alertLevel" className="text-sm">
-              告警级别
-            </Label>
-            <Select
-              value={config.alertLevel || 'warning'}
-              onValueChange={(value) => onChange('alertLevel', value)}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="选择告警级别" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="info">信息</SelectItem>
-                <SelectItem value="warning">警告</SelectItem>
-                <SelectItem value="error">错误</SelectItem>
-                <SelectItem value="critical">严重</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-});
-
-const MemoizedAlertRuleConfig = React.memo(function AlertRuleConfig({ config, onChange }: any) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-sm font-medium text-slate-700">告警规则配置</Label>
-        <div className="space-y-2 mt-2">
-          <div>
-            <Label htmlFor="ruleCondition" className="text-sm">
-              规则条件
-            </Label>
-            <Input
-              id="ruleCondition"
-              value={config.ruleCondition || ''}
-              onChange={(e) => onChange('ruleCondition', e.target.value)}
-              placeholder="count > 10"
-              className="mt-1"
-            />
-          </div>
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="autoEscalate"
-              checked={config.autoEscalate ?? false}
-              onCheckedChange={(checked) => onChange('autoEscalate', checked)}
-            />
-            <Label htmlFor="autoEscalate" className="text-sm">
-              自动升级
-            </Label>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-});
-
-const MemoizedRiskHandlerConfig = React.memo(function RiskHandlerConfig({ config, onChange }: any) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-sm font-medium text-slate-700">风险处理配置</Label>
-        <div className="space-y-2 mt-2">
-          <div>
-            <Label htmlFor="riskLevel" className="text-sm">
-              风险级别
-            </Label>
-            <Select
-              value={config.riskLevel || 'medium'}
-              onValueChange={(value) => onChange('riskLevel', value)}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="选择风险级别" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">低</SelectItem>
-                <SelectItem value="medium">中</SelectItem>
-                <SelectItem value="high">高</SelectItem>
-                <SelectItem value="critical">严重</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-});
-
-const MemoizedMonitorConfig = React.memo(function MonitorConfig({ config, onChange }: any) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-sm font-medium text-slate-700">监控配置</Label>
-        <div className="space-y-2 mt-2">
-          <div>
-            <Label htmlFor="monitorType" className="text-sm">
-              监控类型
-            </Label>
-            <Select
-              value={config.monitorType || 'performance'}
-              onValueChange={(value) => onChange('monitorType', value)}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="选择监控类型" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="performance">性能监控</SelectItem>
-                <SelectItem value="business">业务监控</SelectItem>
-                <SelectItem value="error">错误监控</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-});
-
-const MemoizedRobotDispatchConfig = React.memo(function RobotDispatchConfig({ config, onChange }: any) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-sm font-medium text-slate-700">机器人分发配置</Label>
-        <div className="space-y-2 mt-2">
-          <div>
-            <Label htmlFor="robotId" className="text-sm">
-              机器人 ID
-            </Label>
-            <Input
-              id="robotId"
-              value={config.robotId || ''}
-              onChange={(e) => onChange('robotId', e.target.value)}
-              placeholder="输入机器人 ID"
-              className="mt-1"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-});
-
-const MemoizedContextEnhancerConfig = React.memo(function ContextEnhancerWrapper({ config, onChange }: any) {
-  return <ContextEnhancerConfig config={config} onChange={onChange} />;
-});
-
-const MemoizedExecuteNotificationConfig = React.memo(function ExecuteNotificationConfig({ config, onChange }: any) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-sm font-medium text-slate-700">执行通知配置</Label>
-        <div className="space-y-2 mt-2">
-          <div>
-            <Label htmlFor="notificationType" className="text-sm">
-              通知类型
-            </Label>
-            <Select
-              value={config.notificationType || 'email'}
-              onValueChange={(value) => onChange('notificationType', value)}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="选择通知类型" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="email">邮件</SelectItem>
-                <SelectItem value="sms">短信</SelectItem>
-                <SelectItem value="wechat">微信</SelectItem>
-                <SelectItem value="webhook">Webhook</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="recipients" className="text-sm">
-              接收人
-            </Label>
-            <Textarea
-              id="recipients"
-              value={config.recipients || ''}
-              onChange={(e) => onChange('recipients', e.target.value)}
-              placeholder="输入接收人，多个用逗号分隔"
-              className="mt-1 resize-none"
-              rows={2}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-});
+}
