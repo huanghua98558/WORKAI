@@ -436,25 +436,80 @@ export default function NodeConfigPanel({ node, onUpdate, onDelete, onClose }: N
 
   // 渲染节点类型特定的配置表单
   const renderConfigForm = () => {
-    if (!config) return null;
+    if (!node || !config) return null;
 
-    switch (config.type) {
-      case 'intent_recognition':
-        return <IntentRecognitionForm config={config as IntentRecognitionConfig} onUpdate={handleUpdateConfig} />;
-      case 'sentiment_analysis':
-        return <SentimentAnalysisForm config={config as SentimentAnalysisConfig} onUpdate={handleUpdateConfig} />;
-      case 'alert_judgment':
-        return <AlertJudgmentForm config={config as AlertJudgmentConfig} onUpdate={handleUpdateConfig} />;
-      case 'intervention_judgment':
-        return <InterventionJudgmentForm config={config as InterventionJudgmentConfig} onUpdate={handleUpdateConfig} />;
-      case 'reply_generation':
-        return <ReplyGenerationForm config={config as ReplyGenerationConfig} onUpdate={handleUpdateConfig} />;
-      case 'context_retrieval':
-        return <ContextRetrievalForm config={config as ContextRetrievalConfig} onUpdate={handleUpdateConfig} />;
-      case 'message_send':
-        return <MessageSendForm config={config as MessageSendConfig} onUpdate={handleUpdateConfig} />;
-      case 'after_sales_task':
-        return <AfterSalesTaskForm config={config as AfterSalesTaskConfig} onUpdate={handleUpdateConfig} />;
+    const nodeType = node.data.type; // 实际的节点类型（如 'multi_task_ai'）
+    const subType = node.data.config?.subType || node.data.config?.operation; // 子类型
+
+    // 新的统一节点类型（v6.1）
+    switch (nodeType) {
+      // AI 处理多任务 - 包含意图识别、情感分析、回复生成等
+      case 'multi_task_ai':
+        if (subType === 'intent_recognition') {
+          return <IntentRecognitionForm config={config as IntentRecognitionConfig} onUpdate={handleUpdateConfig} />;
+        } else if (subType === 'sentiment_analysis') {
+          return <SentimentAnalysisForm config={config as SentimentAnalysisConfig} onUpdate={handleUpdateConfig} />;
+        } else if (subType === 'reply_generation') {
+          return <ReplyGenerationForm config={config as ReplyGenerationConfig} onUpdate={handleUpdateConfig} />;
+        } else {
+          // 默认显示 AI 配置选项
+          return <MultiTaskAIForm config={config as GeneralNodeConfig} onUpdate={handleUpdateConfig} subType={subType} />;
+        }
+
+      // 消息管理多任务 - 包含消息接收、发送、分发等
+      case 'multi_task_message':
+        if (subType === 'message_send') {
+          return <MessageSendForm config={config as MessageSendConfig} onUpdate={handleUpdateConfig} />;
+        } else if (subType === 'message_receive') {
+          return <MessageReceiveForm config={config as GeneralNodeConfig} onUpdate={handleUpdateConfig} />;
+        } else {
+          return <MultiTaskMessageForm config={config as GeneralNodeConfig} onUpdate={handleUpdateConfig} subType={subType} />;
+        }
+
+      // 告警管理多任务 - 包含告警判断、升级等
+      case 'multi_task_alert':
+        if (subType === 'alert_judgment') {
+          return <AlertJudgmentForm config={config as AlertJudgmentConfig} onUpdate={handleUpdateConfig} />;
+        } else {
+          return <MultiTaskAlertForm config={config as GeneralNodeConfig} onUpdate={handleUpdateConfig} subType={subType} />;
+        }
+
+      // 人员管理多任务 - 包含介入判断等
+      case 'multi_task_staff':
+        if (subType === 'intervention_judgment') {
+          return <InterventionJudgmentForm config={config as InterventionJudgmentConfig} onUpdate={handleUpdateConfig} />;
+        } else {
+          return <MultiTaskStaffForm config={config as GeneralNodeConfig} onUpdate={handleUpdateConfig} subType={subType} />;
+        }
+
+      // 任务管理多任务 - 包含售后任务等
+      case 'multi_task_task':
+        if (subType === 'after_sales_task') {
+          return <AfterSalesTaskForm config={config as AfterSalesTaskConfig} onUpdate={handleUpdateConfig} />;
+        } else {
+          return <MultiTaskTaskForm config={config as GeneralNodeConfig} onUpdate={handleUpdateConfig} subType={subType} />;
+        }
+
+      // 协同分析多任务
+      case 'multi_task_analysis':
+        return <MultiTaskAnalysisForm config={config as GeneralNodeConfig} onUpdate={handleUpdateConfig} subType={subType} />;
+
+      // 机器人交互多任务
+      case 'multi_task_robot':
+        return <MultiTaskRobotForm config={config as GeneralNodeConfig} onUpdate={handleUpdateConfig} subType={subType} />;
+
+      // 上下文节点
+      case 'context':
+        if (subType === 'context_retrieval') {
+          return <ContextRetrievalForm config={config as ContextRetrievalConfig} onUpdate={handleUpdateConfig} />;
+        }
+        return <ContextForm config={config as GeneralNodeConfig} onUpdate={handleUpdateConfig} subType={subType} />;
+
+      // 决策节点
+      case 'decision':
+        return <DecisionForm config={config as GeneralNodeConfig} onUpdate={handleUpdateConfig} />;
+
+      // 默认：显示通用配置
       default:
         return <GeneralConfigForm config={config} onUpdate={handleUpdateConfig} />;
     }
@@ -2078,6 +2133,549 @@ function GeneralConfigForm({
             />
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ==================== AI 处理多任务配置表单 ====================
+function MultiTaskAIForm({
+  config,
+  onUpdate,
+  subType
+}: {
+  config: GeneralNodeConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+  subType?: string;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Brain className="h-4 w-4 text-purple-500" />
+          AI 处理多任务配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>子类型（操作类型）</Label>
+          <Select
+            value={subType}
+            onValueChange={(value) =>
+              onUpdate({ config: { ...config.config, subType: value } })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="选择操作类型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="intent_recognition">意图识别</SelectItem>
+              <SelectItem value="sentiment_analysis">情感分析</SelectItem>
+              <SelectItem value="reply_generation">回复生成</SelectItem>
+              <SelectItem value="ai_chat">AI 对话</SelectItem>
+              <SelectItem value="unified_analyze">统一分析</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {subType === 'intent_recognition' && (
+          <IntentRecognitionForm config={config as IntentRecognitionConfig} onUpdate={onUpdate} />
+        )}
+        {subType === 'sentiment_analysis' && (
+          <SentimentAnalysisForm config={config as SentimentAnalysisConfig} onUpdate={onUpdate} />
+        )}
+        {subType === 'reply_generation' && (
+          <ReplyGenerationForm config={config as ReplyGenerationConfig} onUpdate={onUpdate} />
+        )}
+
+        {subType && subType !== 'intent_recognition' && subType !== 'sentiment_analysis' && subType !== 'reply_generation' && (
+          <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-md">
+            <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-muted-foreground">
+              子类型 "{subType}" 的详细配置正在开发中。请使用 JSON 编辑器配置。
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ==================== 消息管理多任务配置表单 ====================
+function MultiTaskMessageForm({
+  config,
+  onUpdate,
+  subType
+}: {
+  config: GeneralNodeConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+  subType?: string;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-green-500" />
+          消息管理多任务配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>子类型（操作类型）</Label>
+          <Select
+            value={subType}
+            onValueChange={(value) =>
+              onUpdate({ config: { ...config.config, subType: value } })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="选择操作类型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="message_receive">消息接收</SelectItem>
+              <SelectItem value="message_send">消息发送</SelectItem>
+              <SelectItem value="message_dispatch">消息分发</SelectItem>
+              <SelectItem value="message_sync">消息同步</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {subType === 'message_send' && (
+          <MessageSendForm config={config as MessageSendConfig} onUpdate={onUpdate} />
+        )}
+        {subType === 'message_receive' && (
+          <MessageReceiveForm config={config} onUpdate={onUpdate} />
+        )}
+
+        {subType && subType !== 'message_send' && subType !== 'message_receive' && (
+          <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-md">
+            <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-muted-foreground">
+              子类型 "{subType}" 的详细配置正在开发中。请使用 JSON 编辑器配置。
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ==================== 消息接收配置表单 ====================
+function MessageReceiveForm({
+  config,
+  onUpdate
+}: {
+  config: GeneralNodeConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-blue-500" />
+          消息接收配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Label>保存到数据库</Label>
+          <Switch
+            checked={config.config?.saveToDatabase ?? true}
+            onCheckedChange={(checked) =>
+              onUpdate({ config: { ...config.config, saveToDatabase: checked } })
+            }
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <Label>验证内容</Label>
+          <Switch
+            checked={config.config?.validateContent ?? false}
+            onCheckedChange={(checked) =>
+              onUpdate({ config: { ...config.config, validateContent: checked } })
+            }
+          />
+        </div>
+
+        {config.config?.validateContent && (
+          <div className="space-y-2">
+            <Label>最大消息长度: {config.config.maxMessageLength || 5000}</Label>
+            <Slider
+              value={[config.config.maxMessageLength || 5000]}
+              onValueChange={([value]) =>
+                onUpdate({ config: { ...config.config, maxMessageLength: value } })
+              }
+              min={100}
+              max={10000}
+              step={100}
+            />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ==================== 告警管理多任务配置表单 ====================
+function MultiTaskAlertForm({
+  config,
+  onUpdate,
+  subType
+}: {
+  config: GeneralNodeConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+  subType?: string;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-red-500" />
+          告警管理多任务配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>子类型（操作类型）</Label>
+          <Select
+            value={subType}
+            onValueChange={(value) =>
+              onUpdate({ config: { ...config.config, subType: value } })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="选择操作类型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="alert_judgment">告警判断</SelectItem>
+              <SelectItem value="alert_save">告警保存</SelectItem>
+              <SelectItem value="alert_notify">告警通知</SelectItem>
+              <SelectItem value="alert_escalate">告警升级</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {subType === 'alert_judgment' && (
+          <AlertJudgmentForm config={config as AlertJudgmentConfig} onUpdate={onUpdate} />
+        )}
+
+        {subType && subType !== 'alert_judgment' && (
+          <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-md">
+            <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-muted-foreground">
+              子类型 "{subType}" 的详细配置正在开发中。请使用 JSON 编辑器配置。
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ==================== 人员管理多任务配置表单 ====================
+function MultiTaskStaffForm({
+  config,
+  onUpdate,
+  subType
+}: {
+  config: GeneralNodeConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+  subType?: string;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Users className="h-4 w-4 text-pink-500" />
+          人员管理多任务配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>子类型（操作类型）</Label>
+          <Select
+            value={subType}
+            onValueChange={(value) =>
+              onUpdate({ config: { ...config.config, subType: value } })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="选择操作类型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="intervention_judgment">介入判断</SelectItem>
+              <SelectItem value="staff_matching">人员匹配</SelectItem>
+              <SelectItem value="staff_notification">人员通知</SelectItem>
+              <SelectItem value="human_handover">人工接管</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {subType === 'intervention_judgment' && (
+          <InterventionJudgmentForm config={config as InterventionJudgmentConfig} onUpdate={onUpdate} />
+        )}
+
+        {subType && subType !== 'intervention_judgment' && (
+          <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-md">
+            <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-muted-foreground">
+              子类型 "{subType}" 的详细配置正在开发中。请使用 JSON 编辑器配置。
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ==================== 任务管理多任务配置表单 ====================
+function MultiTaskTaskForm({
+  config,
+  onUpdate,
+  subType
+}: {
+  config: GeneralNodeConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+  subType?: string;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Target className="h-4 w-4 text-indigo-500" />
+          任务管理多任务配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>子类型（操作类型）</Label>
+          <Select
+            value={subType}
+            onValueChange={(value) =>
+              onUpdate({ config: { ...config.config, subType: value } })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="选择操作类型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="after_sales_task">售后任务</SelectItem>
+              <SelectItem value="task_create">创建任务</SelectItem>
+              <SelectItem value="task_assign">分配任务</SelectItem>
+              <SelectItem value="task_update">更新任务</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {subType === 'after_sales_task' && (
+          <AfterSalesTaskForm config={config as AfterSalesTaskConfig} onUpdate={onUpdate} />
+        )}
+
+        {subType && subType !== 'after_sales_task' && (
+          <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-md">
+            <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-muted-foreground">
+              子类型 "{subType}" 的详细配置正在开发中。请使用 JSON 编辑器配置。
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ==================== 协同分析多任务配置表单 ====================
+function MultiTaskAnalysisForm({
+  config,
+  onUpdate,
+  subType
+}: {
+  config: GeneralNodeConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+  subType?: string;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <FileText className="h-4 w-4 text-teal-500" />
+          协同分析多任务配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>子类型（操作类型）</Label>
+          <Select
+            value={subType}
+            onValueChange={(value) =>
+              onUpdate({ config: { ...config.config, subType: value } })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="选择操作类型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="staff_monitoring">工作人员监控</SelectItem>
+              <SelectItem value="satisfaction_analysis">用户满意度分析</SelectItem>
+              <SelectItem value="collaboration_report">协同分析报告</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-md">
+          <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-muted-foreground">
+            子类型 "{subType || '未选择'}" 的详细配置正在开发中。请使用 JSON 编辑器配置。
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ==================== 机器人交互多任务配置表单 ====================
+function MultiTaskRobotForm({
+  config,
+  onUpdate,
+  subType
+}: {
+  config: GeneralNodeConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+  subType?: string;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Bot className="h-4 w-4 text-blue-600" />
+          机器人交互多任务配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>子类型（操作类型）</Label>
+          <Select
+            value={subType}
+            onValueChange={(value) =>
+              onUpdate({ config: { ...config.config, subType: value } })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="选择操作类型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="robot_dispatch">机器人调度</SelectItem>
+              <SelectItem value="send_command">发送指令</SelectItem>
+              <SelectItem value="command_status">指令状态查询</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-md">
+          <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-muted-foreground">
+            子类型 "{subType || '未选择'}" 的详细配置正在开发中。请使用 JSON 编辑器配置。
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ==================== 上下文节点配置表单 ====================
+function ContextForm({
+  config,
+  onUpdate,
+  subType
+}: {
+  config: GeneralNodeConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+  subType?: string;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Database className="h-4 w-4 text-indigo-600" />
+          上下文节点配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>子类型（操作类型）</Label>
+          <Select
+            value={subType}
+            onValueChange={(value) =>
+              onUpdate({ config: { ...config.config, subType: value } })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="选择操作类型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="context_retrieval">上下文检索</SelectItem>
+              <SelectItem value="context_enhancer">上下文增强</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {subType === 'context_retrieval' && (
+          <ContextRetrievalForm config={config as ContextRetrievalConfig} onUpdate={onUpdate} />
+        )}
+
+        {subType && subType !== 'context_retrieval' && (
+          <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-md">
+            <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-muted-foreground">
+              子类型 "{subType}" 的详细配置正在开发中。请使用 JSON 编辑器配置。
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ==================== 决策节点配置表单 ====================
+function DecisionForm({
+  config,
+  onUpdate
+}: {
+  config: GeneralNodeConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Zap className="h-4 w-4 text-orange-500" />
+          决策节点配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-md">
+          <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-muted-foreground">
+            决策节点的详细配置正在开发中。请使用 JSON 编辑器配置。
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>现有配置（JSON）</Label>
+          <Textarea
+            value={JSON.stringify(config.config || {}, null, 2)}
+            onChange={(e) => {
+              try {
+                const newConfig = JSON.parse(e.target.value);
+                onUpdate({ config: newConfig });
+              } catch (err) {
+                // 忽略 JSON 解析错误
+              }
+            }}
+            rows={10}
+            className="font-mono text-xs"
+          />
+        </div>
       </CardContent>
     </Card>
   );
