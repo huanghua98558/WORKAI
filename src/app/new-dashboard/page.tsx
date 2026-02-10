@@ -43,6 +43,7 @@ import {
   Minus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useSSE } from '@/hooks/useSSE';
 
 // 类型定义
 interface MonitorSummary {
@@ -154,6 +155,85 @@ export default function NewDashboard() {
   // 加载状态
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
+
+  // 使用SSE监听全局消息（不指定sessionId，监听所有会话的消息）
+  const { connected: sseConnected, messages: realtimeMessages } = useSSE({
+    // 不指定sessionId，监听全局消息
+    reconnectInterval: 5000,
+    maxReconnectAttempts: 20,
+    onMessage: (message) => {
+      console.log('[Dashboard] 收到实时消息:', message);
+    },
+  });
+
+  // 处理实时消息
+  useEffect(() => {
+    if (realtimeMessages.length > 0) {
+      // 获取最新的消息
+      const latestMessage = realtimeMessages[realtimeMessages.length - 1];
+      
+      console.log('[Dashboard] 处理实时消息:', latestMessage);
+      
+      // 更新最近活跃会话列表
+      setRecentSessions(prevSessions => {
+        const existingSession = prevSessions.find(s => s.sessionId === latestMessage.sessionId);
+        
+        if (existingSession) {
+          // 更新现有会话
+          return prevSessions.map(s => 
+            s.sessionId === latestMessage.sessionId
+              ? {
+                  ...s,
+                  lastMessage: latestMessage.content,
+                  lastActiveTime: latestMessage.createdAt,
+                  messageCount: s.messageCount + 1
+                }
+              : s
+          );
+        } else {
+          // 添加新会话到列表顶部
+          const newSession: Session = {
+            sessionId: latestMessage.sessionId,
+            userId: latestMessage.senderId,
+            userName: latestMessage.senderName,
+            status: latestMessage.senderType === 'ai' ? 'auto' : 'human',
+            lastActiveTime: latestMessage.createdAt,
+            messageCount: 1,
+            lastMessage: latestMessage.content
+          };
+          
+          // 最多保留10个会话
+          return [newSession, ...prevSessions].slice(0, 10);
+        }
+      });
+
+      // 更新活跃用户统计（如果发送者是用户）
+      if (latestMessage.senderType === 'user') {
+        setActiveUsers(prevUsers => {
+          const existingUser = prevUsers.find(u => u.userId === latestMessage.senderId);
+          
+          if (existingUser) {
+            return prevUsers.map(u => 
+              u.userId === latestMessage.senderId
+                ? { ...u, totalMessages: u.totalMessages + 1 }
+                : u
+            );
+          } else {
+            const newUser: ActiveUser = {
+              rank: prevUsers.length + 1,
+              userId: latestMessage.senderId!,
+              totalMessages: 1,
+              groupCount: 1,
+              groups: [latestMessage.sessionId],
+              avgMessagesPerGroup: 1,
+              activityLevel: 'medium'
+            };
+            return [newUser, ...prevUsers].slice(0, 5);
+          }
+        });
+      }
+    }
+  }, [realtimeMessages]);
 
   // 加载监控数据
   const loadMonitorData = async () => {
@@ -760,6 +840,12 @@ export default function NewDashboard() {
             <CardTitle className="text-base flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-purple-500" />
               实时会话
+              {sseConnected && (
+                <Badge variant="outline" className="ml-2 text-green-600 border-green-600 text-xs">
+                  <Wifi className="h-3 w-3 mr-1" />
+                  实时
+                </Badge>
+              )}
             </CardTitle>
             <Button variant="outline" size="sm" onClick={() => {}}>
               查看全部
