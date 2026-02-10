@@ -104,18 +104,22 @@ export function useSSE(options: UseSSEOptions = {}) {
     // 清理之前的连接
     cleanup();
 
-    // 构建URL
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+    // 构建URL - 使用相对路径，适配不同环境
+    // 前端通过 Next.js API Route 代理到后端 Fastify
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
     const params = new URLSearchParams();
     if (sessionId) params.append('sessionId', sessionId);
     if (robotId) params.append('robotId', robotId);
-    const url = `${baseUrl}/api/sse/messages?${params.toString()}`;
+    const url = `/api/sse/messages${params.toString() ? `?${params.toString()}` : ''}`;
 
-    console.log('[useSSE] 正在连接到SSE服务器...', { url, sessionId, robotId });
+    // 如果有配置 NEXT_PUBLIC_API_URL，使用完整 URL
+    const finalUrl = baseUrl ? `${baseUrl}${url}` : url;
+
+    console.log('[useSSE] 正在连接到SSE服务器...', { finalUrl, sessionId, robotId });
 
     try {
       // 创建EventSource连接
-      const eventSource = new EventSource(url);
+      const eventSource = new EventSource(finalUrl);
       eventSourceRef.current = eventSource;
 
       // 连接成功
