@@ -1143,9 +1143,9 @@ async function getBudgetTrend(request, reply) {
  */
 async function testAI(request, reply) {
   try {
-    const { modelId, input } = request.body;
+    const { modelId, input, messages } = request.body;
 
-    logger.info('[AI调试] testAI函数被调用', { modelId, input });
+    logger.info('[AI调试] testAI函数被调用', { modelId, input, messagesCount: messages?.length });
 
     // 验证参数
     if (!modelId || !input) {
@@ -1160,17 +1160,25 @@ async function testAI(request, reply) {
     // 使用AI服务工厂创建服务实例
     const aiService = await AIServiceFactory.createServiceByModelId(modelId);
 
-    // 构建测试消息
-    const messages = [
-      { role: 'user', content: input }
-    ];
+    // 构建测试消息：如果有消息历史，使用历史消息；否则只使用当前输入
+    let chatMessages;
+    if (messages && Array.isArray(messages) && messages.length > 0) {
+      // 使用前端传递的消息历史
+      chatMessages = messages;
+      logger.info('[AI调试] 使用消息历史', { messageCount: chatMessages.length });
+    } else {
+      // 单条消息
+      chatMessages = [
+        { role: 'user', content: input }
+      ];
+    }
 
     // 调用AI服务生成回复
     const startTime = Date.now();
     const sessionId = 'test-session-' + Date.now();
     const messageId = 'test-message-' + Date.now();
 
-    const result = await aiService.generateReply(messages, {
+    const result = await aiService.generateReply(chatMessages, {
       operationType: 'test',
       sessionId: sessionId
     });

@@ -50,7 +50,9 @@ import {
   Sparkles,
   Upload,
   File,
-  X
+  X,
+  User,
+  Send
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -157,6 +159,15 @@ interface MessageTemplate {
   autoGenerateFAQ?: boolean; // 是否自动生成FAQ
 }
 
+// 聊天消息类型
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  modelId?: string;
+}
+
 // 中文映射函数
 const getHealthStatusText = (status: string) => {
   const map: Record<string, { text: string; icon: React.ReactNode }> = {
@@ -234,6 +245,12 @@ export default function AIModule() {
   const [testResult, setTestResult] = useState<any>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [testModel, setTestModel] = useState('');
+
+  // 聊天功能
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatModel, setChatModel] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
 
   // 加载数据
   useEffect(() => {
@@ -1042,6 +1059,92 @@ export default function AIModule() {
     }
   };
 
+  // 发送聊天消息
+  const handleSendMessage = async () => {
+    if (!chatModel || !chatInput.trim()) {
+      toast.error('请选择模型并输入消息');
+      return;
+    }
+
+    // 添加用户消息
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: chatInput.trim(),
+      timestamp: new Date(),
+      modelId: chatModel
+    };
+
+    setChatMessages(prev => [...prev, userMessage]);
+    const userMessageContent = chatInput.trim();
+    setChatInput('');
+    setIsSendingMessage(true);
+
+    try {
+      // 构建消息历史，传递给AI
+      const messages = chatMessages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+      
+      // 添加当前用户消息
+      messages.push({
+        role: 'user',
+        content: userMessageContent
+      });
+
+      const response = await fetch('/api/proxy/ai/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          modelId: chatModel,
+          input: userMessageContent,
+          messages: messages  // 传递消息历史
+        })
+      });
+
+      // 检查响应状态
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          toast.error(data.error || data.message || '发送失败');
+        } else {
+          const text = await response.text();
+          console.error('非JSON响应:', text);
+          toast.error('发送失败：服务器返回了非JSON响应');
+        }
+        return;
+      }
+
+      const data = await response.json();
+      if (data.success && data.data?.reply) {
+        // 添加AI回复
+        const assistantMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: data.data.reply,
+          timestamp: new Date(),
+          modelId: chatModel
+        };
+        setChatMessages(prev => [...prev, assistantMessage]);
+      } else {
+        toast.error(data.error || '发送失败');
+      }
+    } catch (error) {
+      console.error('发送消息失败:', error);
+      toast.error('发送消息失败');
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
+  // 清空聊天历史
+  const handleClearChat = () => {
+    setChatMessages([]);
+    toast.success('聊天历史已清空');
+  };
+
   if (loading && models.length === 0) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -1504,72 +1607,149 @@ export default function AIModule() {
           </Card>
         </TabsContent>
 
-        {/* AI调试 */}
+        {/* AI调试 - 聊天界面 */}
         <TabsContent value="debug" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TestTube2 className="h-5 w-5 text-primary" />
-                AI 调试
-              </CardTitle>
-              <CardDescription className="mt-2">
-                测试 AI 意图识别和回复生成能力
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
+          <Card className="h-[700px] flex flex-col">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
                 <div>
-                  <Label htmlFor="test-model">选择模型</Label>
-                  <Select value={testModel} onValueChange={setTestModel}>
-                    <SelectTrigger id="test-model">
+                  <CardTitle className="flex items-center gap-2">
+                    <TestTube2 className="h-5 w-5 text-primary" />
+                    AI 聊天调试
+                  </CardTitle>
+                  <CardDescription className="mt-2">
+                    与 AI 进行多轮对话测试
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearChat}
+                    disabled={chatMessages.length === 0}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    清空对话
+                  </Button>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 mt-4">
+                <div className="flex-1">
+                  <Label htmlFor="chat-model">选择 AI 模型</Label>
+                  <Select value={chatModel} onValueChange={setChatModel}>
+                    <SelectTrigger id="chat-model">
                       <SelectValue placeholder="选择 AI 模型" />
                     </SelectTrigger>
                     <SelectContent>
                       {models.map((model) => (
                         <SelectItem key={model.id} value={model.id}>
                           {model.displayName}
+                          <span className="text-muted-foreground text-xs ml-2">
+                            ({model.providerDisplayName})
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label htmlFor="test-input">测试输入</Label>
-                  <Textarea
-                    id="test-input"
-                    value={testInput}
-                    onChange={(e) => setTestInput(e.target.value)}
-                    placeholder="输入要测试的内容..."
-                    rows={4}
-                  />
-                </div>
-                <Button onClick={handleAITest} disabled={isTesting}>
-                  {isTesting ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      测试中...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-4 w-4 mr-2" />
-                      开始测试
-                    </>
-                  )}
-                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col overflow-hidden p-0">
+              {/* 消息列表 */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-muted/50">
+                {chatMessages.length === 0 ? (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <div className="text-center">
+                      <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>开始与 AI 对话</p>
+                      <p className="text-sm mt-1">选择模型并输入消息开始聊天</p>
+                    </div>
+                  </div>
+                ) : (
+                  chatMessages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[80%] rounded-lg p-4 ${
+                          message.role === 'user'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-white dark:bg-gray-800 shadow-md'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          {message.role === 'user' ? (
+                            <>
+                              <User className="h-4 w-4" />
+                              <span className="font-medium text-sm">你</span>
+                            </>
+                          ) : (
+                            <>
+                              <Bot className="h-4 w-4" />
+                              <span className="font-medium text-sm">AI</span>
+                            </>
+                          )}
+                          <span className="text-xs opacity-70">
+                            {new Date(message.timestamp).toLocaleTimeString()}
+                          </span>
+                        </div>
+                        <div className="text-sm whitespace-pre-wrap break-words">
+                          {message.content}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+                {isSendingMessage && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[80%] rounded-lg p-4 bg-white dark:bg-gray-800 shadow-md">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Bot className="h-4 w-4" />
+                        <span className="font-medium text-sm">AI</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        <span>正在回复...</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {testResult && (
-                <Card className="bg-muted/50">
-                  <CardHeader>
-                    <CardTitle className="text-lg">测试结果</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <pre className="whitespace-pre-wrap text-sm">
-                      {JSON.stringify(testResult, null, 2)}
-                    </pre>
-                  </CardContent>
-                </Card>
-              )}
+              {/* 输入区域 */}
+              <div className="p-4 bg-white dark:bg-gray-800 border-t">
+                <div className="flex gap-2">
+                  <Textarea
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    placeholder="输入消息... (Enter 发送，Shift+Enter 换行)"
+                    rows={2}
+                    disabled={isSendingMessage}
+                    className="resize-none"
+                  />
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={isSendingMessage || !chatInput.trim() || !chatModel}
+                    className="self-end"
+                  >
+                    {isSendingMessage ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <div className="text-xs text-muted-foreground mt-2">
+                  提示：AI 会记住对话上下文，支持多轮对话
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
