@@ -795,6 +795,169 @@ class RobotService {
 
     return results[0] || null;
   }
+
+  /**
+   * 智能选择机器人（基于意图、优先级、负载和健康状态）
+   * @param {Object} options - 选择参数
+   * @param {string} options.intent - 意图类型（chat, service, help, risk, spam, welcome, admin）
+   * @param {string} options.priority - 优先级（P0, P1, P2, P3）
+   * @param {string} options.robotType - 指定机器人类型（可选）
+   * @returns {Promise<Object>} 选中的机器人
+   */
+  async selectRobot(options = {}) {
+    const { intent, priority = 'P3', robotType } = options;
+
+    this.logger.info('[机器人选择] 开始选择机器人', { intent, priority, robotType });
+
+    try {
+      const db = await getDb();
+
+      // 策略1: 获取所有可用的机器人（在线且启用）
+      let whereConditions = [
+        eq(robots.isActive, true),
+        eq(robots.status, 'online')
+      ];
+
+      let allRobots = await db
+        .select()
+        .from(robots)
+        .where(and(...whereConditions));
+
+      if (allRobots.length === 0) {
+        this.logger.warn('[机器人选择] 没有可用的机器人');
+        return null;
+      }
+
+      this.logger.info('[机器人选择] 可用机器人列表', {
+        count: allRobots.length,
+        robots: allRobots.map(r => ({
+          id: r.robotId,
+          name: r.name,
+          type: r.robotType,
+          group: r.robotGroup
+        }))
+      });
+
+      // 解析机器人配置中的优先级和负载
+      const availableRobots = allRobots.map(robot => {
+        const extraData = typeof robot.extraData === 'string' 
+          ? JSON.parse(robot.extraData) 
+          : (robot.extraData || {});
+
+        return {
+          ...robot,
+          priority: extraData.priority || 100,
+          maxConcurrentSessions: extraData.maxConcurrentSessions || 100,
+          currentSessionCount: extraData.currentSessionCount || 0,
+          loadBalancingWeight: extraData.loadBalancingWeight || 100,
+          enabledIntents: extraData.enabledIntents || []
+        };
+      });
+
+      // 策略2: 基于意图和优先级过滤机器人
+      let candidateRobots = availableRobots;
+
+      // 如果指定了机器人类型，优先匹配类型
+      if (robotType) {
+        candidateRobots = candidateRobots.filter(r => r.robotType === robotType);
+        this.logger.info('[机器人选择] 基于类型过滤', {
+          robotType,
+          count: candidateRobots.length
+        });
+      }
+
+      // 如果没有指定类型或类型过滤后没有机器人，基于意图选择
+      if (candidateRobots.length === 0 && intent) {
+        // 意图到机器人类型的映射
+        const intentToRobotType = {
+          'risk': 'support',      // 风险内容 → 技术支持
+          'service': 'support',   // 服务咨询 → 技术支持
+          'help': 'service',      // 帮助请求 → 客服
+          'chat': 'service',      // 闲聊 → 客服
+          'spam': 'conversion',   // 垃圾信息（降级）→ 转化
+          'welcome': 'service',   // 欢迎 → 客服
+          'admin': 'support'      // 管理 → 技术支持
+        };
+
+        const targetType = intentToRobotType[intent] || 'service';
+        candidateRobots = availableRobots.filter(r => r.robotType === targetType);
+
+        this.logger.info('[机器人选择] 基于意图过滤', {
+          intent,
+          targetType,
+          count: candidateRobots.length
+        });
+      }
+
+      // 如果过滤后没有机器人，使用所有可用机器人
+      if (candidateRobots.length === 0) {
+        candidateRobots = availableRobots;
+        this.logger.info('[机器人选择] 过滤后无匹配，使用所有可用机器人');
+      }
+
+      // 策略3: 基于负载和健康状态排序
+      // 计算负载百分比
+      candidateRobots = candidateRobots.map(robot => ({
+        ...robot,
+        loadPercent: robot.maxConcurrentSessions > 0 
+          ? (robot.currentSessionCount / robot.maxConcurrentSessions * 100)
+          : 0
+      }));
+
+      // 优先选择负载低的机器人
+      candidateRobots.sort((a, b) => {
+        // 优先排除高负载的机器人（>80%）
+        const aIsOverloaded = a.loadPercent > 80;
+        const bIsOverloaded = b.loadPercent > 80;
+
+        if (aIsOverloaded && !bIsOverloaded) return 1;
+        if (!aIsOverloaded && bIsOverloaded) return -1;
+
+        // 负载越低越好
+        if (a.loadPercent !== b.loadPercent) {
+          return a.loadPercent - b.loadPercent;
+        }
+
+        // 负载相同时，权重高的优先
+        return b.loadBalancingWeight - a.loadBalancingWeight;
+      });
+
+      // 策略4: 选择第一个机器人
+      const selectedRobot = candidateRobots[0];
+
+      this.logger.info('[机器人选择] 选择成功', {
+        selected: {
+          id: selectedRobot.robotId,
+          name: selectedRobot.name,
+          type: selectedRobot.robotType,
+          loadPercent: selectedRobot.loadPercent
+        },
+        intent,
+        priority
+      });
+
+      return selectedRobot;
+
+    } catch (error) {
+      this.logger.error('[机器人选择] 选择失败', {
+        intent,
+        priority,
+        error: error.message,
+        stack: error.stack
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * 基于意图和优先级选择机器人（简化版）
+   * @param {string} intent - 意图类型
+   * @param {string} priority - 优先级（P0, P1, P2, P3）
+   * @returns {Promise<Object>} 选中的机器人
+   */
+  async selectRobotForReply(intent, priority = 'P3') {
+    return await this.selectRobot({ intent, priority });
+  }
 }
 
 module.exports = new RobotService();

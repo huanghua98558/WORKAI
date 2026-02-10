@@ -329,6 +329,102 @@ class WorkToolApiService {
       throw error;
     }
   }
+
+  /**
+   * 计算回复延迟（模拟人工响应时间）
+   * @param {object} options - 延迟计算参数
+   * @param {string} options.intent - 意图类型（chat, service, help, risk, spam, welcome, admin）
+   * @param {string} options.priority - 优先级（P0, P1, P2, P3）
+   * @param {string} options.sentiment - 情感类型（positive, neutral, negative）
+   * @param {string} options.sentimentIntensity - 情感强度（low, medium, high）
+   * @returns {number} 延迟时间（毫秒）
+   */
+  calculateReplyDelay(options = {}) {
+    const { intent = 'chat', priority = 'P3', sentiment = 'neutral', sentimentIntensity = 'medium' } = options;
+
+    // 基础延迟（根据优先级）
+    const priorityDelay = {
+      'P0': 1000,   // 紧急：1秒
+      'P1': 2000,   // 高优先级：2秒
+      'P2': 3000,   // 中优先级：3秒
+      'P3': 5000    // 低优先级：5秒
+    };
+
+    // 意图类型延迟系数
+    const intentFactor = {
+      'risk': 0.5,      // 风险内容：快速响应
+      'spam': 0.8,      // 垃圾信息：略快
+      'admin': 0.3,     // 管理指令：最快
+      'service': 1.0,   // 服务咨询：正常
+      'help': 1.0,      // 帮助请求：正常
+      'welcome': 0.8,   // 欢迎：快速
+      'chat': 1.2       // 闲聊：略慢，更像人工
+    };
+
+    // 情感强度延迟系数
+    const sentimentFactor = {
+      'low': 1.0,
+      'medium': 1.0,
+      'high': 0.8      // 强烈情感：快速响应
+    };
+
+    // 基础延迟
+    let delay = priorityDelay[priority] || 3000;
+
+    // 应用意图系数
+    delay *= intentFactor[intent] || 1.0;
+
+    // 应用情感系数
+    delay *= sentimentFactor[sentimentIntensity] || 1.0;
+
+    // 负面情感需要更快的响应
+    if (sentiment === 'negative') {
+      delay *= 0.7;
+    }
+
+    // 添加随机波动（±20%），模拟人类响应的随机性
+    const randomFactor = 0.8 + Math.random() * 0.4;
+    delay *= randomFactor;
+
+    // 四舍五入到整数
+    delay = Math.round(delay);
+
+    // 确保延迟在合理范围内
+    delay = Math.max(500, Math.min(delay, 10000));
+
+    logger.info('[回复延迟计算] 计算结果', {
+      intent,
+      priority,
+      sentiment,
+      sentimentIntensity,
+      delay
+    });
+
+    return delay;
+  }
+
+  /**
+   * 带延迟发送消息
+   * @param {string} robotId - 机器人ID
+   * @param {object} message - 消息对象
+   * @param {object} delayOptions - 延迟选项
+   * @returns {Promise<object>} 发送结果
+   */
+  async sendRawMessageWithDelay(robotId, message, delayOptions = {}) {
+    const delay = this.calculateReplyDelay(delayOptions);
+
+    logger.info('[带延迟发送] 准备延迟发送', {
+      robotId,
+      delay,
+      delayOptions
+    });
+
+    // 延迟指定时间
+    await new Promise(resolve => setTimeout(resolve, delay));
+
+    // 发送消息
+    return await this.sendRawMessage(robotId, message);
+  }
 }
 
 // 导出单例
