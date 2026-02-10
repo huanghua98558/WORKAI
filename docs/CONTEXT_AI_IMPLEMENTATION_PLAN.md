@@ -90,49 +90,50 @@ class ContextPreparationService {
    * @param {string} sessionId - 会话ID
    * @param {Object} message - 消息对象
    * @param {Object} robot - 机器人对象
-   * @returns {Promise<Object>} 完整上下文数据
+   * @returns {Promise<ContextData>} 完整上下文数据
    */
   async prepareContext(sessionId, message, robot) {
-    // 1. 判断会话类型
-    const sessionType = await this.getSessionType(sessionId);
+    const startTime = Date.now();
 
-    // 2. 检索用户会话历史
-    const userSessionHistory = await this.getUserSessionHistory(sessionId);
+    // 1. 判断是否为新会话
+    const isNewSession = await this.checkIsNewSession(sessionId);
 
-    // 3. 检索社群会话历史
-    const groupSessionHistory = await this.getGroupSessionHistory(sessionId);
+    // 2. 检索历史消息
+    const historyMessages = await this.getHistoryMessages(sessionId, message);
 
-    // 4. 获取用户画像
-    const userProfile = await this.getUserProfile(sessionId);
+    // 3. 获取用户画像
+    const userProfile = await this.getUserProfile(message.receivedName, robot);
 
-    // 5. 获取工作人员状态
-    const staffStatus = await this.getStaffStatus(sessionId);
+    // 4. 获取工作人员状态
+    const staffStatus = await this.getStaffStatus(robot);
 
-    // 6. 获取售后任务状态
-    const taskStatus = await this.getTaskStatus(sessionId);
+    // 5. 获取售后任务状态
+    const taskStatus = await this.getTaskStatus(message.receivedName);
 
-    // 7. 获取群聊信息
-    const groupInfo = await this.getGroupInfo(sessionId);
+    // 6. 获取群聊信息
+    const groupInfo = await this.getGroupInfo(message.groupName, robot);
 
-    // 8. 动态调整上下文数量
-    const historyMessages = this.adjustContextCount(
-      userSessionHistory,
-      groupSessionHistory,
-      message.type
+    // 7. 动态调整上下文数量
+    const adjustedHistoryMessages = this.adjustContextCount(
+      historyMessages,
+      message.textType
     );
 
+    const retrievalTime = Date.now() - startTime;
+
     return {
-      session_type: sessionType,
-      is_new_session: historyMessages.length === 0,
       session_id: sessionId,
-      history_messages: historyMessages,
+      is_new_session: isNewSession,
+      history_messages: adjustedHistoryMessages,
       user_profile: userProfile,
-      group_profile: groupInfo,
       staff_status: staffStatus,
       task_status: taskStatus,
+      group_info: groupInfo,
       metadata: {
-        context_count: historyMessages.length,
-        context_type: this.getContextType(sessionType)
+        context_count: adjustedHistoryMessages.length,
+        context_type: this.getContextType(message.roomType),
+        retrieval_time: retrievalTime,
+        retrieval_strategy: this.getRetrievalStrategy(isNewSession, adjustedHistoryMessages.length)
       }
     };
   }
@@ -141,24 +142,82 @@ class ContextPreparationService {
 }
 ```
 
-#### 上下文数据结构
+#### 上下文数据结构（已修正）
 
 ```typescript
 interface ContextData {
-  session_type: 'user' | 'group';
-  is_new_session: boolean;
   session_id: string;
+  is_new_session: boolean;
   history_messages: HistoryMessage[];
   user_profile: UserProfile;
-  group_profile: GroupProfile;
   staff_status: StaffStatus;
   task_status: TaskStatus;
+  group_info: GroupInfo;
   metadata: {
     context_count: number;
     context_type: string;
+    retrieval_time: number;
+    retrieval_strategy: string;
   };
 }
+
+interface HistoryMessage {
+  message_id: string;
+  sender_type: 'user' | 'staff' | 'operator';
+  sender_name: string;
+  sender_enterprise: string;
+  sender_robot_id?: string;
+  content: string;
+  message_type: 'text' | 'image' | 'video' | 'audio';
+  timestamp: string;
+}
+
+interface UserProfile {
+  user_id: string;
+  user_name: string;
+  enterprise_name: string;
+  satisfaction_score: number;
+  problem_resolution_rate: number;
+  message_count: number;
+  last_message_time: string;
+  joined_at: string;
+  user_type: 'new' | 'active' | 'inactive' | 'archived';
+}
+
+interface StaffStatus {
+  online_staff: string[];
+  is_handling: boolean;
+  handling_staff: string | null;
+  staff_activity: 'high' | 'medium' | 'low';
+  total_staff_count: number;
+  online_staff_count: number;
+}
+
+interface TaskStatus {
+  has_pending_task: boolean;
+  task_id: string | null;
+  task_type: 'scan_qrcode' | 'bind_phone' | 'realname' | 'selfie' | 'other' | null;
+  task_status: 'pending' | 'in_progress' | 'waiting_user_response' | 'completed' | 'failed' | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+interface GroupInfo {
+  group_id: string;
+  group_name: string;
+  member_count: number;
+  message_count: number;
+  last_message_time: string;
+  group_type: 'external' | 'internal';
+  created_at: string;
+}
 ```
+
+**说明：**
+- ✅ 已修正数据结构，与现有 WorkTool AI 中枢系统保持一致
+- ✅ 字段命名与现有数据库表结构对齐
+- ✅ 数据来源与现有服务一致
+- ✅ 详细文档见 `docs/CONTEXT_DATA_STRUCTURE_REVISED.md`
 
 ---
 
