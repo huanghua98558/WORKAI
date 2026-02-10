@@ -9,6 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   GitBranch,
   RefreshCw,
   Play,
@@ -36,7 +43,8 @@ import {
   Maximize2,
   Minimize2,
   Network,
-  SearchCode
+  SearchCode,
+  Code
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import FlowEditor from '@/components/flow-engine-editor';
@@ -92,6 +100,8 @@ export default function FlowEngineManage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [activeTab, setActiveTab] = useState<'flows' | 'instances' | 'versions' | 'test' | 'monitor' | 'context-viz' | 'context-debug'>('flows');
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [editingJson, setEditingJson] = useState('');
+  const [isJsonValid, setIsJsonValid] = useState(true);
 
   // 编辑器对话框状态（统一用于创建和编辑）
   // 安全初始化对话框状态，避免服务端渲染时访问 window 对象
@@ -382,6 +392,22 @@ export default function FlowEngineManage() {
       const result = await getFlowDefinition(flowId);
       if (result.success && result.data) {
         setSelectedFlow(result.data);
+        // 格式化 JSON 到编辑器
+        const flowData = {
+          id: result.data.id,
+          name: result.data.name,
+          description: result.data.description,
+          version: result.data.version,
+          status: result.data.status,
+          trigger_type: result.data.trigger_type,
+          timeout: result.data.timeout,
+          retryConfig: result.data.retryConfig,
+          nodes: result.data.nodes || [],
+          edges: result.data.edges || [],
+          variables: result.data.variables || {},
+        };
+        setEditingJson(JSON.stringify(flowData, null, 2));
+        setIsJsonValid(true);
         setIsDetailDialogOpen(true);
       } else {
         toast({
@@ -395,6 +421,31 @@ export default function FlowEngineManage() {
       toast({
         title: "加载失败",
         description: '加载流程详情失败',
+        variant: "destructive",
+      });
+    }
+  };
+
+  // 编辑流程详情属性
+  const handleUpdateFlowProperties = async (updates: Partial<FlowDefinition>) => {
+    try {
+      const result = await updateFlowDefinition(selectedFlow!.id, updates);
+      if (result.success) {
+        await loadFlows();
+        // 更新选中的流程
+        setSelectedFlow(prev => prev ? { ...prev, ...updates } : null);
+        toast({
+          title: "更新成功",
+          description: "流程属性已更新",
+        });
+      } else {
+        throw new Error(result.error || '更新失败');
+      }
+    } catch (error) {
+      console.error('更新流程属性失败:', error);
+      toast({
+        title: "更新失败",
+        description: error instanceof Error ? error.message : '未知错误',
         variant: "destructive",
       });
     }
@@ -1075,103 +1126,272 @@ export default function FlowEngineManage() {
 
       {/* 查看详情对话框 */}
       {isDetailDialogOpen && selectedFlow && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <Card className="w-full max-w-3xl max-h-[80vh] overflow-y-auto">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>{selectedFlow.name}</CardTitle>
-                  <CardDescription>
-                    流程详情和配置信息
-                  </CardDescription>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    setIsDetailDialogOpen(false);
-                    setSelectedFlow(null);
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <GitBranch className="h-5 w-5 text-blue-500" />
+                  {selectedFlow.name}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  流程详情与配置编辑
+                </p>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* 基本信息 */}
-              <div className="space-y-3">
-                <h4 className="text-sm font-semibold">基本信息</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">版本:</span>
-                    <span className="ml-2">{selectedFlow.version}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">状态:</span>
-                    <span className="ml-2">{getStatusBadge(selectedFlow.status)}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">触发类型:</span>
-                    <span className="ml-2">{selectedFlow.trigger_type ? (TRIGGER_TYPE_CONFIG[selectedFlow.trigger_type]?.label || selectedFlow.trigger_type) : '未知'}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">执行次数:</span>
-                    <span className="ml-2">{selectedFlow.execution_count || 0}</span>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-muted-foreground">描述:</span>
-                    <p className="ml-2 mt-1">{selectedFlow.description || '暂无描述'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* 节点列表 */}
-              {selectedFlow.nodes && selectedFlow.nodes.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setIsDetailDialogOpen(false);
+                  setSelectedFlow(null);
+                  setEditingJson('');
+                  setIsJsonValid(true);
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="flex-1 overflow-hidden flex">
+              {/* 左侧：属性编辑 */}
+              <div className="w-1/2 border-r overflow-y-auto p-6 space-y-6">
                 <div className="space-y-3">
-                  <h4 className="text-sm font-semibold">节点列表 ({selectedFlow.nodes.length})</h4>
-                  <div className="space-y-2">
-                    {selectedFlow.nodes.map((node, index) => {
+                  <Label className="text-sm font-semibold">基本信息</Label>
+                  
+                  <div className="grid gap-3">
+                    <div>
+                      <Label htmlFor="flow-name" className="text-xs">流程名称</Label>
+                      <Input
+                        id="flow-name"
+                        value={selectedFlow.name}
+                        onChange={(e) => setSelectedFlow({ ...selectedFlow, name: e.target.value })}
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="flow-description" className="text-xs">描述</Label>
+                      <Textarea
+                        id="flow-description"
+                        value={selectedFlow.description || ''}
+                        onChange={(e) => setSelectedFlow({ ...selectedFlow, description: e.target.value })}
+                        className="mt-1"
+                        rows={3}
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="flow-version" className="text-xs">版本</Label>
+                        <Input
+                          id="flow-version"
+                          value={selectedFlow.version || '1.0.0'}
+                          onChange={(e) => setSelectedFlow({ ...selectedFlow, version: e.target.value })}
+                          className="mt-1"
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="flow-status" className="text-xs">状态</Label>
+                        <Select
+                          value={selectedFlow.status || 'active'}
+                          onValueChange={(value) => setSelectedFlow({ ...selectedFlow, status: value as any })}
+                        >
+                          <SelectTrigger id="flow-status" className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">运行中</SelectItem>
+                            <SelectItem value="inactive">已停用</SelectItem>
+                            <SelectItem value="draft">草稿</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="flow-trigger" className="text-xs">触发类型</Label>
+                        <Select
+                          value={selectedFlow.trigger_type || 'webhook'}
+                          onValueChange={(value) => setSelectedFlow({ ...selectedFlow, trigger_type: value as any })}
+                        >
+                          <SelectTrigger id="flow-trigger" className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(TRIGGER_TYPE_CONFIG).map(([key, config]) => (
+                              <SelectItem key={key} value={key}>
+                                {config.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div>
+                        <Label className="text-xs">执行次数</Label>
+                        <div className="mt-1 text-sm">{selectedFlow.execution_count || 0}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">节点列表 ({selectedFlow.nodes?.length || 0})</Label>
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                    {selectedFlow.nodes && selectedFlow.nodes.length > 0 ? selectedFlow.nodes.map((node, index) => {
                       const config = getNodeTypeConfig(node.type);
                       const Icon = config?.icon || Box;
                       return (
                         <Card key={node.id} className="p-3">
-                          <div className="flex items-center gap-3">
-                            <Badge className={`${config?.color || 'text-gray-500'} border-current`} variant="outline">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className={`text-xs ${config?.color || 'text-gray-500'} border-current`}>
                               {index + 1}
                             </Badge>
-                            <Icon className={`h-5 w-5 ${config?.color || 'text-gray-500'}`} />
-                            <div className="flex-1">
-                              <div className="font-medium">
+                            <Icon className={`h-4 w-4 ${config?.color || 'text-gray-500'}`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm truncate">
                                 {node.data?.name || node.name || node.id || '未命名节点'}
                               </div>
-                              <div className="text-sm text-muted-foreground">
-                                类型: {config?.label || node.type}
+                              <div className="text-xs text-muted-foreground">
+                                {config?.label || node.type}
                               </div>
                             </div>
                           </div>
                         </Card>
                       );
-                    })}
+                    }) : (
+                      <div className="text-sm text-muted-foreground p-3 border rounded-lg">
+                        暂无节点
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
-
-              {/* 时间信息 */}
-              <div className="space-y-3">
-                <h4 className="text-sm font-semibold">时间信息</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">创建时间:</span>
-                    <span className="ml-2">{formatTime(selectedFlow.created_at)}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">更新时间:</span>
-                    <span className="ml-2">{formatTime(selectedFlow.updated_at)}</span>
+                
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">时间信息</Label>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">创建时间:</span>
+                      <div className="mt-1">{formatTime(selectedFlow.created_at)}</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">更新时间:</span>
+                      <div className="mt-1">{formatTime(selectedFlow.updated_at)}</div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+              
+              {/* 右侧：JSON编辑器 */}
+              <div className="w-1/2 flex flex-col overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2 border-b bg-slate-50">
+                  <div className="flex items-center gap-2">
+                    <Code className="w-4 h-4 text-slate-600" />
+                    <span className="font-semibold text-sm">JSON 编辑器</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isJsonValid ? (
+                      <span className="flex items-center gap-1 text-xs text-green-600">
+                        <CheckCircle className="w-3 h-3" />
+                        有效
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-xs text-red-600">
+                        <XCircle className="w-3 h-3" />
+                        无效
+                      </span>
+                    )}
+                    <Button variant="outline" size="sm" className="h-7 text-xs">
+                      格式化
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-7 text-xs">
+                      压缩
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-hidden p-4">
+                  <textarea
+                    value={editingJson}
+                    onChange={(e) => {
+                      setEditingJson(e.target.value);
+                      try {
+                        JSON.parse(e.target.value);
+                        setIsJsonValid(true);
+                      } catch {
+                        setIsJsonValid(false);
+                      }
+                    }}
+                    className={`w-full h-full font-mono text-xs p-3 rounded-lg border-2 resize-none overflow-auto ${
+                      isJsonValid ? 'border-slate-200 focus:border-blue-500' : 'border-red-500 focus:border-red-500'
+                    }`}
+                    placeholder="流程定义的 JSON..."
+                  />
+                </div>
+                <div className="p-3 bg-blue-50 text-xs text-blue-700">
+                  💡 提示：编辑 JSON 后点击"保存"按钮。确保 JSON 格式正确，否则无法保存。
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-end gap-3 p-6 border-t">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsDetailDialogOpen(false);
+                  setSelectedFlow(null);
+                  setEditingJson('');
+                }}
+              >
+                取消
+              </Button>
+              <Button
+                onClick={async () => {
+                  // 如果JSON有效，从JSON更新
+                  if (isJsonValid && editingJson) {
+                    try {
+                      const parsedJson = JSON.parse(editingJson);
+                      await handleUpdateFlowProperties({
+                        name: parsedJson.name,
+                        description: parsedJson.description,
+                        version: parsedJson.version,
+                        status: parsedJson.status,
+                        trigger_type: parsedJson.trigger_type,
+                        nodes: parsedJson.nodes,
+                        edges: parsedJson.edges,
+                        variables: parsedJson.variables,
+                        timeout: parsedJson.timeout,
+                        retryConfig: parsedJson.retryConfig,
+                      });
+                    } catch (error) {
+                      toast({
+                        variant: "destructive",
+                        title: "JSON解析失败",
+                        description: error instanceof Error ? error.message : '未知错误',
+                      });
+                      return;
+                    }
+                  } else {
+                    // 否则从表单字段更新
+                    await handleUpdateFlowProperties({
+                      name: selectedFlow.name,
+                      description: selectedFlow.description,
+                      version: selectedFlow.version,
+                      status: selectedFlow.status,
+                      trigger_type: selectedFlow.trigger_type,
+                    });
+                  }
+                  setIsDetailDialogOpen(false);
+                  setSelectedFlow(null);
+                  setEditingJson('');
+                }}
+                disabled={!isJsonValid}
+                className="gap-2"
+              >
+                <Save className="h-4 w-4" />
+                保存更改
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
