@@ -62,6 +62,12 @@ console.log('[app.js] ai-module.api loaded successfully');
 console.log('[app.js] Attempting to load robot-monitoring.api...');
 const robotMonitoringApiRoutes = require('./routes/robot-monitoring.api');
 console.log('[app.js] robot-monitoring.api loaded successfully');
+console.log('[app.js] Attempting to load sse.api...');
+const sseApiRoutes = require('./routes/sse.api');
+console.log('[app.js] sse.api loaded successfully');
+console.log('[app.js] Attempting to load sse-test.api...');
+const sseTestApiRoutes = require('./routes/sse-test.api');
+console.log('[app.js] sse-test.api loaded successfully');
 
 const redisClient = require('./lib/redis');
 const { getLogger, fastifyRequestLogger } = require('./lib/logger');
@@ -184,6 +190,10 @@ fastify.register(avatarApiRoutes, { prefix: '/api/avatar' });
 // 注册权限管理API
 fastify.register(permissionApiRoutes, { prefix: '/api/permissions' });
 fastify.register(apiKeyApiRoutes, { prefix: '/api/apikeys' });
+// 注册SSE实时消息推送API
+fastify.register(sseApiRoutes, { prefix: '/api' });
+// 注册SSE测试路由
+fastify.register(sseTestApiRoutes, { prefix: '/api' });
 
 // Prometheus 监控端点
 fastify.get('/metrics', async (request, reply) => {
