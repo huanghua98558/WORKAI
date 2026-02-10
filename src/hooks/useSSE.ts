@@ -232,7 +232,9 @@ export function useSSE(options: UseSSEOptions = {}) {
 
   // 组件挂载时自动连接
   useEffect(() => {
-    if (sessionId || robotId) {
+    // 支持全局监听（不传sessionId或robotId）和特定会话/机器人监听
+    // 只要有onMessage回调就连接
+    if (onMessage) {
       connect();
     }
 
@@ -240,7 +242,7 @@ export function useSSE(options: UseSSEOptions = {}) {
     return () => {
       cleanup();
     };
-  }, [sessionId, robotId, connect, cleanup]);
+  }, [sessionId, robotId, onMessage, connect, cleanup]);
 
   return {
     connected,

@@ -13,6 +13,7 @@ const { flowSelector, SelectionStrategy } = require('./flow-selector.service'); 
 const { collaborationService } = require('./collaboration.service'); // 协同分析服务
 const ContextHelper = require('../lib/context-helper'); // Context 工具类
 const sessionMessageService = require('./session-message.service'); // 会话消息服务
+const unifiedAnalysisService = require('./unified-analysis.service'); // 统一AI分析服务
 
 const logger = getLogger('FLOW_ENGINE');
 
@@ -76,7 +77,10 @@ const NodeType = {
   AI_REPLY_ENHANCED: 'ai_reply_enhanced', // 增强AI回复节点（支持图片上下文）
   
   // 上下文增强器节点
-  CONTEXT_ENHANCER: 'context_enhancer' // 上下文增强器节点（提取上下文变量并生成补充提示词）
+  CONTEXT_ENHANCER: 'context_enhancer', // 上下文增强器节点（提取上下文变量并生成补充提示词）
+  
+  // 统一AI分析节点
+  UNIFIED_ANALYZE: 'unified_analyze' // 统一AI分析节点（使用UnifiedAnalysisService进行上下文准备+意图识别+情感分析）
 };
 
 // 流程状态枚举
@@ -161,7 +165,10 @@ class FlowEngine {
       [NodeType.AI_REPLY_ENHANCED]: this.handleAIReplyEnhancedNode.bind(this),
       
       // 上下文增强器节点处理器
-      [NodeType.CONTEXT_ENHANCER]: this.handleContextEnhancerNode.bind(this)
+      [NodeType.CONTEXT_ENHANCER]: this.handleContextEnhancerNode.bind(this),
+      
+      // 统一AI分析节点处理器
+      [NodeType.UNIFIED_ANALYZE]: this.handleUnifiedAnalyzeNode.bind(this)
     };
 
     // 模板缓存
@@ -5955,6 +5962,145 @@ class FlowEngine {
     }
     
     return prompt;
+  }
+
+  /**
+   * 处理统一AI分析节点
+   * 使用UnifiedAnalysisService进行上下文准备+意图识别+情感分析
+   */
+  async handleUnifiedAnalyzeNode(node, context) {
+    logger.info('执行统一AI分析节点', { node, context });
+
+    try {
+      const { data } = node;
+      const { config } = data || {};
+      
+      const {
+        enableContext = true,
+        enableIntent = true,
+        enableSentiment = true,
+        sessionId,
+        message,
+        robot
+      } = config || {};
+
+      // 从上下文中获取必要的参数
+      const actualSessionId = sessionId || context.sessionId;
+      const actualMessage = message || context.message;
+      const actualRobot = robot || context.robot;
+
+      // 验证必需参数
+      if (!actualSessionId) {
+        logger.warn('统一AI分析节点缺少sessionId');
+        return {
+          success: false,
+          error: '缺少sessionId参数',
+          context: {
+            ...context,
+            lastNodeType: 'unified_analyze',
+            analyzeError: '缺少sessionId参数'
+          }
+        };
+      }
+
+      if (!actualMessage) {
+        logger.warn('统一AI分析节点缺少message');
+        return {
+          success: false,
+          error: '缺少message参数',
+          context: {
+            ...context,
+            lastNodeType: 'unified_analyze',
+            analyzeError: '缺少message参数'
+          }
+        };
+      }
+
+      if (!actualRobot) {
+        logger.warn('统一AI分析节点缺少robot');
+        return {
+          success: false,
+          error: '缺少robot参数',
+          context: {
+            ...context,
+            lastNodeType: 'unified_analyze',
+            analyzeError: '缺少robot参数'
+          }
+        };
+      }
+
+      // 调用UnifiedAnalysisService进行统一分析
+      const analysisResult = await unifiedAnalysisService.analyze(
+        actualSessionId,
+        actualMessage,
+        actualRobot,
+        {
+          enableContext,
+          enableIntent,
+          enableSentiment
+        }
+      );
+
+      logger.info('统一AI分析完成', {
+        sessionId: actualSessionId,
+        intent: analysisResult.intent?.intent,
+        sentiment: analysisResult.sentiment?.sentiment,
+        hasActionSuggestions: analysisResult.action_suggestions.length > 0,
+        shouldTriggerAlert: analysisResult.alert_trigger.should_trigger
+      });
+
+      // 将分析结果写入上下文
+      const updatedContext = {
+        ...context,
+        // 上下文数据
+        context_data: analysisResult.context,
+        
+        // 用户画像摘要
+        user_profile: analysisResult.user_profile_summary,
+        
+        // 意图识别结果
+        intent: analysisResult.intent?.intent,
+        intent_confidence: analysisResult.intent?.confidence,
+        intent_reasoning: analysisResult.intent?.reasoning,
+        
+        // 情感分析结果
+        sentiment: analysisResult.sentiment?.sentiment,
+        sentiment_confidence: analysisResult.sentiment?.confidence,
+        emotional_intensity: analysisResult.sentiment?.emotional_intensity,
+        key_emotions: analysisResult.sentiment?.key_emotions,
+        
+        // 行动建议
+        action_suggestions: analysisResult.action_suggestions,
+        
+        // 告警触发判断
+        alert_trigger: analysisResult.alert_trigger,
+        
+        // 原始分析结果
+        analysis_result: analysisResult,
+        
+        // 标记节点类型
+        lastNodeType: 'unified_analyze'
+      };
+
+      return {
+        success: true,
+        analysisResult,
+        context: updatedContext
+      };
+
+    } catch (error) {
+      logger.error('统一AI分析节点执行失败', { error: error.message, stack: error.stack });
+      
+      return {
+        success: false,
+        error: error.message,
+        context: {
+          ...context,
+          lastNodeType: 'unified_analyze',
+          analyzeError: error.message
+        }
+      };
+    }
   }
 }
 
