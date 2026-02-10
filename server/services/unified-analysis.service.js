@@ -10,6 +10,8 @@
 
 const contextPreparationService = require('./context-preparation.service');
 const robotAIService = require('./robot-ai.service');
+const alertTriggerService = require('./alert-trigger.service');
+const taskAssignmentService = require('./task-assignment.service');
 
 class UnifiedAnalysisService {
   constructor() {
@@ -135,6 +137,52 @@ class UnifiedAnalysisService {
         hasActionSuggestion: analysisResult.action_suggestions.length > 0,
         shouldTriggerAlert: analysisResult.alert_trigger.should_trigger
       });
+
+      // 如果需要触发告警，执行告警触发逻辑
+      if (analysisResult.alert_trigger.should_trigger) {
+        console.log('[UnifiedAnalysis] 触发告警...');
+        try {
+          await alertTriggerService.triggerAlert({
+            sessionId,
+            intentType: intentResult?.intent || 'unknown',
+            intent: intentResult?.intent,
+            userId: message.senderId,
+            userName: message.receivedName,
+            groupId: message.groupId,
+            groupName: message.groupName,
+            messageContent: message.content,
+            robotId: robot.robotId,
+            robotName: robot.name,
+            alertLevel: analysisResult.alert_trigger.alert_level,
+            sentiment: sentimentResult?.sentiment
+          });
+          console.log('[UnifiedAnalysis] ✅ 告警触发成功');
+        } catch (alertError) {
+          console.error('[UnifiedAnalysis] ❌ 告警触发失败:', alertError);
+          // 告警触发失败不影响后续流程
+        }
+      }
+
+      // 创建任务（基于分析结果）
+      try {
+        const task = await taskAssignmentService.createTaskFromAnalysis(analysisResult, {
+          sessionId,
+          message,
+          robot,
+        });
+        if (task) {
+          console.log('[UnifiedAnalysis] ✅ 任务创建成功:', task.taskId);
+          // 将任务 ID 添加到分析结果中
+          analysisResult.task_id = task.taskId;
+          analysisResult.task_created = true;
+        } else {
+          analysisResult.task_created = false;
+        }
+      } catch (taskError) {
+        console.error('[UnifiedAnalysis] ❌ 任务创建失败:', taskError);
+        // 任务创建失败不影响分析结果返回
+        analysisResult.task_created = false;
+      }
 
       return analysisResult;
 

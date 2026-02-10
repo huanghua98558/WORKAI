@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSSE } from '@/hooks/useSSE';
+import { AIAnalysisBadge } from '@/components/ai-analysis-badge';
 
 // 类型定义
 interface MonitorSummary {
@@ -141,6 +142,14 @@ interface Session {
   lastActiveTime: string;
   messageCount: number;
   lastMessage?: string;
+  aiAnalysis?: {
+    intent?: string;
+    intentConfidence?: number;
+    sentiment?: string;
+    sentimentScore?: number;
+    shouldTriggerAlert?: boolean;
+    suggestedActions?: string[];
+  };
 }
 
 export default function NewDashboard() {
@@ -174,6 +183,16 @@ export default function NewDashboard() {
       
       console.log('[Dashboard] 处理实时消息:', latestMessage);
       
+      // 提取 AI 分析结果（如果消息中包含）
+      const aiAnalysis = latestMessage.aiAnalysis ? {
+        intent: latestMessage.aiAnalysis.intent,
+        intentConfidence: latestMessage.aiAnalysis.confidence,
+        sentiment: latestMessage.aiAnalysis.sentiment,
+        sentimentScore: latestMessage.aiAnalysis.confidence,
+        shouldTriggerAlert: latestMessage.aiAnalysis.shouldTriggerAlert,
+        suggestedActions: latestMessage.aiAnalysis.suggestedActions,
+      } : undefined;
+      
       // 更新最近活跃会话列表
       setRecentSessions(prevSessions => {
         const existingSession = prevSessions.find(s => s.sessionId === latestMessage.sessionId);
@@ -186,7 +205,8 @@ export default function NewDashboard() {
                   ...s,
                   lastMessage: latestMessage.content,
                   lastActiveTime: latestMessage.createdAt,
-                  messageCount: s.messageCount + 1
+                  messageCount: s.messageCount + 1,
+                  aiAnalysis: aiAnalysis // 更新 AI 分析结果
                 }
               : s
           );
@@ -199,7 +219,8 @@ export default function NewDashboard() {
             status: latestMessage.senderType === 'ai' ? 'auto' : 'human',
             lastActiveTime: latestMessage.createdAt,
             messageCount: 1,
-            lastMessage: latestMessage.content
+            lastMessage: latestMessage.content,
+            aiAnalysis: aiAnalysis // 添加 AI 分析结果
           };
           
           // 最多保留10个会话
@@ -879,6 +900,10 @@ export default function NewDashboard() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
+                    {/* AI 分析结果 */}
+                    {session.aiAnalysis && (
+                      <AIAnalysisBadge analysis={session.aiAnalysis} size="sm" />
+                    )}
                     <div className="text-right">
                       <div className="text-xs text-slate-600 dark:text-slate-400">
                         {session.messageCount} 条消息
