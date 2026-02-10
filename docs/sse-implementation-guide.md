@@ -743,6 +743,78 @@ upstream sse_backend {
 
 ---
 
+## 已知问题和修复记录
+
+### 修复1: 触发器表名错误 (2026-02-10)
+
+**问题描述**:
+- 触发器绑定到错误的表 `session_messages`
+- 实际的表名是 `messages`
+- 字段映射也不正确
+
+**修复步骤**:
+1. 删除旧触发器和函数
+2. 重新创建触发器函数，使用正确的字段映射
+3. 在 `messages` 表上创建触发器
+
+**修改文件**:
+- `server/database/migrations/add_sse_notification_trigger.js`
+
+**验证方法**:
+```bash
+# 检查触发器
+node check-trigger.js
+
+# 测试触发器
+node test-trigger.js
+```
+
+---
+
+### 修复2: SSE API使用共享连接 (2026-02-10)
+
+**问题描述**:
+- SSE API使用 `getDb()` 返回的共享连接
+- 共享连接无法正确接收PostgreSQL通知事件
+- 导致SSE无法实时推送消息
+
+**修复步骤**:
+1. 修改SSE API，使用独立的PostgreSQL连接
+2. 每个SSE请求创建新的 `pg.Client`
+3. 在连接断开时关闭独立连接
+
+**修改文件**:
+- `server/routes/sse.api.js`
+
+**关键代码变更**:
+```javascript
+// 旧代码（错误）
+const db = await getDb();
+const sql = db.session.client;
+await sql.query(`LISTEN ${channel}`);
+
+// 新代码（正确）
+const sseClient = new pg.Client({
+  connectionString: process.env.PGDATABASE_URL,
+});
+await sseClient.connect();
+await sseClient.query(`LISTEN ${channel}`);
+```
+
+**验证方法**:
+```bash
+# 测试NOTIFY机制
+node test-notify-2.js
+
+# 测试完整SSE流程
+node test-sse.js
+
+# 测试后端API
+bash test-backend-api.sh
+```
+
+---
+
 ## 总结
 
 本方案提供了一个完整的SSE实时消息推送解决方案，具有以下特点：

@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
   const robotId = searchParams.get('robotId');
 
   // 构建后端URL
+  // 后端默认运行在5001端口，通过环境变量BACKEND_URL可以覆盖
   const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
   const params = new URLSearchParams();
   if (sessionId) params.append('sessionId', sessionId);

@@ -33,9 +33,10 @@ async function addSSENotificationTrigger() {
             'id', NEW.id,
             'sessionId', NEW.session_id,
             'content', NEW.content,
-            'isFromBot', NEW.is_from_bot,
-            'isHuman', NEW.is_human,
-            'intent', NEW.intent,
+            'senderType', NEW.sender_type,
+            'senderId', NEW.sender_id,
+            'senderName', NEW.sender_name,
+            'messageType', NEW.message_type,
             'createdAt', NEW.created_at
           )::text
         );
@@ -47,7 +48,7 @@ async function addSSENotificationTrigger() {
             'id', NEW.id,
             'sessionId', NEW.session_id,
             'content', NEW.content,
-            'isFromBot', NEW.is_from_bot,
+            'senderType', NEW.sender_type,
             'createdAt', NEW.created_at
           )::text
         );
@@ -72,10 +73,10 @@ async function addSSENotificationTrigger() {
     if (triggerExists) {
       logger.info('触发器已存在，跳过创建');
     } else {
-      // 3. 在session_messages表上创建触发器
+      // 3. 在messages表上创建触发器
       await db.execute(`
         CREATE TRIGGER trigger_notify_new_message
-        AFTER INSERT ON session_messages
+        AFTER INSERT ON messages
         FOR EACH ROW
         EXECUTE FUNCTION notify_new_message();
       `);

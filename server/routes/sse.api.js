@@ -116,18 +116,26 @@ async function sseMessageRoutes(fastify, options) {
     const channel = sessionId ? `session_messages:${sessionId}` : 'session_messages:global';
 
     try {
-      // 获取原始PostgreSQL客户端
-      const db = await getDb();
-      const sql = db.session.client;
+      logger.info('创建独立数据库连接用于SSE监听...');
 
-      if (!sql) {
-        throw new Error('无法获取PostgreSQL客户端');
-      }
+      // 创建独立的PostgreSQL连接用于LISTEN/NOTIFY
+      const sseClient = new pg.Client({
+        connectionString: process.env.PGDATABASE_URL,
+      });
+
+      await sseClient.connect();
+      logger.info('✓ SSE数据库连接已建立');
 
       // 开始监听PostgreSQL通知
-      await sql.query(`LISTEN ${channel}`);
+      logger.info('准备执行LISTEN', { channel });
 
-      logger.info('开始监听SSE通道', { channel, sessionId, robotId });
+      try {
+        await sseClient.query(`LISTEN ${channel}`);
+        logger.info('✓ LISTEN成功', { channel });
+      } catch (err) {
+        logger.error('LISTEN失败', { error: err.message });
+        throw err;
+      }
 
       // 添加到活跃连接列表
       if (!activeConnections.has(channel)) {
@@ -163,7 +171,7 @@ async function sseMessageRoutes(fastify, options) {
       };
 
       // 注册通知监听器
-      sql.on('notification', handleNotification);
+      sseClient.on('notification', handleNotification);
 
       // 心跳保活（每30秒发送一次）
       const heartbeatInterval = setInterval(() => {
@@ -179,7 +187,7 @@ async function sseMessageRoutes(fastify, options) {
       }, 30000);
 
       // 客户端断开连接时清理资源
-      request.raw.on('close', () => {
+      request.raw.on('close', async () => {
         logger.info('SSE连接已断开', { channel, sessionId });
 
         // 移除连接
@@ -191,12 +199,15 @@ async function sseMessageRoutes(fastify, options) {
         // 清理定时器
         clearInterval(heartbeatInterval);
 
-        // 取消监听PostgreSQL通知
-        const sql = db.session.client;
-        sql.removeListener('notification', handleNotification);
-        sql.query(`UNLISTEN ${channel}`).catch((err) => {
-          logger.warn('取消监听失败', { error: err.message });
-        });
+        // 取消监听PostgreSQL通知并关闭数据库连接
+        try {
+          sseClient.removeListener('notification', handleNotification);
+          await sseClient.query(`UNLISTEN "${channel}"`);
+          await sseClient.end();
+          logger.info('✓ SSE数据库连接已关闭', { channel });
+        } catch (err) {
+          logger.warn('清理SSE资源失败', { error: err.message });
+        }
       });
 
     } catch (error) {
