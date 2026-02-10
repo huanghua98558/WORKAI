@@ -200,18 +200,13 @@ export default function TestPanel() {
           <div className="space-y-2">
             <Label htmlFor="flow-select">选择流程</Label>
             <Select value={selectedFlow} onValueChange={setSelectedFlow}>
-              <SelectTrigger id="flow-select" className="w-full">
+              <SelectTrigger id="flow-select">
                 <SelectValue placeholder="选择要测试的流程" />
               </SelectTrigger>
-              <SelectContent className="max-w-2xl">
+              <SelectContent>
                 {flows.map((flow) => (
-                  <SelectItem key={flow.id} value={flow.id} className="max-w-2xl">
-                    <div className="flex flex-col items-start gap-1">
-                      <span className="font-medium truncate">{flow.name}</span>
-                      {flow.description && (
-                        <span className="text-xs text-muted-foreground truncate">{flow.description}</span>
-                      )}
-                    </div>
+                  <SelectItem key={flow.id} value={flow.id}>
+                    {flow.name}
                   </SelectItem>
                 ))}
               </SelectContent>

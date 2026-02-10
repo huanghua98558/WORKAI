@@ -176,17 +176,17 @@ export default function ExecutionMonitor() {
                   key={instance.id}
                   className="border rounded-lg p-4 space-y-2 hover:bg-accent transition-colors"
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <h3 className="font-semibold truncate">{instance.flowName}</h3>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-semibold">{instance.flowName}</h3>
                       <Badge variant="secondary">v{instance.flowDefinitionVersion}</Badge>
                       {getStatusBadge(instance.status)}
                     </div>
-                    <div className="text-sm text-muted-foreground whitespace-nowrap">
+                    <div className="text-sm text-muted-foreground">
                       {formatTime(instance.startedAt)}
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-3 gap-4 text-sm">
                     <div>
                       <span className="text-muted-foreground">节点进度：</span>
                       <span className="font-medium">
@@ -205,7 +205,7 @@ export default function ExecutionMonitor() {
                     {instance.currentNodeId && (
                       <div>
                         <span className="text-muted-foreground">当前节点：</span>
-                        <span className="font-medium truncate block" title={instance.currentNodeId}>{instance.currentNodeId}</span>
+                        <span className="font-medium">{instance.currentNodeId}</span>
                       </div>
                     )}
                   </div>

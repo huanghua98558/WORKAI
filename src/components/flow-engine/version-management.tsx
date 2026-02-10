@@ -201,18 +201,13 @@ export default function VersionManagement() {
           <div className="space-y-2">
             <Label htmlFor="flow-select">选择流程</Label>
             <Select value={selectedFlow} onValueChange={handleFlowChange}>
-              <SelectTrigger id="flow-select" className="w-full">
+              <SelectTrigger id="flow-select">
                 <SelectValue placeholder="选择要管理的流程" />
               </SelectTrigger>
-              <SelectContent className="max-w-2xl">
+              <SelectContent>
                 {flows.map((flow) => (
-                  <SelectItem key={flow.id} value={flow.id} className="max-w-2xl">
-                    <div className="flex flex-col items-start gap-1">
-                      <span className="font-medium truncate">{flow.name}</span>
-                      {flow.description && (
-                        <span className="text-xs text-muted-foreground truncate">{flow.description}</span>
-                      )}
-                    </div>
+                  <SelectItem key={flow.id} value={flow.id}>
+                    {flow.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -272,8 +267,8 @@ export default function VersionManagement() {
                     key={version.id}
                     className="border rounded-lg p-4 space-y-3 hover:bg-accent transition-colors"
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
                         {version.is_active ? (
                           <Badge className="gap-1">
                             <CheckCircle className="h-3 w-3" />
@@ -285,18 +280,18 @@ export default function VersionManagement() {
                             历史版本
                           </Badge>
                         )}
-                        <h3 className="font-semibold truncate">v{version.version}</h3>
+                        <h3 className="font-semibold">v{version.version}</h3>
                       </div>
-                      <div className="text-sm text-muted-foreground whitespace-nowrap">
+                      <div className="text-sm text-muted-foreground">
                         {formatTime(version.created_at)}
                       </div>
                     </div>
 
                     {version.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">{version.description}</p>
+                      <p className="text-sm text-muted-foreground">{version.description}</p>
                     )}
 
-                    <div className="flex gap-2 flex-wrap">
+                    <div className="flex gap-2">
                       {!version.is_active && (
                         <Button
                           variant="outline"

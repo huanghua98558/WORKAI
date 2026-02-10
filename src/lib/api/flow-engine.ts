@@ -65,10 +65,8 @@ export async function getFlowDefinitions(params?: {
     if (params?.limit) queryString.append('limit', String(params.limit));
     if (params?.offset) queryString.append('offset', String(params.offset));
 
-    console.log('[getFlowDefinitions] Request params:', params);
     const response = await fetch(`/api/flow-engine/definitions${queryString.toString() ? `?${queryString.toString()}` : ''}`);
     const data = await response.json();
-    console.log('[getFlowDefinitions] Response:', { success: data.success, count: data.data?.length, total: data.total });
     
     return {
       success: data.success !== false,

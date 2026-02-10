@@ -180,8 +180,6 @@ export default function FlowEngineManage() {
     setIsLoading(true);
     try {
       const result = await getFlowDefinitions({ limit: 50 });
-      console.log('[FlowEngineManage] loadFlows result:', result);
-      console.log('[FlowEngineManage] flows count:', result.data?.length);
       if (result.success) {
         setFlows(result.data);
       } else {
