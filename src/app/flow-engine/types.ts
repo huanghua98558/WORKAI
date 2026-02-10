@@ -3,6 +3,27 @@
  */
 
 // ============================================
+// 流程状态枚举
+// ============================================
+export const FlowStatus = {
+  PENDING: 'pending',      // 待执行
+  RUNNING: 'running',      // 运行中
+  COMPLETED: 'completed',  // 已完成
+  FAILED: 'failed',        // 失败
+  CANCELLED: 'cancelled',  // 已取消
+  TIMEOUT: 'timeout'       // 超时
+} as const;
+
+// ============================================
+// 触发类型枚举
+// ============================================
+export const TriggerType = {
+  WEBHOOK: 'webhook',      // Webhook 触发
+  MANUAL: 'manual',        // 手动触发
+  SCHEDULED: 'scheduled'   // 定时触发
+} as const;
+
+// ============================================
 // 核心节点类型（16种）
 // ============================================
 export const NODE_TYPES = {

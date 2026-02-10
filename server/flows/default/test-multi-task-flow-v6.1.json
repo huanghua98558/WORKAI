@@ -1,0 +1,152 @@
+{
+  "id": "test_multi_task_flow_v6_1",
+  "name": "测试多任务节点流程 v6.1",
+  "description": "测试 v6.1 多任务节点架构的完整流程",
+  "version": "6.1.0",
+  "isDefault": false,
+  "priority": 1,
+  "category": "测试流程",
+  "tags": ["测试", "多任务", "v6.1"],
+  "triggerType": "manual",
+  "triggerConfig": {
+    "eventType": "test",
+    "method": "POST"
+  },
+  "nodes": [
+    {
+      "id": "node_start",
+      "type": "start",
+      "name": "开始",
+      "position": { "x": 50, "y": 100 },
+      "data": {
+        "name": "开始",
+        "description": "流程开始",
+        "icon": "▶️",
+        "color": "bg-green-500"
+      }
+    },
+    {
+      "id": "node_multi_task_ai",
+      "type": "multi_task_ai",
+      "name": "AI处理多任务",
+      "position": { "x": 250, "y": 100 },
+      "data": {
+        "name": "AI处理多任务",
+        "description": "测试多任务AI节点",
+        "icon": "🧠",
+        "color": "bg-purple-500",
+        "config": {
+          "executeMode": "sequential",
+          "failFast": true,
+          "tasks": [
+            {
+              "id": "task_intent",
+              "operation": "intent_analyze",
+              "config": {
+                "modelId": "default"
+              }
+            },
+            {
+              "id": "task_emotion",
+              "operation": "emotion_analyze",
+              "config": {
+                "modelId": "default"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_multi_task_data",
+      "type": "multi_task_data",
+      "name": "数据处理多任务",
+      "position": { "x": 450, "y": 100 },
+      "data": {
+        "name": "数据处理多任务",
+        "description": "测试多任务数据节点",
+        "icon": "🗄️",
+        "color": "bg-blue-500",
+        "config": {
+          "executeMode": "sequential",
+          "failFast": true,
+          "tasks": [
+            {
+              "id": "task_query",
+              "operation": "query",
+              "config": {
+                "table": "sessions",
+                "query": "SELECT * FROM sessions LIMIT 1"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_decision",
+      "type": "decision",
+      "name": "决策节点",
+      "position": { "x": 650, "y": 100 },
+      "data": {
+        "name": "决策节点",
+        "description": "测试决策节点",
+        "icon": "🔀",
+        "color": "bg-orange-500",
+        "config": {
+          "conditions": [
+            {
+              "label": "成功",
+              "expression": "context.lastNodeSuccess === true",
+              "targetNodeId": "node_end"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_end",
+      "type": "end",
+      "name": "结束",
+      "position": { "x": 850, "y": 100 },
+      "data": {
+        "name": "结束",
+        "description": "流程结束",
+        "icon": "⏹️",
+        "color": "bg-gray-500"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_start_multi_task_ai",
+      "source": "node_start",
+      "target": "node_multi_task_ai",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_multi_task_ai_multi_task_data",
+      "source": "node_multi_task_ai",
+      "target": "node_multi_task_data",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_multi_task_data_decision",
+      "source": "node_multi_task_data",
+      "target": "node_decision",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_decision_end",
+      "source": "node_decision",
+      "target": "node_end",
+      "type": "bezier"
+    }
+  ],
+  "variables": {},
+  "timeout": 30000,
+  "retryConfig": {
+    "maxRetries": 3,
+    "retryInterval": 1000
+  }
+}

@@ -45,7 +45,13 @@ import TestPanel from '@/components/flow-engine/test-panel';
 import ExecutionMonitor from '@/components/flow-engine/execution-monitor';
 import ContextVisualizer from '@/components/flow-engine/context-visualizer';
 import ContextDebugPanel from '@/components/flow-engine/context-debug-panel';
-import { NODE_TYPES, NODE_METADATA } from '@/app/flow-engine/types';
+import {
+  NODE_TYPES,
+  NODE_METADATA,
+  NODE_CATEGORIES,
+  FlowStatus,
+  TriggerType
+} from '@/app/flow-engine/types';
 import {
   getFlowDefinitions,
   getFlowDefinition,
@@ -58,54 +64,24 @@ import {
   FlowNode
 } from '@/lib/api/flow-engine';
 
-// 节点类型枚举 - 匹配后端 NodeType
-const NodeType = {
-  START: 'start',
-  END: 'end',
-  CONDITION: 'condition',
-  AI_CHAT: 'ai_chat',
-  INTENT: 'intent',
-  SERVICE: 'service',
-  HUMAN_HANDOVER: 'human_handover',
-  NOTIFICATION: 'notification'
-} as const;
-
-type NodeTypeValue = typeof NodeType[keyof typeof NodeType];
-
-// 流程状态枚举 - 匹配后端 FlowStatus
-const FlowStatus = {
-  PENDING: 'pending',
-  RUNNING: 'running',
-  COMPLETED: 'completed',
-  FAILED: 'failed',
-  CANCELLED: 'cancelled',
-  TIMEOUT: 'timeout'
-} as const;
-
-// 触发类型枚举 - 匹配后端 TriggerType
-const TriggerType = {
-  WEBHOOK: 'webhook',
-  MANUAL: 'manual',
-  SCHEDULED: 'scheduled'
-} as const;
-
-// 节点类型配置
-const NODE_TYPE_CONFIG: Record<NodeTypeValue, { icon: any; color: string; label: string }> = {
-  start: { icon: Play, color: 'text-green-500', label: '开始' },
-  end: { icon: CheckCircle, color: 'text-green-500', label: '结束' },
-  condition: { icon: GitBranch, color: 'text-orange-500', label: '条件分支' },
-  ai_chat: { icon: Zap, color: 'text-yellow-500', label: 'AI对话' },
-  intent: { icon: Brain, color: 'text-purple-500', label: '意图识别' },
-  service: { icon: Settings, color: 'text-blue-500', label: '服务节点' },
-  human_handover: { icon: Users, color: 'text-red-500', label: '人工转接' },
-  notification: { icon: Bell, color: 'text-cyan-500', label: '通知节点' }
-};
-
 // 触发类型配置
 const TRIGGER_TYPE_CONFIG: Record<string, { label: string; description: string }> = {
   webhook: { label: 'Webhook触发', description: '通过HTTP请求触发流程' },
   manual: { label: '手动触发', description: '手动启动流程' },
   scheduled: { label: '定时触发', description: '按预定时间触发流程' }
+};
+
+// 获取节点配置（从 NODE_METADATA 动态获取）
+const getNodeTypeConfig = (nodeType: string) => {
+  const meta = NODE_METADATA[nodeType as keyof typeof NODE_METADATA];
+  if (!meta) {
+    return { icon: Box, color: 'text-gray-500', label: nodeType };
+  }
+  return {
+    icon: Box,
+    color: meta.color.replace('bg-', 'text-'),
+    label: meta.name
+  };
 };
 
 export default function FlowEngineManage() {
@@ -670,7 +646,7 @@ export default function FlowEngineManage() {
                     {/* 流程节点预览 */}
                     <div className="flex items-center gap-2 overflow-x-auto pb-2">
                       {flow.nodes && flow.nodes.length > 0 ? flow.nodes.map((node, index) => {
-                        const config = NODE_TYPE_CONFIG[node.type as NodeTypeValue];
+                        const config = getNodeTypeConfig(node.type);
                         const Icon = config?.icon || Box;
                         // 后端返回的节点数据结构：{ id, data: { name, config, description }, type, position }
                         // 兼容两种数据结构：直接访问 node.name 或通过 node.data.name
@@ -742,11 +718,12 @@ export default function FlowEngineManage() {
                 <div className="space-y-3">
                   {instances.map((instance) => {
                     const flow = flows.find(f => f.id === instance.definition_id);
-                    const nodeConfig = instance.current_node 
-                      ? NODE_TYPE_CONFIG[flow?.nodes?.find(n => n.id === instance.current_node)?.type as NodeTypeValue || 'start']
+                    const currentNode = instance.current_node 
+                      ? flow?.nodes?.find(n => n.id === instance.current_node)
                       : null;
+                    const nodeConfig = currentNode ? getNodeTypeConfig(currentNode.type) : null;
                     const NodeIcon = nodeConfig?.icon;
-                    
+
                     return (
                       <Card key={instance.id} className="hover:border-primary/40 transition-all">
                         <CardContent className="p-4">
@@ -762,7 +739,7 @@ export default function FlowEngineManage() {
                                 <div className="text-muted-foreground">
                                   会话ID: {instance.id}
                                 </div>
-                                {instance.current_node && (
+                                {instance.current_node && NodeIcon && (
                                   <div className="flex items-center gap-2 mt-1 text-primary">
                                     <NodeIcon className="h-3 w-3" />
                                     当前节点: {instance.current_node}
@@ -1095,7 +1072,7 @@ export default function FlowEngineManage() {
                   <h4 className="text-sm font-semibold">节点列表 ({selectedFlow.nodes.length})</h4>
                   <div className="space-y-2">
                     {selectedFlow.nodes.map((node, index) => {
-                      const config = NODE_TYPE_CONFIG[node.type as NodeTypeValue];
+                      const config = getNodeTypeConfig(node.type);
                       const Icon = config?.icon || Box;
                       return (
                         <Card key={node.id} className="p-3">
