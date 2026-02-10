@@ -751,10 +751,12 @@ async function createAfterSalesTask(req, reply) {
     // 发送SSE通知
     await sendSSENotification('task_created', {
       taskId: task.id,
-      title: task.title,
+      issueType: task.issueType,
+      issueDescription: task.issueDescription,
       status: task.status,
       priority: task.priority,
       assignedStaffUserId: task.assignedStaffUserId,
+      assignedStaffName: task.assignedStaffName,
       createdAt: task.createdAt
     });
 

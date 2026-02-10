@@ -1430,35 +1430,6 @@ exports.satisfactionAnalysis = pgTable(
   })
 );
 
-// 工作人员活跃度表
-exports.staffActivities = pgTable(
-  "staff_activities",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    staffId: varchar("staff_id", { length: 255 }).unique().notNull(),
-    staffName: varchar("staff_name", { length: 255 }),
-    staffRole: varchar("staff_role", { length: 50 }),
-    status: varchar("status", { length: 20 }).default("offline"),
-    messageCountPerHour: integer("message_count_per_hour").default(0),
-    messageCountPerDay: integer("message_count_per_day").default(0),
-    messageCountPerWeek: integer("message_count_per_week").default(0),
-    averageResponseTime: integer("average_response_time"),
-    maxResponseTime: integer("max_response_time"),
-    minResponseTime: integer("min_response_time"),
-    lastActiveTime: timestamp("last_active_time", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    staffIdIdx: index("staff_activities_staff_id_idx").on(table.staffId),
-    statusIdx: index("staff_activities_status_idx").on(table.status),
-    staffRoleIdx: index("staff_activities_staff_role_idx").on(table.staffRole),
-    lastActiveTimeIdx: index("staff_activities_last_active_time_idx").on(table.lastActiveTime),
-  })
-);
-
 // 任务管理表
 exports.tasks = pgTable(
   "tasks",
@@ -1513,6 +1484,38 @@ exports.aiInterventions = pgTable(
     userIdIdx: index("ai_interventions_user_id_idx").on(table.userId),
     scenarioIdx: index("ai_interventions_scenario_idx").on(table.scenario),
     createdAtIdx: index("ai_interventions_created_at_idx").on(table.createdAt),
+  })
+);
+
+// 售后任务表
+exports.afterSalesTasks = pgTable(
+  "after_sales_tasks",
+  {
+    id: varchar("id", { length: 100 }).primaryKey(), // 任务ID
+    sessionId: varchar("session_id", { length: 255 }), // 关联的会话ID
+    robotId: varchar("robot_id", { length: 100 }), // 机器人ID
+    userId: varchar("user_id", { length: 255 }), // 用户ID
+    userName: varchar("user_name", { length: 255 }), // 用户名称
+    issueType: varchar("issue_type", { length: 100 }).notNull(), // 问题类型
+    issueDescription: text("issue_description"), // 问题描述
+    priority: varchar("priority", { length: 20 }).notNull().default("normal"), // 优先级: low, normal, high, urgent
+    assignedStaffUserId: varchar("assigned_staff_user_id", { length: 255 }), // 分配的工作人员ID
+    assignedStaffName: varchar("assigned_staff_name", { length: 255 }), // 分配的工作人员名称
+    status: varchar("status", { length: 20 }).notNull().default("pending"), // 状态: pending, in_progress, resolved, cancelled
+    resolution: text("resolution"), // 解决方案
+    completedAt: timestamp("completed_at", { withTimezone: true }), // 完成时间
+    dueDate: timestamp("due_date", { withTimezone: true }), // 截止时间
+    tags: text("tags"), // 标签（逗号分隔）
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    sessionIdIdx: index("after_sales_tasks_session_id_idx").on(table.sessionId),
+    robotIdIdx: index("after_sales_tasks_robot_id_idx").on(table.robotId),
+    assignedStaffUserIdIdx: index("after_sales_tasks_assigned_staff_user_id_idx").on(table.assignedStaffUserId),
+    statusIdx: index("after_sales_tasks_status_idx").on(table.status),
+    priorityIdx: index("after_sales_tasks_priority_idx").on(table.priority),
+    createdAtIdx: index("after_sales_tasks_created_at_idx").on(table.createdAt),
   })
 );
 

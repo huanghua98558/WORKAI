@@ -10,7 +10,8 @@ const {
   staffActivities,
   sessionStaffStatus,
   infoDetectionHistory,
-  collaborationDecisionLogs
+  collaborationDecisionLogs,
+  afterSalesTasks
 } = require('../database/schema');
 
 /**
@@ -2869,6 +2870,7 @@ class CollaborationService {
       issueDescription,
       priority = 'normal',
       assignedStaffUserId,
+      assignedStaffName,
       dueDate,
       tags
     } = taskData;
@@ -2878,13 +2880,31 @@ class CollaborationService {
 
       const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      // 插入售后任务（如果有专门的表，这里应该插入到那个表）
-      // 目前先记录到工作人员活动日志中
-      await this.recordStaffActivity({
+      // 插入售后任务到专门的售后任务表
+      await this.db.insert(afterSalesTasks).values({
+        id: taskId,
         sessionId,
         robotId,
+        userId,
+        userName,
+        issueType,
+        issueDescription,
+        priority,
+        assignedStaffUserId,
+        assignedStaffName,
+        status: 'pending',
+        dueDate,
+        tags,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      // 同时记录到工作人员活动日志中
+      await this.recordStaffActivity({
+        sessionId: sessionId || 'system',
+        robotId: robotId || 'system',
         staffUserId: assignedStaffUserId || 'system',
-        staffName: assignedStaffUserId ? '' : '系统',
+        staffName: assignedStaffName || '系统',
         activityType: 'after_sales_task_created',
         activityData: {
           taskId,
@@ -2892,6 +2912,7 @@ class CollaborationService {
           issueDescription,
           priority,
           assignedStaffUserId,
+          assignedStaffName,
           dueDate,
           tags,
           status: 'pending'
@@ -2906,7 +2927,7 @@ class CollaborationService {
       });
 
       return {
-        taskId,
+        id: taskId,
         sessionId,
         robotId,
         userId,
@@ -2915,6 +2936,7 @@ class CollaborationService {
         issueDescription,
         priority,
         assignedStaffUserId,
+        assignedStaffName,
         dueDate,
         tags,
         status: 'pending',
@@ -2937,6 +2959,7 @@ class CollaborationService {
     const {
       status,
       assignedStaffUserId,
+      assignedStaffName,
       priority,
       issueDescription,
       resolution,
@@ -2946,17 +2969,43 @@ class CollaborationService {
     try {
       await this.init();
 
+      // 构建更新数据
+      const updateData = {};
+      if (status) updateData.status = status;
+      if (assignedStaffUserId !== undefined) updateData.assignedStaffUserId = assignedStaffUserId;
+      if (assignedStaffName !== undefined) updateData.assignedStaffName = assignedStaffName;
+      if (priority) updateData.priority = priority;
+      if (issueDescription !== undefined) updateData.issueDescription = issueDescription;
+      if (resolution !== undefined) updateData.resolution = resolution;
+      if (completedAt !== undefined) updateData.completedAt = completedAt;
+      if (status === 'resolved' && !completedAt) {
+        updateData.completedAt = new Date();
+      }
+      updateData.updatedAt = new Date();
+
+      // 更新售后任务表
+      const result = await this.db
+        .update(afterSalesTasks)
+        .set(updateData)
+        .where(eq(afterSalesTasks.id, taskId))
+        .returning();
+
+      if (result.length === 0) {
+        throw new Error('售后任务不存在');
+      }
+
       // 记录任务更新活动
       await this.recordStaffActivity({
-        sessionId: 'system',
-        robotId: 'system',
-        staffUserId: 'system',
-        staffName: '系统',
+        sessionId: result[0].sessionId || 'system',
+        robotId: result[0].robotId || 'system',
+        staffUserId: assignedStaffUserId || 'system',
+        staffName: assignedStaffName || '系统',
         activityType: 'after_sales_task_updated',
         activityData: {
           taskId,
           status,
           assignedStaffUserId,
+          assignedStaffName,
           priority,
           issueDescription,
           resolution,
@@ -2966,11 +3015,7 @@ class CollaborationService {
 
       console.log('[协同分析] 售后任务更新成功:', { taskId, status });
 
-      return {
-        taskId,
-        ...updates,
-        updatedAt: new Date()
-      };
+      return result[0];
     } catch (error) {
       console.error('[协同分析] 更新售后任务失败:', error);
       throw error;
@@ -2997,48 +3042,32 @@ class CollaborationService {
     try {
       await this.init();
 
-      // 获取售后任务相关的活动日志
-      const activityLogs = await this.db
-        .select()
-        .from(staffActivities)
-        .where(eq(staffActivities.activityType, 'after_sales_task_created'))
-        .orderBy(desc(staffActivities.createdAt))
-        .limit(200);
+      // 构建查询条件
+      const whereConditions = [];
+      if (status) {
+        whereConditions.push(eq(afterSalesTasks.status, status));
+      }
+      if (priority) {
+        whereConditions.push(eq(afterSalesTasks.priority, priority));
+      }
+      if (assignedStaffUserId) {
+        whereConditions.push(eq(afterSalesTasks.assignedStaffUserId, assignedStaffUserId));
+      }
 
-      // 解析任务数据
-      const tasks = activityLogs
-        .map(log => {
-          try {
-            const taskData = JSON.parse(log.activityDetail || '{}');
-            return {
-              ...taskData,
-              createdAt: log.createdAt,
-              sessionId: log.sessionId
-            };
-          } catch (e) {
-            return null;
-          }
-        })
-        .filter(task => task !== null);
+      // 查询售后任务
+      const query = this.db
+        .select()
+        .from(afterSalesTasks)
+        .orderBy(desc(afterSalesTasks.createdAt));
 
       // 应用过滤条件
-      let filteredTasks = tasks;
-
-      if (status) {
-        filteredTasks = filteredTasks.filter(task => task.status === status);
+      if (whereConditions.length > 0) {
+        query.where(and(...whereConditions));
       }
 
-      if (priority) {
-        filteredTasks = filteredTasks.filter(task => task.priority === priority);
-      }
+      const tasks = await query.limit(parseInt(limit));
 
-      if (assignedStaffUserId) {
-        filteredTasks = filteredTasks.filter(
-          task => task.assignedStaffUserId === assignedStaffUserId
-        );
-      }
-
-      return filteredTasks.slice(0, limit);
+      return tasks;
     } catch (error) {
       console.error('[协同分析] 获取售后任务列表失败:', error);
       return [];
