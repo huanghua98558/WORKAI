@@ -30,6 +30,7 @@ export const NODE_TYPES = {
   // ========== 基础节点（6种）==========
   START: 'start',                    // 开始节点 - 流程起点
   END: 'end',                        // 结束节点 - 流程终点
+  TRIGGER_WEBHOOK: 'trigger_webhook', // Webhook触发器 - 接收HTTP回调
   DECISION: 'decision',              // 决策节点 - 条件路由
   CONDITION: 'condition',            // 条件节点 - 条件判断
   FLOW_CALL: 'flow_call',            // 流程调用节点 - 调用其他流程
@@ -52,6 +53,9 @@ export const NODE_TYPES = {
   NOTIFICATION: 'notification',        // 通知节点 - 发送通知
   LOG: 'log',                          // 日志节点 - 记录日志
   CUSTOM: 'custom',                    // 自定义节点 - 执行自定义代码
+
+  // ========== 业务节点（新增）==========
+  AFTER_SALES_TASK: 'after_sales_task', // 售后任务节点 - 处理售后任务、机器人安抚
 
   // ========== 流程控制节点（3种）==========
   LOOP: 'loop',                        // 循环节点 - 循环执行
@@ -144,6 +148,15 @@ export const NODE_METADATA = {
     category: 'basic',
     hasInputs: true,
     hasOutputs: false,
+  },
+  [NODE_TYPES.TRIGGER_WEBHOOK]: {
+    name: 'Webhook触发器',
+    description: '接收企业微信群消息回调（v7.0）',
+    icon: '🔔',
+    color: 'bg-blue-400',
+    category: 'basic',
+    hasInputs: false,
+    hasOutputs: true,
   },
   [NODE_TYPES.DECISION]: {
     name: '决策节点',
@@ -308,6 +321,17 @@ export const NODE_METADATA = {
     icon: '⚙️',
     color: 'bg-gray-600',
     category: 'custom',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+
+  // ========== 业务节点（v7.0）==========
+  [NODE_TYPES.AFTER_SALES_TASK]: {
+    name: '售后任务节点',
+    description: '处理售后任务、机器人安抚、腾讯文档同步（v7.0）',
+    icon: '🔧',
+    color: 'bg-orange-500',
+    category: 'action',
     hasInputs: true,
     hasOutputs: true,
   },

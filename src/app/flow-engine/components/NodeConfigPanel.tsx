@@ -591,6 +591,14 @@ export default function NodeConfigPanel({ node, onUpdate, onDelete, onClose }: N
       case 'multi_task_robot':
         return <MultiTaskRobotForm config={config as GeneralNodeConfig} onUpdate={handleUpdateConfig} subType={subType} />;
 
+      // Webhook 触发器（v7.0）
+      case 'trigger_webhook':
+        return <WebhookTriggerForm config={config as GeneralNodeConfig} onUpdate={handleUpdateConfig} />;
+
+      // 售后任务节点（v7.0）
+      case 'after_sales_task':
+        return <AfterSalesTaskForm config={config as AfterSalesTaskConfig} onUpdate={handleUpdateConfig} />;
+
       // 上下文节点
       case 'context':
         if (subType === 'context_retrieval') {
@@ -620,6 +628,7 @@ export default function NodeConfigPanel({ node, onUpdate, onDelete, onClose }: N
       context_retrieval: Database,
       message_send: Send,
       after_sales_task: Target,
+      trigger_webhook: Bell,
       condition: Zap,
       save_data: Database,
       notify: Bell,
@@ -4190,6 +4199,76 @@ function MultiTaskAnalysisForm({
           <p className="text-sm text-muted-foreground">
             子类型 "{subType || '未选择'}" 的详细配置正在开发中。请使用 JSON 编辑器配置。
           </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ==================== Webhook 触发器配置表单（v7.0）====================
+function WebhookTriggerForm({
+  config,
+  onUpdate,
+}: {
+  config: GeneralNodeConfig;
+  onUpdate: (updates: Partial<NodeConfig>) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Bell className="h-4 w-4 text-blue-500" />
+          Webhook 触发器配置
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>Webhook URL</Label>
+          <Input
+            value={config.config.webhookUrl || '/api/robots/callback'}
+            onChange={(e) => onUpdate({ config: { ...config.config, webhookUrl: e.target.value } })}
+            placeholder="/api/robots/callback"
+          />
+          <p className="text-xs text-muted-foreground">
+            接收企业微信群消息回调的 URL
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>验证签名</Label>
+            <Switch
+              checked={config.config.verifySignature ?? true}
+              onCheckedChange={(checked) => onUpdate({ config: { ...config.config, verifySignature: checked } })}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            验证 Webhook 请求的签名，确保请求来自可信来源
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>幂等性检查</Label>
+            <Switch
+              checked={config.config.idempotencyCheck ?? true}
+              onCheckedChange={(checked) => onUpdate({ config: { ...config.config, idempotencyCheck: checked } })}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            避免重复处理相同的消息
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>超时时间（毫秒）: {config.config.timeout ?? 5000}</Label>
+          <Slider
+            value={[config.config.timeout ?? 5000]}
+            onValueChange={([value]) => onUpdate({ config: { ...config.config, timeout: value } })}
+            min={1000}
+            max={30000}
+            step={1000}
+          />
         </div>
       </CardContent>
     </Card>
