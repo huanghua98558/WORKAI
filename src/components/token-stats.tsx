@@ -35,8 +35,36 @@ interface TokenStats {
 export function TokenStatsCard() {
   const [stats, setStats] = useState<TokenStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // 检查登录状态
+  useEffect(() => {
+    const checkAuth = () => {
+      try {
+        const userStr = localStorage.getItem('user');
+        setIsAuthenticated(!!userStr);
+      } catch {
+        setIsAuthenticated(false);
+      }
+    };
+
+    checkAuth();
+
+    // 监听存储变化
+    const handleStorageChange = () => {
+      checkAuth();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const loadTokenStats = async () => {
+    // 未登录时不加载数据
+    if (!isAuthenticated) {
+      return;
+    }
+
     setIsLoading(true);
     try {
       const res = await fetch('/api/monitoring/token-stats?timestamp=' + Date.now(), {
@@ -56,10 +84,16 @@ export function TokenStatsCard() {
   };
 
   useEffect(() => {
+    // 只有在登录状态下才加载和刷新数据
+    if (!isAuthenticated) {
+      setStats(null);
+      return;
+    }
+
     loadTokenStats();
     const interval = setInterval(loadTokenStats, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isAuthenticated]);
 
   const getGrowthRate = () => {
     if (!stats || !stats.yesterday || stats.yesterday.total === 0 || stats.yesterday.total === undefined || stats.yesterday.total === null) return 0;
