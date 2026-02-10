@@ -1,195 +1,410 @@
 /**
- * 流程引擎类型定义 - 12种节点类型
+ * 流程引擎类型定义 - v6.1 优化版 (16种核心节点类型)
  */
 
-// 基础节点类型（15种）
+// ============================================
+// 核心节点类型（16种）
+// ============================================
 export const NODE_TYPES = {
-  // 消息接收节点：接收WorkTool消息并保存到数据库（支持业务角色提取、优先级智能检测、工作人员状态记录）
-  MESSAGE_RECEIVE: 'message_receive',
+  // ========== 基础节点（6种）==========
+  START: 'start',                    // 开始节点 - 流程起点
+  END: 'end',                        // 结束节点 - 流程终点
+  DECISION: 'decision',              // 决策节点 - 条件路由
+  CONDITION: 'condition',            // 条件节点 - 条件判断
+  FLOW_CALL: 'flow_call',            // 流程调用节点 - 调用其他流程
+  DELAY: 'delay',                    // 延迟节点 - 延迟执行
 
-  // 意图识别节点：使用AI识别用户消息的意图（咨询、投诉、售后等）
+  // ========== 多任务节点（8种）==========
+  MULTI_TASK_AI: 'multi_task_ai',          // AI处理多任务 - 对话/分析/识别/生成
+  MULTI_TASK_DATA: 'multi_task_data',      // 数据处理多任务 - 查询/转换/聚合
+  MULTI_TASK_HTTP: 'multi_task_http',      // HTTP请求多任务 - 请求/上传/下载
+  MULTI_TASK_TASK: 'multi_task_task',      // 任务管理多任务 - 创建/分配/更新
+  MULTI_TASK_ALERT: 'multi_task_alert',    // 告警管理多任务 - 规则评估/保存/通知/升级
+  MULTI_TASK_STAFF: 'multi_task_staff',    // 人员管理多任务 - 匹配/转移/通知/介入
+  MULTI_TASK_ANALYSIS: 'multi_task_analysis', // 协同分析多任务 - 活跃度/满意度/报告
+  MULTI_TASK_ROBOT: 'multi_task_robot',    // 机器人交互多任务 - 调度/指令/状态
+  MULTI_TASK_MESSAGE: 'multi_task_message', // 消息管理多任务 - 接收/分发/同步
+
+  // ========== 专用节点（5种）==========
+  SESSION: 'session',                  // 会话管理节点 - 创建/获取/更新会话
+  CONTEXT: 'context',                  // 上下文节点 - 检索和增强上下文
+  NOTIFICATION: 'notification',        // 通知节点 - 发送通知
+  LOG: 'log',                          // 日志节点 - 记录日志
+  CUSTOM: 'custom',                    // 自定义节点 - 执行自定义代码
+
+  // ========== 流程控制节点（3种）==========
+  LOOP: 'loop',                        // 循环节点 - 循环执行
+  PARALLEL: 'parallel',                // 并行节点 - 并行执行
+  TRY_CATCH: 'try_catch',               // 异常处理节点 - 异常捕获
+} as const;
+
+// ========== 保留兼容性：旧节点类型映射 ==========
+export const NODE_TYPES_LEGACY = {
+  // AI相关（已合并到 MULTI_TASK_AI）
+  AI_CHAT: 'ai_chat',
   INTENT: 'intent',
-
-  // 决策节点：根据条件判断后续流程分支（支持表达式和规则匹配）
-  DECISION: 'decision',
-
-  // 上下文增强器节点：提取上下文信息，补充AI提示词（支持模板和动态变量）
-  CONTEXT_ENHANCER: 'context_enhancer',
-
-  // AI回复节点：使用大语言模型生成智能客服回复
+  EMOTION_ANALYZE: 'emotion_analyze',
   AI_REPLY: 'ai_reply',
+  AI_REPLY_ENHANCED: 'ai_reply_enhanced',
+  RISK_DETECT: 'risk_detect',
+  SMART_ANALYZE: 'smart_analyze',
+  UNIFIED_ANALYZE: 'unified_analyze',
 
-  // 消息分发节点：判断群发或私发，确定消息发送目标（支持业务角色感知、工作人员感知、优先级分发）
+  // 消息相关（已合并到 MULTI_TASK_MESSAGE）
+  MESSAGE_RECEIVE: 'message_receive',
   MESSAGE_DISPATCH: 'message_dispatch',
+  MESSAGE_SYNC: 'message_sync',
+  STAFF_MESSAGE: 'staff_message',
 
-  // 发送指令节点：调用WorkTool API发送消息或指令（支持业务角色优先级、工作人员重试策略、AI行为执行策略）
+  // 告警相关（已合并到 MULTI_TASK_ALERT）
+  ALERT_SAVE: 'alert_save',
+  ALERT_RULE: 'alert_rule',
+  ALERT_NOTIFY: 'alert_notify',
+  ALERT_ESCALATE: 'alert_escalate',
+
+  // 机器人相关（已合并到 MULTI_TASK_ROBOT）
+  ROBOT_DISPATCH: 'robot_dispatch',
   SEND_COMMAND: 'send_command',
-
-  // 指令状态节点：保存指令执行状态到数据库（支持业务角色日志策略、AI行为日志策略）
   COMMAND_STATUS: 'command_status',
 
-  // 结束节点：流程结束点（支持返回消息、会话保存、数据统计上报、后续动作触发）
-  END: 'end',
+  // 人员相关（已合并到 MULTI_TASK_STAFF）
+  STAFF_INTERVENTION: 'staff_intervention',
+  HUMAN_HANDOVER: 'human_handover',
 
-  // 告警入库节点：保存告警信息到数据库（支持告警级别配置、任务创建能力）
-  ALERT_SAVE: 'alert_save',
+  // 数据相关（已合并到 MULTI_TASK_DATA）
+  DATA_QUERY: 'data_query',
+  DATA_TRANSFORM: 'data_transform',
+  VARIABLE_SET: 'variable_set',
+  SATISFACTION_INFER: 'satisfaction_infer',
 
-  // 告警规则节点：判断告警规则并执行升级操作
-  ALERT_RULE: 'alert_rule',
+  // HTTP相关（已合并到 MULTI_TASK_HTTP）
+  HTTP_REQUEST: 'http_request',
+  IMAGE_PROCESS: 'image_process',
 
-  // 风险处理节点：AI安抚用户并通知人工介入（支持任务创建感知、风险等级升级策略、AI行为风险策略）
+  // 任务相关（已合并到 MULTI_TASK_TASK）
+  TASK_ASSIGN: 'task_assign',
+
+  // 分析相关（已合并到 MULTI_TASK_ANALYSIS）
+  COLLABORATION_ANALYZE: 'collaboration_analyze',
+
+  // 会话相关（已合并到 SESSION）
+  SESSION_CREATE: 'session_create',
+
+  // 上下文相关（已合并到 CONTEXT）
+  CONTEXT_ENHANCER: 'context_enhancer',
+
+  // 日志相关（已合并到 LOG）
+  LOG_SAVE: 'log_save',
+
+  // 其他
+  SERVICE: 'service',
   RISK_HANDLER: 'risk_handler',
-
-  // 监控节点：实时监听群内消息（支持关键词匹配、风险检测、自动告警、业务角色关键词感知）
   MONITOR: 'monitor',
-
-  // 机器人分发节点：将消息分发给指定的机器人处理（支持负载均衡）
-  ROBOT_DISPATCH: 'robot_dispatch',
-
-  // 执行通知节点：通过多种渠道发送通知（机器人、邮件、短信、Webhook）
   EXECUTE_NOTIFICATION: 'execute_notification',
 } as const;
 
-// 节点元数据（13种）
+// 节点元数据（v6.1 优化版 - 16种核心节点类型 + 兼容性旧节点类型）
 export const NODE_METADATA = {
-  [NODE_TYPES.MESSAGE_RECEIVE]: {
-    name: '消息接收',
-    description: '接收WorkTool消息并保存到数据库，提取消息元数据（用户、群组、时间等）',
-    icon: '📥',
+  // ========== 基础节点（6种）==========
+  [NODE_TYPES.START]: {
+    name: '开始节点',
+    description: '流程的起点（v6.1）',
+    icon: '▶️',
     color: 'bg-green-500',
     category: 'basic',
     hasInputs: false,
     hasOutputs: true,
   },
-  [NODE_TYPES.INTENT]: {
-    name: '意图识别',
-    description: '使用AI识别用户消息意图（如：咨询、投诉、售后、互动等）',
-    icon: '🧠',
-    color: 'bg-purple-500',
-    category: 'ai',
-    hasInputs: true,
-    hasOutputs: true,
-  },
-  [NODE_TYPES.DECISION]: {
-    name: '决策节点',
-    description: '根据条件表达式判断后续流程分支（支持多条件规则）',
-    icon: '🔀',
-    color: 'bg-orange-500',
-    category: 'logic',
-    hasInputs: true,
-    hasOutputs: true,
-  },
-  [NODE_TYPES.CONTEXT_ENHANCER]: {
-    name: '上下文增强器',
-    description: '提取上下文信息，生成AI提示词补充内容（支持模板和动态变量）',
-    icon: '🔮',
-    color: 'bg-indigo-600',
-    category: 'ai',
-    hasInputs: true,
-    hasOutputs: true,
-  },
-  [NODE_TYPES.AI_REPLY]: {
-    name: 'AI客服回复',
-    description: '使用大语言模型生成智能客服回复内容（支持人设、上下文历史）',
-    icon: '⚡',
-    color: 'bg-yellow-500',
-    category: 'ai',
-    hasInputs: true,
-    hasOutputs: true,
-  },
-  [NODE_TYPES.MESSAGE_DISPATCH]: {
-    name: '消息分发',
-    description: '判断群发或私发模式，确定消息发送目标（群组或个人）',
-    icon: '🔀',
-    color: 'bg-blue-500',
-    category: 'logic',
-    hasInputs: true,
-    hasOutputs: true,
-  },
-  [NODE_TYPES.SEND_COMMAND]: {
-    name: '发送指令',
-    description: '调用WorkTool API发送消息或指令（支持@人、重试、优先级）',
-    icon: '💬',
-    color: 'bg-cyan-500',
-    category: 'action',
-    hasInputs: true,
-    hasOutputs: true,
-  },
-  [NODE_TYPES.COMMAND_STATUS]: {
-    name: '指令状态记录',
-    description: '保存指令执行状态到数据库（成功/失败/处理中）',
-    icon: '📝',
-    color: 'bg-indigo-500',
-    category: 'database',
-    hasInputs: true,
-    hasOutputs: true,
-  },
   [NODE_TYPES.END]: {
     name: '结束节点',
-    description: '流程结束点，可配置返回消息、会话保存和上下文清理',
+    description: '流程的终点（v6.1）',
     icon: '⏹️',
     color: 'bg-gray-500',
     category: 'basic',
     hasInputs: true,
     hasOutputs: false,
   },
-  [NODE_TYPES.ALERT_SAVE]: {
-    name: '告警入库',
-    description: '保存告警信息到数据库（类型、级别、内容、负责人等）',
+  [NODE_TYPES.DECISION]: {
+    name: '决策节点',
+    description: '根据条件路由到不同节点（v6.1）',
+    icon: '🔀',
+    color: 'bg-orange-500',
+    category: 'logic',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.CONDITION]: {
+    name: '条件节点',
+    description: '条件判断（v6.1）',
+    icon: '❓',
+    color: 'bg-yellow-500',
+    category: 'logic',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.FLOW_CALL]: {
+    name: '流程调用节点',
+    description: '调用其他流程（v6.1）',
+    icon: '📞',
+    color: 'bg-purple-600',
+    category: 'logic',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.DELAY]: {
+    name: '延迟节点',
+    description: '延迟执行（v6.1）',
+    icon: '⏱️',
+    color: 'bg-gray-400',
+    category: 'logic',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+
+  // ========== 多任务节点（8种）==========
+  [NODE_TYPES.MULTI_TASK_AI]: {
+    name: 'AI处理多任务',
+    description: '对话/分析/识别/生成（v6.1 - 合并了ai_chat, intent, emotion_analyze等）',
+    icon: '🧠',
+    color: 'bg-purple-500',
+    category: 'ai',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.MULTI_TASK_DATA]: {
+    name: '数据处理多任务',
+    description: '查询/转换/聚合（v6.1 - 合并了data_query, data_transform等）',
+    icon: '🗄️',
+    color: 'bg-blue-500',
+    category: 'database',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.MULTI_TASK_HTTP]: {
+    name: 'HTTP请求多任务',
+    description: '请求/上传/下载（v6.1 - 合并了http_request, image_process等）',
+    icon: '🌐',
+    color: 'bg-cyan-500',
+    category: 'action',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.MULTI_TASK_TASK]: {
+    name: '任务管理多任务',
+    description: '创建/分配/更新（v6.1 - 合并了task_assign等）',
+    icon: '📋',
+    color: 'bg-indigo-500',
+    category: 'database',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.MULTI_TASK_ALERT]: {
+    name: '告警管理多任务',
+    description: '规则评估/保存/通知/升级（v6.1 - 合并了alert_rule, alert_save等）',
     icon: '🔔',
     color: 'bg-red-500',
     category: 'alert',
     hasInputs: true,
     hasOutputs: true,
   },
-  [NODE_TYPES.ALERT_RULE]: {
-    name: '告警规则判断',
-    description: '判断告警规则并执行升级操作（阈值、模式、频率）',
-    icon: '⚖️',
-    color: 'bg-amber-500',
-    category: 'alert',
+  [NODE_TYPES.MULTI_TASK_STAFF]: {
+    name: '人员管理多任务',
+    description: '匹配/转移/通知/介入（v6.1 - 合并了human_handover, staff_intervention等）',
+    icon: '👥',
+    color: 'bg-pink-500',
+    category: 'action',
     hasInputs: true,
     hasOutputs: true,
   },
-  [NODE_TYPES.RISK_HANDLER]: {
-    name: '风险处理',
-    description: 'AI安抚用户并通知人工介入（风险等级、安抚策略、升级）',
-    icon: '⚠️',
-    color: 'bg-red-500',
-    category: 'risk',
+  [NODE_TYPES.MULTI_TASK_ANALYSIS]: {
+    name: '协同分析多任务',
+    description: '活跃度/满意度/报告（v6.1 - 合并了collaboration_analyze, satisfaction_infer等）',
+    icon: '📊',
+    color: 'bg-teal-500',
+    category: 'analysis',
     hasInputs: true,
     hasOutputs: true,
   },
-  [NODE_TYPES.MONITOR]: {
-    name: '监控节点',
-    description: '实时监听群内消息（支持关键词匹配、风险检测、自动告警）',
-    icon: '👁️',
-    color: 'bg-cyan-500',
-    category: 'risk',
-    hasInputs: true,
-    hasOutputs: true,
-  },
-  [NODE_TYPES.ROBOT_DISPATCH]: {
-    name: '机器人分发',
-    description: '将消息分发给指定的机器人处理（支持负载均衡、重试、故障转移）',
+  [NODE_TYPES.MULTI_TASK_ROBOT]: {
+    name: '机器人交互多任务',
+    description: '调度/指令/状态（v6.1 - 合并了robot_dispatch, send_command等）',
     icon: '🤖',
     color: 'bg-blue-600',
     category: 'action',
     hasInputs: true,
     hasOutputs: true,
   },
-  [NODE_TYPES.EXECUTE_NOTIFICATION]: {
-    name: '执行通知',
-    description: '通过多种渠道发送通知（机器人、邮件、短信、Webhook）',
+  [NODE_TYPES.MULTI_TASK_MESSAGE]: {
+    name: '消息管理多任务',
+    description: '接收/分发/同步（v6.1 - 合并了message_receive, message_dispatch等）',
+    icon: '📨',
+    color: 'bg-green-500',
+    category: 'basic',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+
+  // ========== 专用节点（5种）==========
+  [NODE_TYPES.SESSION]: {
+    name: '会话管理节点',
+    description: '创建/获取/更新会话（v6.1 - 替代session_create）',
+    icon: '💬',
+    color: 'bg-emerald-500',
+    category: 'database',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.CONTEXT]: {
+    name: '上下文节点',
+    description: '检索和增强上下文（v6.1 - 替代context_enhancer）',
+    icon: '🔮',
+    color: 'bg-indigo-600',
+    category: 'ai',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.NOTIFICATION]: {
+    name: '通知节点',
+    description: '发送通知（v6.1）',
     icon: '📢',
     color: 'bg-pink-500',
     category: 'action',
     hasInputs: true,
     hasOutputs: true,
   },
+  [NODE_TYPES.LOG]: {
+    name: '日志节点',
+    description: '记录日志（v6.1 - 替代log_save）',
+    icon: '📝',
+    color: 'bg-slate-500',
+    category: 'database',
+    hasInputs: true,
+    hasOutputs: false,
+  },
+  [NODE_TYPES.CUSTOM]: {
+    name: '自定义节点',
+    description: '执行自定义代码（v6.1）',
+    icon: '⚙️',
+    color: 'bg-gray-600',
+    category: 'custom',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+
+  // ========== 流程控制节点（3种）==========
+  [NODE_TYPES.LOOP]: {
+    name: '循环节点',
+    description: '循环执行（v6.1）',
+    icon: '🔁',
+    color: 'bg-violet-500',
+    category: 'logic',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.PARALLEL]: {
+    name: '并行节点',
+    description: '并行执行（v6.1）',
+    icon: '⚡',
+    color: 'bg-yellow-500',
+    category: 'logic',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.TRY_CATCH]: {
+    name: '异常处理节点',
+    description: '异常捕获（v6.1）',
+    icon: '🛡️',
+    color: 'bg-amber-600',
+    category: 'logic',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+
+  // ========== 已废弃的节点类型（保留兼容性）==========
+  [NODE_TYPES_LEGACY.MESSAGE_RECEIVE]: {
+    name: '消息接收 [已废弃]',
+    description: '请使用 multi_task_message（v6.1）',
+    icon: '📥',
+    color: 'bg-gray-400',
+    category: 'deprecated',
+    hasInputs: false,
+    hasOutputs: true,
+  },
+  [NODE_TYPES_LEGACY.INTENT]: {
+    name: '意图识别 [已废弃]',
+    description: '请使用 multi_task_ai（v6.1）',
+    icon: '🧠',
+    color: 'bg-gray-400',
+    category: 'deprecated',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES_LEGACY.AI_REPLY]: {
+    name: 'AI客服回复 [已废弃]',
+    description: '请使用 multi_task_ai（v6.1）',
+    icon: '⚡',
+    color: 'bg-gray-400',
+    category: 'deprecated',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES_LEGACY.MESSAGE_DISPATCH]: {
+    name: '消息分发 [已废弃]',
+    description: '请使用 multi_task_message（v6.1）',
+    icon: '🔀',
+    color: 'bg-gray-400',
+    category: 'deprecated',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES_LEGACY.SEND_COMMAND]: {
+    name: '发送指令 [已废弃]',
+    description: '请使用 multi_task_robot（v6.1）',
+    icon: '💬',
+    color: 'bg-gray-400',
+    category: 'deprecated',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES_LEGACY.ALERT_SAVE]: {
+    name: '告警入库 [已废弃]',
+    description: '请使用 multi_task_alert（v6.1）',
+    icon: '🔔',
+    color: 'bg-gray-400',
+    category: 'deprecated',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES_LEGACY.ALERT_RULE]: {
+    name: '告警规则判断 [已废弃]',
+    description: '请使用 multi_task_alert（v6.1）',
+    icon: '⚖️',
+    color: 'bg-gray-400',
+    category: 'deprecated',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES_LEGACY.RISK_HANDLER]: {
+    name: '风险处理 [已废弃]',
+    description: '请使用 multi_task_alert（v6.1）',
+    icon: '⚠️',
+    color: 'bg-gray-400',
+    category: 'deprecated',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES_LEGACY.ROBOT_DISPATCH]: {
+    name: '机器人分发 [已废弃]',
+    description: '请使用 multi_task_robot（v6.1）',
+    icon: '🤖',
+    color: 'bg-gray-400',
+    category: 'deprecated',
+    hasInputs: true,
+    hasOutputs: true,
+  },
 } as const;
 
-// 节点分类
+// 节点分类（v6.1 更新版）
 export const NODE_CATEGORIES = {
   basic: '基础节点',
   ai: 'AI节点',
@@ -198,6 +413,9 @@ export const NODE_CATEGORIES = {
   database: '数据库节点',
   alert: '告警节点',
   risk: '风险节点',
+  analysis: '分析节点',
+  custom: '自定义节点',
+  deprecated: '已废弃节点',
 } as const;
 
 // 节点数据类型

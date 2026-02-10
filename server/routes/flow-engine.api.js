@@ -454,16 +454,85 @@ async function flowEngineRoutes(fastify, options) {
 
 function getNodeDescription(nodeType) {
   const descriptions = {
+    // ========== 基础节点（6种）==========
     start: '开始节点 - 流程的起点',
     end: '结束节点 - 流程的终点',
-    condition: '条件节点 - 根据条件选择不同的分支',
-    ai_chat: 'AI对话节点 - 使用AI生成回复',
-    intent: '意图识别节点 - 识别用户意图',
-    service: '服务节点 - 调用外部服务',
-    human_handover: '人工转接节点 - 转接到人工客服',
-    notification: '通知节点 - 发送通知'
+    decision: '决策节点 - 根据条件路由到不同节点',
+    condition: '条件节点 - 条件判断',
+    flow_call: '流程调用节点 - 调用其他流程',
+    delay: '延迟节点 - 延迟执行',
+
+    // ========== 多任务节点（8种）==========
+    multi_task_ai: 'AI处理多任务 - 对话/分析/识别/生成（v6.1）',
+    multi_task_data: '数据处理多任务 - 查询/转换/聚合（v6.1）',
+    multi_task_http: 'HTTP请求多任务 - 请求/上传/下载（v6.1）',
+    multi_task_task: '任务管理多任务 - 创建/分配/更新（v6.1）',
+    multi_task_alert: '告警管理多任务 - 规则评估/保存/通知/升级（v6.1）',
+    multi_task_staff: '人员管理多任务 - 匹配/转移/通知/介入（v6.1）',
+    multi_task_analysis: '协同分析多任务 - 活跃度/满意度/报告（v6.1）',
+    multi_task_robot: '机器人交互多任务 - 调度/指令/状态（v6.1）',
+    multi_task_message: '消息管理多任务 - 接收/分发/同步（v6.1）',
+
+    // ========== 专用节点（5种）==========
+    session: '会话管理节点 - 创建/获取/更新会话（v6.1）',
+    context: '上下文节点 - 检索和增强上下文（v6.1）',
+    notification: '通知节点 - 发送通知',
+    log: '日志节点 - 记录日志（v6.1）',
+    custom: '自定义节点 - 执行自定义代码（v6.1）',
+
+    // ========== 流程控制节点（3种）==========
+    loop: '循环节点 - 循环执行（v6.1）',
+    parallel: '并行节点 - 并行执行（v6.1）',
+    try_catch: '异常处理节点 - 异常捕获（v6.1）',
+
+    // ========== 已废弃的节点类型（保留兼容性）==========
+    ai_chat: '[已废弃] AI对话节点 - 请使用 multi_task_ai',
+    intent: '[已废弃] 意图识别节点 - 请使用 multi_task_ai',
+    emotion_analyze: '[已废弃] 情感分析节点 - 请使用 multi_task_ai',
+    ai_reply: '[已废弃] AI回复节点 - 请使用 multi_task_ai',
+    ai_reply_enhanced: '[已废弃] 增强AI回复节点 - 请使用 multi_task_ai',
+    risk_detect: '[已废弃] 风险检测节点 - 请使用 multi_task_ai',
+    smart_analyze: '[已废弃] 智能分析节点 - 请使用 multi_task_ai',
+    unified_analyze: '[已废弃] 统一AI分析节点 - 请使用 multi_task_ai',
+
+    data_query: '[已废弃] 数据查询节点 - 请使用 multi_task_data',
+    data_transform: '[已废弃] 数据转换节点 - 请使用 multi_task_data',
+    variable_set: '[已废弃] 变量设置节点 - 请使用 multi_task_data',
+    satisfaction_infer: '[已废弃] 满意度推断节点 - 请使用 multi_task_data',
+
+    http_request: '[已废弃] HTTP请求节点 - 请使用 multi_task_http',
+    image_process: '[已废弃] 图片处理节点 - 请使用 multi_task_http',
+
+    task_assign: '[已废弃] 任务分配节点 - 请使用 multi_task_task',
+
+    alert_rule: '[已废弃] 告警规则节点 - 请使用 multi_task_alert',
+    alert_save: '[已废弃] 告警保存节点 - 请使用 multi_task_alert',
+    alert_notify: '[已废弃] 告警通知节点 - 请使用 multi_task_alert',
+    alert_escalate: '[已废弃] 告警升级节点 - 请使用 multi_task_alert',
+
+    staff_intervention: '[已废弃] 员工干预节点 - 请使用 multi_task_staff',
+    human_handover: '[已废弃] 人工转接节点 - 请使用 multi_task_staff',
+
+    collaboration_analyze: '[已废弃] 协同分析节点 - 请使用 multi_task_analysis',
+    staff_message: '[已废弃] 员工消息节点 - 请使用 multi_task_analysis',
+
+    robot_dispatch: '[已废弃] 机器人分发节点 - 请使用 multi_task_robot',
+    send_command: '[已废弃] 发送指令节点 - 请使用 multi_task_robot',
+    command_status: '[已废弃] 指令状态节点 - 请使用 multi_task_robot',
+
+    message_receive: '[已废弃] 消息接收节点 - 请使用 multi_task_message',
+    message_dispatch: '[已废弃] 消息分发节点 - 请使用 multi_task_message',
+    message_sync: '[已废弃] 消息同步节点 - 请使用 multi_task_message',
+
+    session_create: '[已废弃] 会话创建节点 - 请使用 session',
+    context_enhancer: '[已废弃] 上下文增强器节点 - 请使用 context',
+    log_save: '[已废弃] 日志保存节点 - 请使用 log',
+
+    service: '[已废弃] 服务节点 - 请使用 multi_task_http 或 custom',
+    risk_handler: '[已废弃] 风险处理节点 - 请使用 multi_task_alert',
+    monitor: '[已废弃] 监控节点 - 请使用 multi_task_analysis 或 custom'
   };
-  return descriptions[nodeType] || nodeType;
+  return descriptions[nodeType] || `${nodeType} (未定义描述)`;
 }
 
 function getFlowStatusDescription(status) {

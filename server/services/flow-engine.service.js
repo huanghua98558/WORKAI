@@ -21,66 +21,105 @@ const logger = getLogger('FLOW_ENGINE');
 // 流程引擎常量
 // ============================================
 
-// 节点类型枚举
+// ============================================
+// 节点类型枚举 (v6.1 优化版 - 16种核心节点类型)
+// ============================================
 const NodeType = {
-  START: 'start',
-  END: 'end',
-  CONDITION: 'condition',
+  // ========== 基础节点（6种）==========
+  START: 'start',                    // 开始节点 - 流程起点
+  END: 'end',                        // 结束节点 - 流程终点
+  DECISION: 'decision',              // 决策节点 - 条件路由
+  CONDITION: 'condition',            // 条件节点 - 条件判断
+  FLOW_CALL: 'flow_call',            // 流程调用节点 - 调用其他流程
+  DELAY: 'delay',                    // 延迟节点 - 延迟执行
+
+  // ========== 多任务节点（8种）==========
+  MULTI_TASK_AI: 'multi_task_ai',          // AI处理多任务 - 对话/分析/识别/生成
+  MULTI_TASK_DATA: 'multi_task_data',      // 数据处理多任务 - 查询/转换/聚合
+  MULTI_TASK_HTTP: 'multi_task_http',      // HTTP请求多任务 - 请求/上传/下载
+  MULTI_TASK_TASK: 'multi_task_task',      // 任务管理多任务 - 创建/分配/更新
+  MULTI_TASK_ALERT: 'multi_task_alert',    // 告警管理多任务 - 规则评估/保存/通知/升级
+  MULTI_TASK_STAFF: 'multi_task_staff',    // 人员管理多任务 - 匹配/转移/通知/介入
+  MULTI_TASK_ANALYSIS: 'multi_task_analysis', // 协同分析多任务 - 活跃度/满意度/报告
+  MULTI_TASK_ROBOT: 'multi_task_robot',    // 机器人交互多任务 - 调度/指令/状态
+  MULTI_TASK_MESSAGE: 'multi_task_message', // 消息管理多任务 - 接收/分发/同步
+
+  // ========== 专用节点（5种）==========
+  SESSION: 'session',                  // 会话管理节点 - 创建/获取/更新会话
+  CONTEXT: 'context',                  // 上下文节点 - 检索和增强上下文
+  NOTIFICATION: 'notification',        // 通知节点 - 发送通知
+  LOG: 'log',                          // 日志节点 - 记录日志
+  CUSTOM: 'custom',                    // 自定义节点 - 执行自定义代码
+
+  // ========== 流程控制节点（3种）==========
+  LOOP: 'loop',                        // 循环节点 - 循环执行
+  PARALLEL: 'parallel',                // 并行节点 - 并行执行
+  TRY_CATCH: 'try_catch'               // 异常处理节点 - 异常捕获
+};
+
+// ========== 保留兼容性：旧节点类型映射 ==========
+// 为了向后兼容，保留旧节点类型，但标记为废弃
+const NodeTypeLegacy = {
+  // AI相关（已合并到 MULTI_TASK_AI）
   AI_CHAT: 'ai_chat',
   INTENT: 'intent',
-  SERVICE: 'service',
+  EMOTION_ANALYZE: 'emotion_analyze',
+  AI_REPLY: 'ai_reply',
+  AI_REPLY_ENHANCED: 'ai_reply_enhanced',
+  RISK_DETECT: 'risk_detect',
+  SMART_ANALYZE: 'smart_analyze',
+  UNIFIED_ANALYZE: 'unified_analyze',
+
+  // 数据相关（已合并到 MULTI_TASK_DATA）
+  DATA_QUERY: 'data_query',
+  DATA_TRANSFORM: 'data_transform',
+  VARIABLE_SET: 'variable_set',
+  SATISFACTION_INFER: 'satisfaction_infer',
+
+  // HTTP相关（已合并到 MULTI_TASK_HTTP）
+  HTTP_REQUEST: 'http_request',
+  IMAGE_PROCESS: 'image_process',
+
+  // 任务相关（已合并到 MULTI_TASK_TASK）
+  TASK_ASSIGN: 'task_assign',
+
+  // 告警相关（已合并到 MULTI_TASK_ALERT）
+  ALERT_RULE: 'alert_rule',
+  ALERT_SAVE: 'alert_save',
+  ALERT_NOTIFY: 'alert_notify',
+  ALERT_ESCALATE: 'alert_escalate',
+
+  // 人员相关（已合并到 MULTI_TASK_STAFF）
+  STAFF_INTERVENTION: 'staff_intervention',
   HUMAN_HANDOVER: 'human_handover',
-  NOTIFICATION: 'notification',
-  RISK_HANDLER: 'risk_handler', // 风险处理节点
-  MONITOR: 'monitor', // 监控节点
 
-  // 新增节点类型
-  MESSAGE_RECEIVE: 'message_receive', // 消息接收节点
-  SESSION_CREATE: 'session_create', // 创建会话节点
-  EMOTION_ANALYZE: 'emotion_analyze', // 情感分析节点
-  DECISION: 'decision', // 决策节点
-  AI_REPLY: 'ai_reply', // AI回复节点
-  MESSAGE_DISPATCH: 'message_dispatch', // 消息分发节点
-  SEND_COMMAND: 'send_command', // 发送指令节点
-  COMMAND_STATUS: 'command_status', // 指令状态记录节点
-  STAFF_INTERVENTION: 'staff_intervention', // 工作人员干预节点
-  ALERT_SAVE: 'alert_save', // 告警入库节点
-  ALERT_RULE: 'alert_rule', // 告警规则判断节点
+  // 分析相关（已合并到 MULTI_TASK_ANALYSIS）
+  COLLABORATION_ANALYZE: 'collaboration_analyze',
+  STAFF_MESSAGE: 'staff_message',
 
-  // 额外节点类型
-  RISK_DETECT: 'risk_detect', // 风险检测节点
-  LOG_SAVE: 'log_save', // 记录日志节点
-  ALERT_NOTIFY: 'alert_notify', // 告警通知节点
-  ALERT_ESCALATE: 'alert_escalate', // 告警升级节点
+  // 机器人相关（已合并到 MULTI_TASK_ROBOT）
+  ROBOT_DISPATCH: 'robot_dispatch',
+  SEND_COMMAND: 'send_command',
+  COMMAND_STATUS: 'command_status',
 
-  // 协同分析相关节点
-  COLLABORATION_ANALYZE: 'collaboration_analyze', // 协同分析节点
-  STAFF_MESSAGE: 'staff_message', // 工作人员消息节点
-  SMART_ANALYZE: 'smart_analyze', // 智能分析节点（意图+情绪合并）
+  // 消息相关（已合并到 MULTI_TASK_MESSAGE）
+  MESSAGE_RECEIVE: 'message_receive',
+  MESSAGE_DISPATCH: 'message_dispatch',
+  MESSAGE_SYNC: 'message_sync',
 
-  // HTTP 和任务相关节点
-  HTTP_REQUEST: 'http_request', // HTTP请求节点
-  TASK_ASSIGN: 'task_assign', // 任务分配节点
+  // 会话相关（已合并到 SESSION）
+  SESSION_CREATE: 'session_create',
 
-  // 群组协作相关节点
-  ROBOT_DISPATCH: 'robot_dispatch', // 机器人分发节点
-  MESSAGE_SYNC: 'message_sync', // 消息汇总节点
-  DATA_TRANSFORM: 'data_transform', // 数据转换节点
+  // 上下文相关（已合并到 CONTEXT）
+  CONTEXT_ENHANCER: 'context_enhancer',
 
-  // 数据和满意度相关节点
-  DATA_QUERY: 'data_query', // 数据查询节点
-  SATISFACTION_INFER: 'satisfaction_infer', // 满意度推断节点
-  VARIABLE_SET: 'variable_set', // 变量设置节点
+  // 日志相关（已合并到 LOG）
+  LOG_SAVE: 'log_save',
 
-  // 图片识别相关节点（新增）
-  IMAGE_PROCESS: 'image_process', // 图片处理复合节点（检测+下载+识别+分析+决策）
-  AI_REPLY_ENHANCED: 'ai_reply_enhanced', // 增强AI回复节点（支持图片上下文）
-  
-  // 上下文增强器节点
-  CONTEXT_ENHANCER: 'context_enhancer', // 上下文增强器节点（提取上下文变量并生成补充提示词）
-  
-  // 统一AI分析节点
-  UNIFIED_ANALYZE: 'unified_analyze' // 统一AI分析节点（使用UnifiedAnalysisService进行上下文准备+意图识别+情感分析）
+  // 其他
+  SERVICE: 'service',
+  RISK_HANDLER: 'risk_handler',
+  MONITOR: 'monitor'
 };
 
 // 流程状态枚举
@@ -168,7 +207,31 @@ class FlowEngine {
       [NodeType.CONTEXT_ENHANCER]: this.handleContextEnhancerNode.bind(this),
       
       // 统一AI分析节点处理器
-      [NodeType.UNIFIED_ANALYZE]: this.handleUnifiedAnalyzeNode.bind(this)
+      [NodeType.UNIFIED_ANALYZE]: this.handleUnifiedAnalyzeNode.bind(this),
+
+      // ========== v6.1 新增多任务节点处理器 ==========
+      [NodeType.MULTI_TASK_AI]: this.handleMultiTaskAINode.bind(this),
+      [NodeType.MULTI_TASK_DATA]: this.handleMultiTaskDataNode.bind(this),
+      [NodeType.MULTI_TASK_HTTP]: this.handleMultiTaskHTTPNode.bind(this),
+      [NodeType.MULTI_TASK_TASK]: this.handleMultiTaskTaskNode.bind(this),
+      [NodeType.MULTI_TASK_ALERT]: this.handleMultiTaskAlertNode.bind(this),
+      [NodeType.MULTI_TASK_STAFF]: this.handleMultiTaskStaffNode.bind(this),
+      [NodeType.MULTI_TASK_ANALYSIS]: this.handleMultiTaskAnalysisNode.bind(this),
+      [NodeType.MULTI_TASK_ROBOT]: this.handleMultiTaskRobotNode.bind(this),
+      [NodeType.MULTI_TASK_MESSAGE]: this.handleMultiTaskMessageNode.bind(this),
+
+      // 新增专用节点处理器
+      [NodeType.SESSION]: this.handleSessionNode.bind(this),
+      [NodeType.CONTEXT]: this.handleContextNode.bind(this),
+      [NodeType.LOG]: this.handleLogNode.bind(this),
+      [NodeType.CUSTOM]: this.handleCustomNode.bind(this),
+
+      // 流程控制节点处理器
+      [NodeType.FLOW_CALL]: this.handleFlowCallNode.bind(this),
+      [NodeType.DELAY]: this.handleDelayNode.bind(this),
+      [NodeType.LOOP]: this.handleLoopNode.bind(this),
+      [NodeType.PARALLEL]: this.handleParallelNode.bind(this),
+      [NodeType.TRY_CATCH]: this.handleTryCatchNode.bind(this)
     };
 
     // 模板缓存
@@ -6261,6 +6324,389 @@ class FlowEngine {
           analyzeError: error.message
         }
       };
+    }
+  }
+
+  // ============================================
+  // v6.1 多任务节点处理器 - 核心方法
+  // ============================================
+
+  /**
+   * 通用多任务执行器（简化版）
+   */
+  async executeMultiTaskCore(node, context, taskType) {
+    const { config } = node.data;
+    const { executeMode = 'sequential', failFast = true, tasks = [] } = config;
+
+    if (!tasks || tasks.length === 0) {
+      throw new Error('多任务节点必须包含tasks数组');
+    }
+
+    const results = {};
+    const taskContext = { ...context };
+
+    if (executeMode === 'sequential') {
+      for (const task of tasks) {
+        try {
+          const taskResult = await this.executeSingleTaskCore(task, taskContext, taskType, results);
+          results[task.id] = taskResult;
+
+          if (task.config.outputField && taskResult.result !== undefined) {
+            taskContext[task.config.outputField] = taskResult.result;
+          }
+
+          if (failFast && !taskResult.success) {
+            logger.warn(`任务执行失败，failFast=true`, { taskId: task.id });
+            break;
+          }
+        } catch (error) {
+          logger.error(`任务执行异常`, { taskId: task.id, error: error.message });
+          if (failFast) break;
+        }
+      }
+    } else if (executeMode === 'parallel') {
+      const promises = tasks.map(task => 
+        this.executeSingleTaskCore(task, { ...taskContext }, taskType, results)
+      );
+      const taskResults = await Promise.all(promises);
+
+      tasks.forEach((task, index) => {
+        results[task.id] = taskResults[index];
+        if (task.config.outputField && taskResults[index].result !== undefined) {
+          taskContext[task.config.outputField] = taskResults[index].result;
+        }
+      });
+    }
+
+    return { success: true, results, context: taskContext };
+  }
+
+  /**
+   * 执行单个任务（简化版）
+   */
+  async executeSingleTaskCore(task, context, taskType, previousResults) {
+    const { operation, config } = task;
+    
+    // 根据任务类型和操作调用对应的处理器
+    // 这里使用映射表来简化实现
+    const handlerMap = {
+      ai: {
+        emotion_analyze: () => this.handleEmotionAnalyzeNode({ data: { config } }, context),
+        intent_analyze: () => this.handleIntentNode({ data: { config } }, context),
+        reply: () => this.handleAIReplyNode({ data: { config } }, context),
+        risk_detect: () => this.handleRiskDetectNode({ data: { config } }, context)
+      },
+      data: {
+        query: () => this.handleDataQueryNode({ data: { config } }, context),
+        transform: () => this.handleDataTransformNode({ data: { config } }, context)
+      },
+      http: {
+        request: () => this.handleHttpRequestNode({ data: { config } }, context)
+      },
+      task: {
+        create: () => this.handleTaskAssignNode({ data: { config } }, context)
+      },
+      alert: {
+        save: () => this.handleAlertSaveNode({ data: { config } }, context),
+        notify: () => this.handleAlertNotifyNode({ data: { config } }, context)
+      },
+      staff: {
+        transfer: () => this.handleHumanHandoverNode({ data: { config } }, context),
+        intervene: () => this.handleStaffInterventionNode({ data: { config } }, context)
+      },
+      robot: {
+        dispatch: () => this.handleRobotDispatchNode({ data: { config } }, context),
+        send_command: () => this.handleSendCommandNode({ data: { config } }, context)
+      },
+      message: {
+        receive: () => this.handleMessageReceiveNode({ data: { config } }, context),
+        dispatch: () => this.handleMessageDispatchNode({ data: { config } }, context)
+      }
+    };
+
+    const typeHandlers = handlerMap[taskType];
+    if (!typeHandlers) {
+      return { success: false, error: `未知的任务类型: ${taskType}` };
+    }
+
+    const handler = typeHandlers[operation];
+    if (!handler) {
+      return { success: false, error: `未知的操作: ${taskType}/${operation}` };
+    }
+
+    try {
+      const result = await handler();
+      return { success: true, result: result.result || result };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * 多任务AI处理节点
+   */
+  async handleMultiTaskAINode(node, context) {
+    logger.info('执行多任务AI处理节点', { nodeId: node.id });
+    try {
+      return await this.executeMultiTaskCore(node, context, 'ai');
+    } catch (error) {
+      return { success: false, error: error.message, context: { ...context, lastNodeType: 'multi_task_ai' } };
+    }
+  }
+
+  /**
+   * 多任务数据处理节点
+   */
+  async handleMultiTaskDataNode(node, context) {
+    logger.info('执行多任务数据处理节点', { nodeId: node.id });
+    try {
+      return await this.executeMultiTaskCore(node, context, 'data');
+    } catch (error) {
+      return { success: false, error: error.message, context: { ...context, lastNodeType: 'multi_task_data' } };
+    }
+  }
+
+  /**
+   * 多任务HTTP处理节点
+   */
+  async handleMultiTaskHTTPNode(node, context) {
+    logger.info('执行多任务HTTP处理节点', { nodeId: node.id });
+    try {
+      return await this.executeMultiTaskCore(node, context, 'http');
+    } catch (error) {
+      return { success: false, error: error.message, context: { ...context, lastNodeType: 'multi_task_http' } };
+    }
+  }
+
+  /**
+   * 多任务任务管理节点
+   */
+  async handleMultiTaskTaskNode(node, context) {
+    logger.info('执行多任务任务管理节点', { nodeId: node.id });
+    try {
+      return await this.executeMultiTaskCore(node, context, 'task');
+    } catch (error) {
+      return { success: false, error: error.message, context: { ...context, lastNodeType: 'multi_task_task' } };
+    }
+  }
+
+  /**
+   * 多任务告警管理节点
+   */
+  async handleMultiTaskAlertNode(node, context) {
+    logger.info('执行多任务告警管理节点', { nodeId: node.id });
+    try {
+      return await this.executeMultiTaskCore(node, context, 'alert');
+    } catch (error) {
+      return { success: false, error: error.message, context: { ...context, lastNodeType: 'multi_task_alert' } };
+    }
+  }
+
+  /**
+   * 多任务人员管理节点
+   */
+  async handleMultiTaskStaffNode(node, context) {
+    logger.info('执行多任务人员管理节点', { nodeId: node.id });
+    try {
+      return await this.executeMultiTaskCore(node, context, 'staff');
+    } catch (error) {
+      return { success: false, error: error.message, context: { ...context, lastNodeType: 'multi_task_staff' } };
+    }
+  }
+
+  /**
+   * 多任务协同分析节点
+   */
+  async handleMultiTaskAnalysisNode(node, context) {
+    logger.info('执行多任务协同分析节点', { nodeId: node.id });
+    try {
+      return await this.executeMultiTaskCore(node, context, 'analysis');
+    } catch (error) {
+      return { success: false, error: error.message, context: { ...context, lastNodeType: 'multi_task_analysis' } };
+    }
+  }
+
+  /**
+   * 多任务机器人交互节点
+   */
+  async handleMultiTaskRobotNode(node, context) {
+    logger.info('执行多任务机器人交互节点', { nodeId: node.id });
+    try {
+      return await this.executeMultiTaskCore(node, context, 'robot');
+    } catch (error) {
+      return { success: false, error: error.message, context: { ...context, lastNodeType: 'multi_task_robot' } };
+    }
+  }
+
+  /**
+   * 多任务消息管理节点
+   */
+  async handleMultiTaskMessageNode(node, context) {
+    logger.info('执行多任务消息管理节点', { nodeId: node.id });
+    try {
+      return await this.executeMultiTaskCore(node, context, 'message');
+    } catch (error) {
+      return { success: false, error: error.message, context: { ...context, lastNodeType: 'multi_task_message' } };
+    }
+  }
+
+  /**
+   * 会话管理节点
+   */
+  async handleSessionNode(node, context) {
+    logger.info('执行会话管理节点', { nodeId: node.id });
+    try {
+      return await this.handleSessionCreateNode(node, context);
+    } catch (error) {
+      return { success: false, error: error.message, context: { ...context, lastNodeType: 'session' } };
+    }
+  }
+
+  /**
+   * 上下文节点
+   */
+  async handleContextNode(node, context) {
+    logger.info('执行上下文节点', { nodeId: node.id });
+    try {
+      return await this.handleContextEnhancerNode(node, context);
+    } catch (error) {
+      return { success: false, error: error.message, context: { ...context, lastNodeType: 'context' } };
+    }
+  }
+
+  /**
+   * 日志节点
+   */
+  async handleLogNode(node, context) {
+    logger.info('执行日志节点', { nodeId: node.id });
+    try {
+      const { config } = node.data;
+      const { logLevel = 'info', message } = config;
+      logger[logLevel](message, { context });
+      return { success: true, context: { ...context, lastNodeType: 'log' } };
+    } catch (error) {
+      return { success: false, error: error.message, context: { ...context, lastNodeType: 'log' } };
+    }
+  }
+
+  /**
+   * 自定义节点
+   */
+  async handleCustomNode(node, context) {
+    logger.info('执行自定义节点', { nodeId: node.id });
+    try {
+      const { config } = node.data;
+      const { code, outputField } = config;
+      const fn = new Function('context', code);
+      const result = fn(context);
+      const updatedContext = outputField ? { ...context, [outputField]: result } : context;
+      return { success: true, result, context: updatedContext };
+    } catch (error) {
+      return { success: false, error: error.message, context: { ...context, lastNodeType: 'custom' } };
+    }
+  }
+
+  /**
+   * 流程调用节点
+   */
+  async handleFlowCallNode(node, context) {
+    logger.info('执行流程调用节点', { nodeId: node.id, flowId: node.data.config?.flowId });
+    try {
+      const { config } = node.data;
+      const { flowId, params = {}, responseMapping = {} } = config;
+      
+      // 查找流程定义
+      const db = await this.getDb();
+      const [flowDef] = await db.select().from(flowDefinitions).where(eq(flowDefinitions.id, flowId));
+      
+      if (!flowDef) {
+        throw new Error(`流程 ${flowId} 不存在`);
+      }
+
+      // 创建并执行子流程
+      const subInstanceId = await this.createFlowInstance(flowId, { ...context, ...params });
+      const result = await this.executeFlowInstance(subInstanceId);
+
+      // 映射返回结果
+      const updatedContext = { ...context };
+      for (const [sourceKey, targetKey] of Object.entries(responseMapping)) {
+        updatedContext[targetKey] = result[sourceKey];
+      }
+
+      return { success: true, result, context: updatedContext };
+    } catch (error) {
+      return { success: false, error: error.message, context: { ...context, lastNodeType: 'flow_call' } };
+    }
+  }
+
+  /**
+   * 延迟节点
+   */
+  async handleDelayNode(node, context) {
+    logger.info('执行延迟节点', { nodeId: node.id });
+    try {
+      const { config } = node.data;
+      const { delay = 1000 } = config;
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return { success: true, context: { ...context, lastNodeType: 'delay' } };
+    } catch (error) {
+      return { success: false, error: error.message, context: { ...context, lastNodeType: 'delay' } };
+    }
+  }
+
+  /**
+   * 循环节点（简化版）
+   */
+  async handleLoopNode(node, context) {
+    logger.info('执行循环节点', { nodeId: node.id });
+    try {
+      const { config } = node.data;
+      const { maxIterations = 10, iterationVariable = 'index' } = config;
+      
+      let iterations = 0;
+      const loopContext = { ...context };
+
+      while (iterations < maxIterations) {
+        loopContext[iterationVariable] = iterations;
+        // TODO: 实现循环体执行逻辑
+        iterations++;
+      }
+
+      return { success: true, iterations, context: loopContext };
+    } catch (error) {
+      return { success: false, error: error.message, context: { ...context, lastNodeType: 'loop' } };
+    }
+  }
+
+  /**
+   * 并行节点（简化版）
+   */
+  async handleParallelNode(node, context) {
+    logger.info('执行并行节点', { nodeId: node.id });
+    try {
+      const { config } = node.data;
+      const { branches = [] } = config;
+      
+      // TODO: 实现并行分支执行逻辑
+      return { success: true, results: [], context };
+    } catch (error) {
+      return { success: false, error: error.message, context: { ...context, lastNodeType: 'parallel' } };
+    }
+  }
+
+  /**
+   * 异常处理节点（简化版）
+   */
+  async handleTryCatchNode(node, context) {
+    logger.info('执行异常处理节点', { nodeId: node.id });
+    try {
+      const { config } = node.data;
+      const { tryTasks = [], catchTasks = [] } = config;
+      
+      // TODO: 实现try-catch-finally逻辑
+      return { success: true, context };
+    } catch (error) {
+      return { success: false, error: error.message, context: { ...context, lastNodeType: 'try_catch' } };
     }
   }
 }
