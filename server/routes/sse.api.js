@@ -130,7 +130,7 @@ async function sseMessageRoutes(fastify, options) {
       logger.info('准备执行LISTEN', { channel });
 
       try {
-        await sseClient.query(`LISTEN ${channel}`);
+        await sseClient.query(`LISTEN "${channel}"`);
         logger.info('✓ LISTEN成功', { channel });
       } catch (err) {
         logger.error('LISTEN失败', { error: err.message });

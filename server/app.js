@@ -175,6 +175,11 @@ fastify.register(robotRolesApiRoutes, { prefix: '/api' });
 fastify.register(robotGroupsApiRoutes, { prefix: '/api' });
 fastify.register(documentApiRoutes, { prefix: '/api/admin' });
 fastify.register(notificationApiRoutes, { prefix: '/api' });
+// 消息管理API（用于发送和查询消息）
+console.log('[app.js] Attempting to load messages.api...');
+const messagesApiRoutes = require('./routes/messages.api');
+console.log('[app.js] messages.api loaded successfully');
+fastify.register(messagesApiRoutes, { prefix: '/api' });
 fastify.register(intentConfigApiRoutes, { prefix: '/api/ai/intents' });
 fastify.register(flowEngineApiRoutes, { prefix: '/api/flow-engine' });
 fastify.register(riskApiRoutes, { prefix: '/api' });
