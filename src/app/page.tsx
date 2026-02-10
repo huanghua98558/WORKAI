@@ -134,10 +134,7 @@ import {
   Send,
   BookOpen,
   MonitorPlay,
-  Headphones,
-  MessageCircle,
-  Clock,
-  BarChart3
+  Headphones
 } from 'lucide-react';
 
 import { MessageBubble } from '@/components/ui/message-bubble';
