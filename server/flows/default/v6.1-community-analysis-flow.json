@@ -1,0 +1,647 @@
+{
+  "id": "flow_community_analysis_v6_1",
+  "name": "社群数据分析系统流程",
+  "description": "分析社群运营数据，生成改进建议报告（实时报告、每日报告、周报、月报）",
+  "version": "6.1.0",
+  "isDefault": true,
+  "priority": 80,
+  "category": "分析流程",
+  "tags": ["数据分析", "社群运营", "报告生成"],
+  "triggerType": "scheduled",
+  "triggerConfig": {
+    "eventType": "scheduled",
+    "cronExpression": "0 */10 * * *",
+    "method": "POST"
+  },
+  "nodes": [
+    {
+      "id": "node_start",
+      "type": "start",
+      "name": "开始",
+      "position": { "x": 50, "y": 100 },
+      "data": {
+        "name": "开始",
+        "description": "流程开始",
+        "icon": "▶️",
+        "color": "bg-green-500"
+      }
+    },
+    {
+      "id": "node_user_activity_analysis",
+      "type": "multi_task_analysis",
+      "name": "用户活跃度分析",
+      "position": { "x": 250, "y": 50 },
+      "data": {
+        "name": "用户活跃度分析",
+        "description": "分析每日活跃用户数、用户发言频率、用户留存率、用户流失率",
+        "icon": "📊",
+        "color": "bg-teal-500",
+        "config": {
+          "executeMode": "parallel",
+          "failFast": false,
+          "tasks": [
+            {
+              "id": "task_daily_active_users",
+              "operation": "collaboration_analyze",
+              "config": {
+                "analysisType": "daily_active_users",
+                "outputField": "dailyActiveUsers"
+              }
+            },
+            {
+              "id": "task_message_frequency",
+              "operation": "collaboration_analyze",
+              "config": {
+                "analysisType": "message_frequency",
+                "outputField": "messageFrequency"
+              }
+            },
+            {
+              "id": "task_retention_rate",
+              "operation": "collaboration_analyze",
+              "config": {
+                "analysisType": "retention_rate",
+                "outputField": "retentionRate"
+              }
+            },
+            {
+              "id": "task_churn_rate",
+              "operation": "collaboration_analyze",
+              "config": {
+                "analysisType": "churn_rate",
+                "outputField": "churnRate"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_message_type_analysis",
+      "type": "multi_task_data",
+      "name": "消息类型分析",
+      "position": { "x": 250, "y": 200 },
+      "data": {
+        "name": "消息类型分析",
+        "description": "分析文本消息占比、图片消息占比、视频消息占比、音频消息占比",
+        "icon": "🗄️",
+        "color": "bg-blue-500",
+        "config": {
+          "executeMode": "parallel",
+          "failFast": false,
+          "tasks": [
+            {
+              "id": "task_text_message_ratio",
+              "operation": "query",
+              "config": {
+                "queryType": "message_type_ratio",
+                "messageType": "text",
+                "outputField": "textMessageRatio"
+              }
+            },
+            {
+              "id": "task_image_message_ratio",
+              "operation": "query",
+              "config": {
+                "queryType": "message_type_ratio",
+                "messageType": "image",
+                "outputField": "imageMessageRatio"
+              }
+            },
+            {
+              "id": "task_video_message_ratio",
+              "operation": "query",
+              "config": {
+                "queryType": "message_type_ratio",
+                "messageType": "video",
+                "outputField": "videoMessageRatio"
+              }
+            },
+            {
+              "id": "task_audio_message_ratio",
+              "operation": "query",
+              "config": {
+                "queryType": "message_type_ratio",
+                "messageType": "audio",
+                "outputField": "audioMessageRatio"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_intent_analysis",
+      "type": "multi_task_ai",
+      "name": "意图分析",
+      "position": { "x": 450, "y": 100 },
+      "data": {
+        "name": "意图分析",
+        "description": "分析用户消息意图（售后类、疑虑解答类、情绪不满类、状态沟通类、闲聊类）",
+        "icon": "🧠",
+        "color": "bg-purple-500",
+        "config": {
+          "executeMode": "parallel",
+          "failFast": false,
+          "tasks": [
+            {
+              "id": "task_after_sales_intent",
+              "operation": "intent_analyze",
+              "config": {
+                "intentType": "售后类",
+                "subIntents": ["扫码", "绑定", "认证"],
+                "outputField": "afterSalesIntent"
+              }
+            },
+            {
+              "id": "task_question_intent",
+              "operation": "intent_analyze",
+              "config": {
+                "intentType": "疑虑解答类",
+                "subIntents": ["价格", "功能", "售后"],
+                "outputField": "questionIntent"
+              }
+            },
+            {
+              "id": "task_emotion_intent",
+              "operation": "intent_analyze",
+              "config": {
+                "intentType": "情绪不满类",
+                "subIntents": ["投诉", "抱怨", "不满"],
+                "outputField": "emotionIntent"
+              }
+            },
+            {
+              "id": "task_status_intent",
+              "operation": "intent_analyze",
+              "config": {
+                "intentType": "状态沟通类",
+                "subIntents": ["进度", "状态", "确认"],
+                "outputField": "statusIntent"
+              }
+            },
+            {
+              "id": "task_chat_intent",
+              "operation": "intent_analyze",
+              "config": {
+                "intentType": "闲聊类",
+                "outputField": "chatIntent"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_staff_analysis",
+      "type": "multi_task_analysis",
+      "name": "工作人员分析",
+      "position": { "x": 650, "y": 50 },
+      "data": {
+        "name": "工作人员分析",
+        "description": "分析群助理活跃度、售后工作效率、用户满意度评分、问题解决率",
+        "icon": "📊",
+        "color": "bg-teal-500",
+        "config": {
+          "executeMode": "parallel",
+          "failFast": false,
+          "tasks": [
+            {
+              "id": "task_assistant_activity",
+              "operation": "collaboration_analyze",
+              "config": {
+                "analysisType": "assistant_activity",
+                "outputField": "assistantActivity"
+              }
+            },
+            {
+              "id": "task_after_sales_efficiency",
+              "operation": "collaboration_analyze",
+              "config": {
+                "analysisType": "after_sales_efficiency",
+                "outputField": "afterSalesEfficiency"
+              }
+            },
+            {
+              "id": "task_user_satisfaction_score",
+              "operation": "satisfaction_infer",
+              "config": {
+                "analysisType": "user_satisfaction_score",
+                "outputField": "userSatisfactionScore"
+              }
+            },
+            {
+              "id": "task_problem_resolution_rate",
+              "operation": "collaboration_analyze",
+              "config": {
+                "analysisType": "problem_resolution_rate",
+                "outputField": "problemResolutionRate"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_robot_analysis",
+      "type": "multi_task_robot",
+      "name": "机器人分析",
+      "position": { "x": 650, "y": 200 },
+      "data": {
+        "name": "机器人分析",
+        "description": "分析机器人回复率、响应时间、负载情况、故障率",
+        "icon": "🤖",
+        "color": "bg-blue-600",
+        "config": {
+          "executeMode": "parallel",
+          "failFast": false,
+          "tasks": [
+            {
+              "id": "task_robot_reply_rate",
+              "operation": "dispatch",
+              "config": {
+                "analysisType": "reply_rate",
+                "outputField": "robotReplyRate"
+              }
+            },
+            {
+              "id": "task_robot_response_time",
+              "operation": "response_time_check",
+              "config": {
+                "checkType": "average",
+                "timeWindow": 3600,
+                "outputField": "robotResponseTime"
+              }
+            },
+            {
+              "id": "task_robot_workload",
+              "operation": "workload_check",
+              "config": {
+                "checkType": "current",
+                "outputField": "robotWorkload"
+              }
+            },
+            {
+              "id": "task_robot_failure_rate",
+              "operation": "dispatch",
+              "config": {
+                "analysisType": "failure_rate",
+                "timeWindow": 86400,
+                "outputField": "robotFailureRate"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_operator_analysis",
+      "type": "multi_task_staff",
+      "name": "运营分析",
+      "position": { "x": 850, "y": 100 },
+      "data": {
+        "name": "运营分析",
+        "description": "分析运营发言频率、语气分析、号主配合度、建议采纳率",
+        "icon": "👥",
+        "color": "bg-pink-500",
+        "config": {
+          "executeMode": "parallel",
+          "failFast": false,
+          "tasks": [
+            {
+              "id": "task_operator_frequency",
+              "operation": "notify",
+              "config": {
+                "analysisType": "message_frequency",
+                "userType": "operator",
+                "outputField": "operatorFrequency"
+              }
+            },
+            {
+              "id": "task_operator_tone",
+              "operation": "emotion_analyze",
+              "config": {
+                "analysisType": "operator_tone",
+                "outputField": "operatorTone"
+              }
+            },
+            {
+              "id": "task_owner_cooperation",
+              "operation": "collaboration_analyze",
+              "config": {
+                "analysisType": "owner_cooperation",
+                "outputField": "ownerCooperation"
+              }
+            },
+            {
+              "id": "task_suggestion_adoption_rate",
+              "operation": "collaboration_analyze",
+              "config": {
+                "analysisType": "suggestion_adoption_rate",
+                "outputField": "suggestionAdoptionRate"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_report_generation",
+      "type": "multi_task_data",
+      "name": "报告生成",
+      "position": { "x": 1050, "y": 100 },
+      "data": {
+        "name": "报告生成",
+        "description": "生成分析报告（实时报告、每日报告、周报、月报）",
+        "icon": "🗄️",
+        "color": "bg-blue-500",
+        "config": {
+          "executeMode": "sequential",
+          "failFast": false,
+          "tasks": [
+            {
+              "id": "task_aggregate_data",
+              "operation": "transform",
+              "config": {
+                "transformType": "aggregate_analysis_data",
+                "dataFields": [
+                  "dailyActiveUsers",
+                  "messageFrequency",
+                  "retentionRate",
+                  "churnRate",
+                  "textMessageRatio",
+                  "imageMessageRatio",
+                  "videoMessageRatio",
+                  "audioMessageRatio",
+                  "afterSalesIntent",
+                  "questionIntent",
+                  "emotionIntent",
+                  "statusIntent",
+                  "chatIntent",
+                  "assistantActivity",
+                  "afterSalesEfficiency",
+                  "userSatisfactionScore",
+                  "problemResolutionRate",
+                  "robotReplyRate",
+                  "robotResponseTime",
+                  "robotWorkload",
+                  "robotFailureRate",
+                  "operatorFrequency",
+                  "operatorTone",
+                  "ownerCooperation",
+                  "suggestionAdoptionRate"
+                ],
+                "outputField": "aggregatedData"
+              }
+            },
+            {
+              "id": "task_determine_report_type",
+              "operation": "query",
+              "config": {
+                "queryType": "report_type_determine",
+                "currentTime": "{{currentTime}}",
+                "outputField": "reportType"
+              }
+            },
+            {
+              "id": "task_generate_report",
+              "operation": "transform",
+              "config": {
+                "transformType": "generate_report",
+                "reportTypeField": "reportType",
+                "dataField": "aggregatedData",
+                "outputField": "generatedReport"
+              }
+            },
+            {
+              "id": "task_save_report",
+              "operation": "dispatch",
+              "config": {
+                "action": "save",
+                "table": "analysis_reports",
+                "dataField": "generatedReport",
+                "outputField": "savedReportId"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_improvement_suggestions",
+      "type": "multi_task_ai",
+      "name": "生成改进建议",
+      "position": { "x": 1250, "y": 100 },
+      "data": {
+        "name": "生成改进建议",
+        "description": "基于分析数据生成改进建议报告",
+        "icon": "🧠",
+        "color": "bg-purple-500",
+        "config": {
+          "executeMode": "sequential",
+          "failFast": false,
+          "tasks": [
+            {
+              "id": "task_analyze_trends",
+              "operation": "unified_analyze",
+              "config": {
+                "modelId": "default",
+                "analysisType": "trend_analysis",
+                "dataField": "aggregatedData",
+                "outputField": "trendAnalysis"
+              }
+            },
+            {
+              "id": "task_generate_suggestions",
+              "operation": "unified_analyze",
+              "config": {
+                "modelId": "default",
+                "analysisType": "suggestion_generation",
+                "dataField": "aggregatedData",
+                "trendAnalysisField": "trendAnalysis",
+                "outputField": "improvementSuggestions"
+              }
+            },
+            {
+              "id": "task_save_suggestions",
+              "operation": "dispatch",
+              "config": {
+                "action": "save",
+                "table": "improvement_suggestions",
+                "dataField": "improvementSuggestions",
+                "reportIdField": "savedReportId",
+                "outputField": "savedSuggestionsId"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_push_dashboard",
+      "type": "multi_task_message",
+      "name": "推送Dashboard",
+      "position": { "x": 1450, "y": 100 },
+      "data": {
+        "name": "推送Dashboard",
+        "description": "推送分析报告和改进建议到Dashboard",
+        "icon": "📨",
+        "color": "bg-green-500",
+        "config": {
+          "executeMode": "parallel",
+          "failFast": false,
+          "tasks": [
+            {
+              "id": "task_push_to_analytics_dashboard",
+              "operation": "dispatch",
+              "config": {
+                "target": "analytics_dashboard",
+                "data": {
+                  "report": "{{generatedReport}}",
+                  "suggestions": "{{improvementSuggestions}}"
+                }
+              }
+            },
+            {
+              "id": "task_push_to_staff_dashboard",
+              "operation": "dispatch",
+              "config": {
+                "target": "staff_dashboard",
+                "data": {
+                  "report": "{{generatedReport}}",
+                  "suggestions": "{{improvementSuggestions}}"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_end",
+      "type": "end",
+      "name": "结束",
+      "position": { "x": 1650, "y": 100 },
+      "data": {
+        "name": "结束",
+        "description": "流程结束",
+        "icon": "⏹️",
+        "color": "bg-gray-500"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_start_user_activity",
+      "source": "node_start",
+      "target": "node_user_activity_analysis",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_start_message_type",
+      "source": "node_start",
+      "target": "node_message_type_analysis",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_user_activity_intent",
+      "source": "node_user_activity_analysis",
+      "target": "node_intent_analysis",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_message_type_intent",
+      "source": "node_message_type_analysis",
+      "target": "node_intent_analysis",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_intent_staff",
+      "source": "node_intent_analysis",
+      "target": "node_staff_analysis",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_intent_robot",
+      "source": "node_intent_analysis",
+      "target": "node_robot_analysis",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_staff_operator",
+      "source": "node_staff_analysis",
+      "target": "node_operator_analysis",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_robot_operator",
+      "source": "node_robot_analysis",
+      "target": "node_operator_analysis",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_operator_report",
+      "source": "node_operator_analysis",
+      "target": "node_report_generation",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_report_suggestions",
+      "source": "node_report_generation",
+      "target": "node_improvement_suggestions",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_suggestions_push",
+      "source": "node_improvement_suggestions",
+      "target": "node_push_dashboard",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_push_end",
+      "source": "node_push_dashboard",
+      "target": "node_end",
+      "type": "bezier"
+    }
+  ],
+  "variables": {
+    "currentTime": "",
+    "dailyActiveUsers": 0,
+    "messageFrequency": {},
+    "retentionRate": 0,
+    "churnRate": 0,
+    "textMessageRatio": 0,
+    "imageMessageRatio": 0,
+    "videoMessageRatio": 0,
+    "audioMessageRatio": 0,
+    "afterSalesIntent": {},
+    "questionIntent": {},
+    "emotionIntent": {},
+    "statusIntent": {},
+    "chatIntent": {},
+    "assistantActivity": {},
+    "afterSalesEfficiency": {},
+    "userSatisfactionScore": 0,
+    "problemResolutionRate": 0,
+    "robotReplyRate": 0,
+    "robotResponseTime": 0,
+    "robotWorkload": 0,
+    "robotFailureRate": 0,
+    "operatorFrequency": 0,
+    "operatorTone": "",
+    "ownerCooperation": 0,
+    "suggestionAdoptionRate": 0,
+    "aggregatedData": {},
+    "reportType": "realtime",
+    "generatedReport": {},
+    "savedReportId": "",
+    "trendAnalysis": {},
+    "improvementSuggestions": {},
+    "savedSuggestionsId": ""
+  },
+  "timeout": 300000,
+  "retryConfig": {
+    "maxRetries": 2,
+    "retryInterval": 5000
+  }
+}

@@ -1,0 +1,789 @@
+{
+  "id": "flow_message_processing_v6_1",
+  "name": "完整的文本消息处理流程",
+  "description": "从机器人检测新消息到AI回复的完整处理流程，包含角色识别、上下文分析、协同分析、意图判断、AI回复等",
+  "version": "6.1.0",
+  "isDefault": true,
+  "priority": 99,
+  "category": "核心流程",
+  "tags": ["消息处理", "AI回复", "协同分析"],
+  "triggerType": "webhook",
+  "triggerConfig": {
+    "webhookUrl": "/api/messages/receive",
+    "eventType": "message",
+    "method": "POST"
+  },
+  "nodes": [
+    {
+      "id": "node_start",
+      "type": "start",
+      "name": "开始",
+      "position": { "x": 50, "y": 100 },
+      "data": {
+        "name": "开始",
+        "description": "流程开始",
+        "icon": "▶️",
+        "color": "bg-green-500"
+      }
+    },
+    {
+      "id": "node_message_receive",
+      "type": "multi_task_message",
+      "name": "消息接收与保存",
+      "position": { "x": 250, "y": 100 },
+      "data": {
+        "name": "消息接收与保存",
+        "description": "机器人检测到新消息并上报到系统，系统保存消息到数据库",
+        "icon": "📨",
+        "color": "bg-green-500",
+        "config": {
+          "executeMode": "sequential",
+          "failFast": true,
+          "tasks": [
+            {
+              "id": "task_receive_message",
+              "operation": "receive",
+              "config": {
+                "apiEndpoint": "/api/messages/receive",
+                "fields": ["robot_id", "robot_type", "group_id", "group_name", "sender", "message"],
+                "outputField": "receivedMessage"
+              }
+            },
+            {
+              "id": "task_deduplicate",
+              "operation": "query",
+              "config": {
+                "queryType": "deduplicate",
+                "deduplicateBy": "message_id",
+                "outputField": "isDuplicate"
+              }
+            },
+            {
+              "id": "task_save_message",
+              "operation": "dispatch",
+              "config": {
+                "condition": "isDuplicate === false",
+                "action": "save",
+                "table": "session_messages",
+                "dataField": "receivedMessage",
+                "outputField": "savedMessageId"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_role_identify",
+      "type": "multi_task_data",
+      "name": "角色识别",
+      "position": { "x": 450, "y": 100 },
+      "data": {
+        "name": "角色识别",
+        "description": "识别发送者角色（监控机器人、通知机器人、白班回复机器人、晚班回复机器人、售后、用户、运营）",
+        "icon": "🗄️",
+        "color": "bg-blue-500",
+        "config": {
+          "executeMode": "sequential",
+          "failFast": true,
+          "tasks": [
+            {
+              "id": "task_identify_robot",
+              "operation": "query",
+              "config": {
+                "queryType": "role_identify",
+                "roleType": "robot",
+                "identifyBy": "robot_id",
+                "outputField": "robotRole"
+              }
+            },
+            {
+              "id": "task_identify_staff",
+              "operation": "query",
+              "config": {
+                "queryType": "role_identify",
+                "roleType": "staff",
+                "identifyBy": "enterprise_name",
+                "outputField": "staffRole"
+              }
+            },
+            {
+              "id": "task_identify_operator",
+              "operation": "query",
+              "config": {
+                "queryType": "role_identify",
+                "roleType": "operator",
+                "identifyBy": "whitelist",
+                "outputField": "operatorRole"
+              }
+            },
+            {
+              "id": "task_determine_sender_type",
+              "operation": "transform",
+              "config": {
+                "transformType": "sender_type",
+                "robotRoleField": "robotRole",
+                "staffRoleField": "staffRole",
+                "operatorRoleField": "operatorRole",
+                "outputField": "senderType"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_push_monitor",
+      "type": "multi_task_message",
+      "name": "推送监控面板",
+      "position": { "x": 650, "y": 100 },
+      "data": {
+        "name": "推送监控面板",
+        "description": "推送消息到会话管理业务消息监控列表、AI交互监控、工作人员监控大屏",
+        "icon": "📨",
+        "color": "bg-green-500",
+        "config": {
+          "executeMode": "parallel",
+          "failFast": false,
+          "tasks": [
+            {
+              "id": "task_push_business_monitor",
+              "operation": "dispatch",
+              "config": {
+                "target": "business_message_monitor",
+                "dataField": "receivedMessage"
+              }
+            },
+            {
+              "id": "task_push_ai_monitor",
+              "operation": "dispatch",
+              "config": {
+                "target": "ai_interaction_monitor",
+                "dataField": "receivedMessage"
+              }
+            },
+            {
+              "id": "task_push_staff_monitor",
+              "operation": "dispatch",
+              "config": {
+                "target": "staff_monitor_dashboard",
+                "dataField": "receivedMessage"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_context_analysis",
+      "type": "context",
+      "name": "上下文检索与增强",
+      "position": { "x": 850, "y": 100 },
+      "data": {
+        "name": "上下文检索与增强",
+        "description": "检索历史消息上下文、用户画像、工作人员状态、售后任务状态、群聊信息",
+        "icon": "🔮",
+        "color": "bg-indigo-600",
+        "config": {
+          "windowSize": 20,
+          "includeUserProfile": true,
+          "includeStaffStatus": true,
+          "includeAfterSalesTasks": true,
+          "includeGroupInfo": true
+        }
+      }
+    },
+    {
+      "id": "node_decision_sender_type",
+      "type": "decision",
+      "name": "发送者类型判断",
+      "position": { "x": 1050, "y": 100 },
+      "data": {
+        "name": "发送者类型判断",
+        "description": "根据发送者类型分流处理",
+        "icon": "🔀",
+        "color": "bg-orange-500",
+        "config": {
+          "conditions": [
+            {
+              "label": "工作人员",
+              "expression": "context.senderType === 'staff'",
+              "targetNodeId": "node_staff_handler"
+            },
+            {
+              "label": "用户/运营",
+              "expression": "context.senderType === 'user' || context.senderType === 'operator'",
+              "targetNodeId": "node_user_operator_handler"
+            },
+            {
+              "label": "其他",
+              "expression": "true",
+              "targetNodeId": "node_log_only"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_staff_handler",
+      "type": "multi_task_staff",
+      "name": "工作人员消息处理",
+      "position": { "x": 1250, "y": 50 },
+      "data": {
+        "name": "工作人员消息处理",
+        "description": "标记工作人员状态、记录活跃度、分析满意度、记录@任务",
+        "icon": "👥",
+        "color": "bg-pink-500",
+        "config": {
+          "executeMode": "sequential",
+          "failFast": false,
+          "tasks": [
+            {
+              "id": "task_mark_staff_status",
+              "operation": "notify",
+              "config": {
+                "action": "update_status",
+                "statusType": "online",
+                "outputField": "statusUpdated"
+              }
+            },
+            {
+              "id": "task_record_activity",
+              "operation": "dispatch",
+              "config": {
+                "action": "record_activity",
+                "activityType": "message",
+                "outputField": "activityRecorded"
+              }
+            },
+            {
+              "id": "task_analyze_response",
+              "operation": "dispatch",
+              "config": {
+                "action": "analyze_response",
+                "messageField": "receivedMessage",
+                "outputField": "responseAnalyzed"
+              }
+            },
+            {
+              "id": "task_check_mention",
+              "operation": "query",
+              "config": {
+                "queryType": "check_mention",
+                "targetUser": "owner",
+                "outputField": "isMentionOwner"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_user_operator_handler",
+      "type": "multi_task_ai",
+      "name": "用户/运营消息处理",
+      "position": { "x": 1250, "y": 200 },
+      "data": {
+        "name": "用户/运营消息处理",
+        "description": "基于上下文判断是否介入，判断依据：情绪分析、满意度分析、工作人员活跃度分析",
+        "icon": "🧠",
+        "color": "bg-purple-500",
+        "config": {
+          "executeMode": "sequential",
+          "failFast": true,
+          "tasks": [
+            {
+              "id": "task_analyze_sentiment",
+              "operation": "emotion_analyze",
+              "config": {
+                "modelId": "default",
+                "outputField": "sentiment"
+              }
+            },
+            {
+              "id": "task_analyze_satisfaction",
+              "operation": "satisfaction_infer",
+              "config": {
+                "modelId": "default",
+                "outputField": "satisfaction"
+              }
+            },
+            {
+              "id": "task_check_staff_activity",
+              "operation": "query",
+              "config": {
+                "queryType": "staff_activity",
+                "timeWindow": 300,
+                "outputField": "staffActivity"
+              }
+            },
+            {
+              "id": "task_determine_intervention",
+              "operation": "risk_detect",
+              "config": {
+                "ruleType": "intervention",
+                "sentimentField": "sentiment",
+                "satisfactionField": "satisfaction",
+                "staffActivityField": "staffActivity",
+                "outputField": "needIntervention"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_collaboration_analysis",
+      "type": "multi_task_analysis",
+      "name": "协同分析",
+      "position": { "x": 1450, "y": 150 },
+      "data": {
+        "name": "协同分析",
+        "description": "人工活跃度监测、用户满意度分析、工作人员满意度分析、售后任务追踪、运营语气监测",
+        "icon": "📊",
+        "color": "bg-teal-500",
+        "config": {
+          "executeMode": "parallel",
+          "failFast": false,
+          "tasks": [
+            {
+              "id": "task_staff_activity_monitor",
+              "operation": "collaboration_analyze",
+              "config": {
+                "analysisType": "staff_activity",
+                "outputField": "staffActivityReport"
+              }
+            },
+            {
+              "id": "task_user_satisfaction",
+              "operation": "satisfaction_infer",
+              "config": {
+                "analysisType": "user_satisfaction",
+                "outputField": "userSatisfactionReport"
+              }
+            },
+            {
+              "id": "task_staff_satisfaction",
+              "operation": "satisfaction_infer",
+              "config": {
+                "analysisType": "staff_satisfaction",
+                "outputField": "staffSatisfactionReport"
+              }
+            },
+            {
+              "id": "task_after_sales_tracking",
+              "operation": "query",
+              "config": {
+                "queryType": "after_sales_tracking",
+                "outputField": "afterSalesStatus"
+              }
+            },
+            {
+              "id": "task_operator_tone_monitor",
+              "operation": "emotion_analyze",
+              "config": {
+                "analysisType": "operator_tone",
+                "outputField": "operatorTone"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_ai_analysis",
+      "type": "multi_task_ai",
+      "name": "AI分析",
+      "position": { "x": 1650, "y": 150 },
+      "data": {
+        "name": "AI分析",
+        "description": "基于上下文进行意图判断、回复建议、告警判断、介入判断",
+        "icon": "🧠",
+        "color": "bg-purple-500",
+        "config": {
+          "executeMode": "sequential",
+          "failFast": true,
+          "tasks": [
+            {
+              "id": "task_intent_recognize",
+              "operation": "intent_analyze",
+              "config": {
+                "modelId": "default",
+                "intentTypes": ["售后类", "疑虑解答类", "情绪不满类", "状态沟通类", "闲聊类"],
+                "outputField": "intent"
+              }
+            },
+            {
+              "id": "task_generate_reply_suggestion",
+              "operation": "reply",
+              "config": {
+                "modelId": "default",
+                "generateType": "suggestion",
+                "outputField": "replySuggestion"
+              }
+            },
+            {
+              "id": "task_check_alert_needed",
+              "operation": "risk_detect",
+              "config": {
+                "ruleType": "alert_needed",
+                "sentimentField": "sentiment",
+                "intentField": "intent",
+                "outputField": "needAlert"
+              }
+            },
+            {
+              "id": "task_check_intervention_needed",
+              "operation": "risk_detect",
+              "config": {
+                "ruleType": "intervention_needed",
+                "sentimentField": "sentiment",
+                "satisfactionField": "satisfaction",
+                "staffActivityField": "staffActivity",
+                "outputField": "needIntervention"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_decision_action",
+      "type": "decision",
+      "name": "行动决策",
+      "position": { "x": 1850, "y": 150 },
+      "data": {
+        "name": "行动决策",
+        "description": "根据AI分析结果决定后续行动",
+        "icon": "🔀",
+        "color": "bg-orange-500",
+        "config": {
+          "conditions": [
+            {
+              "label": "需要告警",
+              "expression": "context.needAlert === true",
+              "targetNodeId": "node_alert_handler"
+            },
+            {
+              "label": "需要AI回复",
+              "expression": "context.senderType === 'user' || context.senderType === 'operator'",
+              "targetNodeId": "node_ai_reply"
+            },
+            {
+              "label": "仅记录",
+              "expression": "true",
+              "targetNodeId": "node_log_only"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_alert_handler",
+      "type": "multi_task_alert",
+      "name": "告警处理",
+      "position": { "x": 2050, "y": 50 },
+      "data": {
+        "name": "告警处理",
+        "description": "记录告警信息、推送到告警面板、执行告警通知",
+        "icon": "🔔",
+        "color": "bg-red-500",
+        "config": {
+          "executeMode": "sequential",
+          "failFast": false,
+          "tasks": [
+            {
+              "id": "task_save_alert",
+              "operation": "dispatch",
+              "config": {
+                "action": "save",
+                "table": "alerts",
+                "data": {
+                  "type": "message_alert",
+                  "level": "warning",
+                  "content": "{{receivedMessage}}"
+                },
+                "outputField": "alertId"
+              }
+            },
+            {
+              "id": "task_push_alert_panel",
+              "operation": "notify",
+              "config": {
+                "target": "alert_panel",
+                "alertIdField": "alertId",
+                "outputField": "alertPushed"
+              }
+            },
+            {
+              "id": "task_send_alert_notification",
+              "operation": "notify",
+              "config": {
+                "action": "send_notification",
+                "channels": ["webhook", "email"],
+                "alertIdField": "alertId",
+                "outputField": "alertNotificationSent"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_ai_reply",
+      "type": "multi_task_ai",
+      "name": "AI生成回复",
+      "position": { "x": 2050, "y": 200 },
+      "data": {
+        "name": "AI生成回复",
+        "description": "基于AI回复建议生成回复，考虑时段（白天人工优先、晚上机器人全自动）",
+        "icon": "🧠",
+        "color": "bg-purple-500",
+        "config": {
+          "executeMode": "sequential",
+          "failFast": true,
+          "tasks": [
+            {
+              "id": "task_determine_reply_strategy",
+              "operation": "query",
+              "config": {
+                "queryType": "reply_strategy",
+                "considerShift": true,
+                "outputField": "replyStrategy"
+              }
+            },
+            {
+              "id": "task_generate_reply",
+              "operation": "reply",
+              "config": {
+                "modelId": "default",
+                "strategyField": "replyStrategy",
+                "suggestionField": "replySuggestion",
+                "contextField": "context",
+                "outputField": "replyContent"
+              }
+            },
+            {
+              "id": "task_extract_reply_params",
+              "operation": "transform",
+              "config": {
+                "transformType": "reply_params",
+                "replyContentField": "replyContent",
+                "outputField": "replyParams"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_log_only",
+      "type": "log",
+      "name": "仅记录",
+      "position": { "x": 1850, "y": 300 },
+      "data": {
+        "name": "仅记录",
+        "description": "记录消息处理结果，不执行其他操作",
+        "icon": "📝",
+        "color": "bg-slate-500",
+        "config": {
+          "logLevel": "info",
+          "message": "Message processed and logged only",
+          "dataFields": ["messageId", "senderType", "timestamp"]
+        }
+      }
+    },
+    {
+      "id": "node_robot_execute",
+      "type": "multi_task_robot",
+      "name": "机器人执行发送",
+      "position": { "x": 2250, "y": 150 },
+      "data": {
+        "name": "机器人执行发送",
+        "description": "发送行动指令和回复消息给机器人，机器人执行发送",
+        "icon": "🤖",
+        "color": "bg-blue-600",
+        "config": {
+          "executeMode": "sequential",
+          "failFast": true,
+          "tasks": [
+            {
+              "id": "task_send_action_command",
+              "operation": "dispatch",
+              "config": {
+                "apiEndpoint": "/api/robots/execute",
+                "action": "send_message",
+                "paramsField": "replyParams",
+                "outputField": "commandSent"
+              }
+            },
+            {
+              "id": "task_track_execution",
+              "operation": "dispatch",
+              "config": {
+                "action": "track_execution",
+                "requestIdField": "commandSent.requestId",
+                "timeout": 60000,
+                "outputField": "executionResult"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_end",
+      "type": "end",
+      "name": "结束",
+      "position": { "x": 2450, "y": 150 },
+      "data": {
+        "name": "结束",
+        "description": "流程结束，保存会话状态、更新满意度、推送协同分析模块",
+        "icon": "⏹️",
+        "color": "bg-gray-500"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_start_message_receive",
+      "source": "node_start",
+      "target": "node_message_receive",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_message_receive_role_identify",
+      "source": "node_message_receive",
+      "target": "node_role_identify",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_role_identify_push_monitor",
+      "source": "node_role_identify",
+      "target": "node_push_monitor",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_push_monitor_context_analysis",
+      "source": "node_push_monitor",
+      "target": "node_context_analysis",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_context_analysis_decision_sender_type",
+      "source": "node_context_analysis",
+      "target": "node_decision_sender_type",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_decision_sender_type_staff",
+      "source": "node_decision_sender_type",
+      "target": "node_staff_handler",
+      "label": "工作人员"
+    },
+    {
+      "id": "edge_decision_sender_type_user",
+      "source": "node_decision_sender_type",
+      "target": "node_user_operator_handler",
+      "label": "用户/运营"
+    },
+    {
+      "id": "edge_decision_sender_type_log",
+      "source": "node_decision_sender_type",
+      "target": "node_log_only",
+      "label": "其他"
+    },
+    {
+      "id": "edge_staff_handler_collaboration",
+      "source": "node_staff_handler",
+      "target": "node_collaboration_analysis",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_user_operator_handler_collaboration",
+      "source": "node_user_operator_handler",
+      "target": "node_collaboration_analysis",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_collaboration_ai_analysis",
+      "source": "node_collaboration_analysis",
+      "target": "node_ai_analysis",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_ai_analysis_decision_action",
+      "source": "node_ai_analysis",
+      "target": "node_decision_action",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_decision_action_alert",
+      "source": "node_decision_action",
+      "target": "node_alert_handler",
+      "label": "需要告警"
+    },
+    {
+      "id": "edge_decision_action_reply",
+      "source": "node_decision_action",
+      "target": "node_ai_reply",
+      "label": "需要AI回复"
+    },
+    {
+      "id": "edge_decision_action_log",
+      "source": "node_decision_action",
+      "target": "node_log_only",
+      "label": "仅记录"
+    },
+    {
+      "id": "edge_alert_handler_robot_execute",
+      "source": "node_alert_handler",
+      "target": "node_robot_execute",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_ai_reply_robot_execute",
+      "source": "node_ai_reply",
+      "target": "node_robot_execute",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_log_only_end",
+      "source": "node_log_only",
+      "target": "node_end",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_robot_execute_end",
+      "source": "node_robot_execute",
+      "target": "node_end",
+      "type": "bezier"
+    }
+  ],
+  "variables": {
+    "receivedMessage": {},
+    "savedMessageId": "",
+    "isDuplicate": false,
+    "senderType": "",
+    "robotRole": null,
+    "staffRole": null,
+    "operatorRole": null,
+    "sentiment": {},
+    "satisfaction": 0,
+    "staffActivity": {},
+    "needIntervention": false,
+    "intent": "",
+    "replySuggestion": "",
+    "needAlert": false,
+    "replyStrategy": "auto",
+    "replyContent": "",
+    "replyParams": {},
+    "commandSent": {},
+    "executionResult": {}
+  },
+  "timeout": 120000,
+  "retryConfig": {
+    "maxRetries": 3,
+    "retryInterval": 3000
+  }
+}

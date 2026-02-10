@@ -1,0 +1,400 @@
+{
+  "id": "flow_auto_scheduling_v6_1",
+  "name": "自动调度系统流程",
+  "description": "基于时段和机器人状态智能分配任务，实现负载均衡和自动扩缩容",
+  "version": "6.1.0",
+  "isDefault": true,
+  "priority": 100,
+  "category": "核心流程",
+  "tags": ["调度", "自动化", "负载均衡"],
+  "triggerType": "scheduled",
+  "triggerConfig": {
+    "eventType": "scheduled",
+    "cronExpression": "0 * * * *",
+    "method": "POST"
+  },
+  "nodes": [
+    {
+      "id": "node_start",
+      "type": "start",
+      "name": "开始",
+      "position": { "x": 50, "y": 100 },
+      "data": {
+        "name": "开始",
+        "description": "流程开始",
+        "icon": "▶️",
+        "color": "bg-green-500"
+      }
+    },
+    {
+      "id": "node_time_check",
+      "type": "multi_task_data",
+      "name": "时间检测引擎",
+      "position": { "x": 250, "y": 100 },
+      "data": {
+        "name": "时间检测引擎",
+        "description": "检测当前时间，判断当前时段（白班/晚班/重叠期）",
+        "icon": "🗄️",
+        "color": "bg-blue-500",
+        "config": {
+          "executeMode": "sequential",
+          "failFast": true,
+          "tasks": [
+            {
+              "id": "task_get_current_time",
+              "operation": "query",
+              "config": {
+                "queryType": "system_time",
+                "outputField": "currentTime"
+              }
+            },
+            {
+              "id": "task_determine_shift",
+              "operation": "query",
+              "config": {
+                "queryType": "shift_detection",
+                "dayShiftStart": "09:00",
+                "dayShiftEnd": "21:00",
+                "overlapStart": "14:00",
+                "overlapEnd": "19:00",
+                "outputField": "currentShift"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_robot_monitor",
+      "type": "multi_task_robot",
+      "name": "机器人状态监控",
+      "position": { "x": 450, "y": 100 },
+      "data": {
+        "name": "机器人状态监控",
+        "description": "实时监控机器人在线状态、工作负荷、响应时间",
+        "icon": "🤖",
+        "color": "bg-blue-600",
+        "config": {
+          "executeMode": "parallel",
+          "failFast": false,
+          "tasks": [
+            {
+              "id": "task_check_online_status",
+              "operation": "status_check",
+              "config": {
+                "robotTypes": ["monitor", "notify", "day_reply", "night_reply"],
+                "outputField": "onlineStatus"
+              }
+            },
+            {
+              "id": "task_check_workload",
+              "operation": "workload_check",
+              "config": {
+                "robotTypes": ["monitor", "notify", "day_reply", "night_reply"],
+                "outputField": "workload"
+              }
+            },
+            {
+              "id": "task_check_response_time",
+              "operation": "response_time_check",
+              "config": {
+                "robotTypes": ["monitor", "notify", "day_reply", "night_reply"],
+                "outputField": "responseTime"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_activate_robots",
+      "type": "multi_task_robot",
+      "name": "激活对应时段机器人",
+      "position": { "x": 650, "y": 100 },
+      "data": {
+        "name": "激活对应时段机器人",
+        "description": "根据时段激活或停用机器人",
+        "icon": "🤖",
+        "color": "bg-blue-600",
+        "config": {
+          "executeMode": "sequential",
+          "failFast": false,
+          "tasks": [
+            {
+              "id": "task_activate_robots",
+              "operation": "dispatch",
+              "config": {
+                "activateMode": "shift_based",
+                "shiftField": "currentShift",
+                "dayShiftRobots": ["day_reply_001", "day_reply_002"],
+                "nightShiftRobots": ["night_reply_001", "night_reply_002"],
+                "overlapRobots": ["day_reply_001", "night_reply_001"]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_health_check",
+      "type": "multi_task_robot",
+      "name": "健康检查",
+      "position": { "x": 850, "y": 100 },
+      "data": {
+        "name": "健康检查",
+        "description": "对所有激活的机器人进行健康检查",
+        "icon": "🤖",
+        "color": "bg-blue-600",
+        "config": {
+          "executeMode": "parallel",
+          "failFast": false,
+          "tasks": [
+            {
+              "id": "task_check_heartbeat",
+              "operation": "status_check",
+              "config": {
+                "checkType": "heartbeat",
+                "timeout": 30000,
+                "outputField": "healthStatus"
+              }
+            },
+            {
+              "id": "task_check_api_status",
+              "operation": "status_check",
+              "config": {
+                "checkType": "api_status",
+                "timeout": 10000,
+                "outputField": "apiStatus"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_task_allocation",
+      "type": "multi_task_task",
+      "name": "任务分配引擎",
+      "position": { "x": 1050, "y": 100 },
+      "data": {
+        "name": "任务分配引擎",
+        "description": "智能分配任务给机器人，按优先级排序，选择工作负荷最小的机器人",
+        "icon": "📋",
+        "color": "bg-indigo-500",
+        "config": {
+          "executeMode": "sequential",
+          "failFast": true,
+          "tasks": [
+            {
+              "id": "task_prioritize_tasks",
+              "operation": "update",
+              "config": {
+                "prioritizeBy": "priority",
+                "priorityOrder": ["P0", "P1", "P2", "P3"],
+                "outputField": "prioritizedTasks"
+              }
+            },
+            {
+              "id": "task_calculate_workload",
+              "operation": "query",
+              "config": {
+                "calculationFormula": "(active_tasks * 2) + (active_sessions * 1) + (pending_messages * 0.5)",
+                "outputField": "calculatedWorkload"
+              }
+            },
+            {
+              "id": "task_select_robot",
+              "operation": "assign",
+              "config": {
+                "selectionCriteria": "min_workload",
+                "workloadField": "calculatedWorkload",
+                "outputField": "selectedRobot"
+              }
+            },
+            {
+              "id": "task_assign_tasks",
+              "operation": "assign",
+              "config": {
+                "robotField": "selectedRobot",
+                "tasksField": "prioritizedTasks",
+                "batchSize": 10,
+                "outputField": "assignedTasks"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_workload_balance",
+      "type": "multi_task_alert",
+      "name": "负载均衡引擎",
+      "position": { "x": 1250, "y": 100 },
+      "data": {
+        "name": "负载均衡引擎",
+        "description": "平衡机器人工作负荷，定期检查、重新分配任务、自动扩缩容",
+        "icon": "🔔",
+        "color": "bg-red-500",
+        "config": {
+          "executeMode": "sequential",
+          "failFast": false,
+          "tasks": [
+            {
+              "id": "task_check_imbalance",
+              "operation": "rule_evaluate",
+              "config": {
+                "ruleType": "workload_imbalance",
+                "threshold": 3,
+                "outputField": "imbalanceDetected"
+              }
+            },
+            {
+              "id": "task_rebalance_tasks",
+              "operation": "dispatch",
+              "config": {
+                "condition": "imbalanceDetected === true",
+                "rebalanceStrategy": "min_variance",
+                "outputField": "rebalanced"
+              }
+            },
+            {
+              "id": "task_auto_scale",
+              "operation": "dispatch",
+              "config": {
+                "condition": "imbalanceDetected === true",
+                "scaleStrategy": "auto_scale",
+                "minRobots": 2,
+                "maxRobots": 10,
+                "outputField": "scaled"
+              }
+            },
+            {
+              "id": "task_alert_overload",
+              "operation": "notify",
+              "config": {
+                "condition": "context.calculatedWorkload > 10",
+                "alertLevel": "critical",
+                "channels": ["webhook", "email"],
+                "outputField": "alertSent"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_monitor_dashboard",
+      "type": "multi_task_message",
+      "name": "推送监控面板",
+      "position": { "x": 1450, "y": 100 },
+      "data": {
+        "name": "推送监控面板",
+        "description": "推送调度状态到监控面板",
+        "icon": "📨",
+        "color": "bg-green-500",
+        "config": {
+          "executeMode": "parallel",
+          "failFast": false,
+          "tasks": [
+            {
+              "id": "task_send_to_monitor",
+              "operation": "dispatch",
+              "config": {
+                "target": "monitor_dashboard",
+                "data": {
+                  "currentShift": "{{currentShift}}",
+                  "robotStatus": "{{onlineStatus}}",
+                  "workload": "{{calculatedWorkload}}",
+                  "assignedTasks": "{{assignedTasks}}"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node_end",
+      "type": "end",
+      "name": "结束",
+      "position": { "x": 1650, "y": 100 },
+      "data": {
+        "name": "结束",
+        "description": "流程结束，等待下一次调度（1分钟后）",
+        "icon": "⏹️",
+        "color": "bg-gray-500"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_start_time_check",
+      "source": "node_start",
+      "target": "node_time_check",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_time_check_robot_monitor",
+      "source": "node_time_check",
+      "target": "node_robot_monitor",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_robot_monitor_activate_robots",
+      "source": "node_robot_monitor",
+      "target": "node_activate_robots",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_activate_robots_health_check",
+      "source": "node_activate_robots",
+      "target": "node_health_check",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_health_check_task_allocation",
+      "source": "node_health_check",
+      "target": "node_task_allocation",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_task_allocation_workload_balance",
+      "source": "node_task_allocation",
+      "target": "node_workload_balance",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_workload_balance_monitor_dashboard",
+      "source": "node_workload_balance",
+      "target": "node_monitor_dashboard",
+      "type": "bezier"
+    },
+    {
+      "id": "edge_monitor_dashboard_end",
+      "source": "node_monitor_dashboard",
+      "target": "node_end",
+      "type": "bezier"
+    }
+  ],
+  "variables": {
+    "currentShift": "",
+    "currentTime": "",
+    "onlineStatus": {},
+    "workload": {},
+    "responseTime": {},
+    "healthStatus": {},
+    "apiStatus": {},
+    "calculatedWorkload": 0,
+    "selectedRobot": null,
+    "assignedTasks": [],
+    "imbalanceDetected": false,
+    "rebalanced": false,
+    "scaled": false,
+    "alertSent": false
+  },
+  "timeout": 300000,
+  "retryConfig": {
+    "maxRetries": 3,
+    "retryInterval": 5000
+  }
+}
