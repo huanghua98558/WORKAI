@@ -199,6 +199,10 @@ fastify.register(apiKeyApiRoutes, { prefix: '/api/apikeys' });
 fastify.register(sseApiRoutes, { prefix: '/api' });
 // 注册SSE测试路由
 fastify.register(sseTestApiRoutes, { prefix: '/api' });
+// 注册统一分析API
+const unifiedAnalysisApiRoutes = require('./routes/unified-analysis.api');
+console.log('[app.js] unified-analysis.api loaded successfully');
+fastify.register(unifiedAnalysisApiRoutes, { prefix: '/api/analysis' });
 
 // Prometheus 监控端点
 fastify.get('/metrics', async (request, reply) => {
