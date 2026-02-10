@@ -25,8 +25,8 @@ import {
   BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
 import { TokenStatsCard } from '@/components/token-stats';
+import { AIAnalysisBadge } from '@/components/ai-analysis-badge';
 
 // 类型定义（需要与主页面保持一致）
 interface MonitorData {
@@ -126,6 +126,14 @@ interface Session {
   lastActiveTime: string;
   messageCount: number;
   lastMessage?: string;
+  aiAnalysis?: {
+    intent?: string;
+    intentConfidence?: number;
+    sentiment?: string;
+    sentimentScore?: number;
+    shouldTriggerAlert?: boolean;
+    suggestedActions?: string[];
+  };
 }
 
 interface NewDashboardTabProps {
@@ -759,6 +767,10 @@ export default function NewDashboardTab({
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
+                    {/* AI 分析结果 */}
+                    {session.aiAnalysis && (
+                      <AIAnalysisBadge analysis={session.aiAnalysis} size="sm" />
+                    )}
                     <div className="text-right">
                       <div className="text-xs text-slate-600 dark:text-slate-400">
                         {session.messageCount} 条消息
