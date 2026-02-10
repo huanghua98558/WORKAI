@@ -3,6 +3,8 @@
  * 用于接收实时告警推送
  */
 
+import { getWebSocketUrl } from './config';
+
 class AlertWebSocket {
   private ws: WebSocket | null = null;
   private reconnectAttempts: number = 0;
@@ -27,7 +29,7 @@ class AlertWebSocket {
     }
 
     try {
-      const wsUrl = `ws://localhost:5001/ws/alerts`;
+      const wsUrl = getWebSocketUrl('/ws/alerts');
       console.log(`[AlertWebSocket] 正在连接: ${wsUrl}`);
 
       this.ws = new WebSocket(wsUrl);

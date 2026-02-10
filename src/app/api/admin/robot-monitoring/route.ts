@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * GET /api/admin/robot-monitoring - 获取监控数据（转发到后端）
  */
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 export async function GET(request: NextRequest) {
   try {

@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * POST /api/admin/robot-groups - 创建分组
  */
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 // GET - 获取分组列表
 export async function GET(request: NextRequest) {

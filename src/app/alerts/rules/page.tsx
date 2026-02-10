@@ -55,7 +55,7 @@ export default function AlertRulesPage() {
   // 加载规则列表
   const loadRules = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/alerts/rules');
+      const response = await fetch('/api/alerts/rules');
       const data = await response.json();
       if (data.success) {
         setRules(data.data || []);
@@ -108,7 +108,7 @@ export default function AlertRulesPage() {
     if (!confirm('确定要删除这个规则吗？')) return;
 
     try {
-      const response = await fetch(`http://localhost:5001/api/alerts/rules/${id}`, {
+      const response = await fetch(`/api/alerts/rules/${id}`, {
         method: 'DELETE'
       });
 
@@ -124,7 +124,7 @@ export default function AlertRulesPage() {
   // 切换规则启用状态
   const handleToggleEnable = async (rule: AlertRule) => {
     try {
-      const response = await fetch(`http://localhost:5001/api/alerts/rules`, {
+      const response = await fetch(`/api/alerts/rules`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...rule, isEnabled: !rule.isEnabled })
@@ -147,7 +147,7 @@ export default function AlertRulesPage() {
     }
 
     try {
-      const response = await fetch('http://localhost:5001/api/alerts/rules', {
+      const response = await fetch('/api/alerts/rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import http from 'http';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 let backendHost = 'localhost';
 let backendPort = 5001;

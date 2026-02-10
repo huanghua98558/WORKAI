@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * DELETE /api/admin/robots/[id] - 删除机器人
  */
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 // GET - 获取机器人详情
 export async function GET(

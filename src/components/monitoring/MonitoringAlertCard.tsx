@@ -30,7 +30,7 @@ export default function MonitoringAlertCard({ maxItems = 5, showViewAll = true }
   // 加载最近的告警
   const loadAlerts = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/alerts/history?limit=20');
+      const response = await fetch('/api/alerts/history?limit=20');
       const data = await response.json();
       if (data.success) {
         const pendingAlerts = (data.data || [])

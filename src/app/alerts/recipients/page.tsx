@@ -53,7 +53,7 @@ export default function AlertRecipientsPage() {
   // 加载接收者列表
   const loadRecipients = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/alerts/recipients');
+      const response = await fetch('/api/alerts/recipients');
       const data = await response.json();
       if (data.success) {
         setRecipients(data.data || []);
@@ -68,7 +68,7 @@ export default function AlertRecipientsPage() {
   // 加载机器人列表
   const loadRobots = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/robots');
+      const response = await fetch('/api/robots');
       const data = await response.json();
       if (data.success) {
         setRobots(data.data || []);
@@ -112,7 +112,7 @@ export default function AlertRecipientsPage() {
     if (!confirm('确定要删除这个接收者吗？')) return;
 
     try {
-      const response = await fetch(`http://localhost:5001/api/alerts/recipients/${id}`, {
+      const response = await fetch(`/api/alerts/recipients/${id}`, {
         method: 'DELETE'
       });
 
@@ -129,8 +129,8 @@ export default function AlertRecipientsPage() {
   const handleSubmit = async () => {
     try {
       const url = editingRecipient
-        ? `http://localhost:5001/api/alerts/recipients/${editingRecipient.id}`
-        : 'http://localhost:5001/api/alerts/recipients';
+        ? `/api/alerts/recipients/${editingRecipient.id}`
+        : '/api/alerts/recipients';
 
       const response = await fetch(url, {
         method: editingRecipient ? 'PUT' : 'POST',

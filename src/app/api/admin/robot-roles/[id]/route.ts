@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * DELETE /api/admin/robot-roles/[id] - 删除角色
  */
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 // GET - 获取角色详情
 export async function GET(

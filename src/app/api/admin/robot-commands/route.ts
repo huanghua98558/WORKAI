@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * PUT /api/admin/robot-commands/batch - 批量操作指令
  */
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 // GET - 获取指令列表
 export async function GET(request: NextRequest) {

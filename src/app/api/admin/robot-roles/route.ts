@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * POST /api/admin/robot-roles - 创建角色
  */
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 // GET - 获取角色列表
 export async function GET(request: NextRequest) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 /**
  * 获取系统配置
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       host: request.headers.get('host'),
       baseUrl,
       NODE_ENV: process.env.NODE_ENV,
-      BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL
+      BACKEND_URL: process.env.BACKEND_URL
     });
 
     const url = new URL('/api/admin/config', baseUrl);
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       host: request.headers.get('host'),
       baseUrl,
       NODE_ENV: process.env.NODE_ENV,
-      BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL,
+      BACKEND_URL: process.env.BACKEND_URL,
       bodyKeys: Object.keys(body)
     });
 

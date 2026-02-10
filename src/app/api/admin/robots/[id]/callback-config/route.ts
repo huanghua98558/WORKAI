@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * GET /api/admin/robots/{id}/callback-config - 获取回调配置
  */
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 export async function GET(
   request: NextRequest,

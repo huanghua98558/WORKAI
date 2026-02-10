@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * 将前端请求转发到后端服务
  */
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 export async function GET(request: NextRequest) {
   try {

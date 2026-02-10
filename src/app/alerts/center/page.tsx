@@ -40,7 +40,7 @@ export default function AlertCenterPage() {
   // 加载告警历史
   const loadAlerts = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/alerts/history?limit=100');
+      const response = await fetch('/api/alerts/history?limit=100');
       const data = await response.json();
       if (data.success) {
         setAlerts(data.data || []);
@@ -62,7 +62,7 @@ export default function AlertCenterPage() {
   // 确认告警
   const handleAcknowledge = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:5001/api/alerts/history/${id}/handle`, {
+      const response = await fetch(`/api/alerts/history/${id}/handle`, {
         method: 'PUT'
       });
 
@@ -79,7 +79,7 @@ export default function AlertCenterPage() {
   // 关闭告警
   const handleClose = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:5001/api/alerts/history/${id}/handle`, {
+      const response = await fetch(`/api/alerts/history/${id}/handle`, {
         method: 'PUT'
       });
 

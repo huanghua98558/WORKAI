@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * GET /api/admin/robots/{id}/callback-history - 获取回调历史
  */
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 export async function GET(
   request: NextRequest,

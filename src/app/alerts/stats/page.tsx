@@ -28,7 +28,7 @@ export default function AlertStatsPage() {
   // 加载统计数据
   const loadStats = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/alerts/stats');
+      const response = await fetch('/api/alerts/stats');
       const data = await response.json();
       if (data.success) {
         setStats(data.data);

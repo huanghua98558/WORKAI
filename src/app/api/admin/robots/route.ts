@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * - 普通用户：只能看到自己创建或被授权的机器人
  */
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 // GET - 获取机器人列表
 export async function GET(request: NextRequest) {

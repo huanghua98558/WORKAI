@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * POST /api/admin/robots/[id]/regenerate-urls
  */
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 export async function POST(
   request: NextRequest,
