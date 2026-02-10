@@ -26,6 +26,7 @@ const adminApiRoutes = async function (fastify, options) {
   const permissionService = require('../services/permission.service');
   const worktoolApiService = require('../services/worktool-api.service');
   const { verifyAuth } = require('../hooks/auth.hook');
+  const { getLatestAIAnalysis, getBatchLatestAIAnalysis } = require('../services/ai-analysis-query.service');
 
   /**
    * 获取机器人列表（智能权限判断）
@@ -898,6 +899,10 @@ const adminApiRoutes = async function (fastify, options) {
         hours: parseInt(hours)
       });
       
+      // 批量查询 AI 分析结果（优化性能）
+      const sessionIds = (sessions.rows || []).map(row => row.sessionid);
+      const aiAnalysisMap = await getBatchLatestAIAnalysis(sessionIds);
+      
       // 转换字段名为驼峰命名
       const formattedSessions = (sessions.rows || []).map(row => {
         // 创建一个新对象，使用驼峰命名
@@ -929,6 +934,11 @@ const adminApiRoutes = async function (fastify, options) {
         formatted.lastBotReplyTime = row.lastbotreplytime;
         formatted.lastUserMessageTime = row.lastusermessagetime;
         formatted.status = row.status || 'auto';
+        
+        // 新增：添加 AI 分析结果
+        if (aiAnalysisMap.has(row.sessionid)) {
+          formatted.aiAnalysis = aiAnalysisMap.get(row.sessionid);
+        }
         
         return formatted;
       });

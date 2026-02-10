@@ -136,6 +136,7 @@ import {
 } from 'lucide-react';
 
 import { MessageBubble } from '@/components/ui/message-bubble';
+import { useSSE } from '@/hooks/useSSE';
 
 // 类型定义
 interface CallbackUrl {
@@ -296,6 +297,19 @@ interface Session {
   humanReplyCount: number;
   replyCount: number; // BusinessMessageMonitor 要求必需
   lastIntent: string; // BusinessMessageMonitor 要求必需
+  aiAnalysis?: {
+    intent?: string;
+    intentConfidence?: number;
+    sentiment?: string;
+    sentimentScore?: number;
+    emotion?: string;
+    emotionConfidence?: number;
+    summary?: string;
+    keywords?: string[];
+    suggestedActions?: string[];
+    shouldTriggerAlert?: boolean;
+    alertType?: string;
+  };
 }
 
 export default function AdminDashboard() {
@@ -304,6 +318,50 @@ export default function AdminDashboard() {
   const [monitorData, setMonitorData] = useState<MonitorData | null>(null);
   const [alertData, setAlertData] = useState<AlertData | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
+
+  // SSE 实时消息监听
+  const { connected: sseConnected, messages: realtimeMessages } = useSSE({
+    onMessage: (message) => {
+      console.log('[Dashboard] 收到实时消息:', message);
+
+      // 更新 sessions 状态
+      setSessions(prevSessions => {
+        const existingSession = prevSessions.find(
+          s => s.sessionId === message.sessionId
+        );
+
+        if (existingSession) {
+          // 更新现有会话
+          return prevSessions.map(s =>
+            s.sessionId === message.sessionId
+              ? {
+                  ...s,
+                  messageCount: s.messageCount + 1,
+                  lastMessage: message.content,
+                  lastActiveTime: message.timestamp,
+                  aiAnalysis: message.aiAnalysis || s.aiAnalysis // 更新 AI 分析结果
+                }
+              : s
+          );
+        } else {
+          // 添加新会话
+          const newSession: Session = {
+            sessionId: message.sessionId,
+            userName: message.senderName,
+            groupName: message.groupName,
+            status: 'auto',
+            lastActiveTime: message.timestamp,
+            messageCount: 1,
+            lastMessage: message.content,
+            aiAnalysis: message.aiAnalysis // 包含 AI 分析结果
+          };
+
+          return [newSession, ...prevSessions].slice(0, 10);
+        }
+      });
+    }
+  });
+
   const [robots, setRobots] = useState<Robot[]>([]);
   const [onlineRobots, setOnlineRobots] = useState<Robot[]>([]);
   const [copiedCallback, setCopiedCallback] = useState<string | null>(null);

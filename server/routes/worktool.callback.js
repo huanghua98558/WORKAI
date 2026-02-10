@@ -20,6 +20,8 @@ const worktoolCallbackRoutes = async function (fastify, options) {
   const messageProcessingService = require('../services/message-processing.service'); // 新的消息处理服务
   const { flowEngine, TriggerType } = require('../services/flow-engine.service'); // 流程引擎服务
   const { collaborationService, StaffIdentifier } = require('../services/collaboration.service'); // 协同分析服务
+  const unifiedAnalysisService = require('../services/unified-analysis.service'); // 统一分析服务
+  const { saveAIAnalysisResult } = require('../services/ai-analysis-save.service'); // AI 分析保存服务
   const { callbackHistory, flowDefinitions } = require('../database/schema');
   const { eq } = require('drizzle-orm');
   const config = require('../lib/config');
@@ -531,6 +533,109 @@ const worktoolCallbackRoutes = async function (fastify, options) {
   });
 
   /**
+   * 触发 AI 分析（异步，不阻塞主流程）
+   */
+  async function triggerAIAnalysis(callbackData, requestId, robot) {
+    console.log('[AI分析] 开始触发 AI 分析', {
+      requestId,
+      robotId: robot?.robotId,
+      message: callbackData.spoken?.substring(0, 50)
+    });
+
+    try {
+      // 构建会话 ID
+      const sessionId = callbackData.groupName || `session_${callbackData.receivedName}`;
+
+      // 构建消息对象
+      const message = {
+        messageId: requestId,
+        content: callbackData.spoken,
+        senderId: callbackData.receivedId,
+        senderName: callbackData.receivedName,
+        groupName: callbackData.groupName,
+        roomType: callbackData.roomType,
+        timestamp: new Date().toISOString()
+      };
+
+      // 触发统一分析
+      const analysisResult = await unifiedAnalysisService.analyze(
+        sessionId,
+        message,
+        robot
+      );
+
+      // 保存 AI 分析结果
+      const savedAnalysis = await saveAIAnalysisResult({
+        sessionId,
+        robotId: robot.robotId,
+        messageId: requestId,
+        analysisResult
+      });
+
+      console.log('[AI分析] AI 分析完成并已保存', {
+        sessionId,
+        messageId: requestId,
+        intent: analysisResult.intent?.intent,
+        sentiment: analysisResult.sentiment?.sentiment,
+        shouldTriggerAlert: analysisResult.alert_trigger?.should_trigger
+      });
+
+      // 通过 SSE 发送包含 AI 分析结果的消息
+      try {
+        const db = await getDb();
+        const notificationPayload = JSON.stringify({
+          type: 'message',
+          data: {
+            sessionId,
+            messageId: requestId,
+            content: message.content,
+            senderId: message.senderId,
+            senderName: message.senderName,
+            groupName: message.groupName,
+            roomType: message.roomType,
+            timestamp: message.timestamp,
+            aiAnalysis: {
+              intent: analysisResult.intent?.intent,
+              intentConfidence: analysisResult.intent?.confidence,
+              sentiment: analysisResult.sentiment?.sentiment,
+              sentimentScore: analysisResult.sentiment?.confidence,
+              emotion: analysisResult.sentiment?.emotion,
+              emotionConfidence: analysisResult.sentiment?.emotion_confidence,
+              summary: analysisResult.summary,
+              keywords: analysisResult.keywords,
+              suggestedActions: analysisResult.action_suggestions || analysisResult.suggested_actions,
+              shouldTriggerAlert: analysisResult.alert_trigger?.should_trigger,
+              alertType: analysisResult.alert_trigger?.alert_type
+            }
+          }
+        });
+
+        // 通过 NOTIFY 发送消息
+        await db.query(`NOTIFY "session_messages:${sessionId}", $1`, [notificationPayload]);
+
+        console.log('[AI分析] SSE 消息已发送', { sessionId });
+      } catch (sseError) {
+        console.error('[AI分析] 发送 SSE 消息失败', {
+          sessionId,
+          error: sseError.message
+        });
+        // SSE 发送失败不影响 AI 分析结果
+      }
+
+      return savedAnalysis;
+    } catch (error) {
+      console.error('[AI分析] AI 分析失败（不影响主流程）', {
+        requestId,
+        robotId: robot?.robotId,
+        error: error.message,
+        stack: error.stack
+      });
+      // AI 分析失败不影响主流程，静默处理
+      return null;
+    }
+  }
+
+  /**
    * 异步处理消息
    */
   async function handleMessageAsync(callbackData, requestId, robot) {
@@ -730,6 +835,12 @@ const worktoolCallbackRoutes = async function (fastify, options) {
           flowCount: selectedFlows.length,
           instanceCount: instances.length
         });
+
+        // 触发 AI 分析（异步，不阻塞主流程）
+        triggerAIAnalysis(callbackData, requestId, robot).catch(err => {
+          console.error('[AI分析] 异步触发 AI 分析失败', { error: err.message });
+        });
+
         return;
       }
 
@@ -778,6 +889,12 @@ const worktoolCallbackRoutes = async function (fastify, options) {
         robotId: robot.robotId,
         action: decision.action
       });
+
+      // 触发 AI 分析（异步，不阻塞主流程）
+      triggerAIAnalysis(callbackData, requestId, robot).catch(err => {
+        console.error('[AI分析] 异步触发 AI 分析失败', { error: err.message });
+      });
+
     } catch (error) {
       console.error('[回调处理] ===== handleMessageAsync 失败 =====', {
         requestId,
