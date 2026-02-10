@@ -27,16 +27,19 @@ import {
   X,
   Minimize2,
   Maximize2,
-  Trash2
+  Trash2,
+  Settings
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import FlowCanvas from '@/app/flow-engine/components/FlowCanvas';
 import FlowNodeLibrary from '@/app/flow-engine/components/FlowNodeLibrary';
 import NodeConfigPanel from '@/app/flow-engine/components/NodeConfigPanel';
+import FlowConfigPanel from '@/app/flow-engine/components/FlowConfigPanel';
 import FlowTestPanel from '@/app/flow-engine/components/FlowTestPanel';
 import FlowJsonEditor from '@/app/flow-engine/components/FlowJsonEditor';
 import { NodeData as BaseNodeData, EdgeData } from '@/app/flow-engine/types';
 import { Node, Edge } from 'reactflow';
+import { FlowConfig, defaultConfig } from '@/app/flow-engine/components/FlowConfigPanel';
 
 // 节点数据类型（适配 React Flow）
 export type FlowNode = Node;
@@ -53,6 +56,7 @@ export interface FlowDefinition {
   nodes: FlowNode[];
   edges: FlowEdge[];
   version?: string;
+  flowConfig?: FlowConfig;
 }
 
 interface FlowEditorProps {
@@ -79,6 +83,19 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
   const [isTesting, setIsTesting] = useState(false);
   const [testResults, setTestResults] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+
+  // 右侧面板视图状态：'node' = 节点属性, 'flow' = 流程属性
+  const [rightPanelView, setRightPanelView] = useState<'node' | 'flow'>('node');
+
+  // 流程配置状态
+  const [flowConfig, setFlowConfig] = useState<FlowConfig>(
+    initialFlow?.flowConfig || {
+      ...defaultConfig,
+      name: initialFlow?.name || '',
+      description: initialFlow?.description || '',
+      version: initialFlow?.version || '1.0.0',
+    }
+  );
 
   // 性能优化：将流程元数据（名称、描述）拆分为独立 state
   // 避免在输入时触发整个 flow 对象更新，导致画布重绘
@@ -127,11 +144,17 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
 
   // 保存流程
   const handleSaveFlow = async () => {
-    // 合并 flowMeta 到 flow，确保最新数据被保存
+    // 合并 flowMeta 和 flowConfig 到 flow，确保最新数据被保存
     const finalFlow = {
       ...flow,
       name: flowMeta.name || flow.name,
       description: flowMeta.description || flow.description,
+      flowConfig: {
+        ...flowConfig,
+        name: flowMeta.name || flow.name,
+        description: flowMeta.description || flow.description,
+        version: flow.version || '1.0.0',
+      },
     };
 
     if (!finalFlow.name.trim()) {
@@ -489,32 +512,92 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
 
               {/* 右侧：配置面板 (固定宽度 320px，可滚动) */}
               <div className="w-[320px] flex-shrink-0 border-l bg-white flex flex-col h-full shadow-[-4px_0_24px_-12px_rgba(0,0,0,0.08)]">
-                {/* 节点属性标题 */}
-                <div className="px-4 py-3.5 border-b bg-gradient-to-r from-slate-50 to-white flex items-center gap-2.5">
-                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-sm">
-                    <FileJson className="w-3.5 h-3.5 text-white" />
+                {/* 面板标题和切换 */}
+                <div className="px-4 py-3.5 border-b bg-gradient-to-r from-slate-50 to-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center shadow-sm transition-colors ${
+                        rightPanelView === 'flow'
+                          ? 'bg-gradient-to-br from-violet-500 to-purple-600'
+                          : 'bg-gradient-to-br from-blue-500 to-cyan-600'
+                      }`}>
+                        {rightPanelView === 'flow' ? (
+                          <Settings className="w-3.5 h-3.5 text-white" />
+                        ) : (
+                          <FileJson className="w-3.5 h-3.5 text-white" />
+                        )}
+                      </div>
+                      <span className="font-semibold text-sm text-slate-800">
+                        {rightPanelView === 'flow' ? '流程属性' : '节点属性'}
+                      </span>
+                    </div>
+                    {/* 切换按钮 */}
+                    <div className="flex bg-slate-100 rounded-lg p-0.5">
+                      <button
+                        onClick={() => setRightPanelView('node')}
+                        className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+                          rightPanelView === 'node'
+                            ? 'bg-white text-blue-600 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        节点
+                      </button>
+                      <button
+                        onClick={() => setRightPanelView('flow')}
+                        className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+                          rightPanelView === 'flow'
+                            ? 'bg-white text-violet-600 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        流程
+                      </button>
+                    </div>
                   </div>
-                  <span className="font-semibold text-sm text-slate-800">节点属性</span>
-                  {selectedNode && (
-                    <span className="ml-auto text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full max-w-[120px] truncate">
+                  {/* 当前选中信息 */}
+                  {rightPanelView === 'node' && selectedNode && (
+                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full max-w-[120px] truncate block">
                       {selectedNode.data?.label || selectedNode.data?.type}
                     </span>
                   )}
+                  {rightPanelView === 'flow' && (
+                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full max-w-[120px] truncate block">
+                      {flow.name || '未命名流程'}
+                    </span>
+                  )}
                 </div>
+                
                 <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                  {selectedNode ? (
-                    <NodeConfigPanel
-                      node={selectedNode}
-                      onUpdate={(updates) => handleUpdateNode(selectedNodeId!, updates)}
+                  {rightPanelView === 'flow' ? (
+                    /* 流程属性配置 */
+                    <FlowConfigPanel
+                      config={flowConfig}
+                      onChange={(config) => {
+                        setFlowConfig(config);
+                        // 同步到flowMeta
+                        setFlowMeta(prev => ({
+                          name: config.name,
+                          description: config.description,
+                        }));
+                      }}
                     />
                   ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm">
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center mb-4 shadow-inner">
-                        <LayoutGrid className="w-8 h-8 opacity-30" />
+                    /* 节点属性配置 */
+                    selectedNode ? (
+                      <NodeConfigPanel
+                        node={selectedNode}
+                        onUpdate={(updates) => handleUpdateNode(selectedNodeId!, updates)}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm">
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center mb-4 shadow-inner">
+                          <LayoutGrid className="w-8 h-8 opacity-30" />
+                        </div>
+                        <p className="font-medium text-slate-500 mb-1">选择节点</p>
+                        <p className="text-xs text-slate-400">点击画布中的节点进行配置</p>
                       </div>
-                      <p className="font-medium text-slate-500 mb-1">选择节点</p>
-                      <p className="text-xs text-slate-400">点击画布中的节点进行配置</p>
-                    </div>
+                    )
                   )}
                 </div>
               </div>
