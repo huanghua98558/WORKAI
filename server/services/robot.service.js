@@ -950,6 +950,180 @@ class RobotService {
   }
 
   /**
+   * 记录机器人发送失败
+   * @param {string} robotId - 机器人ID
+   * @param {Error} error - 错误信息
+   */
+  async recordRobotSendFailure(robotId, error) {
+    try {
+      const db = await getDb();
+      const now = new Date();
+
+      // 获取当前机器人信息
+      const currentRobot = await db.select()
+        .from(robots)
+        .where(eq(robots.robotId, robotId))
+        .limit(1);
+
+      if (currentRobot.length === 0) {
+        this.logger.warn('记录发送失败失败: 机器人不存在', { robotId });
+        return;
+      }
+
+      const robot = currentRobot[0];
+      const sendFailureCount = (robot.sendFailureCount || 0) + 1;
+      const consecutiveFailureCount = (robot.consecutiveFailureCount || 0) + 1;
+
+      // 更新机器人失败统计
+      await db.update(robots)
+        .set({
+          sendFailureCount,
+          lastSendFailureAt: now,
+          consecutiveFailureCount,
+          lastError: error?.message || '发送失败',
+          lastCheckAt: now,
+          updatedAt: now
+        })
+        .where(eq(robots.robotId, robotId));
+
+      // 重新计算健康状态
+      await this.updateRobotHealthStatus(robotId);
+
+      this.logger.warn('记录机器人发送失败', {
+        robotId,
+        sendFailureCount,
+        consecutiveFailureCount,
+        error: error?.message
+      });
+
+      // 清除缓存
+      await cacheService.del(`${this.cachePrefix}robot:${robotId}`);
+      await cacheService.delPattern(`${this.cachePrefix}list:*`);
+    } catch (err) {
+      this.logger.error('记录机器人发送失败时发生错误', {
+        robotId,
+        error: err.message
+      });
+    }
+  }
+
+  /**
+   * 记录机器人发送成功
+   * @param {string} robotId - 机器人ID
+   */
+  async recordRobotSendSuccess(robotId) {
+    try {
+      const db = await getDb();
+      const now = new Date();
+
+      // 重置连续失败计数
+      await db.update(robots)
+        .set({
+          consecutiveFailureCount: 0,
+          lastCheckAt: now,
+          updatedAt: now
+        })
+        .where(eq(robots.robotId, robotId));
+
+      // 重新计算健康状态
+      await this.updateRobotHealthStatus(robotId);
+
+      this.logger.debug('记录机器人发送成功', { robotId });
+
+      // 清除缓存
+      await cacheService.del(`${this.cachePrefix}robot:${robotId}`);
+      await cacheService.delPattern(`${this.cachePrefix}list:*`);
+    } catch (err) {
+      this.logger.error('记录机器人发送成功时发生错误', {
+        robotId,
+        error: err.message
+      });
+    }
+  }
+
+  /**
+   * 计算机器人健康状态
+   * @param {Object} robot - 机器人信息
+   * @returns {string} 健康状态: healthy, degraded, critical
+   */
+  calculateHealthStatus(robot) {
+    const { 
+      sendFailureCount = 0,
+      consecutiveFailureCount = 0,
+      status,
+      isValid = true
+    } = robot;
+
+    // 如果机器人无效或离线，状态为 critical
+    if (!isValid || status === 'offline' || status === 'error') {
+      return 'critical';
+    }
+
+    // 连续失败次数 >= 3，状态为 critical
+    if (consecutiveFailureCount >= 3) {
+      return 'critical';
+    }
+
+    // 连续失败次数 >= 1，状态为 degraded
+    if (consecutiveFailureCount >= 1) {
+      return 'degraded';
+    }
+
+    // 总失败次数 > 10，状态为 degraded
+    if (sendFailureCount > 10) {
+      return 'degraded';
+    }
+
+    // 默认为 healthy
+    return 'healthy';
+  }
+
+  /**
+   * 更新机器人健康状态
+   * @param {string} robotId - 机器人ID
+   */
+  async updateRobotHealthStatus(robotId) {
+    try {
+      const db = await getDb();
+      const now = new Date();
+
+      // 获取当前机器人信息
+      const currentRobot = await db.select()
+        .from(robots)
+        .where(eq(robots.robotId, robotId))
+        .limit(1);
+
+      if (currentRobot.length === 0) {
+        this.logger.warn('更新健康状态失败: 机器人不存在', { robotId });
+        return;
+      }
+
+      const robot = currentRobot[0];
+      const healthStatus = this.calculateHealthStatus(robot);
+
+      // 更新健康状态
+      await db.update(robots)
+        .set({
+          healthStatus,
+          updatedAt: now
+        })
+        .where(eq(robots.robotId, robotId));
+
+      this.logger.info('更新机器人健康状态', {
+        robotId,
+        healthStatus,
+        sendFailureCount: robot.sendFailureCount,
+        consecutiveFailureCount: robot.consecutiveFailureCount
+      });
+    } catch (err) {
+      this.logger.error('更新机器人健康状态时发生错误', {
+        robotId,
+        error: err.message
+      });
+    }
+  }
+
+  /**
    * 基于意图和优先级选择机器人（简化版）
    * @param {string} intent - 意图类型
    * @param {string} priority - 优先级（P0, P1, P2, P3）

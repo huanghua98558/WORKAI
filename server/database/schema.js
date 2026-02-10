@@ -377,6 +377,12 @@ exports.robots = pgTable(
     rawMsgListApi: varchar("raw_msg_list_api", { length: 500 }), // 指令执行结果查询地址
     qaLogListApi: varchar("qa_log_list_api", { length: 500 }), // 机器人消息回调日志列表查询地址
 
+    // 健康状态相关字段
+    sendFailureCount: integer("send_failure_count").default(0), // 发送失败次数
+    lastSendFailureAt: timestamp("last_send_failure_at", { withTimezone: true }), // 最后发送失败时间
+    consecutiveFailureCount: integer("consecutive_failure_count").default(0), // 连续失败次数
+    healthStatus: varchar("health_status", { length: 20 }).notNull().default("healthy"), // 健康状态: healthy, degraded, critical
+
     callbackBaseUrl: varchar("callback_base_url", { length: 500 }), // 回调基础地址（用于生成回调地址）
 
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -393,6 +399,8 @@ exports.robots = pgTable(
     companyIdx: index("robots_company_idx").on(table.company),
     ownerIdIdx: index("robots_owner_id_idx").on(table.ownerId),
     isSystemIdx: index("robots_is_system_idx").on(table.isSystem),
+    healthStatusIdx: index("robots_health_status_idx").on(table.healthStatus),
+    sendFailureCountIdx: index("robots_send_failure_count_idx").on(table.sendFailureCount),
   })
 );
 

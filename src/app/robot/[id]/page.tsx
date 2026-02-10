@@ -28,7 +28,9 @@ import {
   Link2,
   Edit,
   User,
-  Key
+  Key,
+  AlertTriangle,
+  HeartPulse
 } from 'lucide-react';
 import { CallbackMonitorPanel } from '@/components/robot/callback-monitor-panel';
 import { CallbackConfigPanel } from '@/components/robot/callback-config-panel';
@@ -59,6 +61,11 @@ interface RobotDetail {
   expiresAt?: string;
   messageCallbackEnabled?: boolean;
   extraData?: any;
+  // 健康状态相关字段
+  healthStatus?: 'healthy' | 'degraded' | 'critical';
+  sendFailureCount?: number;
+  lastSendFailureAt?: string;
+  consecutiveFailureCount?: number;
 }
 
 interface TestResult {
@@ -375,6 +382,54 @@ export default function RobotDetailPage() {
                     )}
                   </div>
                 </div>
+
+                {/* 健康状态 */}
+                {robot.healthStatus && (
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">健康状态</div>
+                    <div className="flex items-center gap-2">
+                      {robot.healthStatus === 'healthy' ? (
+                        <Badge variant="default" className="bg-green-100 text-green-700 border-green-300">
+                          <HeartPulse className="h-3 w-3 mr-1" />
+                          健康
+                        </Badge>
+                      ) : robot.healthStatus === 'degraded' ? (
+                        <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 border-yellow-300">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          降级
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-300">
+                          <XCircle className="h-3 w-3 mr-1" />
+                          严重
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 失败统计 */}
+                {(robot.sendFailureCount !== undefined && robot.sendFailureCount > 0) && (
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">失败统计</div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="flex items-center gap-1">
+                        <XCircle className="h-3 w-3 text-red-500" />
+                        <span>总失败: {robot.sendFailureCount}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3 text-yellow-500" />
+                        <span>连续失败: {robot.consecutiveFailureCount || 0}</span>
+                      </div>
+                    </div>
+                    {robot.lastSendFailureAt && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        最后失败: {formatDate(robot.lastSendFailureAt)}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {robot.description && (
                   <div>
                     <div className="text-xs text-muted-foreground mb-1">描述</div>
