@@ -27,6 +27,9 @@ import {
 import { cn } from '@/lib/utils';
 import { TokenStatsCard } from '@/components/token-stats';
 import { AIAnalysisBadge } from '@/components/ai-analysis-badge';
+import { SentimentAnalysisCard } from '@/components/sentiment-analysis-card';
+import { DelayStatsCard } from '@/components/delay-stats-card';
+import { AlertDetailCard } from '@/components/alert-detail-card';
 
 // 类型定义（需要与主页面保持一致）
 interface MonitorData {
@@ -723,6 +726,24 @@ export default function NewDashboardTab({
               </div>
             </CardContent>
           </Card>
+        </div>
+      </div>
+
+      {/* 新增组件展示区域 */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* 情感分析卡片 */}
+        <div>
+          <SentimentAnalysisCard />
+        </div>
+
+        {/* 延迟统计卡片 */}
+        <div>
+          <DelayStatsCard />
+        </div>
+
+        {/* 告警详情卡片 */}
+        <div>
+          <AlertDetailCard />
         </div>
       </div>
 

@@ -64,7 +64,7 @@ interface AlertDetailCardProps {
 
 const DEFAULT_ALERT: AlertDetail = {
   id: '',
-  alertType: 'info',
+  alertType: 'system', // 改为 'system' 以匹配类型
   alertLevel: 'info',
   intentType: '',
   message: '暂无告警数据',
@@ -115,6 +115,7 @@ export function AlertDetailCard({ alert = DEFAULT_ALERT, className }: AlertDetai
           borderColor: 'border-yellow-300'
         };
       case 'system':
+      default:
         return {
           icon: AlertCircle,
           label: '系统异常',
@@ -144,6 +145,7 @@ export function AlertDetailCard({ alert = DEFAULT_ALERT, className }: AlertDetai
           bgColor: 'bg-yellow-100 border-yellow-300'
         };
       case 'info':
+      default:
         return {
           icon: Info,
           label: '信息',
@@ -159,7 +161,8 @@ export function AlertDetailCard({ alert = DEFAULT_ALERT, className }: AlertDetai
   const LevelIcon = levelConfig.icon;
 
   // 格式化时间
-  const formatTime = (timeStr: string) => {
+  const formatTime = (timeStr?: string) => {
+    if (!timeStr) return '未知时间';
     return new Date(timeStr).toLocaleString('zh-CN', {
       month: '2-digit',
       day: '2-digit',
@@ -400,7 +403,7 @@ export function AlertDetailCard({ alert = DEFAULT_ALERT, className }: AlertDetai
             <span>创建时间: {formatTime(alert.createdAt)}</span>
           </div>
           <div className="text-xs">
-            ID: {alert.id.slice(0, 8)}
+            ID: {alert.id?.slice(0, 8) || 'N/A'}
           </div>
         </div>
       </CardContent>

@@ -857,24 +857,6 @@ export default function NewDashboard() {
         </div>
       </div>
 
-      {/* 新增组件展示区域 */}
-      <div className="grid gap-6 lg:grid-cols-3 mb-6">
-        {/* 情感分析卡片 */}
-        <div className="space-y-6">
-          <SentimentAnalysisCard />
-        </div>
-
-        {/* 延迟统计卡片 */}
-        <div className="space-y-6">
-          <DelayStatsCard />
-        </div>
-
-        {/* 告警详情卡片 */}
-        <div className="space-y-6">
-          <AlertDetailCard />
-        </div>
-      </div>
-
       {/* 底部区域 - 实时会话 */}
       <Card className="shadow-md hover:shadow-lg transition-shadow">
         <CardHeader>

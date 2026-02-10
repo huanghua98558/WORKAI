@@ -72,14 +72,19 @@ const DEFAULT_STATS: DelayStats = {
 };
 
 export function DelayStatsCard({ stats = DEFAULT_STATS, className }: DelayStatsCardProps) {
+  // 使用安全的默认值
+  const delayDistribution = stats.delayDistribution || DEFAULT_STATS.delayDistribution;
+  const priorityDelayStats = stats.priorityDelayStats || DEFAULT_STATS.priorityDelayStats;
+  const totalRequests = stats.totalRequests || 0;
+
   // 计算百分比
-  const fastPercentage = stats.totalRequests > 0 ? ((stats.delayDistribution.fast / stats.totalRequests) * 100).toFixed(1) : '0';
-  const normalPercentage = stats.totalRequests > 0 ? ((stats.delayDistribution.normal / stats.totalRequests) * 100).toFixed(1) : '0';
-  const slowPercentage = stats.totalRequests > 0 ? ((stats.delayDistribution.slow / stats.totalRequests) * 100).toFixed(1) : '0';
-  const verySlowPercentage = stats.totalRequests > 0 ? ((stats.delayDistribution.verySlow / stats.totalRequests) * 100).toFixed(1) : '0';
+  const fastPercentage = totalRequests > 0 ? ((delayDistribution.fast / totalRequests) * 100).toFixed(1) : '0';
+  const normalPercentage = totalRequests > 0 ? ((delayDistribution.normal / totalRequests) * 100).toFixed(1) : '0';
+  const slowPercentage = totalRequests > 0 ? ((delayDistribution.slow / totalRequests) * 100).toFixed(1) : '0';
+  const verySlowPercentage = totalRequests > 0 ? ((delayDistribution.verySlow / totalRequests) * 100).toFixed(1) : '0';
 
   // 延迟评级
-  const getDelayRating = (time: number) => {
+  const getDelayRating = (time: number = 0) => {
     if (time < 1000) return { label: '优秀', color: 'text-green-600', bg: 'bg-green-50' };
     if (time < 3000) return { label: '良好', color: 'text-blue-600', bg: 'bg-blue-50' };
     if (time < 5000) return { label: '一般', color: 'text-yellow-600', bg: 'bg-yellow-50' };
@@ -110,7 +115,7 @@ export function DelayStatsCard({ stats = DEFAULT_STATS, className }: DelayStatsC
               </Badge>
             </div>
             <div className="text-2xl font-bold text-blue-700">
-              {stats.averageResponseTime}ms
+              {stats.averageResponseTime || 0}ms
             </div>
           </div>
 
@@ -122,7 +127,7 @@ export function DelayStatsCard({ stats = DEFAULT_STATS, className }: DelayStatsC
               </Badge>
             </div>
             <div className="text-2xl font-bold text-purple-700">
-              {stats.p90ResponseTime}ms
+              {stats.p90ResponseTime || 0}ms
             </div>
           </div>
         </div>
@@ -137,27 +142,27 @@ export function DelayStatsCard({ stats = DEFAULT_STATS, className }: DelayStatsC
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">P50（中位数）</span>
-              <span className="font-medium">{stats.p50ResponseTime}ms</span>
+              <span className="font-medium">{stats.p50ResponseTime || 0}ms</span>
             </div>
-            <Progress value={Math.min((stats.p50ResponseTime / 10000) * 100, 100)} className="h-1.5" />
+            <Progress value={Math.min(((stats.p50ResponseTime || 0) / 10000) * 100, 100)} className="h-1.5" />
 
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">P90（90%请求）</span>
-              <span className="font-medium">{stats.p90ResponseTime}ms</span>
+              <span className="font-medium">{stats.p90ResponseTime || 0}ms</span>
             </div>
-            <Progress value={Math.min((stats.p90ResponseTime / 10000) * 100, 100)} className="h-1.5" />
+            <Progress value={Math.min(((stats.p90ResponseTime || 0) / 10000) * 100, 100)} className="h-1.5" />
 
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">P95（95%请求）</span>
-              <span className="font-medium">{stats.p95ResponseTime}ms</span>
+              <span className="font-medium">{stats.p95ResponseTime || 0}ms</span>
             </div>
-            <Progress value={Math.min((stats.p95ResponseTime / 10000) * 100, 100)} className="h-1.5" />
+            <Progress value={Math.min(((stats.p95ResponseTime || 0) / 10000) * 100, 100)} className="h-1.5" />
 
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">P99（99%请求）</span>
-              <span className="font-medium">{stats.p99ResponseTime}ms</span>
+              <span className="font-medium">{stats.p99ResponseTime || 0}ms</span>
             </div>
-            <Progress value={Math.min((stats.p99ResponseTime / 10000) * 100, 100)} className="h-1.5" />
+            <Progress value={Math.min(((stats.p99ResponseTime || 0) / 10000) * 100, 100)} className="h-1.5" />
           </div>
         </div>
 
@@ -175,7 +180,7 @@ export function DelayStatsCard({ stats = DEFAULT_STATS, className }: DelayStatsC
                 快速 (&lt;1s)
               </span>
               <Badge variant="outline" className="text-green-600 border-green-300">
-                {stats.delayDistribution.fast} ({fastPercentage}%)
+                {delayDistribution.fast} ({fastPercentage}%)
               </Badge>
             </div>
             <Progress value={parseFloat(fastPercentage)} className="h-2" />
@@ -186,7 +191,7 @@ export function DelayStatsCard({ stats = DEFAULT_STATS, className }: DelayStatsC
                 正常 (1-3s)
               </span>
               <Badge variant="outline" className="text-blue-600 border-blue-300">
-                {stats.delayDistribution.normal} ({normalPercentage}%)
+                {delayDistribution.normal} ({normalPercentage}%)
               </Badge>
             </div>
             <Progress value={parseFloat(normalPercentage)} className="h-2" />
@@ -197,7 +202,7 @@ export function DelayStatsCard({ stats = DEFAULT_STATS, className }: DelayStatsC
                 较慢 (3-10s)
               </span>
               <Badge variant="outline" className="text-yellow-600 border-yellow-300">
-                {stats.delayDistribution.slow} ({slowPercentage}%)
+                {delayDistribution.slow} ({slowPercentage}%)
               </Badge>
             </div>
             <Progress value={parseFloat(slowPercentage)} className="h-2" />
@@ -208,7 +213,7 @@ export function DelayStatsCard({ stats = DEFAULT_STATS, className }: DelayStatsC
                 很慢 (&gt;10s)
               </span>
               <Badge variant="outline" className="text-red-600 border-red-300">
-                {stats.delayDistribution.verySlow} ({verySlowPercentage}%)
+                {delayDistribution.verySlow} ({verySlowPercentage}%)
               </Badge>
             </div>
             <Progress value={parseFloat(verySlowPercentage)} className="h-2" />
@@ -225,22 +230,22 @@ export function DelayStatsCard({ stats = DEFAULT_STATS, className }: DelayStatsC
           <div className="grid grid-cols-2 gap-3">
             <div className="flex items-center justify-between p-2 rounded bg-red-50">
               <span className="text-sm font-medium text-red-700">P0（紧急）</span>
-              <span className="text-sm font-bold text-red-600">{stats.priorityDelayStats.P0}ms</span>
+              <span className="text-sm font-bold text-red-600">{priorityDelayStats.P0}ms</span>
             </div>
 
             <div className="flex items-center justify-between p-2 rounded bg-orange-50">
               <span className="text-sm font-medium text-orange-700">P1（高）</span>
-              <span className="text-sm font-bold text-orange-600">{stats.priorityDelayStats.P1}ms</span>
+              <span className="text-sm font-bold text-orange-600">{priorityDelayStats.P1}ms</span>
             </div>
 
             <div className="flex items-center justify-between p-2 rounded bg-yellow-50">
               <span className="text-sm font-medium text-yellow-700">P2（中）</span>
-              <span className="text-sm font-bold text-yellow-600">{stats.priorityDelayStats.P2}ms</span>
+              <span className="text-sm font-bold text-yellow-600">{priorityDelayStats.P2}ms</span>
             </div>
 
             <div className="flex items-center justify-between p-2 rounded bg-gray-50">
               <span className="text-sm font-medium text-gray-700">P3（低）</span>
-              <span className="text-sm font-bold text-gray-600">{stats.priorityDelayStats.P3}ms</span>
+              <span className="text-sm font-bold text-gray-600">{priorityDelayStats.P3}ms</span>
             </div>
           </div>
         </div>
