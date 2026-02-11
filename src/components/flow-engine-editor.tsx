@@ -587,7 +587,7 @@ export default function FlowEditor({ initialFlow, onSave, onClose, mode = 'creat
                     selectedNode ? (
                       <NodeConfigPanel
                         node={selectedNode}
-                        onUpdate={(updates) => handleUpdateNode(selectedNodeId!, updates)}
+                        onUpdate={(updates) => handleUpdateNode(selectedNodeId!, updates as Partial<FlowNode>)}
                       />
                     ) : (
                       <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm">

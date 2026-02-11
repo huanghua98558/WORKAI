@@ -149,14 +149,14 @@ export class FlowEngine {
       version: definition.version || '1.0',
       triggerType: definition.triggerType,
       triggerConfig: definition.triggerConfig,
-      nodes: definition.nodes.map((node: any) => ({
+      nodes: ((definition.nodes || []) as any[]).map((node: any) => ({
         id: node.id,
         type: node.nodeType || node.type, // 支持两种字段名
         name: node.name,
         data: node.data,
         position: node.position,
       })) as Node[],
-      edges: definition.edges as Edge[],
+      edges: (definition.edges || []) as Edge[],
       variables: definition.variables || {},
       timeout: definition.timeout || 30000,
       retryConfig: definition.retryConfig as { maxRetries: number; retryInterval: number } || { maxRetries: 3, retryInterval: 1000 },
@@ -192,14 +192,14 @@ export class FlowEngine {
       version: definition.version || '1.0',
       triggerType: definition.triggerType,
       triggerConfig: definition.triggerConfig,
-      nodes: definition.nodes.map((node: any) => ({
+      nodes: ((definition.nodes || []) as any[]).map((node: any) => ({
         id: node.id,
         type: node.nodeType || node.type, // 支持两种字段名
         name: node.name,
         data: node.data,
         position: node.position,
       })) as Node[],
-      edges: definition.edges as Edge[],
+      edges: ((definition.edges || []) as any[]) as Edge[],
       variables: definition.variables || {},
       timeout: definition.timeout || 30000,
       retryConfig: definition.retryConfig as { maxRetries: number; retryInterval: number } || { maxRetries: 3, retryInterval: 1000 },

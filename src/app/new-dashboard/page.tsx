@@ -202,12 +202,12 @@ export default function NewDashboard() {
         
         if (existingSession) {
           // 更新现有会话
-          return prevSessions.map(s => 
+          return prevSessions.map(s =>
             s.sessionId === latestMessage.sessionId
               ? {
                   ...s,
-                  lastMessage: latestMessage.content,
-                  lastActiveTime: latestMessage.createdAt,
+                  lastMessage: latestMessage.content || '',
+                  lastActiveTime: latestMessage.createdAt || new Date().toISOString(),
                   messageCount: s.messageCount + 1,
                   aiAnalysis: aiAnalysis // 更新 AI 分析结果
                 }
@@ -216,13 +216,13 @@ export default function NewDashboard() {
         } else {
           // 添加新会话到列表顶部
           const newSession: Session = {
-            sessionId: latestMessage.sessionId,
+            sessionId: latestMessage.sessionId || '',
             userId: latestMessage.senderId,
             userName: latestMessage.senderName,
             status: latestMessage.senderType === 'ai' ? 'auto' : 'human',
-            lastActiveTime: latestMessage.createdAt,
+            lastActiveTime: latestMessage.createdAt || new Date().toISOString(),
             messageCount: 1,
-            lastMessage: latestMessage.content,
+            lastMessage: latestMessage.content || '',
             aiAnalysis: aiAnalysis // 添加 AI 分析结果
           };
           
@@ -248,7 +248,7 @@ export default function NewDashboard() {
               userId: latestMessage.senderId!,
               totalMessages: 1,
               groupCount: 1,
-              groups: [latestMessage.sessionId],
+              groups: [latestMessage.sessionId || ''],
               avgMessagesPerGroup: 1,
               activityLevel: 'medium'
             };

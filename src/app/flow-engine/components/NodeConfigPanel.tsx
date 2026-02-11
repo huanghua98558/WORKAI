@@ -4225,8 +4225,8 @@ function WebhookTriggerForm({
         <div className="space-y-2">
           <Label>Webhook URL</Label>
           <Input
-            value={config.config.webhookUrl || '/api/robots/callback'}
-            onChange={(e) => onUpdate({ config: { ...config.config, webhookUrl: e.target.value } })}
+            value={config.config?.webhookUrl || '/api/robots/callback'}
+            onChange={(e) => onUpdate({ config: { ...(config.config || {}), webhookUrl: e.target.value } })}
             placeholder="/api/robots/callback"
           />
           <p className="text-xs text-muted-foreground">
@@ -4238,8 +4238,8 @@ function WebhookTriggerForm({
           <div className="flex items-center justify-between">
             <Label>验证签名</Label>
             <Switch
-              checked={config.config.verifySignature ?? true}
-              onCheckedChange={(checked) => onUpdate({ config: { ...config.config, verifySignature: checked } })}
+              checked={config.config?.verifySignature ?? true}
+              onCheckedChange={(checked) => onUpdate({ config: { ...(config.config || {}), verifySignature: checked } })}
             />
           </div>
           <p className="text-xs text-muted-foreground">
@@ -4251,8 +4251,8 @@ function WebhookTriggerForm({
           <div className="flex items-center justify-between">
             <Label>幂等性检查</Label>
             <Switch
-              checked={config.config.idempotencyCheck ?? true}
-              onCheckedChange={(checked) => onUpdate({ config: { ...config.config, idempotencyCheck: checked } })}
+              checked={config.config?.idempotencyCheck ?? true}
+              onCheckedChange={(checked) => onUpdate({ config: { ...(config.config || {}), idempotencyCheck: checked } })}
             />
           </div>
           <p className="text-xs text-muted-foreground">
@@ -4261,10 +4261,10 @@ function WebhookTriggerForm({
         </div>
 
         <div className="space-y-2">
-          <Label>超时时间（毫秒）: {config.config.timeout ?? 5000}</Label>
+          <Label>超时时间（毫秒）: {config.config?.timeout ?? 5000}</Label>
           <Slider
-            value={[config.config.timeout ?? 5000]}
-            onValueChange={([value]) => onUpdate({ config: { ...config.config, timeout: value } })}
+            value={[config.config?.timeout ?? 5000]}
+            onValueChange={([value]) => onUpdate({ config: { ...(config.config || {}), timeout: value } })}
             min={1000}
             max={30000}
             step={1000}

@@ -86,8 +86,13 @@ export default function PermissionManagementPage() {
 
   const loadRobots = async () => {
     try {
-      const result = await apiClient.robots.list();
-      setRobots(result || []);
+      const response = await fetch('/api/admin/robots', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` },
+      });
+      const result = await response.json();
+      if (result.success || result.data) {
+        setRobots(result.data || []);
+      }
     } catch (err) {
       console.error('加载机器人列表失败:', err);
     }

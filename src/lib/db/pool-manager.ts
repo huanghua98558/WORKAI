@@ -58,13 +58,17 @@ export async function getDatabaseStats(): Promise<any> {
     const [sessionsCount] = await db.execute('SELECT COUNT(*) as count FROM sessions');
     const [flowInstancesCount] = await db.execute('SELECT COUNT(*) as count FROM flow_instances');
 
+    const countToNumber = (obj: any): number => {
+      return parseInt(obj?.count || '0', 10);
+    };
+
     return {
       success: true,
       stats: {
-        messages: parseInt(messagesCount?.count || '0'),
-        sessionMessages: parseInt(sessionMessagesCount?.count || '0'),
-        sessions: parseInt(sessionsCount?.count || '0'),
-        flowInstances: parseInt(flowInstancesCount?.count || '0'),
+        messages: countToNumber(messagesCount),
+        sessionMessages: countToNumber(sessionMessagesCount),
+        sessions: countToNumber(sessionsCount),
+        flowInstances: countToNumber(flowInstancesCount),
       },
       timestamp: new Date().toISOString(),
     };
@@ -83,20 +87,9 @@ export async function getDatabaseStats(): Promise<any> {
 export async function getRecentOperations(limit: number = 10): Promise<any> {
   try {
     // 获取最近的消息
-    const recentMessages = await db.execute(`
-      SELECT 
-        id, 
-        session_id, 
-        robot_id, 
-        sender_id, 
-        sender_name, 
-        sender_type,
-        content,
-        created_at
-      FROM messages 
-      ORDER BY created_at DESC 
-      LIMIT $1
-    `, [limit]);
+    const recentMessages = await db.execute(
+      `SELECT id, session_id, robot_id, sender_id, sender_name, sender_type, content, created_at FROM messages ORDER BY created_at DESC LIMIT ${limit}`
+    );
 
     return {
       success: true,

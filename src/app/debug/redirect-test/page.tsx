@@ -1,12 +1,31 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function TestRedirectPage() {
   const [logs, setLogs] = useState<string[]>([]);
   const [result, setResult] = useState('');
+  const [localStorageData, setLocalStorageData] = useState({
+    access_token: '未知',
+    refresh_token: '未知',
+    user: '未知',
+  });
+  const [currentUrl, setCurrentUrl] = useState('加载中...');
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+    // 获取 localStorage 数据
+    setLocalStorageData({
+      access_token: localStorage.getItem('access_token') ? '存在' : '不存在',
+      refresh_token: localStorage.getItem('refresh_token') ? '存在' : '不存在',
+      user: localStorage.getItem('user') ? '存在' : '不存在',
+    });
+    // 获取当前 URL
+    setCurrentUrl(window.location.href);
+  }, []);
 
   const addLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -186,16 +205,12 @@ export default function TestRedirectPage() {
               <div>
                 <strong>LocalStorage:</strong>
                 <pre className="bg-gray-100 p-2 rounded mt-1 text-sm">
-                  {JSON.stringify({
-                    access_token: localStorage.getItem('access_token') ? '存在' : '不存在',
-                    refresh_token: localStorage.getItem('refresh_token') ? '存在' : '不存在',
-                    user: localStorage.getItem('user') ? '存在' : '不存在',
-                  }, null, 2)}
+                  {JSON.stringify(localStorageData, null, 2)}
                 </pre>
               </div>
               <div>
                 <strong>当前 URL:</strong>
-                <p className="text-sm mt-1">{window.location.href}</p>
+                <p className="text-sm mt-1">{isMounted ? currentUrl : '加载中...'}</p>
               </div>
             </div>
           </div>

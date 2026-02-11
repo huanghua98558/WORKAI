@@ -136,7 +136,7 @@ export default function MessageSimulator() {
           // 额外参数
           staffType: testPayload.staffType,
           operationType: testPayload.operationType,
-          priority: testPayload.priority,
+          ...('priority' in testPayload && testPayload.priority ? { priority: testPayload.priority } : {}),
         }),
       });
 

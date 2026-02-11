@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       connected: false,
       isMemoryMode: false,
       monitorQueueLength: 0,
-      monitorQueueMessages: [],
+      monitorQueueMessages: [] as any[],
     };
 
     if (redisClient) {

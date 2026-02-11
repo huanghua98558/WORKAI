@@ -46,9 +46,6 @@ export default defineConfig({
 
     // 忽略 HTTPS 错误（如果是本地开发）
     ignoreHTTPSErrors: true,
-
-    // 等待超时
-    waitForLoadState: 'networkidle',
   },
 
   // 测试超时

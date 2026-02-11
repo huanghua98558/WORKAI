@@ -17,7 +17,6 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({}),
-      duplex: 'half',
     });
 
     const data = await response.json();

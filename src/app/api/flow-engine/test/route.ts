@@ -62,9 +62,11 @@ export async function POST(request: NextRequest) {
         senderType: 'user' as const,
         userId: triggerData.senderId,
       },
-      sessionId: null,
       businessRole: null as any,
-      aiConfig: {},
+      aiConfig: {
+        provider: 'doubao',
+        model: 'doubao-pro',
+      },
       variables: {},
     };
 

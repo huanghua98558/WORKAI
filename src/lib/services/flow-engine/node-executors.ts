@@ -482,12 +482,11 @@ export class MultiTaskMessageExecutor extends BaseNodeExecutor {
           content: context.triggerData.content,
           contentType: config.messageSend?.messageType === 'image' ? 'image' : 'text',
           messageType: 'message',
-          groupId: context.triggerData.groupId || null,
           metadata: {
+            groupId: context.triggerData.groupId || null,
             groupName: context.triggerData.groupName,
             imageUrl: context.triggerData.imageUrl,
             atUser: config.messageSend?.atUser || false,
-            userSessionId: context.userSessionId,
           },
         })
         .returning();
@@ -535,7 +534,7 @@ export class MultiTaskMessageExecutor extends BaseNodeExecutor {
           robotName: null, // 可以从机器人配置中获取
           content: context.triggerData.content,
           isFromUser: senderType === 'user',
-          isFromBot: senderType === 'robot' || senderType === 'system',
+          isFromBot: false,
           isHuman: senderType === 'user' || senderType === 'staff',
           timestamp: context.triggerData.timestamp || new Date().toISOString(),
           extraData: {

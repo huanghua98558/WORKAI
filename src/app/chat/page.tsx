@@ -8,7 +8,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useSSE } from '@/hooks/useSSE';
+import { useSSE, SSEMessage } from '@/hooks/useSSE';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,14 +48,18 @@ interface Message {
 
 export default function ChatPage() {
   const [sessionId, setSessionId] = useState(() => {
-    // 从localStorage获取会话ID，如果没有则创建新的
-    const saved = localStorage.getItem('chat_session_id');
-    if (saved) return saved;
-    const newId = `chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    localStorage.setItem('chat_session_id', newId);
-    return newId;
+    // 初始会话ID（在服务器端使用默认值，客户端会更新）
+    return `chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   });
-  
+
+  // 在客户端加载时尝试恢复会话ID
+  useEffect(() => {
+    const saved = localStorage.getItem('chat_session_id');
+    if (saved) {
+      setSessionId(saved);
+    }
+  }, []);
+
   const [messageInput, setMessageInput] = useState('');
   const [historyMessages, setHistoryMessages] = useState<Message[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -192,8 +196,16 @@ export default function ChatPage() {
     });
   };
 
-  const isUserMessage = (message: Message) => {
-    return message.senderType === 'user';
+  const isUserMessage = (message: Message | SSEMessage) => {
+    // 检查 Message 类型（有 senderType）
+    if ('senderType' in message) {
+      return message.senderType === 'user';
+    }
+    // 检查 SSEMessage 类型（有 isFromBot）
+    if ('isFromBot' in message) {
+      return !message.isFromBot;
+    }
+    return false;
   };
 
   return (
@@ -324,7 +336,7 @@ export default function ChatPage() {
                             : 'text-slate-500'
                         }`}
                       >
-                        {formatTime(message.createdAt)}
+                        {message.createdAt && formatTime(message.createdAt)}
                       </div>
                     </div>
 

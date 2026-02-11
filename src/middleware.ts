@@ -55,7 +55,6 @@ export function middleware(request: NextRequest) {
     console.log('[Middleware] 所有Cookies:', request.cookies.getAll().map(c => ({
       name: c.name,
       value: c.value ? `${c.value.substring(0, 20)}...` : '(empty)',
-      httpOnly: c.httpOnly
     })));
 
     // 如果没有 token，重定向到登录页

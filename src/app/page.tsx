@@ -342,7 +342,7 @@ export default function AdminDashboard() {
               ? {
                   ...s,
                   messageCount: s.messageCount + 1,
-                  lastMessage: message.content,
+                  lastMessage: message.content || '',
                   lastActiveTime: message.timestamp,
                   aiAnalysis: message.aiAnalysis || s.aiAnalysis // 更新 AI 分析结果
                 }
@@ -351,13 +351,29 @@ export default function AdminDashboard() {
         } else {
           // 添加新会话
           const newSession: Session = {
-            sessionId: message.sessionId,
-            userName: message.senderName,
-            groupName: message.groupName,
+            sessionId: message.sessionId || '',
+            userId: message.senderId,
+            groupId: message.groupId,
+            userName: message.senderName || 'Unknown',
+            groupName: message.groupName || 'Unknown',
+            robotId: message.robotId || 'default',
+            robotName: message.robotName || 'Default Bot',
+            robotNickname: message.robotNickname,
+            company: message.company,
+            userInfo: message.userInfo,
+            lastMessage: message.content || '',
+            isFromUser: message.isFromUser ?? true,
+            isFromBot: message.isFromBot ?? false,
+            isHuman: message.isHuman ?? true,
             status: 'auto',
-            lastActiveTime: message.timestamp,
+            startTime: message.timestamp || new Date().toISOString(),
+            lastActiveTime: message.timestamp || new Date().toISOString(),
             messageCount: 1,
-            lastMessage: message.content,
+            userMessages: message.isFromUser ? 1 : 0,
+            aiReplyCount: message.isFromBot ? 1 : 0,
+            humanReplyCount: message.isHuman ? 1 : 0,
+            replyCount: 1,
+            lastIntent: message.lastIntent || 'unknown',
             aiAnalysis: message.aiAnalysis // 包含 AI 分析结果
           };
 
