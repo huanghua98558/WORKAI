@@ -21,15 +21,109 @@ export interface NodeExecutor {
 
 export abstract class BaseNodeExecutor implements NodeExecutor {
   /**
-   * 执行节点（带错误处理）
+   * 执行节点（带错误处理和日志记录）
    */
   async execute(context: FlowContext, config: any): Promise<any> {
+    const startTime = Date.now();
+    const nodeType = this.getNodeType();
+
+    // 记录开始日志
+    this.logExecutionStart(nodeType, context, config);
+
     try {
-      return await this.doExecute(context, config);
+      // 执行节点逻辑
+      const result = await this.doExecute(context, config);
+
+      // 计算执行时间
+      const processingTime = Date.now() - startTime;
+
+      // 记录成功日志
+      this.logExecutionSuccess(nodeType, result, processingTime);
+
+      // 返回结果，包含执行时间
+      return {
+        ...result,
+        processingTime,
+        executedAt: new Date().toISOString(),
+      };
     } catch (error: any) {
-      console.error(`Node execution failed: ${this.getNodeType()}`, error);
-      throw error;
+      // 计算执行时间
+      const processingTime = Date.now() - startTime;
+
+      // 记录错误日志
+      this.logExecutionError(nodeType, error, processingTime, context, config);
+
+      // 构建错误响应
+      const errorResponse = {
+        success: false,
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        nodeType,
+        processingTime,
+        executedAt: new Date().toISOString(),
+      };
+
+      // 将错误信息存储到上下文
+      this.setContextValue(context, `lastError_${nodeType}`, errorResponse);
+
+      // 重新抛出错误
+      throw new Error(`[${nodeType}] ${error.message}`);
     }
+  }
+
+  /**
+   * 记录执行开始日志
+   */
+  private logExecutionStart(
+    nodeType: string,
+    context: FlowContext,
+    config: any
+  ): void {
+    console.log(`[${nodeType}] Execution started`, {
+      timestamp: new Date().toISOString(),
+      senderType: context.senderInfo?.senderType,
+      senderId: context.triggerData?.senderId,
+      contentPreview: context.triggerData?.content?.substring(0, 100),
+      configKeys: Object.keys(config || {}),
+    });
+  }
+
+  /**
+   * 记录执行成功日志
+   */
+  private logExecutionSuccess(
+    nodeType: string,
+    result: any,
+    processingTime: number
+  ): void {
+    console.log(`[${nodeType}] Execution completed successfully`, {
+      timestamp: new Date().toISOString(),
+      processingTime: `${processingTime}ms`,
+      resultKeys: Object.keys(result || {}),
+      success: result?.success,
+    });
+  }
+
+  /**
+   * 记录执行错误日志
+   */
+  private logExecutionError(
+    nodeType: string,
+    error: any,
+    processingTime: number,
+    context: FlowContext,
+    config: any
+  ): void {
+    console.error(`[${nodeType}] Execution failed`, {
+      timestamp: new Date().toISOString(),
+      error: error.message,
+      stack: error.stack,
+      processingTime: `${processingTime}ms`,
+      senderType: context.senderInfo?.senderType,
+      senderId: context.triggerData?.senderId,
+      contentPreview: context.triggerData?.content?.substring(0, 100),
+      config: config,
+    });
   }
 
   /**
@@ -275,6 +369,207 @@ export class AiMessageExecutor extends BaseNodeExecutor {
     }
 
     console.log('Robot message sent successfully:', result.data);
+  }
+}
+
+// ==================== 多任务消息节点执行器 ====================
+
+export class MultiTaskMessageExecutor extends BaseNodeExecutor {
+  protected getNodeType(): string {
+    return 'multi_task_message';
+  }
+
+  protected async doExecute(context: FlowContext, config: any): Promise<any> {
+    const startTime = Date.now();
+    console.log('[MultiTaskMessage] Starting execution', {
+      taskId: context.triggerData.senderId,
+      content: context.triggerData.content?.substring(0, 50),
+      config: {
+        saveToMessagesTable: config.saveToMessagesTable,
+        saveToSessionMessages: config.saveToSessionMessages,
+        pushToMonitorQueue: config.pushToMonitorQueue,
+      },
+    });
+
+    const results = {
+      saveToMessagesTable: null as any,
+      saveToSessionMessages: null as any,
+      pushToMonitorQueue: null as any,
+    };
+
+    try {
+      // 1. 保存到 messages 表（如果启用）
+      if (config.saveToMessagesTable) {
+        console.log('[MultiTaskMessage] Saving to messages table...');
+        results.saveToMessagesTable = await this.saveToMessagesTable(context, config);
+        console.log('[MultiTaskMessage] Saved to messages table:', results.saveToMessagesTable);
+      }
+
+      // 2. 保存到 session_messages 表（如果启用）
+      if (config.saveToSessionMessages) {
+        console.log('[MultiTaskMessage] Saving to session messages...');
+        results.saveToSessionMessages = await this.saveToSessionMessages(context, config);
+        console.log('[MultiTaskMessage] Saved to session messages:', results.saveToSessionMessages);
+      }
+
+      // 3. 推送到监控队列（如果启用）
+      if (config.pushToMonitorQueue) {
+        console.log('[MultiTaskMessage] Pushing to monitor queue...');
+        results.pushToMonitorQueue = await this.pushToMonitorQueue(context, config);
+        console.log('[MultiTaskMessage] Pushed to monitor queue:', results.pushToMonitorQueue);
+      }
+
+      const processingTime = Date.now() - startTime;
+      console.log('[MultiTaskMessage] Execution completed successfully', {
+        processingTime,
+        results,
+      });
+
+      // 存储结果到上下文
+      this.setContextValue(context, 'messageReceiveResult', {
+        success: true,
+        results,
+        processingTime,
+        timestamp: new Date().toISOString(),
+      });
+
+      return {
+        success: true,
+        results,
+        processingTime,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error: any) {
+      const processingTime = Date.now() - startTime;
+      console.error('[MultiTaskMessage] Execution failed:', {
+        error: error.message,
+        stack: error.stack,
+        processingTime,
+        results,
+      });
+
+      // 记录错误到上下文
+      this.setContextValue(context, 'messageReceiveError', {
+        error: error.message,
+        stack: error.stack,
+        results,
+        timestamp: new Date().toISOString(),
+      });
+
+      throw new Error(`MultiTaskMessage execution failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * 保存到 messages 表
+   */
+  private async saveToMessagesTable(context: FlowContext, config: any): Promise<any> {
+    try {
+      const { db } = await import('@/lib/db');
+      const { messages } = await import('@/storage/database/shared/schema');
+
+      const [message] = await db
+        .insert(messages)
+        .values({
+          robotId: context.triggerData.robotId,
+          senderId: context.triggerData.senderId,
+          senderName: context.triggerData.senderName,
+          content: context.triggerData.content,
+          messageType: config.messageSend?.messageType || 'text',
+          groupId: context.triggerData.groupId,
+          groupName: context.triggerData.groupName,
+          timestamp: context.triggerData.timestamp || new Date().toISOString(),
+          metadata: {
+            senderType: context.senderInfo?.senderType,
+            imageUrl: context.triggerData.imageUrl,
+          },
+        })
+        .returning();
+
+      return { success: true, messageId: message.id };
+    } catch (error: any) {
+      console.error('[MultiTaskMessage] Failed to save to messages table:', error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * 保存到 session_messages 表
+   */
+  private async saveToSessionMessages(context: FlowContext, config: any): Promise<any> {
+    try {
+      const { db } = await import('@/lib/db');
+      const { sessionMessages } = await import('@/storage/database/shared/schema');
+
+      // 如果没有 sessionId，创建一个
+      if (!context.sessionId) {
+        console.warn('[MultiTaskMessage] No sessionId in context, skipping session messages save');
+        return {
+          success: false,
+          skipped: true,
+          reason: 'no_session_id',
+        };
+      }
+
+      const [sessionMessage] = await db
+        .insert(sessionMessages)
+        .values({
+          sessionId: context.sessionId,
+          senderId: context.triggerData.senderId,
+          senderName: context.triggerData.senderName,
+          content: context.triggerData.content,
+          messageType: config.messageSend?.messageType || 'text',
+          senderType: context.senderInfo?.senderType || 'user',
+          metadata: {
+            imageUrl: context.triggerData.imageUrl,
+            atUser: config.messageSend?.atUser || false,
+          },
+        })
+        .returning();
+
+      return { success: true, sessionMessageId: sessionMessage.id };
+    } catch (error: any) {
+      console.error('[MultiTaskMessage] Failed to save to session messages table:', error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * 推送到监控队列
+   */
+  private async pushToMonitorQueue(context: FlowContext, config: any): Promise<any> {
+    try {
+      // 这里可以推送到 Redis 队列或消息队列
+      // 暂时只记录日志
+      console.log('[MultiTaskMessage] Monitor queue data:', {
+        robotId: context.triggerData.robotId,
+        senderId: context.triggerData.senderId,
+        content: context.triggerData.content,
+        senderType: context.senderInfo?.senderType,
+        timestamp: new Date().toISOString(),
+      });
+
+      // TODO: 实现实际的队列推送逻辑
+      // const { redis } = await import('@/lib/redis');
+      // await redis.lpush('monitor_queue', JSON.stringify({ ... }));
+
+      return {
+        success: true,
+        message: 'Pushed to monitor queue (logged only for now)',
+      };
+    } catch (error: any) {
+      console.error('[MultiTaskMessage] Failed to push to monitor queue:', error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
   }
 }
 
@@ -621,6 +916,7 @@ export class NodeExecutorFactory {
     this.registerExecutor('condition', new ConditionExecutor());
     this.registerExecutor('ai_message', new AiMessageExecutor());
     this.registerExecutor('multi_task_ai', new MultiTaskAiExecutor());
+    this.registerExecutor('multi_task_message', new MultiTaskMessageExecutor());
     this.registerExecutor('after_sales_task', new AfterSalesTaskExecutor());
     this.registerExecutor('robot_reply', new RobotReplyExecutor());
     this.registerExecutor('delay', new DelayExecutor());
@@ -628,15 +924,15 @@ export class NodeExecutorFactory {
 
     // v8.0 新节点执行器
     const v8Executors = await import('./v8-node-executors');
-    this.registerExecutor('priority_check', new v8Executors.PriorityCheckExecutor());
-    this.registerExecutor('operation_message', new v8Executors.OperationMessageExecutor());
-    this.registerExecutor('staff_message_handler', new v8Executors.StaffMessageExecutor());
-    this.registerExecutor('user_message_handler', new v8Executors.UserMessageExecutor());
-    this.registerExecutor('image_recognition', new v8Executors.ImageRecognitionExecutor());
-    this.registerExecutor('collaboration_analysis_node', new v8Executors.CollaborationAnalysisExecutor());
-    this.registerExecutor('intervention_decision', new v8Executors.InterventionDecisionExecutor());
-    this.registerExecutor('monitor_only', new v8Executors.MonitorOnlyExecutor());
-    this.registerExecutor('notification_dispatch', new v8Executors.NotificationDispatchExecutor());
+    this.registerExecutor('PRIORITY_CHECK', new v8Executors.PriorityCheckExecutor());
+    this.registerExecutor('OPERATION_MESSAGE', new v8Executors.OperationMessageExecutor());
+    this.registerExecutor('STAFF_MESSAGE_HANDLER', new v8Executors.StaffMessageExecutor());
+    this.registerExecutor('USER_MESSAGE_HANDLER', new v8Executors.UserMessageExecutor());
+    this.registerExecutor('IMAGE_RECOGNITION', new v8Executors.ImageRecognitionExecutor());
+    this.registerExecutor('COLLABORATION_ANALYSIS_NODE', new v8Executors.CollaborationAnalysisExecutor());
+    this.registerExecutor('INTERVENTION_DECISION', new v8Executors.InterventionDecisionExecutor());
+    this.registerExecutor('MONITOR_ONLY', new v8Executors.MonitorOnlyExecutor());
+    this.registerExecutor('NOTIFICATION_DISPATCH', new v8Executors.NotificationDispatchExecutor());
   }
 }
 

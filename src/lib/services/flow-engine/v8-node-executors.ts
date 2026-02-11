@@ -9,7 +9,7 @@ import { FlowContext } from '../flow-engine';
 
 export class PriorityCheckExecutor extends BaseNodeExecutor {
   protected getNodeType(): string {
-    return 'priority_check';
+    return 'PRIORITY_CHECK';
   }
 
   protected async doExecute(context: FlowContext, config: any): Promise<any> {
@@ -64,7 +64,7 @@ export class PriorityCheckExecutor extends BaseNodeExecutor {
 
 export class OperationMessageExecutor extends BaseNodeExecutor {
   protected getNodeType(): string {
-    return 'operation_message';
+    return 'OPERATION_MESSAGE';
   }
 
   protected async doExecute(context: FlowContext, config: any): Promise<any> {
@@ -157,7 +157,7 @@ export class OperationMessageExecutor extends BaseNodeExecutor {
 
 export class StaffMessageExecutor extends BaseNodeExecutor {
   protected getNodeType(): string {
-    return 'staff_message_handler';
+    return 'STAFF_MESSAGE_HANDLER';
   }
 
   protected async doExecute(context: FlowContext, config: any): Promise<any> {
@@ -243,7 +243,7 @@ export class StaffMessageExecutor extends BaseNodeExecutor {
 
 export class UserMessageExecutor extends BaseNodeExecutor {
   protected getNodeType(): string {
-    return 'user_message_handler';
+    return 'USER_MESSAGE_HANDLER';
   }
 
   protected async doExecute(context: FlowContext, config: any): Promise<any> {
@@ -351,55 +351,94 @@ export class UserMessageExecutor extends BaseNodeExecutor {
 
 export class ImageRecognitionExecutor extends BaseNodeExecutor {
   protected getNodeType(): string {
-    return 'image_recognition';
+    return 'IMAGE_RECOGNITION';
   }
 
   protected async doExecute(context: FlowContext, config: any): Promise<any> {
-    console.log('Executing Image Recognition Node', {
+    console.log('[IMAGE_RECOGNITION] Starting execution', {
       imageUrl: context.triggerData.imageUrl,
-      config,
+      senderType: context.senderInfo?.senderType,
     });
 
     const imageUrl = context.triggerData.imageUrl;
 
+    // 如果没有图片 URL，跳过图片识别
     if (!imageUrl) {
-      throw new Error('Image URL is required for image recognition');
+      console.log('[IMAGE_RECOGNITION] No image URL provided, skipping image recognition');
+      this.setContextValue(context, 'imageRecognitionResult', {
+        skipped: true,
+        reason: 'no_image_url',
+        timestamp: new Date().toISOString(),
+      });
+      return {
+        success: true,
+        skipped: true,
+        reason: 'no_image_url',
+        message: 'No image URL provided, skipped image recognition',
+      };
     }
 
-    // 1. OCR 文字提取
-    const ocrResult = await this.extractText(imageUrl);
+    try {
+      // 1. OCR 文字提取
+      console.log('[IMAGE_RECOGNITION] Extracting text from image...');
+      const ocrResult = await this.extractText(imageUrl);
 
-    // 2. 图像分类
-    const imageClassification = await this.classifyImage(imageUrl);
+      // 2. 图像分类
+      console.log('[IMAGE_RECOGNITION] Classifying image...');
+      const imageClassification = await this.classifyImage(imageUrl);
 
-    // 3. 情感分析（从图像中）
-    const imageEmotion = await this.analyzeImageEmotion(imageUrl);
+      // 3. 情感分析（从图像中）
+      console.log('[IMAGE_RECOGNITION] Analyzing image emotion...');
+      const imageEmotion = await this.analyzeImageEmotion(imageUrl);
 
-    // 4. 结合上下文判断意图
-    const intent = await this.recognizeIntent(ocrResult, imageClassification, context);
+      // 4. 结合上下文判断意图
+      console.log('[IMAGE_RECOGNITION] Recognizing intent...');
+      const intent = await this.recognizeIntent(ocrResult, imageClassification, context);
 
-    // 存储到上下文
-    this.setContextValue(context, 'imageRecognition', {
-      ocrResult,
-      imageClassification,
-      imageEmotion,
-      intent,
-    });
+      // 存储到上下文
+      this.setContextValue(context, 'imageRecognition', {
+        ocrResult,
+        imageClassification,
+        imageEmotion,
+        intent,
+      });
 
-    // 5. 如果提取到文字，可以作为文本消息处理
-    if (ocrResult.text && ocrResult.text.length > 0) {
-      this.setContextValue(context, 'extractedText', ocrResult.text);
+      // 5. 如果提取到文字，可以作为文本消息处理
+      if (ocrResult.text && ocrResult.text.length > 0) {
+        this.setContextValue(context, 'extractedText', ocrResult.text);
+      }
+
+      console.log('[IMAGE_RECOGNITION] Execution completed successfully', {
+        hasText: ocrResult.text && ocrResult.text.length > 0,
+        classification: imageClassification,
+        intent,
+      });
+
+      return {
+        success: true,
+        ocrResult,
+        imageClassification,
+        imageEmotion,
+        intent,
+        hasExtractedText: ocrResult.text && ocrResult.text.length > 0,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error: any) {
+      console.error('[IMAGE_RECOGNITION] Execution failed:', {
+        error: error.message,
+        stack: error.stack,
+        imageUrl,
+      });
+
+      // 存储错误到上下文
+      this.setContextValue(context, 'imageRecognitionError', {
+        error: error.message,
+        imageUrl,
+        timestamp: new Date().toISOString(),
+      });
+
+      throw new Error(`Image recognition failed: ${error.message}`);
     }
-
-    return {
-      success: true,
-      ocrResult,
-      imageClassification,
-      imageEmotion,
-      intent,
-      hasExtractedText: ocrResult.text && ocrResult.text.length > 0,
-      timestamp: new Date().toISOString(),
-    };
   }
 
   private async extractText(imageUrl: string): Promise<any> {
@@ -480,7 +519,7 @@ export class ImageRecognitionExecutor extends BaseNodeExecutor {
 
 export class CollaborationAnalysisExecutor extends BaseNodeExecutor {
   protected getNodeType(): string {
-    return 'collaboration_analysis_node';
+    return 'COLLABORATION_ANALYSIS_NODE';
   }
 
   protected async doExecute(context: FlowContext, config: any): Promise<any> {
@@ -599,7 +638,7 @@ export class CollaborationAnalysisExecutor extends BaseNodeExecutor {
 
 export class InterventionDecisionExecutor extends BaseNodeExecutor {
   protected getNodeType(): string {
-    return 'intervention_decision';
+    return 'INTERVENTION_DECISION';
   }
 
   protected async doExecute(context: FlowContext, config: any): Promise<any> {
@@ -679,7 +718,7 @@ export class InterventionDecisionExecutor extends BaseNodeExecutor {
 
 export class MonitorOnlyExecutor extends BaseNodeExecutor {
   protected getNodeType(): string {
-    return 'monitor_only';
+    return 'MONITOR_ONLY';
   }
 
   protected async doExecute(context: FlowContext, config: any): Promise<any> {
@@ -716,7 +755,7 @@ export class MonitorOnlyExecutor extends BaseNodeExecutor {
 
 export class NotificationDispatchExecutor extends BaseNodeExecutor {
   protected getNodeType(): string {
-    return 'notification_dispatch';
+    return 'NOTIFICATION_DISPATCH';
   }
 
   protected async doExecute(context: FlowContext, config: any): Promise<any> {
