@@ -1,167 +1,194 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
+/**
+ * 流程引擎测试 API
+ * 用于测试流程执行引擎的各项功能
+ */
 
-// 数据库连接池
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+import { NextRequest, NextResponse } from 'next/server';
+import { flowEngine } from '@/lib/services/flow-engine';
+import { db } from '@/lib/db';
+import { flowInstances, flowExecutionLogs } from '@/storage/database/shared/schema';
+import { eq, desc } from 'drizzle-orm';
 
 /**
  * POST /api/flow-engine/test
- * 手动触发流程测试执行
+ * 测试流程执行
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { flowName, flowDefinitionId, triggerData } = body;
 
-    if (!flowName && !flowDefinitionId) {
+    console.log('Flow engine test request:', body);
+
+    // 验证参数
+    if (!body.robotId || !body.content) {
       return NextResponse.json(
-        { success: false, error: 'flowName 或 flowDefinitionId 参数必填' },
+        { success: false, error: 'Missing required fields: robotId, content' },
         { status: 400 }
       );
     }
 
-    // 查找流程定义
-    const query = flowDefinitionId
-      ? 'SELECT * FROM flow_definitions WHERE id = $1 AND is_active = true'
-      : 'SELECT * FROM flow_definitions WHERE name = $1 AND is_active = true';
+    // 获取默认流程
+    const flowDefinition = await flowEngine.getDefaultFlowByTriggerType('user_message');
 
-    const params = flowDefinitionId ? [flowDefinitionId] : [flowName];
-    const result = await pool.query(query, params);
-
-    if (result.rows.length === 0) {
+    if (!flowDefinition) {
       return NextResponse.json(
-        { success: false, error: '未找到活跃版本的流程定义' },
+        { success: false, error: 'No default flow found for trigger type: user_message' },
         { status: 404 }
       );
     }
 
-    const flowDefinition = result.rows[0];
+    console.log('Found flow definition:', {
+      id: flowDefinition.id,
+      name: flowDefinition.name,
+      nodeCount: flowDefinition.nodes.length,
+      edgeCount: flowDefinition.edges.length,
+    });
+
+    // 构建触发数据
+    const triggerData = {
+      robotId: body.robotId,
+      content: body.content,
+      senderId: body.senderId || 'test_user_001',
+      senderName: body.senderName || '测试用户',
+      senderType: 'user' as const,
+      groupId: body.groupId || 'test_group',
+      groupName: body.groupName || '测试群',
+      timestamp: new Date().toISOString(),
+    };
+
+    // 构建初始上下文
+    const initialContext = {
+      senderInfo: {
+        senderType: 'user' as const,
+        userId: triggerData.senderId,
+      },
+      sessionId: null,
+      businessRole: null as any,
+      aiConfig: {},
+      variables: {},
+    };
 
     // 创建流程实例
-    const instanceResult = await pool.query(
-      `INSERT INTO flow_instances (
-        flow_definition_id,
-        flow_name,
-        status,
-        trigger_data,
-        started_at
-      ) VALUES ($1, $2, 'running', $3, NOW())
-      RETURNING *`,
-      [flowDefinition.id, flowDefinition.name, triggerData || {}]
+    const flowInstance = await flowEngine.createFlowInstance(
+      flowDefinition.id,
+      'user_message',
+      triggerData,
+      initialContext
     );
 
-    const instance = instanceResult.rows[0];
+    console.log('Flow instance created:', {
+      instanceId: flowInstance.id,
+      flowName: flowInstance.flowName,
+      currentNodeId: flowInstance.currentNodeId,
+    });
 
-    // TODO: 实际执行流程逻辑
-    // 这里应该调用流程执行引擎
-    // 暂时只是创建实例，标记为测试
+    // 执行流程
+    const completedInstance = await flowEngine.executeFlowInstance(flowInstance.id);
+
+    console.log('Flow execution completed:', {
+      instanceId: completedInstance.id,
+      status: completedInstance.status,
+      processingTime: completedInstance.processingTime,
+      result: completedInstance.result,
+    });
+
+    // 获取执行日志
+    const executionLogs = await db
+      .select()
+      .from(flowExecutionLogs)
+      .where(eq(flowExecutionLogs.flowInstanceId, flowInstance.id))
+      .orderBy(desc(flowExecutionLogs.createdAt));
 
     return NextResponse.json({
       success: true,
+      message: 'Flow execution test completed',
       data: {
-        instance: {
-          id: instance.id,
-          flowDefinitionId: instance.flow_definition_id,
-          flowName: instance.flow_name,
-          status: instance.status,
-          triggerData: instance.trigger_data,
-          startedAt: instance.started_at,
-        },
         flowDefinition: {
           id: flowDefinition.id,
           name: flowDefinition.name,
           version: flowDefinition.version,
-          nodes: flowDefinition.nodes,
-          edges: flowDefinition.edges,
         },
+        instance: {
+          id: completedInstance.id,
+          flowName: completedInstance.flowName,
+          status: completedInstance.status,
+          processingTime: completedInstance.processingTime,
+          errorMessage: completedInstance.errorMessage,
+          retryCount: completedInstance.retryCount,
+        },
+        executionLogs: executionLogs.map(log => ({
+          nodeId: log.nodeId,
+          nodeType: log.nodeType,
+          nodeName: log.nodeName,
+          status: log.status,
+          processingTime: log.processingTime,
+          errorMessage: log.errorMessage,
+        })),
       },
-      message: '流程测试已启动',
     });
   } catch (error: any) {
-    console.error('[POST /api/flow-engine/test] Error:', error);
+    console.error('Flow engine test failed:', error);
     return NextResponse.json(
-      { success: false, error: error.message },
+      {
+        success: false,
+        error: error.message || 'Internal server error',
+        stack: error.stack,
+      },
       { status: 500 }
     );
   }
 }
 
 /**
- * GET /api/flow-engine/test?instanceId=xxx
- * 获取测试执行结果
+ * GET /api/flow-engine/test
+ * 获取测试状态
  */
 export async function GET(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const instanceId = searchParams.get('instanceId');
+  const searchParams = request.nextUrl.searchParams;
+  const instanceId = searchParams.get('instanceId');
 
-    if (!instanceId) {
+  if (instanceId) {
+    // 获取指定实例的详细信息
+    const [instance] = await db
+      .select()
+      .from(flowInstances)
+      .where(eq(flowInstances.id, instanceId))
+      .limit(1);
+
+    if (!instance) {
       return NextResponse.json(
-        { success: false, error: 'instanceId 参数必填' },
-        { status: 400 }
-      );
-    }
-
-    // 查询流程实例
-    const instanceResult = await pool.query(
-      'SELECT * FROM flow_instances WHERE id = $1',
-      [instanceId]
-    );
-
-    if (instanceResult.rows.length === 0) {
-      return NextResponse.json(
-        { success: false, error: '未找到流程实例' },
+        { success: false, error: 'Instance not found' },
         { status: 404 }
       );
     }
 
-    const instance = instanceResult.rows[0];
-
-    // 查询执行日志
-    const logsResult = await pool.query(
-      'SELECT * FROM flow_execution_logs WHERE flow_instance_id = $1 ORDER BY started_at',
-      [instanceId]
-    );
+    const executionLogs = await db
+      .select()
+      .from(flowExecutionLogs)
+      .where(eq(flowExecutionLogs.flowInstanceId, instanceId))
+      .orderBy(desc(flowExecutionLogs.createdAt));
 
     return NextResponse.json({
       success: true,
       data: {
-        instance: {
-          id: instance.id,
-          flowDefinitionId: instance.flow_definition_id,
-          flowName: instance.flow_name,
-          status: instance.status,
-          currentNodeId: instance.current_node_id,
-          triggerData: instance.trigger_data,
-          outputData: instance.output_data,
-          errorMessage: instance.error_message,
-          startedAt: instance.started_at,
-          completedAt: instance.completed_at,
-          processingTime: instance.processing_time,
-          retryCount: instance.retry_count,
-        },
-        logs: logsResult.rows.map((log) => ({
-          id: log.id,
-          nodeId: log.node_id,
-          nodeType: log.node_type,
-          nodeName: log.node_name,
-          status: log.status,
-          inputData: log.input_data,
-          outputData: log.output_data,
-          errorMessage: log.error_message,
-          startedAt: log.started_at,
-          completedAt: log.completed_at,
-          processingTime: log.processing_time,
-        })),
+        instance,
+        executionLogs,
       },
     });
-  } catch (error: any) {
-    console.error('[GET /api/flow-engine/test] Error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+  } else {
+    // 获取最近的测试实例
+    const instances = await db
+      .select()
+      .from(flowInstances)
+      .where(eq(flowInstances.triggerType, 'user_message'))
+      .orderBy(desc(flowInstances.createdAt))
+      .limit(5);
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        instances,
+      },
+    });
   }
 }
