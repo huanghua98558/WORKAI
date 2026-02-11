@@ -468,27 +468,41 @@ export class MultiTaskMessageExecutor extends BaseNodeExecutor {
       const { db } = await import('@/lib/db');
       const { messages } = await import('@/storage/database/shared/schema');
 
+      // 如果没有 sessionId，创建一个临时的会话 ID
+      const sessionId = context.sessionId || `temp_${Date.now()}`;
+
       const [message] = await db
         .insert(messages)
         .values({
+          sessionId: sessionId,
           robotId: context.triggerData.robotId,
           senderId: context.triggerData.senderId,
           senderName: context.triggerData.senderName,
+          senderType: context.senderInfo?.senderType || 'user',
           content: context.triggerData.content,
-          messageType: config.messageSend?.messageType || 'text',
-          groupId: context.triggerData.groupId,
-          groupName: context.triggerData.groupName,
-          timestamp: context.triggerData.timestamp || new Date().toISOString(),
+          contentType: config.messageSend?.messageType === 'image' ? 'image' : 'text',
+          messageType: 'message',
+          groupId: context.triggerData.groupId || null,
           metadata: {
-            senderType: context.senderInfo?.senderType,
+            groupName: context.triggerData.groupName,
             imageUrl: context.triggerData.imageUrl,
+            atUser: config.messageSend?.atUser || false,
+            userSessionId: context.userSessionId,
           },
         })
         .returning();
 
-      return { success: true, messageId: message.id };
+      console.log('[MultiTaskMessage] Successfully saved to messages table', {
+        messageId: message.id,
+        sessionId: message.sessionId,
+      });
+
+      return { success: true, messageId: message.id, sessionId: message.sessionId };
     } catch (error: any) {
-      console.error('[MultiTaskMessage] Failed to save to messages table:', error);
+      console.error('[MultiTaskMessage] Failed to save to messages table:', {
+        error: error.message,
+        stack: error.stack,
+      });
       return {
         success: false,
         error: error.message,
@@ -505,34 +519,44 @@ export class MultiTaskMessageExecutor extends BaseNodeExecutor {
       const { sessionMessages } = await import('@/storage/database/shared/schema');
 
       // 如果没有 sessionId，创建一个
-      if (!context.sessionId) {
-        console.warn('[MultiTaskMessage] No sessionId in context, skipping session messages save');
-        return {
-          success: false,
-          skipped: true,
-          reason: 'no_session_id',
-        };
-      }
+      const sessionId = context.sessionId || `session_${Date.now()}`;
+
+      const senderType = context.senderInfo?.senderType || 'user';
 
       const [sessionMessage] = await db
         .insert(sessionMessages)
         .values({
-          sessionId: context.sessionId,
-          senderId: context.triggerData.senderId,
-          senderName: context.triggerData.senderName,
+          sessionId: sessionId,
+          userId: context.triggerData.senderId,
+          userName: context.triggerData.senderName,
+          groupId: context.triggerData.groupId || null,
+          groupName: context.triggerData.groupName || null,
+          robotId: context.triggerData.robotId,
+          robotName: null, // 可以从机器人配置中获取
           content: context.triggerData.content,
-          messageType: config.messageSend?.messageType || 'text',
-          senderType: context.senderInfo?.senderType || 'user',
-          metadata: {
+          isFromUser: senderType === 'user',
+          isFromBot: senderType === 'robot' || senderType === 'system',
+          isHuman: senderType === 'user' || senderType === 'staff',
+          timestamp: context.triggerData.timestamp || new Date().toISOString(),
+          extraData: {
             imageUrl: context.triggerData.imageUrl,
+            senderType: senderType,
             atUser: config.messageSend?.atUser || false,
           },
         })
         .returning();
 
-      return { success: true, sessionMessageId: sessionMessage.id };
+      console.log('[MultiTaskMessage] Successfully saved to session_messages table', {
+        sessionMessageId: sessionMessage.id,
+        sessionId: sessionMessage.sessionId,
+      });
+
+      return { success: true, sessionMessageId: sessionMessage.id, sessionId: sessionMessage.sessionId };
     } catch (error: any) {
-      console.error('[MultiTaskMessage] Failed to save to session messages table:', error);
+      console.error('[MultiTaskMessage] Failed to save to session messages table:', {
+        error: error.message,
+        stack: error.stack,
+      });
       return {
         success: false,
         error: error.message,
@@ -545,31 +569,107 @@ export class MultiTaskMessageExecutor extends BaseNodeExecutor {
    */
   private async pushToMonitorQueue(context: FlowContext, config: any): Promise<any> {
     try {
-      // 这里可以推送到 Redis 队列或消息队列
-      // 暂时只记录日志
-      console.log('[MultiTaskMessage] Monitor queue data:', {
-        robotId: context.triggerData.robotId,
-        senderId: context.triggerData.senderId,
-        content: context.triggerData.content,
-        senderType: context.senderInfo?.senderType,
-        timestamp: new Date().toISOString(),
-      });
+      console.log('[MultiTaskMessage] Preparing to push to monitor queue...');
 
-      // TODO: 实现实际的队列推送逻辑
-      // const { redis } = await import('@/lib/redis');
-      // await redis.lpush('monitor_queue', JSON.stringify({ ... }));
-
-      return {
-        success: true,
-        message: 'Pushed to monitor queue (logged only for now)',
+      // 构建队列数据
+      const queueData = {
+        eventType: 'message_received',
+        data: {
+          robotId: context.triggerData.robotId,
+          senderId: context.triggerData.senderId,
+          senderName: context.triggerData.senderName,
+          senderType: context.senderInfo?.senderType || 'user',
+          content: context.triggerData.content,
+          contentType: context.triggerData.imageUrl ? 'image' : 'text',
+          groupId: context.triggerData.groupId,
+          groupName: context.triggerData.groupName,
+          sessionId: context.sessionId,
+        },
+        metadata: {
+          timestamp: new Date().toISOString(),
+          priority: this.determinePriority(context),
+        },
       };
+
+      // 推送到 Redis 队列
+      try {
+        const { redisManager } = await import('@/lib/db/redis-manager');
+        const client = await redisManager.getClient();
+        const isMemoryMode = redisManager.isMemoryMode();
+
+        if (client && !isMemoryMode) {
+          // 如果使用真实的 Redis，推送到队列
+          await client.lpush('monitor_queue', JSON.stringify(queueData));
+          console.log('[MultiTaskMessage] Successfully pushed to Redis monitor queue', {
+            queueName: 'monitor_queue',
+            dataKeys: Object.keys(queueData),
+          });
+          return {
+            success: true,
+            queueType: 'redis',
+            message: 'Successfully pushed to monitor queue',
+          };
+        } else {
+          // 如果使用内存模式，推送到内存队列
+          await redisManager.rpush('monitor_queue', JSON.stringify(queueData));
+          console.log('[MultiTaskMessage] Using memory mode, pushed to memory queue', queueData);
+          return {
+            success: true,
+            queueType: 'memory',
+            message: 'Pushed to memory queue',
+            data: queueData,
+          };
+        }
+      } catch (redisError: any) {
+        console.warn('[MultiTaskMessage] Redis client not available, falling back to logging:', {
+          error: redisError.message,
+        });
+        // 降级到日志记录
+        console.log('[MultiTaskMessage] Monitor queue data (fallback):', queueData);
+        return {
+          success: true,
+          queueType: 'log',
+          message: 'Redis not available, logged only',
+          data: queueData,
+        };
+      }
     } catch (error: any) {
-      console.error('[MultiTaskMessage] Failed to push to monitor queue:', error);
+      console.error('[MultiTaskMessage] Failed to push to monitor queue:', {
+        error: error.message,
+        stack: error.stack,
+      });
       return {
         success: false,
         error: error.message,
       };
     }
+  }
+
+  /**
+   * 确定消息优先级
+   */
+  private determinePriority(context: FlowContext): string {
+    const senderType = context.senderInfo?.senderType || 'user';
+    const content = context.triggerData.content?.toLowerCase() || '';
+
+    // 运营消息最高优先级
+    if (senderType === 'operation') {
+      return 'high';
+    }
+
+    // 紧急关键词
+    const emergencyKeywords = ['紧急', '投诉', '故障', '错误', '崩溃', '无法使用'];
+    if (emergencyKeywords.some(keyword => content.includes(keyword))) {
+      return 'high';
+    }
+
+    // 工作人员消息中等优先级
+    if (senderType === 'staff') {
+      return 'medium';
+    }
+
+    // 默认低优先级
+    return 'low';
   }
 }
 
