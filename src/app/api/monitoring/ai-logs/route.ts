@@ -1,63 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server';
-import http from 'http';
+import { db } from '@/lib/db';
+import { aiIoLogs } from '@/storage/database/shared/schema';
+import { desc, eq, and, like } from 'drizzle-orm';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
-
-let backendHost = 'localhost';
-let backendPort = 5001;
-
-try {
-  const backendUrl = new URL(BACKEND_URL);
-  backendHost = backendUrl.hostname;
-  backendPort = parseInt(backendUrl.port || '5001', 10);
-} catch (e) {
-  console.warn('[API Proxy AI Logs] Failed to parse BACKEND_URL, using defaults');
-}
-
+/**
+ * GET /api/monitoring/ai-logs
+ * 获取AI调用日志列表
+ */
 export async function GET(request: NextRequest) {
   try {
-    const url = new URL(request.url);
-    const limit = url.searchParams.get('limit') || '50';
-    const status = url.searchParams.get('status');
-    const sessionId = url.searchParams.get('sessionId');
+    const searchParams = request.nextUrl.searchParams;
+    const limitParam = searchParams.get('limit');
+    const limit = limitParam ? parseInt(limitParam) : 50;
+    const status = searchParams.get('status');
+    const sessionId = searchParams.get('sessionId');
 
-    const path = `/api/monitoring/ai-logs`;
-    const queryParams = new URLSearchParams();
-    queryParams.append('limit', limit);
-    if (status) queryParams.append('status', status);
-    if (sessionId) queryParams.append('sessionId', sessionId);
+    console.log('[监控] 查询AI日志，limit:', limit, 'status:', status, 'sessionId:', sessionId);
 
-    const options = {
-      hostname: backendHost,
-      port: backendPort,
-      path: `${path}?${queryParams.toString()}`,
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    };
+    // 构建查询条件
+    const conditions = [];
 
-    return new Promise<NextResponse>((resolve) => {
-      const req = http.request(options, (res) => {
-        let data = '';
-        res.on('data', (chunk) => { data += chunk; });
-        res.on('end', () => {
-          try {
-            const jsonData = JSON.parse(data);
-            resolve(NextResponse.json(jsonData, { status: res.statusCode }));
-          } catch (e) {
-            resolve(NextResponse.json({ error: 'Parse error' }, { status: 500 }));
-          }
-        });
-      });
+    if (status) {
+      conditions.push(eq(aiIoLogs.status, status));
+    }
 
-      req.on('error', (error) => {
-        resolve(NextResponse.json({ error: error.message }, { status: 500 }));
-      });
+    if (sessionId) {
+      conditions.push(eq(aiIoLogs.sessionId, sessionId));
+    }
 
-      req.end();
+    // 查询AI调用日志
+    const logs = await db
+      .select()
+      .from(aiIoLogs)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(aiIoLogs.createdAt))
+      .limit(limit);
+
+    console.log('[监控] 查询到', logs.length, '条AI日志');
+
+    // 转换数据格式
+    const result = logs.map((log: any) => ({
+      id: log.id,
+      sessionId: log.sessionId,
+      messageId: log.messageId,
+      robotId: log.robotId,
+      robotName: log.robotName,
+      operationType: log.operationType || 'unknown',
+      aiInput: log.aiInput,
+      aiOutput: log.aiOutput,
+      modelId: log.modelId,
+      status: log.status,
+      errorMessage: log.errorMessage,
+      requestDuration: log.requestDuration,
+      createdAt: log.createdAt,
+      updatedAt: log.updatedAt,
+    }));
+
+    return NextResponse.json({
+      code: 0,
+      message: 'success',
+      data: result,
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('[监控] 获取AI日志失败:', error);
+    return NextResponse.json(
+      {
+        code: -1,
+        message: '获取AI日志失败',
+        error: error.message,
+        stack: error.stack,
+      },
+      { status: 500 }
+    );
   }
 }
