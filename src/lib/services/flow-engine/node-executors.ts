@@ -616,7 +616,7 @@ export class NodeExecutorFactory {
   /**
    * 初始化默认执行器
    */
-  static initialize(): void {
+  static async initialize(): Promise<void> {
     this.registerExecutor('trigger_webhook', new WebhookTriggerExecutor());
     this.registerExecutor('condition', new ConditionExecutor());
     this.registerExecutor('ai_message', new AiMessageExecutor());
@@ -625,6 +625,18 @@ export class NodeExecutorFactory {
     this.registerExecutor('robot_reply', new RobotReplyExecutor());
     this.registerExecutor('delay', new DelayExecutor());
     this.registerExecutor('end', new EndExecutor());
+
+    // v8.0 新节点执行器
+    const v8Executors = await import('./v8-node-executors');
+    this.registerExecutor('priority_check', new v8Executors.PriorityCheckExecutor());
+    this.registerExecutor('operation_message', new v8Executors.OperationMessageExecutor());
+    this.registerExecutor('staff_message_handler', new v8Executors.StaffMessageExecutor());
+    this.registerExecutor('user_message_handler', new v8Executors.UserMessageExecutor());
+    this.registerExecutor('image_recognition', new v8Executors.ImageRecognitionExecutor());
+    this.registerExecutor('collaboration_analysis_node', new v8Executors.CollaborationAnalysisExecutor());
+    this.registerExecutor('intervention_decision', new v8Executors.InterventionDecisionExecutor());
+    this.registerExecutor('monitor_only', new v8Executors.MonitorOnlyExecutor());
+    this.registerExecutor('notification_dispatch', new v8Executors.NotificationDispatchExecutor());
   }
 }
 

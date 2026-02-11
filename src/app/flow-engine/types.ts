@@ -57,6 +57,17 @@ export const NODE_TYPES = {
   // ========== 业务节点（新增）==========
   AFTER_SALES_TASK: 'after_sales_task', // 售后任务节点 - 处理售后任务、机器人安抚
 
+  // ========== v8.0 新增节点（统一消息处理流程）==========
+  PRIORITY_CHECK: 'priority_check',         // 优先级判断节点 - 运营/工作人员/用户消息优先级判断
+  OPERATION_MESSAGE: 'operation_message',   // 运营消息处理节点 - 处理运营（财神爷）消息
+  STAFF_MESSAGE_HANDLER: 'staff_message_handler', // 工作人员消息处理节点 - 处理工作人员消息
+  USER_MESSAGE_HANDLER: 'user_message_handler',   // 用户消息处理节点 - 处理用户（号主）消息
+  IMAGE_RECOGNITION: 'image_recognition',   // 图片识别节点 - OCR + 图像内容理解
+  COLLABORATION_ANALYSIS_NODE: 'collaboration_analysis_node', // 协同分析节点 - 活跃度/满意度/效率分析
+  INTERVENTION_DECISION: 'intervention_decision', // 介入决策节点 - 判断是否需要人工介入
+  MONITOR_ONLY: 'monitor_only',             // 监控节点 - 仅记录，不处理
+  NOTIFICATION_DISPATCH: 'notification_dispatch', // 通知分发节点 - 分发通知到不同机器人
+
   // ========== 流程控制节点（3种）==========
   LOOP: 'loop',                        // 循环节点 - 循环执行
   PARALLEL: 'parallel',                // 并行节点 - 并行执行
@@ -331,6 +342,89 @@ export const NODE_METADATA = {
     description: '处理售后任务、机器人安抚、腾讯文档同步（v7.0）',
     icon: '🔧',
     color: 'bg-orange-500',
+    category: 'action',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+
+  // ========== v8.0 新增节点（统一消息处理流程）==========
+  [NODE_TYPES.PRIORITY_CHECK]: {
+    name: '优先级判断节点',
+    description: '判断消息优先级：运营（最高）> 工作人员 > 用户（v8.0）',
+    icon: '🎯',
+    color: 'bg-amber-500',
+    category: 'logic',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.OPERATION_MESSAGE]: {
+    name: '运营消息处理节点',
+    description: '处理运营（财神爷）消息：语气识别、特殊处理、保护用户（v8.0）',
+    icon: '💎',
+    color: 'bg-rose-600',
+    category: 'action',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.STAFF_MESSAGE_HANDLER]: {
+    name: '工作人员消息处理节点',
+    description: '处理工作人员消息：活跃度记录、状态追踪、协助决策（v8.0）',
+    icon: '👨‍💼',
+    color: 'bg-cyan-600',
+    category: 'action',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.USER_MESSAGE_HANDLER]: {
+    name: '用户消息处理节点',
+    description: '处理用户（号主）消息：上下文分析、意图判断、满意度分析（v8.0）',
+    icon: '👤',
+    color: 'bg-violet-600',
+    category: 'action',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.IMAGE_RECOGNITION]: {
+    name: '图片识别节点',
+    description: '图片内容识别：OCR文字提取、图像分类、情感分析（v8.0）',
+    icon: '🖼️',
+    color: 'bg-fuchsia-600',
+    category: 'ai',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.COLLABORATION_ANALYSIS_NODE]: {
+    name: '协同分析节点',
+    description: '协同分析：活跃度、满意度、效率、解决率（v8.0）',
+    icon: '📈',
+    color: 'bg-teal-600',
+    category: 'analysis',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.INTERVENTION_DECISION]: {
+    name: '介入决策节点',
+    description: '判断是否需要人工介入：上下文分析、情绪判断、风险识别（v8.0）',
+    icon: '🤝',
+    color: 'bg-indigo-500',
+    category: 'logic',
+    hasInputs: true,
+    hasOutputs: true,
+  },
+  [NODE_TYPES.MONITOR_ONLY]: {
+    name: '监控节点',
+    description: '监控机器人专用：仅记录消息，不进行任何处理（v8.0）',
+    icon: '👁️',
+    color: 'bg-slate-600',
+    category: 'basic',
+    hasInputs: true,
+    hasOutputs: false,
+  },
+  [NODE_TYPES.NOTIFICATION_DISPATCH]: {
+    name: '通知分发节点',
+    description: '分发通知到不同机器人：告警通知、任务提醒、系统通知（v8.0）',
+    icon: '📤',
+    color: 'bg-pink-600',
     category: 'action',
     hasInputs: true,
     hasOutputs: true,
