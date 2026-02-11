@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { CalendarIcon, Plus, Trash2, Shield } from 'lucide-react';
-import { api } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
 
 interface Permission {
   id: string;
@@ -86,7 +86,7 @@ export default function PermissionManagementPage() {
 
   const loadRobots = async () => {
     try {
-      const result = await api.robots.list();
+      const result = await apiClient.robots.list();
       setRobots(result || []);
     } catch (err) {
       console.error('加载机器人列表失败:', err);
