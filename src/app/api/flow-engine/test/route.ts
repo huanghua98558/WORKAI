@@ -28,11 +28,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 获取默认流程
-    const flowDefinition = await flowEngine.getDefaultFlowByTriggerType('user_message');
+    const flowDefinition = await flowEngine.getDefaultFlowByTriggerType('webhook');
 
     if (!flowDefinition) {
       return NextResponse.json(
-        { success: false, error: 'No default flow found for trigger type: user_message' },
+        { success: false, error: 'No default flow found for trigger type: webhook' },
         { status: 404 }
       );
     }
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     // 创建流程实例
     const flowInstance = await flowEngine.createFlowInstance(
       flowDefinition.id,
-      'user_message',
+      'webhook',
       triggerData,
       initialContext
     );
@@ -180,7 +180,7 @@ export async function GET(request: NextRequest) {
     const instances = await db
       .select()
       .from(flowInstances)
-      .where(eq(flowInstances.triggerType, 'user_message'))
+      .where(eq(flowInstances.triggerType, 'webhook'))
       .orderBy(desc(flowInstances.createdAt))
       .limit(5);
 

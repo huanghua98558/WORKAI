@@ -44,6 +44,7 @@ const FlowEngineManage = lazy(() => import('@/components/flow-engine-manage'));
 const CollabAnalytics = lazy(() => import('@/app/collab-analytics/page'));
 const AfterSalesDashboard = lazy(() => import('@/app/after-sales/page'));
 const ReportsDashboard = lazy(() => import('@/app/reports/page'));
+const MessageSimulator = lazy(() => import('@/app/test/message-simulator/page'));
 
 // Token统计组件
 import { TokenStatsCard } from '@/components/token-stats';
@@ -135,7 +136,8 @@ import {
   Send,
   BookOpen,
   MonitorPlay,
-  Headphones
+  Headphones,
+  TestTube
 } from 'lucide-react';
 
 import { MessageBubble } from '@/components/ui/message-bubble';
@@ -3013,6 +3015,13 @@ ${callbacks.robotStatus}
               <span className="font-semibold text-base sm:text-base">数据报告</span>
             </TabsTrigger>
             <TabsTrigger
+              value="test"
+              className="gap-2.5 py-5 px-3.5 min-w-[75px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-purple-600/30 border-2 border-slate-200/70 hover:border-purple-400/80 hover:bg-purple-50/90 hover:shadow-lg hover:shadow-purple-400/20 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 rounded-xl"
+            >
+              <TestTube className="h-5 w-5" />
+              <span className="font-semibold text-base sm:text-base">测试工具</span>
+            </TabsTrigger>
+            <TabsTrigger
               value="settings"
               className="gap-2.5 py-5 px-3.5 min-w-[75px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-blue-600/30 border-2 border-slate-200/70 hover:border-blue-400/80 hover:bg-blue-50/90 hover:shadow-lg hover:shadow-blue-400/20 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 rounded-xl"
             >
@@ -3092,6 +3101,12 @@ ${callbacks.robotStatus}
           <TabsContent value="reports" className="space-y-6">
             <Suspense fallback={<LoadingSpinner />}>
               <ReportsDashboard />
+            </Suspense>
+          </TabsContent>
+
+          <TabsContent value="test" className="space-y-6">
+            <Suspense fallback={<LoadingSpinner />}>
+              <MessageSimulator />
             </Suspense>
           </TabsContent>
 

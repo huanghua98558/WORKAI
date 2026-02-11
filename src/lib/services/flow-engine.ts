@@ -149,7 +149,13 @@ export class FlowEngine {
       version: definition.version || '1.0',
       triggerType: definition.triggerType,
       triggerConfig: definition.triggerConfig,
-      nodes: definition.nodes as Node[],
+      nodes: definition.nodes.map((node: any) => ({
+        id: node.id,
+        type: node.nodeType || node.type, // 支持两种字段名
+        name: node.name,
+        data: node.data,
+        position: node.position,
+      })) as Node[],
       edges: definition.edges as Edge[],
       variables: definition.variables || {},
       timeout: definition.timeout || 30000,
@@ -186,7 +192,13 @@ export class FlowEngine {
       version: definition.version || '1.0',
       triggerType: definition.triggerType,
       triggerConfig: definition.triggerConfig,
-      nodes: definition.nodes as Node[],
+      nodes: definition.nodes.map((node: any) => ({
+        id: node.id,
+        type: node.nodeType || node.type, // 支持两种字段名
+        name: node.name,
+        data: node.data,
+        position: node.position,
+      })) as Node[],
       edges: definition.edges as Edge[],
       variables: definition.variables || {},
       timeout: definition.timeout || 30000,
