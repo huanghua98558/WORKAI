@@ -9,10 +9,10 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { taskId: string } }
+  { params }: { params: Promise<{ taskId: string }> }
 ) {
   try {
-    const { taskId } = params;
+    const { taskId } = await params;
     const body = await request.json();
 
     const backendUrl = new URL(`${BACKEND_URL}/api/collab/after-sales-tasks/${taskId}`);

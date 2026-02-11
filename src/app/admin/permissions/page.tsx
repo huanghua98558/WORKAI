@@ -95,11 +95,13 @@ export default function PermissionManagementPage() {
 
   const loadUsers = async () => {
     try {
-      const db = await import('@/lib/db').then(m => m.db);
-      const users = await db.user.findMany({
-        select: { id: true, username: true, fullName: true, email: true }
+      const response = await fetch('/api/admin/users', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` },
       });
-      setUsers(users);
+      const result = await response.json();
+      if (result.code === 0) {
+        setUsers(result.data || []);
+      }
     } catch (err) {
       console.error('加载用户列表失败:', err);
     }
