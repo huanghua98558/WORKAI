@@ -1,96 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server';
-const { getDb } = require('coze-coding-dev-sdk');
-const { ai_io_logs, robots } = require('@/../server/database/schema');
-const { and, gte, lte, eq, desc } = require('drizzle-orm');
+import { getDb } from 'coze-coding-dev-sdk';
+import { sql } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
     const db = await getDb();
 
-    // 计算今天、昨天、本月、上月的日期范围（UTC）
+    // 计算今天、昨天、本月、上月的日期范围
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-
     const yesterdayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
     const yesterdayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // 查询今天的Token使用情况
-    const todayLogs = await db
-      .select()
-      .from(ai_io_logs)
-      .where(
-        and(
-          gte(ai_io_logs.createdAt, todayStart),
-          lte(ai_io_logs.createdAt, todayEnd)
-        )
-      );
+    // 使用原始 SQL 查询
+    const todayLogs = await db.execute(sql`
+      SELECT COALESCE(SUM(total_tokens), 0) as total,
+             COALESCE(SUM(input_tokens), 0) as input,
+             COALESCE(SUM(output_tokens), 0) as output,
+             COUNT(*) as count
+      FROM ai_io_logs
+      WHERE created_at >= ${todayStart.toISOString()} AND created_at < ${todayEnd.toISOString()}
+    `);
 
-    // 查询昨天的Token使用情况
-    const yesterdayLogs = await db
-      .select()
-      .from(ai_io_logs)
-      .where(
-        and(
-          gte(ai_io_logs.createdAt, yesterdayStart),
-          lte(ai_io_logs.createdAt, yesterdayEnd)
-        )
-      );
+    const yesterdayLogs = await db.execute(sql`
+      SELECT COALESCE(SUM(total_tokens), 0) as total
+      FROM ai_io_logs
+      WHERE created_at >= ${yesterdayStart.toISOString()} AND created_at < ${yesterdayEnd.toISOString()}
+    `);
 
-    // 查询本月的Token使用情况
-    const monthLogs = await db
-      .select()
-      .from(ai_io_logs)
-      .where(
-        and(
-          gte(ai_io_logs.createdAt, monthStart),
-          lte(ai_io_logs.createdAt, monthEnd)
-        )
-      );
+    const monthLogs = await db.execute(sql`
+      SELECT COALESCE(SUM(total_tokens), 0) as total, COUNT(*) as count
+      FROM ai_io_logs
+      WHERE created_at >= ${monthStart.toISOString()} AND created_at < ${monthEnd.toISOString()}
+    `);
 
-    // 查询上月的Token使用情况
-    const lastMonthLogs = await db
-      .select()
-      .from(ai_io_logs)
-      .where(
-        and(
-          gte(ai_io_logs.createdAt, lastMonthStart),
-          lte(ai_io_logs.createdAt, lastMonthEnd)
-        )
-      );
+    const lastMonthLogs = await db.execute(sql`
+      SELECT COALESCE(SUM(total_tokens), 0) as total, COUNT(*) as count
+      FROM ai_io_logs
+      WHERE created_at >= ${lastMonthStart.toISOString()} AND created_at < ${lastMonthEnd.toISOString()}
+    `);
 
-    // 统计数据
-    const todayTotal = todayLogs.reduce((sum: number, log: any) => sum + (log.totalTokens || 0), 0);
-    const yesterdayTotal = yesterdayLogs.reduce((sum: number, log: any) => sum + (log.totalTokens || 0), 0);
-    const monthTotal = monthLogs.reduce((sum: number, log: any) => sum + (log.totalTokens || 0), 0);
-    const lastMonthTotal = lastMonthLogs.reduce((sum: number, log: any) => sum + (log.totalTokens || 0), 0);
+    const today = todayLogs.rows[0] || { total: 0, input: 0, output: 0, count: 0 };
+    const yesterday = yesterdayLogs.rows[0] || { total: 0 };
+    const month = monthLogs.rows[0] || { total: 0, count: 0 };
+    const lastMonth = lastMonthLogs.rows[0] || { total: 0, count: 0 };
 
     return NextResponse.json({
       code: 0,
       message: 'success',
       data: {
         today: {
-          total: todayTotal,
-          input: todayLogs.reduce((sum: number, log: any) => sum + (log.inputTokens || 0), 0),
-          output: todayLogs.reduce((sum: number, log: any) => sum + (log.outputTokens || 0), 0),
-          record_count: todayLogs.length
+          total: parseInt(today.total as string) || 0,
+          input: parseInt(today.input as string) || 0,
+          output: parseInt(today.output as string) || 0,
+          record_count: parseInt(today.count as string) || 0
         },
         yesterday: {
-          total: yesterdayTotal
+          total: parseInt(yesterday.total as string) || 0
         },
         month: {
-          total: monthTotal,
-          record_count: monthLogs.length
+          total: parseInt(month.total as string) || 0,
+          record_count: parseInt(month.count as string) || 0
         },
         lastMonth: {
-          total: lastMonthTotal,
-          record_count: lastMonthLogs.length
+          total: parseInt(lastMonth.total as string) || 0,
+          record_count: parseInt(lastMonth.count as string) || 0
         }
       }
     });

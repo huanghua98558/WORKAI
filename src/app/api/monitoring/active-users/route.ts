@@ -4,35 +4,45 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-const monitor = require('../../../../../server/services/monitor.service');
+import { getDb } from 'coze-coding-dev-sdk';
+import { sessionMessages } from '../../../../../server/database/schema';
+import { sql, desc } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const limit = parseInt(searchParams.get('limit') || '10');
-    const date = searchParams.get('date');
 
     // 限制数量
     const safeLimit = Math.min(Math.max(limit, 1), 100);
 
-    // 获取活跃用户排行
-    const activeUsers = await monitor.getTopActiveUsers(
-      date || undefined,
-      safeLimit
-    );
+    // 获取数据库连接
+    const db = await getDb();
+
+    // 查询活跃用户排行
+    const activeUsersQuery = sql`
+      SELECT 
+        user_id as "userId",
+        user_name as "userName",
+        COUNT(*) as "totalMessages",
+        COUNT(DISTINCT group_ref) as "groupCount"
+      FROM session_messages
+      WHERE timestamp >= NOW() - INTERVAL '24 hours'
+      GROUP BY user_id, user_name
+      ORDER BY COUNT(*) DESC
+      LIMIT ${safeLimit}
+    `;
+
+    const result = await db.execute(activeUsersQuery);
 
     // 格式化数据
-    const formattedUsers = activeUsers.map((user: any, index: number) => ({
+    const formattedUsers = result.rows.map((row: any, index: number) => ({
       rank: index + 1,
-      userId: user.userId,
-      totalMessages: user.totalMessages,
-      groupCount: user.groups.length,
-      groups: user.groups,
-      // 计算平均每群消息数
-      avgMessagesPerGroup: user.groups.length > 0
-        ? Math.round(user.totalMessages / user.groups.length)
-        : 0,
-      activityLevel: user.totalMessages > 50 ? 'high' : user.totalMessages > 20 ? 'medium' : 'low'
+      userId: row.userId,
+      userName: row.userName || '未知用户',
+      totalMessages: parseInt(row.totalMessages),
+      groupCount: parseInt(row.groupCount),
+      activityLevel: parseInt(row.totalMessages) > 50 ? 'high' : parseInt(row.totalMessages) > 20 ? 'medium' : 'low'
     }));
 
     // 格式化响应数据
@@ -41,8 +51,6 @@ export async function GET(request: NextRequest) {
       message: 'success',
       data: {
         users: formattedUsers,
-
-        // 统计信息
         stats: {
           totalUsers: formattedUsers.length,
           totalMessages: formattedUsers.reduce((sum: number, u: any) => sum + u.totalMessages, 0),
@@ -54,11 +62,6 @@ export async function GET(request: NextRequest) {
           mediumActivity: formattedUsers.filter((u: any) => u.activityLevel === 'medium').length,
           lowActivity: formattedUsers.filter((u: any) => u.activityLevel === 'low').length
         },
-
-        // 日期
-        date: date || 'today',
-
-        // 时间戳
         timestamp: new Date().toISOString()
       }
     };

@@ -4,9 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-const { getDb } = require('coze-coding-dev-sdk');
-const { sessionMessages, robots } = require('../../../../../server/database/schema');
-const { sql, desc, eq, and, gte } = require('drizzle-orm');
+import { getDb } from 'coze-coding-dev-sdk';
+import { sql } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {

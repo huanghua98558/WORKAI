@@ -4,30 +4,44 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-const monitor = require('../../../../../server/services/monitor.service');
+import { getDb } from 'coze-coding-dev-sdk';
+import { sql } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const limit = parseInt(searchParams.get('limit') || '10');
-    const date = searchParams.get('date');
 
     // 限制数量
     const safeLimit = Math.min(Math.max(limit, 1), 100);
 
-    // 获取活跃群排行
-    const activeGroups = await monitor.getTopActiveGroups(
-      date || undefined,
-      safeLimit
-    );
+    // 获取数据库连接
+    const db = await getDb();
+
+    // 查询活跃群排行
+    const activeGroupsQuery = sql`
+      SELECT 
+        group_ref as "groupId",
+        group_name as "groupName",
+        COUNT(*) as "totalMessages",
+        COUNT(DISTINCT user_id) as "activeUsers"
+      FROM session_messages
+      WHERE timestamp >= NOW() - INTERVAL '24 hours'
+      GROUP BY group_ref, group_name
+      ORDER BY COUNT(*) DESC
+      LIMIT ${safeLimit}
+    `;
+
+    const result = await db.execute(activeGroupsQuery);
 
     // 格式化数据
-    const formattedGroups = activeGroups.map((group: any, index: number) => ({
+    const formattedGroups = result.rows.map((row: any, index: number) => ({
       rank: index + 1,
-      groupId: group.groupId,
-      totalMessages: group.totalMessages,
-      // 可以添加更多字段，如平均消息间隔、活跃时间段等
-      activityLevel: group.totalMessages > 100 ? 'high' : group.totalMessages > 50 ? 'medium' : 'low'
+      groupId: row.groupId,
+      groupName: row.groupName || '未知群组',
+      totalMessages: parseInt(row.totalMessages),
+      activeUsers: parseInt(row.activeUsers),
+      activityLevel: parseInt(row.totalMessages) > 100 ? 'high' : parseInt(row.totalMessages) > 50 ? 'medium' : 'low'
     }));
 
     // 格式化响应数据
@@ -36,8 +50,6 @@ export async function GET(request: NextRequest) {
       message: 'success',
       data: {
         groups: formattedGroups,
-
-        // 统计信息
         stats: {
           totalGroups: formattedGroups.length,
           totalMessages: formattedGroups.reduce((sum: number, g: any) => sum + g.totalMessages, 0),
@@ -48,11 +60,6 @@ export async function GET(request: NextRequest) {
           mediumActivity: formattedGroups.filter((g: any) => g.activityLevel === 'medium').length,
           lowActivity: formattedGroups.filter((g: any) => g.activityLevel === 'low').length
         },
-
-        // 日期
-        date: date || 'today',
-
-        // 时间戳
         timestamp: new Date().toISOString()
       }
     };
