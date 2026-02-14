@@ -5,8 +5,20 @@ COZE_WORKSPACE_PATH="${COZE_WORKSPACE_PATH:-$(pwd)}"
 cd "${COZE_WORKSPACE_PATH}"
 
 echo "📦 Installing dependencies..."
-# 使用更简洁的安装命令，跳过可选依赖减少安装时间
-pnpm install --prefer-frozen-lockfile --prefer-offline --no-optional 2>&1 | tail -20
+# 安装所有依赖（包括可选的原生模块）
+# 不使用 --no-optional，确保 lightningcss 等原生模块被安装
+pnpm install --prefer-frozen-lockfile --prefer-offline 2>&1 | tail -30
+
+# 确保 lightningcss 原生模块已安装
+echo ""
+echo "🔧 Ensuring native modules..."
+if [ -f "node_modules/.pnpm/lightningcss@1.30.2/node_modules/lightningcss/node_modules/lightningcss.linux-x64-gnu.node" ] || \
+   [ -f "node_modules/.pnpm/lightningcss@1.30.2/node_modules/lightningcss.linux-x64-gnu.node" ]; then
+    echo "✅ lightningcss native module found"
+else
+    echo "⚠️ lightningcss native module not found, attempting to rebuild..."
+    pnpm rebuild lightningcss 2>&1 || true
+fi
 
 echo ""
 echo "🔨 Building the project..."
@@ -15,7 +27,7 @@ export NODE_ENV=production
 export NEXT_TELEMETRY_DISABLED=1
 
 # 执行构建
-npx next build 2>&1 | tail -50
+npx next build 2>&1 | tail -80
 
 echo ""
 echo "✅ Build completed successfully!"

@@ -129,6 +129,9 @@
   "engines": {
     "pnpm": ">=9.0.0"
   },
+  "optionalDependencies": {
+    "lightningcss-linux-x64-gnu": "1.30.2"
+  },
   "pnpm": {
     "overrides": {
       "esbuild": "^0.25.12"
