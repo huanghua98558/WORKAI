@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
+// 构建带认证的请求头
+function buildAuthHeaders(request: NextRequest): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  const authHeader = request.headers.get('authorization');
+  if (authHeader) {
+    headers['authorization'] = authHeader;
+  }
+
+  const cookieHeader = request.headers.get('cookie');
+  if (cookieHeader) {
+    headers['cookie'] = cookieHeader;
+  }
+
+  return headers;
+}
+
 /**
  * 获取回调统计
  */
@@ -21,9 +40,7 @@ export async function GET(
 
     const response = await fetch(url.toString(), {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: buildAuthHeaders(request),
     });
 
     const data = await response.json();

@@ -7,11 +7,24 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const url = new URL('/api/admin/robots/validate', BACKEND_URL);
 
+    // 构建请求头，传递认证令牌
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    const authHeader = request.headers.get('authorization');
+    if (authHeader) {
+      headers['authorization'] = authHeader;
+    }
+
+    const cookieHeader = request.headers.get('cookie');
+    if (cookieHeader) {
+      headers['cookie'] = cookieHeader;
+    }
+
     const response = await fetch(url.toString(), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(body),
     });
 

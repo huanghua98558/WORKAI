@@ -1,56 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
-import http from 'http';
+
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
 export async function POST(request: NextRequest) {
   try {
-    const options = {
-      hostname: 'localhost',
-      port: 5001,
-      path: '/api/admin/robots/check-status-all',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    const url = new URL('/api/admin/robots/check-status-all', BACKEND_URL);
+
+    // 构建请求头，传递认证令牌
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
     };
 
-    return new Promise<NextResponse>((resolve) => {
-      const req = http.request(options, (res) => {
-        let data = '';
-        res.on('data', (chunk) => {
-          data += chunk;
-        });
-        res.on('end', () => {
-          try {
-            const jsonData = JSON.parse(data);
-            resolve(
-              NextResponse.json(jsonData, {
-                status: res.statusCode,
-              })
-            );
-          } catch (e) {
-            resolve(
-              NextResponse.json(
-                { code: -1, message: '解析响应失败', raw: data },
-                { status: res.statusCode || 500 }
-              )
-            );
-          }
-        });
-      });
+    // 从请求中获取认证令牌
+    const authHeader = request.headers.get('authorization');
+    if (authHeader) {
+      headers['authorization'] = authHeader;
+    }
 
-      req.on('error', (error) => {
-        resolve(
-          NextResponse.json(
-            { code: -1, message: error.message },
-            { status: 500 }
-          )
-        );
-      });
+    // 同时支持 Cookie 认证
+    const cookieHeader = request.headers.get('cookie');
+    if (cookieHeader) {
+      headers['cookie'] = cookieHeader;
+    }
 
-      // 发送空JSON对象
-      req.write(JSON.stringify({}));
-      req.end();
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({}),
     });
+
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
   } catch (error: any) {
     return NextResponse.json(
       { code: -1, message: error.message || '服务器错误' },

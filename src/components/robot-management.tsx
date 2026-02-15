@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getAuthHeaders } from '@/lib/auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -322,7 +323,7 @@ export default function RobotManagement() {
       try {
         const res = await fetch('/api/proxy/admin/robots/test', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             robotId: 'test',
             apiBaseUrl: targetApiBaseUrl
@@ -355,7 +356,7 @@ export default function RobotManagement() {
     try {
       const res = await fetch('/api/proxy/admin/robots/test', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           robotId: targetRobotId,
           apiBaseUrl: targetApiBaseUrl

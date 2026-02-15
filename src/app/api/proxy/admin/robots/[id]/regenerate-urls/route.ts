@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5001';
 
+// 构建带认证的请求头
+function buildAuthHeaders(request: NextRequest): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  const authHeader = request.headers.get('authorization');
+  if (authHeader) {
+    headers['authorization'] = authHeader;
+  }
+
+  const cookieHeader = request.headers.get('cookie');
+  if (cookieHeader) {
+    headers['cookie'] = cookieHeader;
+  }
+
+  return headers;
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -12,9 +31,7 @@ export async function POST(
 
     const response = await fetch(`${BACKEND_API_URL}/api/admin/robots/${id}/regenerate-urls`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: buildAuthHeaders(request),
       body: JSON.stringify(body),
     });
 

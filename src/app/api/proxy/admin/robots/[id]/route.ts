@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 
+// 构建带认证的请求头
+function buildAuthHeaders(request: NextRequest): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  const authHeader = request.headers.get('authorization');
+  if (authHeader) {
+    headers['authorization'] = authHeader;
+  }
+
+  const cookieHeader = request.headers.get('cookie');
+  if (cookieHeader) {
+    headers['cookie'] = cookieHeader;
+  }
+
+  return headers;
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -13,9 +32,7 @@ export async function PUT(
 
     const response = await fetch(url.toString(), {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: buildAuthHeaders(request),
       body: JSON.stringify(body),
     });
 
@@ -41,6 +58,7 @@ export async function DELETE(
 
     const response = await fetch(url.toString(), {
       method: 'DELETE',
+      headers: buildAuthHeaders(request),
     });
 
     const data = await response.json();
