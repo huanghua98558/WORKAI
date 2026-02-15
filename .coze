@@ -11,3 +11,5 @@ build = ["bash","./scripts/build.sh"]
 run = ["bash","./scripts/start.sh"]
 deps = ["git"]
 environment = ["BACKEND_URL=http://localhost:5001"]
+# 数据库连接配置 - 使用阿里云 RDS PostgreSQL
+# 注意：如果使用 Coze Coding 平台的数据库服务，会自动注入 PGDATABASE_URL

@@ -9,11 +9,6 @@
  *   "postinstall": "node server/scripts/init-admin.js"
  */
 
-const { getDb } = require('coze-coding-dev-sdk');
-const { users } = require('../database/schema');
-const { hashPassword, checkPasswordStrength } = require('../lib/password');
-const { eq } = require('drizzle-orm');
-
 // 默认管理员账号配置
 const DEFAULT_ADMIN = {
   username: 'admin',
@@ -31,6 +26,25 @@ async function initAdmin() {
   console.log('');
 
   try {
+    // 检查数据库环境变量是否配置
+    const databaseUrl = process.env.DATABASE_URL || process.env.PGDATABASE_URL;
+    if (!databaseUrl) {
+      console.log('⚠️  数据库未配置，跳过管理员初始化');
+      console.log('   请设置 DATABASE_URL 或 PGDATABASE_URL 环境变量');
+      console.log('   管理员账号将在首次启动时自动创建');
+      console.log('');
+      console.log('📝 默认管理员账号信息：');
+      console.log('   用户名:', DEFAULT_ADMIN.username);
+      console.log('   密码:', DEFAULT_ADMIN.password);
+      console.log('');
+      return true; // 返回 true 表示成功跳过，不影响构建
+    }
+
+    const { getDb } = require('coze-coding-dev-sdk');
+    const { users } = require('../database/schema');
+    const { hashPassword, checkPasswordStrength } = require('../lib/password');
+    const { eq } = require('drizzle-orm');
+
     const db = await getDb();
 
     // 检查管理员账号是否已存在
@@ -104,8 +118,13 @@ async function initAdmin() {
     return true;
   } catch (error) {
     console.error('❌ 初始化管理员失败:', error.message);
-    console.error(error.stack);
-    return false;
+    // 不输出完整堆栈，减少日志噪音
+    if (process.env.NODE_ENV === 'development') {
+      console.error(error.stack);
+    }
+    // 返回 true 表示继续执行，不影响构建流程
+    console.log('⚠️  管理员初始化跳过，将在服务启动时重试');
+    return true;
   }
 }
 

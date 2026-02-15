@@ -32,10 +32,18 @@ npx next build 2>&1 | tail -80
 echo ""
 echo "✅ Build completed successfully!"
 
-# 初始化管理员账号（部署时自动创建）
+# 初始化管理员账号（仅在数据库配置可用时执行）
 echo ""
-echo "🔐 Initializing admin account..."
-node server/scripts/init-admin.js 2>&1 || echo "⚠️ Admin initialization skipped"
+echo "🔐 Checking admin account initialization..."
+# 检查数据库环境变量是否配置
+if [ -n "${DATABASE_URL:-}" ] || [ -n "${PGDATABASE_URL:-}" ]; then
+    echo "Database configured, initializing admin account..."
+    node server/scripts/init-admin.js 2>&1 || echo "⚠️ Admin initialization skipped"
+else
+    echo "⚠️ Database not configured, skipping admin initialization"
+    echo "   Admin account will be created on first startup"
+    echo "   Default credentials: admin / Admin@123456"
+fi
 
 echo ""
 echo "✅ All done!"

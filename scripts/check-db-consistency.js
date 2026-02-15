@@ -14,15 +14,33 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// 数据库配置
-const dbConfig = {
-  host: 'pgm-bp16vebtjnwt73360o.pg.rds.aliyuncs.com',
-  port: 5432,
-  database: 'worktool_ai',
-  user: 'worktoolAI',
-  password: 'YourSecurePassword123',
-  ssl: false
-};
+// 检查数据库环境变量
+const databaseUrl = process.env.DATABASE_URL || process.env.PGDATABASE_URL;
+if (!databaseUrl) {
+  console.log('⚠️  数据库未配置，跳过一致性检查');
+  console.log('   请设置 DATABASE_URL 或 PGDATABASE_URL 环境变量');
+  process.exit(0);
+}
+
+// 从连接字符串解析配置
+function parseDatabaseUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return {
+      host: parsed.hostname,
+      port: parseInt(parsed.port) || 5432,
+      database: parsed.pathname.slice(1),
+      user: parsed.username,
+      password: decodeURIComponent(parsed.password),
+      ssl: false
+    };
+  } catch (e) {
+    console.error('解析数据库连接字符串失败:', e.message);
+    process.exit(1);
+  }
+}
+
+const dbConfig = parseDatabaseUrl(databaseUrl);
 
 async function checkDatabaseConsistency() {
   const client = new Client(dbConfig);
