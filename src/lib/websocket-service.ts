@@ -14,6 +14,8 @@ export enum WSEvent {
   CONNECT = 'connect',
   DISCONNECT = 'disconnect',
   CONNECTED = 'connected',
+  AUTH_FAILED = 'auth_failed',
+  DEVICE_BINDING_REQUIRED = 'device_binding_required',
   ROBOT_INFO = 'robotInfo',
   MESSAGE = 'message',
   COMMAND = 'command',
@@ -85,6 +87,118 @@ class WebSocketService {
 
         // 注册机器人
         this.socket?.emit('register', { robotId });
+      });
+
+      // 收到连接确认
+      this.socket.on(WSEvent.CONNECTED, (data) => {
+        console.log('[WS] 收到连接确认', data);
+        this.connected = true;
+        this.emit(WSEvent.CONNECTED, data);
+        resolve(true);
+      });
+
+      // 收到机器人信息
+      this.socket.on(WSEvent.ROBOT_INFO, (data) => {
+        console.log('[WS] 收到机器人信息', data);
+        this.emit(WSEvent.ROBOT_INFO, data);
+      });
+
+      // 收到命令
+      this.socket.on(WSEvent.COMMAND, (data: WSCommand) => {
+        console.log('[WS] 收到命令', data);
+        this.emit(WSEvent.COMMAND, data);
+      });
+
+      // 收到执行命令
+      this.socket.on(WSEvent.EXECUTE_COMMAND, (data: WSCommand) => {
+        console.log('[WS] 收到执行命令', data);
+        this.emit(WSEvent.EXECUTE_COMMAND, data);
+      });
+
+      // 其他机器人上线
+      this.socket.on(WSEvent.ROBOT_ONLINE, (data: RobotStatus) => {
+        console.log('[WS] 机器人上线', data);
+        this.emit(WSEvent.ROBOT_ONLINE, data);
+      });
+
+      // 其他机器人下线
+      this.socket.on(WSEvent.ROBOT_OFFLINE, (data: RobotStatus) => {
+        console.log('[WS] 机器人下线', data);
+        this.emit(WSEvent.ROBOT_OFFLINE, data);
+      });
+
+      // 错误处理
+      this.socket.on(WSEvent.ERROR, (error) => {
+        console.error('[WS] 错误', error);
+        this.emit(WSEvent.ERROR, error);
+        reject(error);
+      });
+
+      // 断开连接
+      this.socket.on(WSEvent.DISCONNECT, (reason) => {
+        console.log('[WS] 断开连接', reason);
+        this.connected = false;
+        this.emit(WSEvent.DISCONNECT, reason);
+      });
+
+      // 心跳响应
+      this.socket.on(WSEvent.PONG, (data) => {
+        this.emit(WSEvent.PONG, data);
+      });
+
+      // 连接超时
+      setTimeout(() => {
+        if (!this.connected) {
+          reject(new Error('连接超时'));
+        }
+      }, 10000);
+    });
+  }
+
+  /**
+   * 使用认证连接 WebSocket 服务器
+   */
+  connectWithAuth(robotId: string, apiKey: string, deviceToken?: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      if (this.socket && this.connected) {
+        if (this.robotId === robotId) {
+          resolve(true);
+          return;
+        }
+        // 断开旧连接
+        this.disconnect();
+      }
+
+      this.robotId = robotId;
+
+      // 创建连接
+      this.socket = io(WS_URL, {
+        path: WS_PATH,
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
+
+      // 连接成功
+      this.socket.on(WSEvent.CONNECT, () => {
+        console.log('[WS] 连接成功', this.socket?.id);
+
+        // 注册机器人（带认证）
+        this.socket?.emit('register', { robotId, apiKey, deviceToken });
+      });
+
+      // 认证失败
+      this.socket.on(WSEvent.AUTH_FAILED, (data) => {
+        console.log('[WS] 认证失败', data);
+        this.emit(WSEvent.AUTH_FAILED, data);
+        reject(new Error(data.error || '认证失败'));
+      });
+
+      // 设备绑定要求
+      this.socket.on(WSEvent.DEVICE_BINDING_REQUIRED, (data) => {
+        console.log('[WS] 需要设备绑定', data);
+        this.emit(WSEvent.DEVICE_BINDING_REQUIRED, data);
       });
 
       // 收到连接确认

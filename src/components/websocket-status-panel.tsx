@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Dialog,
   DialogContent,
@@ -25,12 +26,18 @@ import {
   Activity,
   Copy,
   Check,
+  Key,
+  Eye,
+  EyeOff,
+  AlertTriangle,
 } from 'lucide-react';
 import { wsService, WSEvent, WSCommand, RobotStatus } from '@/lib/websocket-service';
 
 interface WebSocketStatusPanelProps {
   /** 默认机器人 ID */
   defaultRobotId?: string;
+  /** 默认 API Key */
+  defaultApiKey?: string;
   /** 是否显示消息发送功能 */
   showMessageSender?: boolean;
   /** 自定义样式类名 */
@@ -40,7 +47,7 @@ interface WebSocketStatusPanelProps {
 interface LogEntry {
   id: string;
   timestamp: Date;
-  type: 'info' | 'success' | 'error' | 'command';
+  type: 'info' | 'success' | 'error' | 'command' | 'warning';
   message: string;
   data?: any;
 }
@@ -51,6 +58,7 @@ interface LogEntry {
  */
 export default function WebSocketStatusPanel({
   defaultRobotId = '',
+  defaultApiKey = '',
   showMessageSender = true,
   className = '',
 }: WebSocketStatusPanelProps) {
@@ -58,7 +66,10 @@ export default function WebSocketStatusPanel({
   const [isConnected, setIsConnected] = useState(false);
   const [robotId, setRobotId] = useState(defaultRobotId);
   const [inputRobotId, setInputRobotId] = useState(defaultRobotId);
+  const [apiKey, setApiKey] = useState(defaultApiKey);
+  const [showApiKey, setShowApiKey] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [authFailed, setAuthFailed] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [onlineRobots, setOnlineRobots] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
@@ -102,26 +113,37 @@ export default function WebSocketStatusPanel({
       return;
     }
 
+    if (!apiKey.trim()) {
+      addLog('error', '请输入 API Key');
+      setAuthFailed('API Key 不能为空');
+      return;
+    }
+
     setConnecting(true);
+    setAuthFailed(null);
     addLog('info', `正在连接 WebSocket...`);
+    addLog('info', `机器人 ID: ${inputRobotId}`);
 
     try {
-      await wsService.connect(inputRobotId);
+      // 使用带认证的连接
+      await wsService.connectWithAuth(inputRobotId, apiKey);
       setRobotId(inputRobotId);
       setIsConnected(true);
       addLog('success', `WebSocket 连接成功，机器人 ID: ${inputRobotId}`);
     } catch (error: any) {
       addLog('error', `连接失败: ${error.message}`);
+      setAuthFailed(error.message);
     } finally {
       setConnecting(false);
     }
-  }, [inputRobotId, addLog]);
+  }, [inputRobotId, apiKey, addLog]);
 
   // 断开连接
   const handleDisconnect = useCallback(() => {
     wsService.disconnect();
     setIsConnected(false);
     setRobotId('');
+    setAuthFailed(null);
     addLog('info', '已断开 WebSocket 连接');
   }, [addLog]);
 
@@ -281,37 +303,82 @@ export default function WebSocketStatusPanel({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* 认证失败提示 */}
+          {authFailed && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>认证失败</AlertTitle>
+              <AlertDescription>{authFailed}</AlertDescription>
+            </Alert>
+          )}
+
           {/* 连接控制 */}
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <Label htmlFor="robotId">机器人 ID</Label>
-              <Input
-                id="robotId"
-                value={inputRobotId}
-                onChange={(e) => setInputRobotId(e.target.value)}
-                placeholder="输入机器人 ID"
-                disabled={isConnected}
-              />
+          <div className="space-y-3">
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Label htmlFor="robotId">机器人 ID</Label>
+                <Input
+                  id="robotId"
+                  value={inputRobotId}
+                  onChange={(e) => setInputRobotId(e.target.value)}
+                  placeholder="输入机器人 ID"
+                  disabled={isConnected}
+                />
+              </div>
             </div>
-            {isConnected ? (
-              <Button variant="destructive" onClick={handleDisconnect}>
-                断开连接
-              </Button>
-            ) : (
-              <Button onClick={handleConnect} disabled={connecting}>
-                {connecting ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    连接中...
-                  </>
-                ) : (
-                  <>
-                    <Wifi className="h-4 w-4 mr-2" />
-                    连接
-                  </>
-                )}
-              </Button>
-            )}
+
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Label htmlFor="apiKey">
+                  <Key className="h-3 w-3 inline mr-1" />
+                  API Key
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="apiKey"
+                    type={showApiKey ? 'text' : 'password'}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="rk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                    disabled={isConnected}
+                    className="pr-10 font-mono text-sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    disabled={isConnected}
+                  >
+                    {showApiKey ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              {isConnected ? (
+                <Button variant="destructive" onClick={handleDisconnect}>
+                  断开连接
+                </Button>
+              ) : (
+                <Button onClick={handleConnect} disabled={connecting}>
+                  {connecting ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      连接中...
+                    </>
+                  ) : (
+                    <>
+                      <Wifi className="h-4 w-4 mr-2" />
+                      连接
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* 当前连接信息 */}

@@ -383,6 +383,14 @@ exports.robots = pgTable(
     consecutiveFailureCount: integer("consecutive_failure_count").default(0), // 连续失败次数
     healthStatus: varchar("health_status", { length: 20 }).notNull().default("healthy"), // 健康状态: healthy, degraded, critical
 
+    // API Key 验证字段
+    apiKeyHash: varchar("api_key_hash", { length: 64 }), // API Key 哈希值（SHA256）
+    apiKeyGeneratedAt: timestamp("api_key_generated_at", { withTimezone: true }), // API Key 生成时间
+    deviceToken: varchar("device_token", { length: 32 }), // 设备绑定 Token
+    deviceBoundAt: timestamp("device_bound_at", { withTimezone: true }), // 设备绑定时间
+    lastWsConnectionAt: timestamp("last_ws_connection_at", { withTimezone: true }), // 最后 WebSocket 连接时间
+    wsConnectionCount: integer("ws_connection_count").default(0), // WebSocket 连接次数
+
     callbackBaseUrl: varchar("callback_base_url", { length: 500 }), // 回调基础地址（用于生成回调地址）
 
     createdAt: timestamp("created_at", { withTimezone: true })

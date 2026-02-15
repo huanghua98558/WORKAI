@@ -35,6 +35,18 @@ export const robots = pgTable(
     totalMessages: integer("total_messages").default(0),
     totalSessions: integer("total_sessions").default(0),
     
+    // API Key 验证字段
+    robotId: varchar("robot_id", { length: 64 }).unique(), // WorkTool Robot ID
+    apiKeyHash: varchar("api_key_hash", { length: 64 }), // API Key 哈希值（SHA256）
+    apiKeyGeneratedAt: timestamp("api_key_generated_at", { withTimezone: true }), // API Key 生成时间
+    deviceToken: varchar("device_token", { length: 32 }), // 设备绑定 Token
+    deviceBoundAt: timestamp("device_bound_at", { withTimezone: true }), // 设备绑定时间
+    lastWsConnectionAt: timestamp("last_ws_connection_at", { withTimezone: true }), // 最后 WebSocket 连接时间
+    wsConnectionCount: integer("ws_connection_count").default(0), // WebSocket 连接次数
+    isActive: boolean("is_active").default(true), // 是否激活
+    isValid: boolean("is_valid").default(true), // 是否有效
+    expiresAt: timestamp("expires_at", { withTimezone: true }), // 到期时间
+    
     // 时间戳
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -47,6 +59,8 @@ export const robots = pgTable(
     statusIdx: index("robots_status_idx").on(table.status),
     robotTypeIdx: index("robots_robot_type_idx").on(table.robotType),
     callbackEnabledIdx: index("robots_callback_enabled_idx").on(table.callbackEnabled),
+    robotIdIdx: index("robots_robot_id_idx").on(table.robotId),
+    apiKeyHashIdx: index("robots_api_key_hash_idx").on(table.apiKeyHash),
   })
 );
 

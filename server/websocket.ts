@@ -12,6 +12,9 @@ let io: SocketIOServer | null = null;
 // 连接的客户端映射（robotId -> socket）
 const connectedClients = new Map<string, Socket>();
 
+// 已验证的机器人映射（robotId -> 验证结果）
+const authenticatedRobots = new Map<string, any>();
+
 // WebSocket 配置
 export interface WebSocketConfig {
   path?: string;
@@ -20,6 +23,52 @@ export interface WebSocketConfig {
     methods?: string[];
     credentials?: boolean;
   };
+  // 是否启用认证（默认 true）
+  requireAuth?: boolean;
+  // 验证 API 地址
+  validateApiUrl?: string;
+}
+
+// 凭据类型
+interface RobotCredentials {
+  robotId: string;
+  apiKey: string;
+  deviceToken?: string;
+}
+
+// 验证结果类型
+interface ValidationResult {
+  success: boolean;
+  error?: string;
+  code?: string;
+  data?: any;
+}
+
+/**
+ * 通过 API 验证机器人凭据
+ */
+async function validateCredentials(credentials: RobotCredentials): Promise<ValidationResult> {
+  const apiUrl = process.env.VALIDATE_API_URL || 'http://localhost:5000/api/robots/validate';
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(credentials),
+    });
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('[WS] 调用验证 API 失败:', error);
+    return {
+      success: false,
+      error: '验证服务不可用',
+      code: 'SERVICE_UNAVAILABLE',
+    };
+  }
 }
 
 /**
@@ -41,6 +90,7 @@ export function initWebSocketServer(
       methods: ['GET', 'POST'],
       credentials: false,
     },
+    requireAuth: true, // 默认启用认证
   };
 
   const finalConfig = { ...defaultConfig, ...config };
@@ -48,6 +98,7 @@ export function initWebSocketServer(
   console.log('[WS] 初始化 WebSocket 服务器...', {
     path: finalConfig.path,
     cors: finalConfig.cors,
+    requireAuth: finalConfig.requireAuth,
   });
 
   io = new SocketIOServer(httpServer, {
@@ -63,18 +114,69 @@ export function initWebSocketServer(
       timestamp: new Date().toISOString(),
     });
 
-    // 当前连接的 robotId
+    // 当前连接的 robotId 和认证状态
     let currentRobotId: string | null = null;
+    let isAuthenticated = false;
 
-    // worktool 注册
-    socket.on('register', (data: { robotId: string }) => {
-      const { robotId } = data;
+    // worktool 注册（带认证）
+    socket.on('register', async (data: RobotCredentials) => {
+      const { robotId, apiKey, deviceToken } = data;
       currentRobotId = robotId;
 
-      console.log('[WS] worktool 注册', {
+      console.log('[WS] worktool 注册请求', {
         socketId: socket.id,
         robotId,
+        hasApiKey: !!apiKey,
+        hasDeviceToken: !!deviceToken,
       });
+
+      // 如果启用了认证，验证凭据
+      if (finalConfig.requireAuth) {
+        const validationResult = await validateCredentials({
+          robotId,
+          apiKey,
+          deviceToken,
+        });
+
+        if (!validationResult.success) {
+          console.log('[WS] worktool 认证失败', {
+            robotId,
+            error: validationResult.error,
+            code: validationResult.code,
+          });
+
+          socket.emit('auth_failed', {
+            success: false,
+            error: validationResult.error,
+            code: validationResult.code,
+          });
+
+          // 延迟断开连接，让客户端有时间收到错误消息
+          setTimeout(() => socket.disconnect(true), 1000);
+          return;
+        }
+
+        // 认证成功
+        isAuthenticated = true;
+        authenticatedRobots.set(robotId, validationResult);
+
+        console.log('[WS] worktool 认证成功', {
+          robotId,
+          robotName: validationResult.data?.name,
+          needsDeviceBinding: validationResult.data?.needsDeviceBinding,
+        });
+
+        // 如果需要绑定设备，通知客户端
+        if (validationResult.data?.needsDeviceBinding) {
+          socket.emit('device_binding_required', {
+            message: '请发送 deviceToken 完成设备绑定',
+          });
+        }
+      } else {
+        // 未启用认证，直接允许连接（仅用于开发环境）
+        isAuthenticated = true;
+        console.log('[WS] 认证已禁用，直接连接', { robotId });
+      }
 
       // 保存连接映射
       connectedClients.set(robotId, socket);
