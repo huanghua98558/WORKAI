@@ -71,7 +71,7 @@ BACKEND_PID=$!
 cd ..
 
 # 等待后端启动
-sleep 3
+sleep 2
 
 # 检查后端是否启动成功
 if ! kill -0 ${BACKEND_PID} 2>/dev/null; then
@@ -84,43 +84,27 @@ fi
 
 echo "✅ Backend started (PID: ${BACKEND_PID})"
 
-# 等待数据库连接就绪
-sleep 3
-
-# 执行数据初始化
-echo "🔍 检查并初始化种子数据..."
+# 执行数据初始化（仅在首次部署时）
+echo "🔍 检查并初始化数据..."
 if [ -f "server/scripts/init-all-data.js" ]; then
-    if [ "$IS_READONLY_FILESYSTEM" = true ]; then
-        # 只读文件系统：不重定向日志
-        node server/scripts/init-all-data.js
-    else
-        # 可写文件系统：重定向日志
-        node server/scripts/init-all-data.js >> logs/data-init.log 2>&1
+    node server/scripts/init-all-data.js > /dev/null 2>&1 &
+    INIT_PID=$!
+    # 等待最多 5 秒
+    for i in 1 2 3 4 5; do
+        if ! kill -0 ${INIT_PID} 2>/dev/null; then
+            break
+        fi
+        sleep 1
+    done
+    # 如果还在运行，不阻塞，继续启动前端
+    if kill -0 ${INIT_PID} 2>/dev/null; then
+        echo "⏳ 数据初始化在后台继续运行..."
     fi
-    if [ $? -eq 0 ]; then
-        echo "✅ 数据初始化完成"
-    else
-        echo "⚠️  数据初始化遇到问题，但服务将继续运行"
-    fi
-else
-    echo "⚠️  未找到数据初始化脚本，跳过"
 fi
 
-# 初始化管理员账号
-echo "🔐 初始化管理员账号..."
+# 初始化管理员账号（后台运行）
 if [ -f "server/scripts/init-admin.js" ]; then
-    if [ "$IS_READONLY_FILESYSTEM" = true ]; then
-        node server/scripts/init-admin.js
-    else
-        node server/scripts/init-admin.js >> logs/admin-init.log 2>&1
-    fi
-    if [ $? -eq 0 ]; then
-        echo "✅ 管理员账号初始化完成"
-    else
-        echo "⚠️  管理员初始化遇到问题，但服务将继续运行"
-    fi
-else
-    echo "⚠️  未找到管理员初始化脚本，跳过"
+    node server/scripts/init-admin.js > /dev/null 2>&1 &
 fi
 
 # 启动前端服务
