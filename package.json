@@ -24,7 +24,10 @@
     "drizzle:migrate": "drizzle-kit migrate",
     "drizzle:push": "drizzle-kit push",
     "drizzle:studio": "drizzle-kit studio",
-    "drizzle:check": "drizzle-kit introspect"
+    "drizzle:check": "drizzle-kit introspect",
+    "ws:server": "tsx server/standalone-ws.ts",
+    "ws:dev": "concurrently \"pnpm dev\" \"pnpm ws:server\"",
+    "ws:start": "concurrently \"pnpm start\" \"pnpm ws:server\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.958.0",
@@ -95,6 +98,7 @@
     "react-resizable-panels": "^4.2.0",
     "reactflow": "^11.11.4",
     "recharts": "2.15.4",
+    "socket.io": "^4.8.3",
     "sonner": "^2.0.7",
     "tailwind-merge": "^2.6.0",
     "tiktoken": "^1.0.16",
@@ -116,13 +120,16 @@
     "@types/pg": "^8.16.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "only-allow": "^1.2.2",
     "react-dev-inspector": "^2.0.1",
     "server-only": "^0.0.1",
     "shadcn": "latest",
+    "socket.io-client": "^4.8.3",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   },
   "packageManager": "pnpm@9.0.0",
