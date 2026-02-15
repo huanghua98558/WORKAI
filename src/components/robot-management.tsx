@@ -330,9 +330,11 @@ export default function RobotManagement() {
         });
 
         const data = await res.json();
+        // 正确判断：检查 data.data.success 而不是 data.code
+        const isSuccess = data.code === 0 && data.data?.success === true;
         setFormTestResult({
-          success: data.code === 0,
-          message: data.message || '连接成功'
+          success: isSuccess,
+          message: data.data?.message || data.message || (isSuccess ? '连接成功' : '连接失败')
         });
       } catch (error) {
         setFormTestResult({
@@ -361,11 +363,13 @@ export default function RobotManagement() {
       });
 
       const data = await res.json();
+      // 正确判断：检查 data.data.success 而不是 data.code
+      const isSuccess = data.code === 0 && data.data?.success === true;
       setTestResults(prev => ({
         ...prev,
         [targetRobotId]: {
-          success: data.code === 0,
-          message: data.message,
+          success: isSuccess,
+          message: data.data?.message || data.message || (isSuccess ? '连接成功' : '连接失败'),
           timestamp: new Date().toISOString()
         }
       }));

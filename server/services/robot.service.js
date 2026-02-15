@@ -500,6 +500,21 @@ class RobotService {
    * 测试机器人连接并获取完整信息
    */
   async testRobotConnection(robotId, apiBaseUrl) {
+    // 验证必要参数
+    if (!robotId || robotId.trim() === '') {
+      return {
+        success: false,
+        message: '机器人 ID 不能为空，请先配置有效的机器人 ID'
+      };
+    }
+
+    if (!apiBaseUrl || apiBaseUrl.trim() === '') {
+      return {
+        success: false,
+        message: 'API Base URL 不能为空，请先配置有效的服务器地址'
+      };
+    }
+
     try {
       // 从 apiBaseUrl 提取基础地址（去除 /wework/ 等路径）
       const baseUrl = apiBaseUrl.replace(/\/wework\/?$/, '').replace(/\/$/, '');

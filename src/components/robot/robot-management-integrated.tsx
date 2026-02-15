@@ -484,15 +484,18 @@ export default function RobotManagement() {
 
       const result = await res.json();
 
-      if (res.ok && result.code === 0) {
+      // 正确判断：检查 result.data.success 而不是 result.code
+      const isSuccess = res.ok && result.code === 0 && result.data?.success === true;
+
+      if (isSuccess) {
         setTestResult({
           success: true,
-          message: result.message,
-          robotDetails: result.robotDetails,
+          message: result.data?.message || result.message || '连接成功',
+          robotDetails: result.data?.robotDetails,
           responseTime: '< 1000ms',
         });
       } else {
-        setTestError(result.message || '测试失败');
+        setTestError(result.data?.message || result.message || '测试失败');
       }
     } catch (error: any) {
       setTestError(error.message || '网络错误，测试失败');
