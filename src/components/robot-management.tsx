@@ -644,6 +644,14 @@ export default function RobotManagement() {
             <Zap className={`h-4 w-4 mr-2 ${isRefreshingAll ? 'animate-spin' : ''}`} />
             {isRefreshingAll ? '刷新中...' : '一键刷新'}
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/settings/websocket')}
+            title="管理 WebSocket 连接"
+          >
+            <Activity className="h-4 w-4 mr-2" />
+            WebSocket
+          </Button>
           <Button onClick={handleCreate}>
             <Plus className="h-4 w-4 mr-2" />
             添加机器人
